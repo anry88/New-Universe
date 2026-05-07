@@ -16,7 +16,7 @@ const fastify = Fastify({
 
 fastify.addHook('preHandler', async (request) => {
   if (request.user) {
-    request.log = request.log.child({ userId: (request.user as any).id });
+    request.log = request.log.child({ userId: request.user.id });
   }
 });
 
