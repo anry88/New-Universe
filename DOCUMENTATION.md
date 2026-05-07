@@ -31,7 +31,7 @@ The `dev/`, `docs/`, and `tasks/` folders contain non-runtime materials: dev-env
 - Logging: Pino instance from `lib/logger.ts`, switched to `pino-pretty` in development.
 - Request IDs: every incoming request gets a UUID via `middleware/request-id.ts` and the ID is exposed under the `requestId` log key.
 - Sentry: `lib/sentry.ts` is imported as the very first module to capture early-startup errors; it stays disabled when `SENTRY_DSN` is empty.
-- Routes: `/health` (`routes/health.ts`), `/webhook/telegram` (`routes/bot.ts`), and `/auth/telegram` (`features/auth/routes.ts` mounted at the `/auth` prefix).
+- Routes: `/health` (`routes/health.ts`), `/webhook/telegram` (`routes/bot.ts`), `/auth/telegram` (`features/auth/routes.ts`), and `/me` (`features/me/routes.ts`).
 
 ### Telegram Bot
 
@@ -65,11 +65,17 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 
 ### Frontend
 
-`frontend/src/main.tsx` is the only entry point. It depends on `@telegram-apps/sdk-react` for Telegram launch parameters, theme, and viewport, and renders `App.tsx`. The current `App.tsx` is a placeholder welcome screen that uses Tailwind, reads launch parameters with `useLaunchParams`, and renders the player's Telegram username plus platform/theme info. `frontend/src/lib/sentry.ts` initializes Sentry only when `VITE_SENTRY_DSN` is set, including `browserTracingIntegration` and `replayIntegration`. `frontend/src/mockEnv.ts` injects a fake Telegram launch context when running in the plain browser (`import.meta.env.DEV`) so the SDK does not throw `retrieveLaunchParams()` errors during local frontend dev.
+`frontend/src/main.tsx` is the only entry point. It depends on `@telegram-apps/sdk-react` for Telegram launch parameters, theme, and viewport, and renders `App.tsx`. 
+- `lib/api.ts` — a unified fetch client that automatically sends the session token in the `Authorization` header and the Telegram `initDataRaw` in the `X-Telegram-Init-Data` header.
+- `hooks/useAuth.ts` — manages the auth flow and session token.
+- `hooks/useMe.ts` — uses TanStack Query to fetch and cache the current player state from `GET /me`.
+- `App.tsx` — uses the auth and state hooks to display player info (username, Power Score).
 
 ### Shared types
 
-`shared/types/` is intended as the cross-cutting contract folder for backend ↔ frontend payloads. It is currently empty; new shared interfaces should be added here and imported from both sides.
+`shared/types/` is the cross-cutting contract folder for backend ↔ frontend payloads:
+- `user.ts` — `User` interface.
+- `auth.ts` — `AuthResponse` interface.
 
 ## Local environment
 
