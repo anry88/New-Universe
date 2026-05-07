@@ -28,7 +28,7 @@ export async function apiFetch<T>(
     // SDK not available
   }
 
-  if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
+  if (!headers.has('Content-Type') && options.body && !(options.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
   }
 
