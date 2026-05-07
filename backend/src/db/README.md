@@ -16,7 +16,7 @@ Each module owns one domain and exports the Drizzle table objects. `schema.ts` r
 - **`users.ts`** — `users` table. Columns: `id` (UUID PK), `tgId` (`bigint`, unique, mapped via `mode: 'bigint'`), `tgUsername`, `tgFirstName`, `createdAt`, `premiumUntil`, `powerScore`. Telegram identity is the unique business key; do not add other unique constraints here without updating the auth flow.
 - **`resources.ts`** — `resources` reference catalog. Columns: `id` (text PK), `name` (`jsonb<{ ru, en }>`), `tier`, `symbol`, `baseRegenRate`, `defaultStorageCap`. Seeded by `seed/resources.ts` with 21 resources across tiers 1–4.
 - **`world.ts`** — `systems`, `planets`, `planet_resources`, `richness`. Notable details:
-  - `systems.ownerId` is the home-system owner; `isHome` flags it as the player's starting system; `sectorX/Y/Z` are deterministic per-user sector coordinates produced by `home-system-generator.ts`.
+  - `systems.ownerId` is the home-system owner; `isHome` flags it as the player's starting system; `sectorX/Y/Z` are deterministic per-user sector coordinates produced by `home-system-generator.ts`; `x/y/z` are the system's position within the sector (numeric, precision 10 scale 2), used for distance calculations between systems in the same sector.
   - `planets` carries `biome` (text), `size` (10–19), `slotCount` (≈80% of `size`).
   - `planet_resources` is a composite-PK `(planet_id, resource_id)` table with `amount`, `lastUpdateAt`, `regenRate` (numeric). It is the source of truth for current per-planet balances.
   - `richness` is also `(planet_id, resource_id)` and stores `value` constrained to `0..5` via `richness_value_check`. It represents discovered deposit tier, not running balance.
