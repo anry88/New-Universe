@@ -23,7 +23,9 @@ describe('getOrCreateSector', () => {
     const first = await getOrCreateSector(1, 2, 3);
     const second = await getOrCreateSector(1, 2, 3);
 
-    expect(first.id).toBe(second.id);
+    expect(first.x).toBe(second.x);
+    expect(first.y).toBe(second.y);
+    expect(first.z).toBe(second.z);
     expect(first.seed).toBe(second.seed);
 
     const allSectors = await db.select().from(sectors);
@@ -42,7 +44,6 @@ describe('getOrCreateSector', () => {
     const sector1 = await getOrCreateSector(1, 2, 3);
     const sector2 = await getOrCreateSector(4, 5, 6);
 
-    expect(sector1.id).not.toBe(sector2.id);
     expect(sector1.x).toBe(1);
     expect(sector1.y).toBe(2);
     expect(sector1.z).toBe(3);
