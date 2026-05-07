@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { computeCurrentResources } from './accrual.js';
 import { db } from '../../db/index.js';
-import { planetResources, resources, planets, systems } from '../../db/schema.js';
+import { planetResources, resources, planets, systems, ships } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 
 describe('computeCurrentResources', () => {
   beforeEach(async () => {
+    await db.delete(ships);
     await db.delete(planetResources);
     await db.delete(planets);
     await db.delete(systems);
