@@ -63,7 +63,7 @@ function parseFlags(args) {
 
 const PROJECT_QUERY = `
 query($owner: String!, $number: Int!) {
-  user(login: $owner) {
+  repositoryOwner(login: $owner) {
     projectV2(number: $number) {
       id
       fields(first: 50) {
@@ -89,7 +89,7 @@ query($owner: String!, $number: Int!) {
 function loadProject() {
   try {
     const data = ghApi(PROJECT_QUERY, { owner: OWNER, number: PROJECT_NUMBER });
-    const project = data.data?.user?.projectV2;
+    const project = data.data?.repositoryOwner?.projectV2;
     
     if (!project) {
       throw new Error(`Project #${PROJECT_NUMBER} not found for owner ${OWNER}`);
