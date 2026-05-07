@@ -1,10 +1,8 @@
 import 'fastify';
+import { TelegramUser } from '../lib/telegram.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
-    user?: {
-      id: string;
-      [key: string]: any;
-    };
+    user?: TelegramUser;
   }
 }
