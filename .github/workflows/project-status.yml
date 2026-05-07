@@ -1,0 +1,35 @@
+name: Project Status
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - ready_for_review
+      - converted_to_draft
+      - synchronize
+      - closed
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  sync-project-status:
+    if: github.repository == 'anry88/New-Universe'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.PROJECT_TOKEN || github.token }}
+      PROJECT_OWNER: anry88
+      PROJECT_NUMBER: "3"
+      REPO: anry88/New-Universe
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync linked task status
+        run: |
+          node tasks/project_status.mjs pr \
+            --number "${{ github.event.pull_request.number }}" \
+            --action "${{ github.event.action }}" \
+            --merged "${{ github.event.pull_request.merged }}"

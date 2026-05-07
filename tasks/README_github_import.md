@@ -18,6 +18,7 @@
 | `import_to_github_idempotent.sh` | Безопасный повторный импорт: переиспользует существующие issues и не падает, если item уже есть в Project |
 | `setup_github_project3_structure.sh` | Синхронизация Project fields/options и значений для всех задач |
 | `setup_github_project3_views.sh` | Создание Project views для execution board и roadmap |
+| `project_status.mjs` | Точечное движение задач по `Status`/`Verification` и автопромо разблокированных задач в `Ready` |
 | `README_github_import.md` | Этот файл |
 
 ## Требования (запуск ЛОКАЛЬНО)
@@ -99,6 +100,28 @@ chmod +x import_to_github_idempotent.sh
 
 - **Скрипт падает с "Resource not accessible"** — нет scope `project`. См. шаг 1.
 - **"Project not found"** — неправильный `PROJECT_NUMBER`. Возьми из URL проекта.
+
+## Движение статусов
+
+Агенты должны использовать единый lifecycle:
+
+- `Backlog`: задача ещё не готова из-за зависимостей или планирования.
+- `Ready`: зависимости закрыты, задачу можно брать.
+- `In Progress`: агент начал работу и создал ветку.
+- `Review`: PR открыт и ждёт проверки/merge.
+- `Blocked`: нужен секрет, доступ, решение, окружение или зависимость.
+- `Done`: PR смержен, проверка принята, issue закрыт.
+
+Ручные команды:
+
+```bash
+node tasks/project_status.mjs task P0-004 --status "In Progress" --verification "Not run" --comment "Started in branch task/P0-004-frontend-skeleton."
+node tasks/project_status.mjs task P0-004 --status "Review" --verification "Local pass" --comment "PR opened: <url>. Verification: <commands>."
+node tasks/project_status.mjs task P0-004 --status "Blocked" --verification "Blocked" --comment "Blocked: provide <exact missing input>."
+node tasks/project_status.mjs sync-ready
+```
+
+GitHub Action `.github/workflows/project-status.yml` двигает связанные задачи в `Review` при открытии PR и в `Done` после merge. Для user-owned Project v2 может понадобиться repository secret `PROJECT_TOKEN` с доступом `repo` + `project`; если секрета нет, workflow попробует `GITHUB_TOKEN`, но он может не иметь прав на пользовательский Project.
 - **Дубликаты issue** — скрипт идемпотентным НЕ написан (для простоты). Если нужно перезапустить — закрой все ранее созданные через:
   ```bash
   gh issue list --repo anry88/new-universe --label 'phase:P0' --json number --jq '.[].number' | xargs -I{} gh issue close {} --repo anry88/new-universe
