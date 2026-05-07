@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { checkVisibility } from './visibility.js';
 import { db } from '../../db/index.js';
 import {
@@ -114,8 +114,19 @@ describe('Visibility Check Service', () => {
     await db.delete(planets);
     await db.delete(systems);
     await db.delete(users);
-    await db.delete(shipTypes);
+    // Upsert test ship type instead of deleting all shipTypes — avoids races
+    // with other parallel workers that may have ships referencing seed types.
     await createTestShipType(30);
+  });
+
+  afterEach(async () => {
+    await db.delete(discoveredPlanets);
+    await db.delete(discoveredSystems);
+    await db.delete(planetResources);
+    await db.delete(ships);
+    await db.delete(planets);
+    await db.delete(systems);
+    await db.delete(users);
   });
 
   it('discovers a planet in a nearby system within sensor range', async () => {
