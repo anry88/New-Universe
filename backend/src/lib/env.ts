@@ -11,6 +11,8 @@ const envSchema = z.object({
   REDIS_URL: z.string().url(),
   TELEGRAM_BOT_TOKEN: z.string().min(1),
   TELEGRAM_BOT_SECRET: z.string().default('dev-secret-change-me'),
+  TELEGRAM_APP_URL: z.string().url().optional(),
+  PUBLIC_FRONTEND_URL: z.string().url().optional(),
   JWT_SECRET: z.string().min(8),
   SENTRY_DSN: z.string().url().optional().or(z.literal('')).transform(v => v === '' ? undefined : v),
 });

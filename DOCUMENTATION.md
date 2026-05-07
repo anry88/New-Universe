@@ -33,9 +33,14 @@ The `dev/`, `docs/`, and `tasks/` folders contain non-runtime materials: dev-env
 - Sentry: `lib/sentry.ts` is imported as the very first module to capture early-startup errors; it stays disabled when `SENTRY_DSN` is empty.
 - Routes: `/health` (`routes/health.ts`), `/webhook/telegram` (`routes/bot.ts`), and `/auth/telegram` (`features/auth/routes.ts` mounted at the `/auth` prefix).
 
-A future BullMQ worker process is planned (`backend/package.json` scripts `worker:dev` / `worker`), but the worker entry point does not yet exist in `backend/src/`.
+### Telegram Bot
+
+The bot entry point is `POST /webhook/telegram`. Incoming updates are dispatched through `features/bot/service.ts`.
+- `/start` command: implemented in `features/bot/commands.ts`, sends a welcome message with an inline button to launch the Mini App via `web_app` type.
+- Update handling: `features/bot/webhook.ts` parses the update and routes it to command handlers.
 
 ### Database (Drizzle ORM + Postgres)
+
 
 `backend/src/db/index.ts` opens a `postgres-js` connection from `DATABASE_URL` and exposes a typed Drizzle client via `db`. The schema is split per domain under `backend/src/db/schema/` and re-exported from `backend/src/db/schema.ts`:
 
