@@ -5,3 +5,4 @@ export * from './schema/world.js';
 export * from './schema/buildings.js';
 export * from './schema/ships.js';
 export * from './schema/discovery.js';
+export * from './schema/expeditions.js';
