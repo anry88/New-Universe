@@ -32,6 +32,12 @@ jobs:
       - name: Backend Type-check
         run: docker compose run --rm backend npm run build
 
+      - name: Backend Migrations
+        run: docker compose run --rm backend npm run db:migrate
+
+      - name: Backend Seed
+        run: docker compose run --rm backend npm run db:seed
+
       - name: Backend Test
         run: docker compose run --rm backend npm test
 
