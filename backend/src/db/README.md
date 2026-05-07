@@ -26,6 +26,7 @@ Each module owns one domain and exports the Drizzle table objects. `schema.ts` r
 - **`ships.ts`** — `ship_types` and `ships`. `ship_types` describes role, hp, speed, cargo, dps/armor, fuel consumption, build time, build cost, required buildings, sensor range. `ships` instances reference owner, type, optional `locationPlanetId`, `status` (default `idle`), `cargoJson`, `fuel`.
 - **`discovery.ts`** — `discovered_planets` and `discovered_systems`, both composite-PK `(userId, planetId|systemId)` with `discoveredAt`. Used to gate the fog-of-war reveal.
 - **`expeditions.ts`** — `expeditions` job log. Columns: `id`, `shipId`, `type`, `originPlanetId`, `targetX/Y/Z`, optional `targetPlanetId`, `status` (default `queued`), `eta`, optional `returnedAt`, `result` (JSONB). `expeditions_eta_status_idx` is a compound index on `(eta, status)` to support the worker's "what is due" query.
+- **`sectors.ts`** — `sectors` table. Composite PK `(x, y, z)`, `seed` (deterministic hash of coordinates), `generatedAt` (timestamp), `systemCount` (default 0). Represents the common pool of space sectors; used by jump and exploration features to lazily initialize world regions.
 
 ## Seed scripts (`seed/`)
 
