@@ -20,9 +20,17 @@ export async function meRoutes(app: FastifyInstance) {
         });
       }
 
+      let payload: { userId: string };
       try {
-        const payload = jwt.verify(token, env.JWT_SECRET) as { userId: string };
-        
+        payload = jwt.verify(token, env.JWT_SECRET) as { userId: string };
+      } catch (_err) {
+        return reply.status(401).send({
+          error: 'Unauthorized',
+          message: 'Invalid or expired session token',
+        });
+      }
+
+      try {
         const user = await db.query.users.findFirst({
           where: eq(users.id, payload.userId),
         });
@@ -39,62 +47,12 @@ export async function meRoutes(app: FastifyInstance) {
           tgId: user.tgId.toString()
         };
 
-        const homeSystem = await db.query.systems.findFirst({
-          where: and(
-            eq(systems.ownerId, user.id),
-            eq(systems.isHome, true)
-          ),
-        });
-
-        if (!homeSystem) {
-          return {
-            user: userObj,
-            homeSystem: undefined,
-          };
-        }
-
-        const planetsData: any[] = await db.query.planets.findMany({
-          where: eq(planets.systemId, homeSystem.id),
-          with: {
-            resources: {
-              with: {
-                resource: true,
-              },
-            },
-            buildings: true,
-          },
-        });
-
-        const homeSystemData = {
-          ...homeSystem,
-          planets: planetsData.map((planet: any) => ({
-            ...planet,
-            resources: planet.resources?.map((pr: any) => ({
-              planetId: pr.planetId,
-              resourceId: pr.resourceId,
-              amount: pr.amount.toString(),
-              lastUpdateAt: pr.lastUpdateAt.toISOString(),
-              regenRate: pr.regenRate.toString(),
-            })) || [],
-            buildings: planet.buildings?.map((b: any) => ({
-              id: b.id,
-              planetId: b.planetId,
-              typeId: b.typeId,
-              level: b.level,
-              queueAction: b.queueAction || undefined,
-              queueCompletesAt: b.queueCompletesAt?.toISOString() || undefined,
-            })) || [],
-          })),
-        };
-
-        return {
-          user: userObj,
-          homeSystem: homeSystemData,
-        };
-      } catch (_err) {
-        return reply.status(401).send({
-          error: 'Unauthorized',
-          message: 'Invalid or expired session token',
+        return reply.send({ user: userObj });
+      } catch (err) {
+        request.log.error(err, 'Error fetching player state');
+        return reply.status(500).send({
+          error: 'Internal Server Error',
+          message: 'Failed to fetch player state',
         });
       }
     }
