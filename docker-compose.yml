@@ -125,7 +125,7 @@ services:
       - ./frontend/index.html:/app/index.html:ro
       - ./frontend/public:/app/public:ro
       - ./frontend/package.json:/app/package.json:ro
-      - ./frontend/vite.config.ts:/app/vite.config.ts:ro
+      - ./frontend/vite.config.js:/app/vite.config.js:ro
       - ./frontend/tailwind.config.ts:/app/tailwind.config.ts:ro
       - ./frontend/postcss.config.js:/app/postcss.config.js:ro
       - ./frontend/eslint.config.js:/app/eslint.config.js:ro
