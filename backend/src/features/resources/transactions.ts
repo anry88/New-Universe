@@ -1,6 +1,7 @@
 import { db as defaultDb } from '../../db/index.js';
 import { planetResources, resources } from '../../db/schema.js';
 import { eq, and, sql } from 'drizzle-orm';
+import type { PgTransaction } from 'drizzle-orm/pg-core';
 
 interface ResourceChange {
   resourceId: string;
@@ -16,11 +17,11 @@ interface TransactionResult {
 export async function spendResources(
   planetId: string,
   costs: ResourceChange[],
-  tx?: any
+  tx?: any,
 ): Promise<TransactionResult> {
   const database = tx || defaultDb;
 
-  return await database.transaction(async (trx) => {
+  return await database.transaction(async (trx: any) => {
     const resourceIds = costs.map(c => c.resourceId);
     const resourceIdList = resourceIds.map(id => `'${id}'`).join(', ');
 
@@ -65,11 +66,11 @@ export async function spendResources(
 export async function gainResources(
   planetId: string,
   gains: ResourceChange[],
-  tx?: any
+  tx?: any,
 ): Promise<TransactionResult> {
   const database = tx || defaultDb;
 
-  return await database.transaction(async (trx) => {
+  return await database.transaction(async (trx: any) => {
     const resourceIds = gains.map(g => g.resourceId);
     const resourceIdList = resourceIds.map(id => `'${id}'`).join(', ');
 
