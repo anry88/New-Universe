@@ -8,6 +8,30 @@ export interface Discovery {
   name: string;
 }
 
+interface ShipPosition {
+  ownerId: string;
+  shipSectorX: number;
+  shipSectorY: number;
+  shipSectorZ: number;
+  sensorRange: number;
+}
+
+interface SystemRow {
+  id: string;
+  name: string;
+  sectorX: number;
+  sectorY: number;
+  sectorZ: number;
+  ownerId: string | null;
+  isHome: boolean;
+}
+
+interface PlanetRow {
+  id: string;
+  name: string;
+  systemId: string;
+}
+
 /**
  * Check visibility for a ship at its current position.
  *
@@ -34,7 +58,7 @@ export async function checkVisibility(shipId: string, tx?: any): Promise<Discove
     .innerJoin(planets, eq(planets.id, ships.locationPlanetId))
     .innerJoin(systems, eq(systems.id, planets.systemId))
     .where(eq(ships.id, shipId))
-    .limit(1);
+    .limit(1) as ShipPosition[];
 
   if (!ship || ship.shipSectorX == null || !ship.ownerId) {
     return [];
@@ -63,9 +87,9 @@ export async function checkVisibility(shipId: string, tx?: any): Promise<Discove
         sql`${systems.sectorZ} >= ${shipSectorZ - range}`,
         sql`${systems.sectorZ} <= ${shipSectorZ + range}`,
       ),
-    );
+    ) as SystemRow[];
 
-  const visibleSystems = candidateSystems.filter((sys) => {
+  const visibleSystems = candidateSystems.filter((sys: SystemRow) => {
     if (sys.isHome && sys.ownerId && sys.ownerId !== ownerId) {
       return false;
     }
@@ -77,7 +101,7 @@ export async function checkVisibility(shipId: string, tx?: any): Promise<Discove
 
   if (visibleSystems.length === 0) return [];
 
-  const visibleSystemIds = visibleSystems.map((s) => s.id);
+  const visibleSystemIds = visibleSystems.map((s: SystemRow) => s.id);
 
   const existingSysRows = await database
     .select({ systemId: discoveredSystems.systemId })
@@ -87,18 +111,18 @@ export async function checkVisibility(shipId: string, tx?: any): Promise<Discove
         eq(discoveredSystems.userId, ownerId),
         inArray(discoveredSystems.systemId, visibleSystemIds),
       ),
-    );
-  const alreadyKnownSys = new Set(existingSysRows.map((r) => r.systemId));
+    ) as { systemId: string }[];
+  const alreadyKnownSys = new Set(existingSysRows.map((r: { systemId: string }) => r.systemId));
 
   const allPlanets = await database
     .select({ id: planets.id, name: planets.name, systemId: planets.systemId })
     .from(planets)
-    .where(inArray(planets.systemId, visibleSystemIds));
+    .where(inArray(planets.systemId, visibleSystemIds)) as PlanetRow[];
 
-  const allPlanetIds = allPlanets.map((p) => p.id);
-  let existingPlanetRows: { planetId: string }[] = [];
+  const allPlanetIds = allPlanets.map((p: PlanetRow) => p.id);
+  const existingPlanetRows: { planetId: string }[] = [];
   if (allPlanetIds.length > 0) {
-    existingPlanetRows = await database
+    const rows = await database
       .select({ planetId: discoveredPlanets.planetId })
       .from(discoveredPlanets)
       .where(
@@ -106,26 +130,27 @@ export async function checkVisibility(shipId: string, tx?: any): Promise<Discove
           eq(discoveredPlanets.userId, ownerId),
           inArray(discoveredPlanets.planetId, allPlanetIds),
         ),
-      );
+      ) as { planetId: string }[];
+    existingPlanetRows.push(...rows);
   }
-  const alreadyKnownPlanets = new Set(existingPlanetRows.map((r) => r.planetId));
+  const alreadyKnownPlanets = new Set(existingPlanetRows.map((r: { planetId: string }) => r.planetId));
 
-  const newSystems = visibleSystems.filter((sys) => !alreadyKnownSys.has(sys.id));
-  const newPlanets = allPlanets.filter((p) => !alreadyKnownPlanets.has(p.id));
+  const newSystems = visibleSystems.filter((sys: SystemRow) => !alreadyKnownSys.has(sys.id));
+  const newPlanets = allPlanets.filter((p: PlanetRow) => !alreadyKnownPlanets.has(p.id));
 
   if (newSystems.length > 0) {
     await database.insert(discoveredSystems).values(
-      newSystems.map((sys) => ({ userId: ownerId, systemId: sys.id })),
+      newSystems.map((sys: SystemRow) => ({ userId: ownerId, systemId: sys.id })),
     );
   }
   if (newPlanets.length > 0) {
     await database.insert(discoveredPlanets).values(
-      newPlanets.map((p) => ({ userId: ownerId, planetId: p.id })),
+      newPlanets.map((p: PlanetRow) => ({ userId: ownerId, planetId: p.id })),
     );
   }
 
   return [
-    ...newSystems.map((sys) => ({ type: 'system' as const, id: sys.id, name: sys.name })),
-    ...newPlanets.map((p) => ({ type: 'planet' as const, id: p.id, name: p.name })),
+    ...newSystems.map((sys: SystemRow) => ({ type: 'system' as const, id: sys.id, name: sys.name })),
+    ...newPlanets.map((p: PlanetRow) => ({ type: 'planet' as const, id: p.id, name: p.name })),
   ];
 }
