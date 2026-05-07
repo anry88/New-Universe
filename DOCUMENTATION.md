@@ -69,7 +69,10 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 - `lib/api.ts` — a unified fetch client that automatically sends the session token in the `Authorization` header and the Telegram `initDataRaw` in the `X-Telegram-Init-Data` header.
 - `hooks/useAuth.ts` — manages the auth flow and session token.
 - `hooks/useMe.ts` — uses TanStack Query to fetch and cache the current player state from `GET /me`.
-- `App.tsx` — uses the auth and state hooks to display player info (username, Power Score).
+- `pages/Home.tsx` — main game screen with resource bar (real-time regen via `requestAnimationFrame`), planet view with buildings, build queue with countdown, and bottom tab bar.
+- `components/ResourceBar.tsx` — displays planet resources with animated real-time regeneration.
+- `components/PlanetView.tsx` — shows the current focus planet with its buildings schema.
+- `components/BuildQueue.tsx` — displays the current build queue with countdown timers.
 
 ### Shared types
 
