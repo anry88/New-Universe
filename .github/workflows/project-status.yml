@@ -1,0 +1,52 @@
+name: Project Status
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - ready_for_review
+      - converted_to_draft
+      - synchronize
+      - closed
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  sync-project-status:
+    if: github.repository == 'anry88/New-Universe'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+      PROJECT_OWNER: anry88
+      PROJECT_NUMBER: "3"
+      REPO: anry88/New-Universe
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check Project token
+        run: |
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::error title=Missing PROJECT_TOKEN::Repository secret PROJECT_TOKEN is required for user-owned GitHub Project v2 automation. Create a classic personal access token with repo, project, and read:org scopes, then save it as PROJECT_TOKEN."
+            exit 1
+          fi
+
+          if ! gh auth status; then
+            echo "::error title=PROJECT_TOKEN authentication failed::GitHub CLI could not authenticate with PROJECT_TOKEN."
+            exit 1
+          fi
+
+          if ! gh project view "$PROJECT_NUMBER" --owner "$PROJECT_OWNER" --format json >/dev/null; then
+            echo "::error title=PROJECT_TOKEN cannot read GitHub Project::PROJECT_TOKEN must be a classic personal access token owned by a user who can access the Project, with repo, project, and read:org scopes. GITHUB_TOKEN and fine-grained tokens often cannot access user-owned Project v2."
+            exit 1
+          fi
+
+      - name: Sync linked task status
+        run: |
+          node tasks/project_status.mjs pr \
+            --number "${{ github.event.pull_request.number }}" \
+            --action "${{ github.event.action }}" \
+            --merged "${{ github.event.pull_request.merged }}"

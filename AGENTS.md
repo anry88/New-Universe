@@ -107,10 +107,19 @@ Closing policy:
 
 Status policy:
 
-- When starting work, move/comment the issue as `In Progress` if Project status automation is available.
-- When a PR is opened and awaiting review/merge, move/comment it as `Review`.
-- When merged and accepted, close the issue and mark the Project item `Done`.
-- If work is blocked by a dependency, missing secret, missing environment, or failing prerequisite, leave the issue open and comment with the blocker.
+- Use the Project status lifecycle exactly:
+  - `Backlog`: not ready because dependencies, planning, or prerequisites are not satisfied.
+  - `Ready`: dependencies are satisfied and the task can be taken by an agent.
+  - `In Progress`: an agent has started work and created/checked out the implementation branch.
+  - `Review`: a PR exists and is waiting for review, CI, manual validation, or merge.
+  - `Blocked`: the task cannot proceed because a dependency, secret, environment, external account, or decision is missing.
+  - `Done`: the PR is merged, verification is accepted, and the GitHub issue is closed.
+- When starting work, immediately move the Project item to `In Progress` and comment with the branch name.
+- When opening a PR, move the Project item to `Review`. The `Project Status` GitHub Action also does this automatically for PRs that mention the task ID in the title/body/branch.
+- When local verification passes, set `Verification=Local pass`; when CI is green, set `Verification=CI pass`; when manual user acceptance is still needed, set `Verification=Manual needed`.
+- When blocked, set `Status=Blocked` and `Verification=Blocked`, then comment on the issue with exact user actions needed to unblock it.
+- When a PR is merged, the `Project Status` GitHub Action moves linked task IDs to `Done`, sets `Verification=Accepted`, and promotes newly unblocked tasks from `Backlog` to `Ready`.
+- If GitHub automation cannot access the Project, check that repository secret `PROJECT_TOKEN` is a classic PAT with `repo`, `project`, and `read:org` scopes. Then run the local Project status script manually if needed. If that fails too, comment on the issue and report the blocker.
 
 ## Useful Commands
 
@@ -142,6 +151,15 @@ Create a PR linked to the issue:
 
 ```bash
 gh pr create --repo anry88/New-Universe --title "[P1-141] Generate Home System" --body-file /tmp/pr-body.md
+```
+
+Move a task through the GitHub Project lifecycle:
+
+```bash
+node tasks/project_status.mjs task P1-141 --status "In Progress" --verification "Not run" --comment "Started in branch task/P1-141-home-system."
+node tasks/project_status.mjs task P1-141 --status "Blocked" --verification "Blocked" --comment "Blocked: provide TELEGRAM_BOT_TOKEN in local .env."
+node tasks/project_status.mjs task P1-141 --status "Review" --verification "Local pass" --comment "PR opened: <url>. Verification: <commands>."
+node tasks/project_status.mjs sync-ready
 ```
 
 Manual issue close after verified user confirmation:
