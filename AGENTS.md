@@ -15,47 +15,66 @@ Primary links:
 - Roadmap coverage matrix: `tasks/ROADMAP_COVERAGE_MATRIX.md`
 - GDD: `Stellar_Forge_GDD.pdf`
 - GDD addendum: `New_Universe_GDD_Addendum_v1.1.pdf`
-- Local dev guide: `dev/README.md`
+- Local dev guide: `README.md` in the implementation repo; `dev/README.md` only exists in the planning bundle before files are moved.
 
 ## Main Agent Prompt
 
-You are the implementation agent for New Universe. When the user says "take task P1-141", "возьми таску P1-141", "сделай issue #22", or gives any task/issue identifier, resolve the task from GitHub and `tasks/tasks.json`, then implement it according to this file, the task acceptance criteria, the GDD, and the existing project architecture.
+You are the implementation agent for New Universe. When the user explicitly asks to start or continue work on a task, for example "take task P1-141", "возьми таску P1-141", or "сделай issue #22", resolve the task from GitHub and `tasks/tasks.json`, then implement it according to this file, the task acceptance criteria, the GDD, and the existing project architecture.
 
 Do not ask the user to repeat the project context, repository links, task plan, stack, or workflow. Treat this `AGENTS.md` as the default project prompt.
 
 Your goal is not just to edit files. Your goal is to complete the task end to end: understand the issue, check dependencies, make the smallest coherent implementation, run the relevant verification, update the GitHub issue/project status when appropriate, and clearly report what changed and what remains.
 
+## Task Start Gate
+
+- Start implementation only when the latest user message clearly asks to start or continue a concrete task or issue. A bare token, secret, URL, project name, clarification, status question, or other config value is input for the current task, not permission to start the next task.
+- After completing, blocking, or reporting a task, stop and wait for the next explicit task instruction. Do not automatically pick up the next task from the backlog.
+- If the user provides a secret such as a Telegram bot token, use it only for the current task's local configuration or verification. Never print it back, commit it, put it in task metadata, or treat it as a new task command.
+
 ## Task Workflow
 
-1. Resolve the task.
+1. Sync the repository before starting a task.
+   - Work in the real git checkout, not the planning bundle.
+   - Run `git status --short --branch` first. If there are uncommitted changes you did not make, preserve them and either work around them or ask before touching the affected files.
+   - Before creating a new task branch, run `git fetch origin`, switch to `main`, and update it with `git pull --ff-only`.
+   - Create the task branch from the updated base. If a required dependency branch or PR is not merged into `main`, base on that dependency only when necessary and state that choice in the final report.
+
+2. Resolve the task.
    - If the user gives a task ID such as `P1-141`, find it in `tasks/tasks.json`.
    - Also find the matching GitHub issue in `anry88/New-Universe`, usually titled `[P1-141] ...`.
    - If the user gives an issue number, read that GitHub issue and map it back to the task ID in the title/body.
 
-2. Read the task before coding.
+3. Read the task before coding.
    - Use the task `description`, `acceptance`, `files`, `deps`, `verify`, `notes`, and `prompt` fields from `tasks/tasks.json`.
    - Read the GitHub issue body too, because it is the shared execution record.
    - Check dependent task IDs listed in `deps`. If a dependency is not implemented locally, either implement the prerequisite first if it is small and necessary, or stop and report the blocker.
 
-3. Work in the repository, not in the planning bundle.
+4. Work in the repository, not in the planning bundle.
    - The intended code repository is `anry88/New-Universe`.
    - If the current folder is only the planning bundle and not a git checkout, clone or switch to the real repo before implementing code.
    - Keep `tasks/` as planning/import material unless the task explicitly asks to change task metadata.
 
-4. Implement narrowly.
+5. Implement narrowly.
    - Follow existing structure and naming once code exists.
    - Prefer TypeScript strictness, typed boundaries, Zod validation for config/input, Drizzle for database access, and small feature modules.
    - Keep business logic in backend feature/service modules, route handlers thin, and database schema changes explicit.
    - Keep frontend state and API calls in clear `lib/`, `pages/`, and `components/` boundaries.
 
-5. Verify.
+6. Verify.
    - Run the command listed in the task `verify` field when possible.
    - Also run the nearest relevant tests/build/type-check for changed code.
    - If verification cannot run because dependencies, secrets, Docker, or local services are missing, state exactly what blocked it and what command should be run after the blocker is fixed.
 
-6. Finish the task record.
+7. Finish the task record.
    - Summarize implementation and verification in the final response.
    - If GitHub access is available, link the implementation PR to the completed issue/task and update the GitHub issue/Project record according to the rules below.
+
+## Missing Inputs And Secrets
+
+- If a task needs a token, Sentry DSN/project name, Telegram bot username, public tunnel URL, deployment URL, or other external value that is not available locally, stop and ask the user directly.
+- The request to the user must be concrete: say exactly what they need to create or open, which value to send back, and whether it belongs in local `.env`, GitHub secrets, Sentry, Telegram BotFather, or another service.
+- Do not invent external project names, production URLs, bot names, or secrets. Use placeholders only in committed examples such as `.env.example`.
+- If the missing value is optional for local verification, keep that integration disabled and say so instead of blocking the task.
 
 ## Pull Request And Issue Closing Rules
 
@@ -142,6 +161,16 @@ Start local development services from the repo root after the dev files are in p
 
 ```bash
 docker compose up -d
+```
+
+Prepare a fresh branch for a new task:
+
+```bash
+git status --short --branch
+git fetch origin
+git switch main
+git pull --ff-only
+git switch -c task/P1-141-home-system
 ```
 
 Run common checks:

@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Stellar Forge — Визуальный дизайн-конспект</title>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --panel: #111827;
+    --panel-2: #1a2236;
+    --primary: #3b82f6;
+    --accent: #f59e0b;
+    --success: #10b981;
+    --danger: #ef4444;
+    --muted: #94a3b8;
+    --text: #e2e8f0;
+    --text-bright: #f8fafc;
+    --border: #334155;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: radial-gradient(ellipse at top, #1e293b 0%, var(--bg) 60%);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.5;
+  }
+  .container { max-width: 1200px; margin: 0 auto; padding: 40px 24px 80px; }
+  header { text-align: center; margin-bottom: 48px; }
+  h1 {
+    font-size: 56px; margin: 0 0 12px;
+    background: linear-gradient(135deg, #60a5fa 0%, #f59e0b 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: -1px;
+  }
+  .subtitle { color: var(--muted); font-size: 18px; margin: 0; }
+  .badge { display: inline-block; padding: 4px 12px; border-radius: 12px;
+    background: rgba(59,130,246,0.15); color: #60a5fa; font-size: 13px;
+    border: 1px solid rgba(59,130,246,0.3); margin: 0 4px; }
+
+  section { margin: 64px 0; }
+  h2 { font-size: 28px; color: var(--text-bright); margin: 0 0 8px;
+    border-left: 4px solid var(--accent); padding-left: 14px; }
+  .section-desc { color: var(--muted); margin: 0 0 24px; padding-left: 18px; }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 14px; padding: 24px; margin-bottom: 20px;
+  }
+  .card.bordered-accent { border-left: 4px solid var(--accent); }
+  .card.bordered-primary { border-left: 4px solid var(--primary); }
+  .card.bordered-success { border-left: 4px solid var(--success); }
+
+  /* Diagram canvas */
+  .diagram { width: 100%; overflow-x: auto; }
+  svg { display: block; max-width: 100%; height: auto; }
+
+  /* Resource grid */
+  .resource-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+  }
+  .resource {
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px; transition: transform .15s, border-color .15s;
+  }
+  .resource:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .resource .icon { font-size: 28px; margin-bottom: 6px; }
+  .resource .name { font-weight: 700; color: var(--text-bright); font-size: 16px; }
+  .resource .desc { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .tier-1 .icon { color: var(--success); }
+  .tier-2 .icon { color: #60a5fa; }
+  .tier-3 .icon { color: var(--accent); }
+  .tier-4 .icon { color: #c084fc; }
+  .tier-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-top: 8px; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .tab {
+    background: transparent; border: none; color: var(--muted); padding: 10px 16px;
+    cursor: pointer; font-size: 14px; border-bottom: 2px solid transparent;
+    transition: color .15s, border-color .15s;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* Ship cards */
+  .ship-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+  .ship {
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 18px;
+  }
+  .ship h3 { margin: 0 0 4px; color: var(--text-bright); }
+  .ship .role { color: var(--accent); font-size: 13px; margin-bottom: 10px; }
+  .ship .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 13px; }
+  .ship .stat-label { color: var(--muted); }
+  .ship .stat-val { color: var(--text-bright); font-weight: 600; text-align: right; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { background: var(--panel-2); padding: 10px; text-align: left; color: var(--text-bright); border-bottom: 2px solid var(--border); }
+  td { padding: 10px; border-bottom: 1px solid var(--border); color: var(--text); }
+  tr:hover td { background: rgba(59,130,246,0.05); }
+
+  /* Footer */
+  footer { text-align: center; color: var(--muted); margin-top: 60px; padding-top: 24px; border-top: 1px solid var(--border); font-size: 13px; }
+
+  @media (max-width: 600px) {
+    h1 { font-size: 38px; }
+    .container { padding: 24px 16px 60px; }
+    .resource-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>STELLAR FORGE</h1>
+  <p class="subtitle">Космическая майнерка с крафтом · Telegram Mini App</p>
+  <p style="margin-top:14px;">
+    <span class="badge">idle</span>
+    <span class="badge">multiplayer</span>
+    <span class="badge">space-4X-lite</span>
+    <span class="badge">v1.0 GDD</span>
+  </p>
+</header>
+
+<!-- ====== Цикл геймплея ====== -->
+<section>
+  <h2>Цикл геймплея</h2>
+  <p class="section-desc">CHECK → PLAN → SPEND → QUEUE → CLOSE → NOTIFY. Возврат игрока к циклу — раз в 2-12 часов.</p>
+  <div class="card bordered-primary diagram">
+    <svg viewBox="0 0 900 480" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+          <path d="M0,0 L0,12 L12,6 z" fill="#3b82f6"/>
+        </marker>
+        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <!-- Узлы цикла -->
+      <g font-family="Inter, sans-serif" font-size="14" fill="#e2e8f0">
+        <!-- 1 CHECK -->
+        <circle cx="450" cy="60" r="46" fill="#1a2236" stroke="#3b82f6" stroke-width="2" filter="url(#glow)"/>
+        <text x="450" y="55" text-anchor="middle" font-weight="700" fill="#60a5fa">CHECK</text>
+        <text x="450" y="73" text-anchor="middle" font-size="11" fill="#94a3b8">открой игру</text>
+        <!-- 2 PLAN -->
+        <circle cx="780" cy="180" r="46" fill="#1a2236" stroke="#3b82f6" stroke-width="2"/>
+        <text x="780" y="175" text-anchor="middle" font-weight="700" fill="#60a5fa">PLAN</text>
+        <text x="780" y="193" text-anchor="middle" font-size="11" fill="#94a3b8">выбери цель</text>
+        <!-- 3 SPEND -->
+        <circle cx="700" cy="380" r="46" fill="#1a2236" stroke="#f59e0b" stroke-width="2"/>
+        <text x="700" y="375" text-anchor="middle" font-weight="700" fill="#fbbf24">SPEND</text>
+        <text x="700" y="393" text-anchor="middle" font-size="11" fill="#94a3b8">потрать ресурсы</text>
+        <!-- 4 QUEUE -->
+        <circle cx="200" cy="380" r="46" fill="#1a2236" stroke="#f59e0b" stroke-width="2"/>
+        <text x="200" y="375" text-anchor="middle" font-weight="700" fill="#fbbf24">QUEUE</text>
+        <text x="200" y="393" text-anchor="middle" font-size="11" fill="#94a3b8">поставь таймер</text>
+        <!-- 5 CLOSE -->
+        <circle cx="120" cy="180" r="46" fill="#1a2236" stroke="#10b981" stroke-width="2"/>
+        <text x="120" y="175" text-anchor="middle" font-weight="700" fill="#34d399">CLOSE</text>
+        <text x="120" y="193" text-anchor="middle" font-size="11" fill="#94a3b8">закрой</text>
+        <!-- центр -->
+        <circle cx="450" cy="240" r="80" fill="none" stroke="#334155" stroke-dasharray="4 4"/>
+        <text x="450" y="232" text-anchor="middle" font-weight="700" fill="#f8fafc" font-size="16">CORE LOOP</text>
+        <text x="450" y="252" text-anchor="middle" fill="#94a3b8" font-size="12">8-15 мин активного</text>
+        <text x="450" y="268" text-anchor="middle" fill="#94a3b8" font-size="12">2-12 ч таймеров</text>
+
+        <!-- стрелки между узлами по кругу -->
+        <path d="M488,90 Q620,110 745,150" fill="none" stroke="#3b82f6" stroke-width="2" marker-end="url(#arrow)"/>
+        <path d="M755,225 Q740,310 727,350" fill="none" stroke="#f59e0b" stroke-width="2" marker-end="url(#arrow)"/>
+        <path d="M654,395 Q450,440 246,395" fill="none" stroke="#f59e0b" stroke-width="2" marker-end="url(#arrow)"/>
+        <path d="M173,350 Q140,300 130,225" fill="none" stroke="#10b981" stroke-width="2" marker-end="url(#arrow)"/>
+        <path d="M155,150 Q280,110 412,90" fill="none" stroke="#10b981" stroke-width="2" marker-end="url(#arrow)"/>
+
+        <!-- NOTIFY pop-up -->
+        <rect x="370" y="430" width="160" height="34" rx="17" fill="#0f172a" stroke="#10b981"/>
+        <text x="450" y="452" text-anchor="middle" fill="#34d399" font-weight="700">📲 NOTIFY · Telegram push</text>
+      </g>
+    </svg>
+  </div>
+</section>
+
+<!-- ====== Ресурсы ====== -->
+<section>
+  <h2>Граф ресурсов</h2>
+  <p class="section-desc">12+ ресурсов по 4 уровням. Базовые есть везде, редкие — мотивация исследовать.</p>
+
+  <div class="card bordered-success">
+    <div class="tier-label">Tier 1 · базовые · на всех стартовых</div>
+    <div class="resource-grid">
+      <div class="resource tier-1"><div class="icon">💧</div><div class="name">Вода H₂O</div><div class="desc">Жизнь, охлаждение, топливо</div></div>
+      <div class="resource tier-1"><div class="icon">🔩</div><div class="name">Железо Fe</div><div class="desc">Корпуса, броня</div></div>
+      <div class="resource tier-1"><div class="icon">🛢️</div><div class="name">Углерод C</div><div class="desc">Топливо, пластик</div></div>
+      <div class="resource tier-1"><div class="icon">💎</div><div class="name">Кремний Si</div><div class="desc">Электроника</div></div>
+      <div class="resource tier-1"><div class="icon">💨</div><div class="name">Метан CH₄</div><div class="desc">Энергия</div></div>
+    </div>
+  </div>
+
+  <div class="card bordered-primary" style="margin-top:14px;">
+    <div class="tier-label">Tier 2 · распространённые редкие · ≈40% планет</div>
+    <div class="resource-grid">
+      <div class="resource tier-2"><div class="icon">🟠</div><div class="name">Медь Cu</div><div class="desc">Провода, оружие</div></div>
+      <div class="resource tier-2"><div class="icon">⚪</div><div class="name">Алюминий Al</div><div class="desc">Лёгкие корпуса</div></div>
+      <div class="resource tier-2"><div class="icon">🔘</div><div class="name">Титан Ti</div><div class="desc">Средние корпуса</div></div>
+      <div class="resource tier-2"><div class="icon">🟡</div><div class="name">Сера S</div><div class="desc">Взрывчатка</div></div>
+      <div class="resource tier-2"><div class="icon">🧊</div><div class="name">Лёд</div><div class="desc">Прыжковое топливо</div></div>
+    </div>
+  </div>
+
+  <div class="card bordered-accent" style="margin-top:14px;">
+    <div class="tier-label">Tier 3 · военные / индустриальные · ≈12% планет</div>
+    <div class="resource-grid">
+      <div class="resource tier-3"><div class="icon">🌡️</div><div class="name">Ртуть Hg</div><div class="desc">Детонаторы, торпеды</div></div>
+      <div class="resource tier-3"><div class="icon">✨</div><div class="name">Магний Mg</div><div class="desc">Зажигательные</div></div>
+      <div class="resource tier-3"><div class="icon">⬛</div><div class="name">Свинец Pb</div><div class="desc">Радиаз. броня</div></div>
+      <div class="resource tier-3"><div class="icon">☢️</div><div class="name">Уран U</div><div class="desc">Реакторы, ОМП</div></div>
+      <div class="resource tier-3"><div class="icon">🧲</div><div class="name">Кобальт Co</div><div class="desc">Двигатели</div></div>
+      <div class="resource tier-3"><div class="icon">🔷</div><div class="name">SiC</div><div class="desc">Анти-лазер</div></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px; border-left:4px solid #c084fc;">
+    <div class="tier-label">Tier 4 · экзотика · ≈1-3% планет</div>
+    <div class="resource-grid">
+      <div class="resource tier-4"><div class="icon">🌌</div><div class="name">Антиматерия</div><div class="desc">Прыжковые двигатели</div></div>
+      <div class="resource tier-4"><div class="icon">🕳️</div><div class="name">Тёмная материя</div><div class="desc">Маскировка</div></div>
+      <div class="resource tier-4"><div class="icon">⭐</div><div class="name">Иридий</div><div class="desc">Реакторы крейсеров</div></div>
+      <div class="resource tier-4"><div class="icon">🌿</div><div class="name">Биомасса</div><div class="desc">Лекарства, бонусы</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ====== Корабли ====== -->
+<section>
+  <h2>Линейка кораблей</h2>
+  <p class="section-desc">От разведчика к авианосцу. Доступ открывается через здания, технологии и ресурсы.</p>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="recon">Развед</button>
+    <button class="tab" data-tab="logistics">Логистика</button>
+    <button class="tab" data-tab="military">Военные</button>
+    <button class="tab" data-tab="defense">Оборона</button>
+  </div>
+
+  <div class="tab-content active" data-content="recon">
+    <div class="ship-grid">
+      <div class="ship">
+        <h3>🛰️ Scout</h3>
+        <div class="role">Открытие планет</div>
+        <div class="stats">
+          <span class="stat-label">HP</span><span class="stat-val">40</span>
+          <span class="stat-label">Скорость</span><span class="stat-val">2.0</span>
+          <span class="stat-label">Груз</span><span class="stat-val">50</span>
+          <span class="stat-label">Стоимость</span><span class="stat-val">100 Fe + 50 Si</span>
+        </div>
+      </div>
+      <div class="ship">
+        <h3>📡 Recon Probe</h3>
+        <div class="role">Сверхдальняя развед, одноразовая</div>
+        <div class="stats">
+          <span class="stat-label">HP</span><span class="stat-val">20</span>
+          <span class="stat-label">Скорость</span><span class="stat-val">4.0</span>
+          <span class="stat-label">Груз</span><span class="stat-val">0</span>
+          <span class="stat-label">Стоимость</span><span class="stat-val">40 Si + 20 топлива</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-content" data-content="logistics">
+    <div class="ship-grid">
+      <div class="ship">
+        <h3>📦 Cargo Light</h3>
+        <div class="role">Перевозки между своими</div>
+        <div class="stats">
+          <span class="stat-label">HP</span><span class="stat-val">60</span>
+          <span class="stat-label">Скорость</span><span class="stat-val">1.2</span>
+          <span class="stat-label">Груз</span><span class="stat-val">500</span>
+          <span class="stat-label">Стоимость</span><span class="stat-val">300 Fe + 100 Al</span>
+        </div>
+      </div>
+      <div class="ship">
+        <h3>🚛 Cargo Heavy</h3>
+        <div class="role">Большой груз на большие плечи</div>
+        <div class="stats">
+          <span class="stat-label">HP</span><span class="stat-val">180</span>
+          <span class="stat-label">Скорость</span><span class="stat-val">0.8</span>
+          <span class="stat-label">Груз</span><span class="stat-val">3 000</span>
+          <span class="stat-label">Стоимость</span><span class="stat-val">1500 Сталь + 600 Al</span>
+        </div>
+      </div>
+      <div class="ship">
+        <h3>🚀 Colonizer</h3>
+        <div class="role">Один полёт → новая колония</div>
+        <div class="stats">
+          <span class="stat-label">HP</span><span class="stat-val">120</span>
+          <span class="stat-label">Скорость</span><span class="stat-val">1.0</span>
+          <span class="stat-label">Груз</span><span class="stat-val">Кол. пакет</span>
+          <span class="stat-label">Стоимость</span><span class="stat-val">2500 Сталь + биомасса</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-content" data-content="military">
+    <div class="ship-grid">
+      <div class="ship">
+        <h3>⚔️ Frigate</h3>
+        <div class="role">Лёгкий бой, рейды</div>
+        <div class="stats">
+          <span class="stat-label">HP</span><span class="stat-val">200</span>
+          <span class="stat-label">DPS</span><span class="stat-val">25</span>
+          <span class="stat-label">Броня</span><span class="stat-val">10</span>
+          <span class="stat-label">Топливо/полёт</span><span class="stat-val">0.6</span>
+        </div>
+      </div>
+      <div class="ship">
+        <h3>💥 Destroyer</h3>
+        <div class="role">Средний, AOE-залп</div>
+        <div class="stats">
+          <span class="stat-label">HP</span><span class="stat-val">600</span>
+          <span class="stat-label">DPS</span><span class="stat-val">60</span>
+          <span class="stat-label">Броня</span><span class="stat-val">35</span>
+          <span class="stat-label">Топливо/полёт</span><span class="stat-val">1.2</span>
+        </div>
+      </div>
+      <div class="ship">
+        <h3>🚀 Cruiser</h3>
+        <div class="role">Тяжёлый, со щитом 30%</div>
+        <div class="stats">
+          <span class="stat-label">HP</span><span class="stat-val">1 800</span>
+          <span class="stat-label">DPS</span><span class="stat-val">180</span>
+          <span class="stat-label">Броня</span><span class="stat-val">90</span>
+          <span class="stat-label">Топливо/полёт</span><span class="stat-val">2.5</span>
+        </div>
+      </div>
+      <div class="ship">
+        <h3>🛸 Carrier</h3>
+        <div class="role">6 истр-перехватчиков</div>
+        <div class="stats">
+          <span class="stat-label">HP</span><span class="stat-val">4 500</span>
+          <span class="stat-label">DPS</span><span class="stat-val">90 + 6×40</span>
+          <span class="stat-label">Броня</span><span class="stat-val">150</span>
+          <span class="stat-label">Топливо/полёт</span><span class="stat-val">5.0</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-content" data-content="defense">
+    <div class="ship-grid">
+      <div class="ship">
+        <h3>🛡️ Defender drone</h3>
+        <div class="role">Защита орбиты, не покидает планету</div>
+        <div class="stats">
+          <span class="stat-label">HP</span><span class="stat-val">90</span>
+          <span class="stat-label">DPS</span><span class="stat-val">30</span>
+          <span class="stat-label">Броня</span><span class="stat-val">40</span>
+          <span class="stat-label">Стоимость</span><span class="stat-val">300 Fe + 80 Cu</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====== Дерево технологий ====== -->
+<section>
+  <h2>Дерево исследований</h2>
+  <p class="section-desc">5 веток × 5 уровней. Стоимость растёт ×2.2 за уровень.</p>
+
+  <div class="card bordered-primary diagram">
+    <svg viewBox="0 0 900 360" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="track" x1="0" x2="1">
+          <stop offset="0" stop-color="#1e3a8a"/>
+          <stop offset="1" stop-color="#f59e0b"/>
+        </linearGradient>
+      </defs>
+      <g font-family="Inter, sans-serif" fill="#e2e8f0" font-size="13">
+
+        <text x="20" y="40" font-weight="700" fill="#60a5fa">Mining</text>
+        <rect x="100" y="20" width="700" height="32" rx="8" fill="#1a2236" stroke="#334155"/>
+        <rect x="100" y="20" width="700" height="32" rx="8" fill="url(#track)" opacity="0.3"/>
+        <text x="180" y="40" text-anchor="middle">+5%</text>
+        <text x="320" y="40" text-anchor="middle">+10%</text>
+        <text x="460" y="40" text-anchor="middle">+20%</text>
+        <text x="600" y="40" text-anchor="middle">+30%</text>
+        <text x="740" y="40" text-anchor="middle" fill="#fbbf24" font-weight="700">+45%</text>
+
+        <text x="20" y="100" font-weight="700" fill="#60a5fa">Engineering</text>
+        <rect x="100" y="80" width="700" height="32" rx="8" fill="#1a2236" stroke="#334155"/>
+        <rect x="100" y="80" width="700" height="32" rx="8" fill="url(#track)" opacity="0.3"/>
+        <text x="180" y="100" text-anchor="middle">+5%</text>
+        <text x="320" y="100" text-anchor="middle">+10%</text>
+        <text x="460" y="100" text-anchor="middle">+20%</text>
+        <text x="600" y="100" text-anchor="middle">+30%</text>
+        <text x="740" y="100" text-anchor="middle" fill="#fbbf24" font-weight="700">+50%</text>
+
+        <text x="20" y="160" font-weight="700" fill="#60a5fa">Engines</text>
+        <rect x="100" y="140" width="700" height="32" rx="8" fill="#1a2236" stroke="#334155"/>
+        <rect x="100" y="140" width="700" height="32" rx="8" fill="url(#track)" opacity="0.3"/>
+        <text x="180" y="160" text-anchor="middle">+5/-4%</text>
+        <text x="320" y="160" text-anchor="middle">+10/-8%</text>
+        <text x="460" y="160" text-anchor="middle">+15/-12%</text>
+        <text x="600" y="160" text-anchor="middle">+22/-16%</text>
+        <text x="740" y="160" text-anchor="middle" fill="#fbbf24" font-weight="700">+30/-20%</text>
+
+        <text x="20" y="220" font-weight="700" fill="#60a5fa">Weapons</text>
+        <rect x="100" y="200" width="700" height="32" rx="8" fill="#1a2236" stroke="#334155"/>
+        <rect x="100" y="200" width="700" height="32" rx="8" fill="url(#track)" opacity="0.3"/>
+        <text x="180" y="220" text-anchor="middle">+10%</text>
+        <text x="320" y="220" text-anchor="middle">+20%</text>
+        <text x="460" y="220" text-anchor="middle">+30%</text>
+        <text x="600" y="220" text-anchor="middle">+45%</text>
+        <text x="740" y="220" text-anchor="middle" fill="#fbbf24" font-weight="700">+60%</text>
+
+        <text x="20" y="280" font-weight="700" fill="#60a5fa">Sensors</text>
+        <rect x="100" y="260" width="700" height="32" rx="8" fill="#1a2236" stroke="#334155"/>
+        <rect x="100" y="260" width="700" height="32" rx="8" fill="url(#track)" opacity="0.3"/>
+        <text x="180" y="280" text-anchor="middle">+50/+1%</text>
+        <text x="320" y="280" text-anchor="middle">+100/+2%</text>
+        <text x="460" y="280" text-anchor="middle">+200/+3%</text>
+        <text x="600" y="280" text-anchor="middle">+400/+5%</text>
+        <text x="740" y="280" text-anchor="middle" fill="#fbbf24" font-weight="700">+800/+8%</text>
+
+        <text x="20" y="340" font-weight="700" fill="#60a5fa">Logistics</text>
+        <rect x="100" y="320" width="700" height="32" rx="8" fill="#1a2236" stroke="#334155"/>
+        <rect x="100" y="320" width="700" height="32" rx="8" fill="url(#track)" opacity="0.3"/>
+        <text x="180" y="340" text-anchor="middle">+10%</text>
+        <text x="320" y="340" text-anchor="middle">+25%</text>
+        <text x="460" y="340" text-anchor="middle">+50%</text>
+        <text x="600" y="340" text-anchor="middle">+80%</text>
+        <text x="740" y="340" text-anchor="middle" fill="#fbbf24" font-weight="700">+120%</text>
+      </g>
+    </svg>
+  </div>
+</section>
+
+<!-- ====== Roadmap ====== -->
+<section>
+  <h2>Roadmap (MVP → Release)</h2>
+  <p class="section-desc">Поэтапно. Каждая фаза — узкий, тестируемый кусок продукта.</p>
+
+  <table>
+    <thead>
+      <tr><th>Фаза</th><th>Длит.</th><th>Скоуп</th><th>Цель</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><b>0. Pre-prod</b></td><td>2 нед</td><td>GDD, тех-дизайн, прототип карты</td><td>Подтвердить feasibility</td></tr>
+      <tr><td><b>1. Solo Core</b></td><td>4 нед</td><td>1 планета, 5 ресурсов, 5 зданий, Scout, Cargo</td><td>Альфа 10-20 чел</td></tr>
+      <tr><td><b>2. Expansion</b></td><td>6 нед</td><td>Колонизация, NPC-маркет, исследования lvl 1-3</td><td>Открытое тест 200 чел</td></tr>
+      <tr><td><b>3. Multiplayer</b></td><td>4 нед</td><td>Соседи, альянсы, биржа между игроками</td><td>Soft-launch (СНГ)</td></tr>
+      <tr><td><b>4. Combat</b></td><td>6 нед</td><td>Frigate/Destroyer, бои, оборона, анти-гриф</td><td>Stress-test PvP</td></tr>
+      <tr><td><b>5. Endgame</b></td><td>4 нед</td><td>Cruiser/Carrier, аномалии, антиматерия</td><td>Контент топ-игроков</td></tr>
+      <tr><td><b>6. Monetization</b></td><td>3 нед</td><td>Telegram Stars SKU, премиум, косметика</td><td>Готовность к релизу</td></tr>
+      <tr><td><b>7. Live Ops</b></td><td>∞</td><td>Сезоны, ивенты, баланс, контент</td><td>Жизнь после релиза</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ====== Стек ====== -->
+<section>
+  <h2>Технический стек</h2>
+  <p class="section-desc">Минимально достаточно, прозрачно, дёшево на старте.</p>
+  <table>
+    <thead><tr><th>Слой</th><th>Технология</th><th>Зачем</th></tr></thead>
+    <tbody>
+      <tr><td>Frontend</td><td>React 18 + TS + Vite + @twa-dev/sdk</td><td>Стандарт TMA</td></tr>
+      <tr><td>Карта</td><td>PixiJS (canvas)</td><td>10K систем на 60 fps</td></tr>
+      <tr><td>Backend</td><td>Node.js 20 + Fastify + TS</td><td>Прод-ть и единый язык</td></tr>
+      <tr><td>БД</td><td>PostgreSQL 16 + Redis</td><td>Транз. целостность + кэш</td></tr>
+      <tr><td>Очереди</td><td>BullMQ</td><td>Тики, фоновые задачи</td></tr>
+      <tr><td>Realtime</td><td>WebSocket</td><td>Бои, push-уведомления</td></tr>
+      <tr><td>Auth</td><td>Telegram initData (HMAC)</td><td>Без паролей</td></tr>
+      <tr><td>Хостинг</td><td>Cloudflare Pages + Fly.io</td><td>Дёшево, географически близко</td></tr>
+      <tr><td>БД-хостинг</td><td>Neon.tech / Supabase</td><td>Serverless, scale-to-zero</td></tr>
+      <tr><td>Мониторинг</td><td>Sentry + PostHog</td><td>Ошибки + продуктовая аналитика</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<footer>
+  Сопроводительные диаграммы к Stellar_Forge_GDD.docx · v1.0 · 6 мая 2026
+</footer>
+
+</div>
+
+<script>
+  // Простые табы
+  document.querySelectorAll('.tab').forEach(t => {
+    t.addEventListener('click', () => {
+      const tabKey = t.dataset.tab;
+      const parent = t.closest('section');
+      parent.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+      t.classList.add('active');
+      parent.querySelectorAll('.tab-content').forEach(c => {
+        c.classList.toggle('active', c.dataset.content === tabKey);
+      });
+    });
+  });
+</script>
+
+</body>
+</html>

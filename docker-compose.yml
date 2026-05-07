@@ -1,5 +1,5 @@
 # New Universe — локальное dev-окружение
-# Запуск: docker compose up -d
+# Запуск core-стека: docker compose up -d
 # Логи:   docker compose logs -f backend
 # Стоп:   docker compose down
 # Полная очистка volumes: docker compose down -v
@@ -75,6 +75,7 @@ services:
     command: npm run dev
 
   worker:
+    profiles: ["worker"]
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -98,6 +99,7 @@ services:
     command: npm run worker:dev
 
   frontend:
+    profiles: ["frontend"]
     build:
       context: ./frontend
       dockerfile: Dockerfile
