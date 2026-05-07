@@ -1,0 +1,118 @@
+# Bulk-импорт задач в GitHub Project
+
+Этот пакет создаёт 53 issue-в в твоём репозитории и добавляет их все
+в твой GitHub Project https://github.com/users/anry88/projects/3.
+
+## Что в пакете
+
+| Файл | Назначение |
+|---|---|
+| `New_Universe_Microtasks.docx` | Читаемый документ со всеми задачами и промптами |
+| `tasks.csv` | CSV для импорта в любую систему (Linear, Asana и т.п.) |
+| `tasks.json` | Машиночитаемый формат + готовые per-task промпты |
+| `ROADMAP_P2_P5.md` | Сверочный roadmap-документ для P2-P5 задач |
+| `ROADMAP_COVERAGE_MATRIX.md` | Матрица покрытия фаз, completion gates и известных gaps |
+| `roadmap_p2_p5_additions.json` | Источник добавленных P2-P5 epics/tasks |
+| `merge_roadmap_p2_p5.mjs` | Генератор, который мерджит roadmap additions в `tasks.json`, CSV и docs |
+| `import_to_github.sh` | Bash-скрипт для bulk-создания issues в GitHub |
+| `import_to_github_idempotent.sh` | Безопасный повторный импорт: переиспользует существующие issues и не падает, если item уже есть в Project |
+| `setup_github_project3_structure.sh` | Синхронизация Project fields/options и значений для всех задач |
+| `setup_github_project3_views.sh` | Создание Project views для execution board и roadmap |
+| `README_github_import.md` | Этот файл |
+
+## Требования (запуск ЛОКАЛЬНО)
+
+- macOS / Linux / WSL
+- `gh` CLI: `brew install gh` или `sudo apt install gh`
+- macOS: Bash 5 для исходного `import_to_github.sh` (`brew install bash` и запуск через `/opt/homebrew/bin/bash`)
+- SSH-ключ, привязанный к GitHub аккаунту `anry88` (для git push в репозиторий, см. ниже)
+- Существующий репозиторий `anry88/new-universe` (если ещё нет — создать пустой)
+- Существующий проект https://github.com/users/anry88/projects/3
+
+## Шаг 1: Авторизация gh
+
+```bash
+gh auth login
+# выбрать GitHub.com → SSH → авторизоваться через браузер
+gh auth status
+# проверить, что есть scopes: repo, project
+```
+
+Если нет scope `project`:
+
+```bash
+gh auth refresh -s project,read:project
+```
+
+## Шаг 2: Создать репозиторий (если ещё нет)
+
+```bash
+gh repo create anry88/new-universe --private --description "New Universe — Telegram Mini App game"
+```
+
+## Шаг 3: Запустить импорт
+
+```bash
+chmod +x import_to_github.sh
+/opt/homebrew/bin/bash ./import_to_github.sh
+```
+
+Можно настроить через env-переменные:
+
+```bash
+REPO=anry88/new-universe \
+PROJECT_OWNER=anry88 \
+PROJECT_NUMBER=3 \
+./import_to_github.sh
+```
+
+Если импорт уже запускался частично или есть риск дублей, используй безопасную версию:
+
+```bash
+chmod +x import_to_github_idempotent.sh
+/opt/homebrew/bin/bash ./import_to_github_idempotent.sh
+```
+
+## Что произойдёт
+
+1. Скрипт получит ID проекта через GraphQL.
+2. Создаст labels: `epic:*`, `phase:P0`/`P1`/`P2`/`P3`, `size:S`/`M`/`L`/`XL`.
+3. Для каждой задачи:
+   - создаст GitHub Issue с заголовком `[ID] Название`
+   - тело — описание + acceptance + файлы + зависимости
+   - повесит labels
+   - добавит в твой Project №3
+
+Работает ~1-2 минуты для 53 задач.
+
+## После импорта
+
+В проекте получишь плоский список. Рекомендую:
+
+1. Открой проект → Settings → Group by → `Labels` → выбери `phase:*` для группировки по фазам.
+2. Создай view `Phase 0 (Setup)` с фильтром `label:"phase:P0"`.
+3. Создай view `Phase 1 (Solo Core)` с фильтром `label:"phase:P1"`.
+4. Создай status field: `Backlog → Ready → In Progress → Review → Done`.
+5. Создай поле `Estimate` (Number) для отслеживания story points.
+
+## Если что-то пошло не так
+
+- **Скрипт падает с "Resource not accessible"** — нет scope `project`. См. шаг 1.
+- **"Project not found"** — неправильный `PROJECT_NUMBER`. Возьми из URL проекта.
+- **Дубликаты issue** — скрипт идемпотентным НЕ написан (для простоты). Если нужно перезапустить — закрой все ранее созданные через:
+  ```bash
+  gh issue list --repo anry88/new-universe --label 'phase:P0' --json number --jq '.[].number' | xargs -I{} gh issue close {} --repo anry88/new-universe
+  ```
+
+## Альтернатива: импорт CSV вручную
+
+Если `gh` CLI не подходит — можно открыть `tasks.csv` в Excel/Numbers и:
+
+1. Вставить колонки в форму создания issue вручную (медленно).
+2. Использовать сторонний инструмент типа [github-csv-tools](https://github.com/gavinr/github-csv-tools).
+3. Или импортировать в Linear/Asana/Trello — у них у всех есть CSV-импорт.
+
+## Заметка для будущего
+
+Когда будешь добавлять новые задачи — **редактируй `tasks.json`** (или его TS-экспорт), затем
+прогоняй генератор заново. Так у тебя останется единый source of truth.

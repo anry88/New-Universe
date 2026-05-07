@@ -1,0 +1,2383 @@
+{
+  "meta": {
+    "project": "New Universe",
+    "version": "1.0",
+    "date": "2026-05-06"
+  },
+  "epics": [
+    {
+      "id": "EPIC-P0-INFRA",
+      "phase": 0,
+      "title": "Phase 0 — Pre-production: репозиторий, Docker, CI"
+    },
+    {
+      "id": "EPIC-P1-DB",
+      "phase": 1,
+      "title": "Phase 1 — Схема БД и миграции"
+    },
+    {
+      "id": "EPIC-P1-AUTH",
+      "phase": 1,
+      "title": "Phase 1 — Авторизация через Telegram"
+    },
+    {
+      "id": "EPIC-P1-WORLD",
+      "phase": 1,
+      "title": "Phase 1 — Генерация мира и Home System"
+    },
+    {
+      "id": "EPIC-P1-RES",
+      "phase": 1,
+      "title": "Phase 1 — Ресурсы и экономика"
+    },
+    {
+      "id": "EPIC-P1-BLD",
+      "phase": 1,
+      "title": "Phase 1 — Здания и постройка"
+    },
+    {
+      "id": "EPIC-P1-SHP",
+      "phase": 1,
+      "title": "Phase 1 — Корабли и крафт"
+    },
+    {
+      "id": "EPIC-P1-EXP",
+      "phase": 1,
+      "title": "Phase 1 — Экспедиции и видимость"
+    },
+    {
+      "id": "EPIC-P1-FE",
+      "phase": 1,
+      "title": "Phase 1 — Frontend (TMA)"
+    },
+    {
+      "id": "EPIC-P1-BOT",
+      "phase": 1,
+      "title": "Phase 1 — Telegram-бот и пуши"
+    },
+    {
+      "id": "EPIC-P1-QA",
+      "phase": 1,
+      "title": "Phase 1 — Тесты и QA"
+    },
+    {
+      "id": "EPIC-P2-OUT",
+      "phase": 2,
+      "title": "Phase 2 — Outline (Expansion)"
+    },
+    {
+      "id": "EPIC-P3-OUT",
+      "phase": 3,
+      "title": "Phase 3 — Outline (Multiplayer)"
+    },
+    {
+      "id": "EPIC-P2-COL",
+      "phase": 2,
+      "title": "Phase 2 — Colonization and second planet"
+    },
+    {
+      "id": "EPIC-P2-MKT",
+      "phase": 2,
+      "title": "Phase 2 — NPC market and logistics"
+    },
+    {
+      "id": "EPIC-P2-RES",
+      "phase": 2,
+      "title": "Phase 2 — Research levels 1-3"
+    },
+    {
+      "id": "EPIC-P2-POL",
+      "phase": 2,
+      "title": "Phase 2 — Balance, polish, regression"
+    },
+    {
+      "id": "EPIC-P3-MAP",
+      "phase": 3,
+      "title": "Phase 3 — Multiplayer common map"
+    },
+    {
+      "id": "EPIC-P3-ALL",
+      "phase": 3,
+      "title": "Phase 3 — Alliances"
+    },
+    {
+      "id": "EPIC-P3-MKT",
+      "phase": 3,
+      "title": "Phase 3 — Player market"
+    },
+    {
+      "id": "EPIC-P4-DEPLOY",
+      "phase": 4,
+      "title": "Phase 4 — Production deployment"
+    },
+    {
+      "id": "EPIC-P4-OPS",
+      "phase": 4,
+      "title": "Phase 4 — Operations and observability"
+    },
+    {
+      "id": "EPIC-P4-SEC",
+      "phase": 4,
+      "title": "Phase 4 — Security and abuse prevention"
+    },
+    {
+      "id": "EPIC-P4-ANALYTICS",
+      "phase": 4,
+      "title": "Phase 4 — Product analytics"
+    },
+    {
+      "id": "EPIC-P4-MON",
+      "phase": 4,
+      "title": "Phase 4 — Monetization readiness"
+    },
+    {
+      "id": "EPIC-P5-LIVE",
+      "phase": 5,
+      "title": "Phase 5 — Live operations"
+    },
+    {
+      "id": "EPIC-P5-CONTENT",
+      "phase": 5,
+      "title": "Phase 5 — Content pipeline"
+    },
+    {
+      "id": "EPIC-P5-BALANCE",
+      "phase": 5,
+      "title": "Phase 5 — Balance loop"
+    },
+    {
+      "id": "EPIC-P5-SUPPORT",
+      "phase": 5,
+      "title": "Phase 5 — Support and admin runbooks"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "P0-001",
+      "epic": "EPIC-P0-INFRA",
+      "size": "S",
+      "title": "Инициализация git-репозитория и базовых файлов",
+      "description": "Создать репозиторий new-universe на GitHub, добавить README, LICENSE (MIT), .gitignore (Node + Docker), .editorconfig, базовый .github/CODEOWNERS.",
+      "acceptance": [
+        "Репозиторий доступен по https://github.com/anry88/new-universe",
+        "README содержит описание проекта в 3-5 предложений и ссылку на GDD",
+        ".gitignore исключает node_modules, .env, dist, .DS_Store",
+        "Главная ветка main, защищена от прямых пушей"
+      ],
+      "files": [
+        "README.md",
+        "LICENSE",
+        ".gitignore",
+        ".editorconfig",
+        ".github/CODEOWNERS"
+      ],
+      "deps": [],
+      "verify": "git clone https://github.com/anry88/new-universe и `ls -la` показывает все файлы",
+      "notes": "GDD-документы скопировать в /docs из текущей папки New Universe.",
+      "prompt": "[TASK P0-001] Инициализация git-репозитория и базовых файлов\n\nОПИСАНИЕ\nСоздать репозиторий new-universe на GitHub, добавить README, LICENSE (MIT), .gitignore (Node + Docker), .editorconfig, базовый .github/CODEOWNERS.\n\nACCEPTANCE CRITERIA\n  1. Репозиторий доступен по https://github.com/anry88/new-universe\n  2. README содержит описание проекта в 3-5 предложений и ссылку на GDD\n  3. .gitignore исключает node_modules, .env, dist, .DS_Store\n  4. Главная ветка main, защищена от прямых пушей\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - README.md\n  - LICENSE\n  - .gitignore\n  - .editorconfig\n  - .github/CODEOWNERS\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  (нет)\n\nКАК ПРОВЕРИТЬ\n  git clone https://github.com/anry88/new-universe и `ls -la` показывает все файлы\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  GDD-документы скопировать в /docs из текущей папки New Universe."
+    },
+    {
+      "id": "P0-002",
+      "epic": "EPIC-P0-INFRA",
+      "size": "M",
+      "title": "Docker compose локальное dev-окружение",
+      "description": "Перенести dev/docker-compose.yml, dev/.env.example, dev/backend/Dockerfile, dev/frontend/Dockerfile, dev/README.md из текущей папки в репозиторий. Проверить, что docker compose up -d поднимает postgres + redis (backend и frontend будут добавлены позже).",
+      "acceptance": [
+        "`docker compose up -d postgres redis` запускается без ошибок",
+        "`docker compose logs postgres` показывает healthy state",
+        "`docker compose exec postgres psql -U nu -d new_universe -c \"SELECT 1\"` отвечает 1"
+      ],
+      "files": [
+        "docker-compose.yml",
+        ".env.example",
+        "README.md (в корне)"
+      ],
+      "deps": [
+        "P0-001"
+      ],
+      "verify": "Команды из dev/README.md работают",
+      "notes": "Порт 5432 не должен конфликтовать с локально установленным Postgres (если есть — поменять порт в .env).",
+      "prompt": "[TASK P0-002] Docker compose локальное dev-окружение\n\nОПИСАНИЕ\nПеренести dev/docker-compose.yml, dev/.env.example, dev/backend/Dockerfile, dev/frontend/Dockerfile, dev/README.md из текущей папки в репозиторий. Проверить, что docker compose up -d поднимает postgres + redis (backend и frontend будут добавлены позже).\n\nACCEPTANCE CRITERIA\n  1. `docker compose up -d postgres redis` запускается без ошибок\n  2. `docker compose logs postgres` показывает healthy state\n  3. `docker compose exec postgres psql -U nu -d new_universe -c \"SELECT 1\"` отвечает 1\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - docker-compose.yml\n  - .env.example\n  - README.md (в корне)\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P0-001\n\nКАК ПРОВЕРИТЬ\n  Команды из dev/README.md работают\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Порт 5432 не должен конфликтовать с локально установленным Postgres (если есть — поменять порт в .env)."
+    },
+    {
+      "id": "P0-003",
+      "epic": "EPIC-P0-INFRA",
+      "size": "M",
+      "title": "Backend skeleton — Fastify + TS",
+      "description": "Создать backend/ с минимальным Fastify-приложением: GET /health, структурированное логирование через Pino, чтение env через dotenv + Zod-валидация. Запуск через docker compose up backend.",
+      "acceptance": [
+        "GET /health возвращает {\"status\":\"ok\",\"ts\":...}",
+        "Логи в JSON-формате, в dev — pino-pretty",
+        "Сервер падает на старте, если в .env отсутствует обязательная переменная"
+      ],
+      "files": [
+        "backend/src/index.ts",
+        "backend/src/lib/env.ts",
+        "backend/src/lib/logger.ts",
+        "backend/src/routes/health.ts",
+        "backend/tsconfig.json"
+      ],
+      "deps": [
+        "P0-002"
+      ],
+      "verify": "curl http://localhost:3000/health → 200 ok",
+      "notes": "Fastify v5, TypeScript strict, ES modules.",
+      "prompt": "[TASK P0-003] Backend skeleton — Fastify + TS\n\nОПИСАНИЕ\nСоздать backend/ с минимальным Fastify-приложением: GET /health, структурированное логирование через Pino, чтение env через dotenv + Zod-валидация. Запуск через docker compose up backend.\n\nACCEPTANCE CRITERIA\n  1. GET /health возвращает {\"status\":\"ok\",\"ts\":...}\n  2. Логи в JSON-формате, в dev — pino-pretty\n  3. Сервер падает на старте, если в .env отсутствует обязательная переменная\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/index.ts\n  - backend/src/lib/env.ts\n  - backend/src/lib/logger.ts\n  - backend/src/routes/health.ts\n  - backend/tsconfig.json\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P0-002\n\nКАК ПРОВЕРИТЬ\n  curl http://localhost:3000/health → 200 ok\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Fastify v5, TypeScript strict, ES modules."
+    },
+    {
+      "id": "P0-004",
+      "epic": "EPIC-P0-INFRA",
+      "size": "M",
+      "title": "Frontend skeleton — Vite + React + TMA SDK",
+      "description": "Создать frontend/ с минимальным React-приложением, инициализацией Telegram WebApp SDK, Tailwind CSS, страницей \"Hello, {username}\". Запуск через docker compose up frontend.",
+      "acceptance": [
+        "http://localhost:5173 отдаёт страницу с приветствием",
+        "При запуске внутри Telegram — берёт username из initData",
+        "Поддерживается dark/light тема Telegram",
+        "Tailwind CSS работает (классы применяются)"
+      ],
+      "files": [
+        "frontend/src/main.tsx",
+        "frontend/src/App.tsx",
+        "frontend/index.html",
+        "frontend/vite.config.ts",
+        "frontend/tailwind.config.ts",
+        "frontend/src/index.css"
+      ],
+      "deps": [
+        "P0-002"
+      ],
+      "verify": "docker compose up frontend → открыть http://localhost:5173 → отображается страница",
+      "notes": "Использовать @telegram-apps/sdk-react. Если запущено НЕ из Telegram — использовать заглушку user=\"DevUser\".",
+      "prompt": "[TASK P0-004] Frontend skeleton — Vite + React + TMA SDK\n\nОПИСАНИЕ\nСоздать frontend/ с минимальным React-приложением, инициализацией Telegram WebApp SDK, Tailwind CSS, страницей \"Hello, {username}\". Запуск через docker compose up frontend.\n\nACCEPTANCE CRITERIA\n  1. http://localhost:5173 отдаёт страницу с приветствием\n  2. При запуске внутри Telegram — берёт username из initData\n  3. Поддерживается dark/light тема Telegram\n  4. Tailwind CSS работает (классы применяются)\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - frontend/src/main.tsx\n  - frontend/src/App.tsx\n  - frontend/index.html\n  - frontend/vite.config.ts\n  - frontend/tailwind.config.ts\n  - frontend/src/index.css\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P0-002\n\nКАК ПРОВЕРИТЬ\n  docker compose up frontend → открыть http://localhost:5173 → отображается страница\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Использовать @telegram-apps/sdk-react. Если запущено НЕ из Telegram — использовать заглушку user=\"DevUser\"."
+    },
+    {
+      "id": "P0-005",
+      "epic": "EPIC-P0-INFRA",
+      "size": "S",
+      "title": "Drizzle ORM + миграции",
+      "description": "Установить drizzle-orm + drizzle-kit. Настроить drizzle.config.ts. Создать пустую schema.ts. Команды npm run db:migrate, db:generate, db:studio должны работать.",
+      "acceptance": [
+        "`npm run db:generate` создаёт миграцию из изменений schema.ts",
+        "`npm run db:migrate` накатывает миграции на dev БД",
+        "`npm run db:studio` запускает Drizzle Studio на http://localhost:4983"
+      ],
+      "files": [
+        "backend/drizzle.config.ts",
+        "backend/src/db/index.ts",
+        "backend/src/db/schema.ts",
+        "backend/src/db/migrations/.gitkeep"
+      ],
+      "deps": [
+        "P0-003"
+      ],
+      "verify": "`npm run db:migrate` без ошибок, `\\dt` в psql показывает только пустые системные таблицы",
+      "notes": "—",
+      "prompt": "[TASK P0-005] Drizzle ORM + миграции\n\nОПИСАНИЕ\nУстановить drizzle-orm + drizzle-kit. Настроить drizzle.config.ts. Создать пустую schema.ts. Команды npm run db:migrate, db:generate, db:studio должны работать.\n\nACCEPTANCE CRITERIA\n  1. `npm run db:generate` создаёт миграцию из изменений schema.ts\n  2. `npm run db:migrate` накатывает миграции на dev БД\n  3. `npm run db:studio` запускает Drizzle Studio на http://localhost:4983\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/drizzle.config.ts\n  - backend/src/db/index.ts\n  - backend/src/db/schema.ts\n  - backend/src/db/migrations/.gitkeep\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P0-003\n\nКАК ПРОВЕРИТЬ\n  `npm run db:migrate` без ошибок, `\\dt` в psql показывает только пустые системные таблицы\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  —"
+    },
+    {
+      "id": "P0-006",
+      "epic": "EPIC-P0-INFRA",
+      "size": "M",
+      "title": "GitHub Actions CI",
+      "description": "Workflow .github/workflows/ci.yml: на каждый PR — lint, type-check, тесты для backend и frontend. Использовать docker compose для прогона. Кэшировать node_modules.",
+      "acceptance": [
+        "PR на main → запускается workflow",
+        "Workflow проходит на ~3-5 минут",
+        "Падение тестов блокирует merge"
+      ],
+      "files": [
+        ".github/workflows/ci.yml"
+      ],
+      "deps": [
+        "P0-003",
+        "P0-004"
+      ],
+      "verify": "Создать PR с заведомо проходящими тестами → CI зелёный",
+      "notes": "Использовать pnpm если в проекте pnpm, иначе npm. Кэширование через actions/cache.",
+      "prompt": "[TASK P0-006] GitHub Actions CI\n\nОПИСАНИЕ\nWorkflow .github/workflows/ci.yml: на каждый PR — lint, type-check, тесты для backend и frontend. Использовать docker compose для прогона. Кэшировать node_modules.\n\nACCEPTANCE CRITERIA\n  1. PR на main → запускается workflow\n  2. Workflow проходит на ~3-5 минут\n  3. Падение тестов блокирует merge\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - .github/workflows/ci.yml\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P0-003\n  - P0-004\n\nКАК ПРОВЕРИТЬ\n  Создать PR с заведомо проходящими тестами → CI зелёный\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Использовать pnpm если в проекте pnpm, иначе npm. Кэширование через actions/cache."
+    },
+    {
+      "id": "P0-007",
+      "epic": "EPIC-P0-INFRA",
+      "size": "S",
+      "title": "Sentry интеграция",
+      "description": "Создать 2 проекта в Sentry (free tier): new-universe-backend, new-universe-tma. Подключить в код через @sentry/node и @sentry/react. DSN в .env.",
+      "acceptance": [
+        "Тестовая ошибка на бэкенде попадает в Sentry",
+        "Тестовая ошибка на фронте попадает в Sentry",
+        "В Sentry привязаны git releases"
+      ],
+      "files": [
+        "backend/src/lib/sentry.ts",
+        "frontend/src/lib/sentry.ts"
+      ],
+      "deps": [
+        "P0-003",
+        "P0-004"
+      ],
+      "verify": "GET /debug-sentry → видно ошибку в Sentry UI",
+      "notes": "Эндпоинт /debug-sentry убрать после тестирования.",
+      "prompt": "[TASK P0-007] Sentry интеграция\n\nОПИСАНИЕ\nСоздать 2 проекта в Sentry (free tier): new-universe-backend, new-universe-tma. Подключить в код через @sentry/node и @sentry/react. DSN в .env.\n\nACCEPTANCE CRITERIA\n  1. Тестовая ошибка на бэкенде попадает в Sentry\n  2. Тестовая ошибка на фронте попадает в Sentry\n  3. В Sentry привязаны git releases\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/lib/sentry.ts\n  - frontend/src/lib/sentry.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P0-003\n  - P0-004\n\nКАК ПРОВЕРИТЬ\n  GET /debug-sentry → видно ошибку в Sentry UI\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Эндпоинт /debug-sentry убрать после тестирования."
+    },
+    {
+      "id": "P0-008",
+      "epic": "EPIC-P0-INFRA",
+      "size": "S",
+      "title": "Структурированное логирование",
+      "description": "Все логи бэкенда — через Pino, в JSON. Поля: ts, level, msg, requestId, userId (если есть), feature.",
+      "acceptance": [
+        "Каждый HTTP-запрос логируется со своим requestId (генерируется через uuid v4)",
+        "Логи в dev — через pino-pretty, читаемые в терминале",
+        "Логи в проде — pure JSON, готовы для BetterStack/Logtail"
+      ],
+      "files": [
+        "backend/src/lib/logger.ts",
+        "backend/src/middleware/request-id.ts"
+      ],
+      "deps": [
+        "P0-003"
+      ],
+      "verify": "Сделать запрос → в логах видно requestId",
+      "notes": "—",
+      "prompt": "[TASK P0-008] Структурированное логирование\n\nОПИСАНИЕ\nВсе логи бэкенда — через Pino, в JSON. Поля: ts, level, msg, requestId, userId (если есть), feature.\n\nACCEPTANCE CRITERIA\n  1. Каждый HTTP-запрос логируется со своим requestId (генерируется через uuid v4)\n  2. Логи в dev — через pino-pretty, читаемые в терминале\n  3. Логи в проде — pure JSON, готовы для BetterStack/Logtail\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/lib/logger.ts\n  - backend/src/middleware/request-id.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P0-003\n\nКАК ПРОВЕРИТЬ\n  Сделать запрос → в логах видно requestId\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  —"
+    },
+    {
+      "id": "P0-009",
+      "epic": "EPIC-P0-INFRA",
+      "size": "S",
+      "title": "Vitest + первый smoke-тест",
+      "description": "Подключить vitest. Написать smoke-тест для GET /health.",
+      "acceptance": [
+        "`npm test` запускает vitest и проходит",
+        "Тест проверяет, что /health возвращает 200 и {status:\"ok\"}"
+      ],
+      "files": [
+        "backend/vitest.config.ts",
+        "backend/src/routes/health.test.ts"
+      ],
+      "deps": [
+        "P0-003"
+      ],
+      "verify": "`docker compose exec backend npm test` зелёный",
+      "notes": "—",
+      "prompt": "[TASK P0-009] Vitest + первый smoke-тест\n\nОПИСАНИЕ\nПодключить vitest. Написать smoke-тест для GET /health.\n\nACCEPTANCE CRITERIA\n  1. `npm test` запускает vitest и проходит\n  2. Тест проверяет, что /health возвращает 200 и {status:\"ok\"}\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/vitest.config.ts\n  - backend/src/routes/health.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P0-003\n\nКАК ПРОВЕРИТЬ\n  `docker compose exec backend npm test` зелёный\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  —"
+    },
+    {
+      "id": "P0-010",
+      "epic": "EPIC-P0-INFRA",
+      "size": "M",
+      "title": "Telegram-бот через @BotFather + dev webhook",
+      "description": "Создать тестового бота через @BotFather (имя NewUniverseDevBot). Получить токен. Настроить dev-webhook через cloudflared tunnel. Документировать процесс в dev/README.md.",
+      "acceptance": [
+        "Бот существует в Telegram",
+        "TELEGRAM_BOT_TOKEN записан в личные заметки разработчика (НЕ в репо!)",
+        "Webhook URL настроен через @BotFather → /setwebhook",
+        "Тестовое сообщение боту → попадает в backend log"
+      ],
+      "files": [
+        "dev/TELEGRAM_SETUP.md"
+      ],
+      "deps": [
+        "P0-003"
+      ],
+      "verify": "Отправить /start боту → видно в логах backend",
+      "notes": "Описать в TELEGRAM_SETUP.md шаги: создание бота, получение токена, настройка туннеля. Токен хранить ТОЛЬКО в .env (gitignored).",
+      "prompt": "[TASK P0-010] Telegram-бот через @BotFather + dev webhook\n\nОПИСАНИЕ\nСоздать тестового бота через @BotFather (имя NewUniverseDevBot). Получить токен. Настроить dev-webhook через cloudflared tunnel. Документировать процесс в dev/README.md.\n\nACCEPTANCE CRITERIA\n  1. Бот существует в Telegram\n  2. TELEGRAM_BOT_TOKEN записан в личные заметки разработчика (НЕ в репо!)\n  3. Webhook URL настроен через @BotFather → /setwebhook\n  4. Тестовое сообщение боту → попадает в backend log\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - dev/TELEGRAM_SETUP.md\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P0-003\n\nКАК ПРОВЕРИТЬ\n  Отправить /start боту → видно в логах backend\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Описать в TELEGRAM_SETUP.md шаги: создание бота, получение токена, настройка туннеля. Токен хранить ТОЛЬКО в .env (gitignored)."
+    },
+    {
+      "id": "P1-101",
+      "epic": "EPIC-P1-DB",
+      "size": "S",
+      "title": "Таблица users",
+      "description": "Создать таблицу users в schema.ts: id (uuid), tg_id (bigint unique), tg_username, tg_first_name, created_at, premium_until, power_score (default 0). Сгенерировать и применить миграцию.",
+      "acceptance": [
+        "Таблица users создана со всеми полями",
+        "Индекс по tg_id (unique)",
+        "Миграция в backend/src/db/migrations/"
+      ],
+      "files": [
+        "backend/src/db/schema/users.ts",
+        "backend/src/db/migrations/0001_users.sql (auto-generated)"
+      ],
+      "deps": [
+        "P0-005"
+      ],
+      "verify": "`\\d users` в psql показывает все поля",
+      "notes": "Использовать drizzle pgTable. Импортировать в src/db/schema.ts.",
+      "prompt": "[TASK P1-101] Таблица users\n\nОПИСАНИЕ\nСоздать таблицу users в schema.ts: id (uuid), tg_id (bigint unique), tg_username, tg_first_name, created_at, premium_until, power_score (default 0). Сгенерировать и применить миграцию.\n\nACCEPTANCE CRITERIA\n  1. Таблица users создана со всеми полями\n  2. Индекс по tg_id (unique)\n  3. Миграция в backend/src/db/migrations/\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/schema/users.ts\n  - backend/src/db/migrations/0001_users.sql (auto-generated)\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P0-005\n\nКАК ПРОВЕРИТЬ\n  `\\d users` в psql показывает все поля\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Использовать drizzle pgTable. Импортировать в src/db/schema.ts."
+    },
+    {
+      "id": "P1-102",
+      "epic": "EPIC-P1-DB",
+      "size": "S",
+      "title": "Каталог ресурсов: таблица resources + сидер",
+      "description": "Таблица resources: id (slug, primary key), name (json: ru/en), tier (1-4), symbol, base_regen_rate, default_storage_cap. Сидер заполняет 13 ресурсов (см. addendum + GDD).",
+      "acceptance": [
+        "Таблица resources заполнена 13 записями: water, iron, carbon, silicon, methane, copper, aluminum, titanium, ice, mercury, magnesium, lead, tritium",
+        "`npm run db:seed` идемпотентен (можно запускать повторно)",
+        "Каждая запись имеет ru/en название"
+      ],
+      "files": [
+        "backend/src/db/schema/resources.ts",
+        "backend/src/db/seed/resources.ts"
+      ],
+      "deps": [
+        "P1-101"
+      ],
+      "verify": "`SELECT count(*) FROM resources` → 13",
+      "notes": "Tritium — новый ресурс (см. addendum §3.6). Tier 3 минор, нужен для прыжкового топлива.",
+      "prompt": "[TASK P1-102] Каталог ресурсов: таблица resources + сидер\n\nОПИСАНИЕ\nТаблица resources: id (slug, primary key), name (json: ru/en), tier (1-4), symbol, base_regen_rate, default_storage_cap. Сидер заполняет 13 ресурсов (см. addendum + GDD).\n\nACCEPTANCE CRITERIA\n  1. Таблица resources заполнена 13 записями: water, iron, carbon, silicon, methane, copper, aluminum, titanium, ice, mercury, magnesium, lead, tritium\n  2. `npm run db:seed` идемпотентен (можно запускать повторно)\n  3. Каждая запись имеет ru/en название\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/schema/resources.ts\n  - backend/src/db/seed/resources.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-101\n\nКАК ПРОВЕРИТЬ\n  `SELECT count(*) FROM resources` → 13\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Tritium — новый ресурс (см. addendum §3.6). Tier 3 минор, нужен для прыжкового топлива."
+    },
+    {
+      "id": "P1-103",
+      "epic": "EPIC-P1-DB",
+      "size": "M",
+      "title": "Планеты, planet_resources, richness",
+      "description": "Таблицы: systems (id, owner_id nullable, is_home, sector_x/y/z, name, seed), planets (id, system_id, biome, size, slot_count, name), planet_resources (planet_id, resource_id, amount, last_update_at, regen_rate), richness (planet_id, resource_id, value 0..5).",
+      "acceptance": [
+        "Все 4 таблицы созданы",
+        "Внешние ключи: planets.system_id → systems.id, planet_resources/richness → planets/resources",
+        "Индексы: planets.system_id, planet_resources(planet_id, resource_id) unique"
+      ],
+      "files": [
+        "backend/src/db/schema/world.ts",
+        "backend/src/db/migrations/...sql"
+      ],
+      "deps": [
+        "P1-102"
+      ],
+      "verify": "Миграция применена, `\\d planets` показывает поля",
+      "notes": "is_home_system флаг будет использоваться для блокировки чужих обращений к домашней системе.",
+      "prompt": "[TASK P1-103] Планеты, planet_resources, richness\n\nОПИСАНИЕ\nТаблицы: systems (id, owner_id nullable, is_home, sector_x/y/z, name, seed), planets (id, system_id, biome, size, slot_count, name), planet_resources (planet_id, resource_id, amount, last_update_at, regen_rate), richness (planet_id, resource_id, value 0..5).\n\nACCEPTANCE CRITERIA\n  1. Все 4 таблицы созданы\n  2. Внешние ключи: planets.system_id → systems.id, planet_resources/richness → planets/resources\n  3. Индексы: planets.system_id, planet_resources(planet_id, resource_id) unique\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/schema/world.ts\n  - backend/src/db/migrations/...sql\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-102\n\nКАК ПРОВЕРИТЬ\n  Миграция применена, `\\d planets` показывает поля\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  is_home_system флаг будет использоваться для блокировки чужих обращений к домашней системе."
+    },
+    {
+      "id": "P1-104",
+      "epic": "EPIC-P1-DB",
+      "size": "M",
+      "title": "building_types (catalog) + buildings (instances)",
+      "description": "building_types: id (slug), name (json), category, max_level, deps (jsonb массив зависимостей), base_cost (jsonb), base_time_sec, base_output (jsonb), energy_consumption.\nbuildings: id, planet_id, type_id, level, queue_action (build|upgrade|null), queue_completes_at.\nСидер заполняет 10 базовых типов из GDD §5.",
+      "acceptance": [
+        "Таблицы созданы",
+        "Сидер заполняет building_types: command_center, mine, drill, storage, smelter, spaceport, shipyard, lab, cryo_factory, solar_plant",
+        "Стоимости и времена соответствуют GDD"
+      ],
+      "files": [
+        "backend/src/db/schema/buildings.ts",
+        "backend/src/db/seed/building-types.ts"
+      ],
+      "deps": [
+        "P1-103"
+      ],
+      "verify": "`SELECT slug FROM building_types ORDER BY slug` → 10 строк",
+      "notes": "cryo_factory — новое здание из addendum (для лёд⇄вода).",
+      "prompt": "[TASK P1-104] building_types (catalog) + buildings (instances)\n\nОПИСАНИЕ\nbuilding_types: id (slug), name (json), category, max_level, deps (jsonb массив зависимостей), base_cost (jsonb), base_time_sec, base_output (jsonb), energy_consumption.\nbuildings: id, planet_id, type_id, level, queue_action (build|upgrade|null), queue_completes_at.\nСидер заполняет 10 базовых типов из GDD §5.\n\nACCEPTANCE CRITERIA\n  1. Таблицы созданы\n  2. Сидер заполняет building_types: command_center, mine, drill, storage, smelter, spaceport, shipyard, lab, cryo_factory, solar_plant\n  3. Стоимости и времена соответствуют GDD\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/schema/buildings.ts\n  - backend/src/db/seed/building-types.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-103\n\nКАК ПРОВЕРИТЬ\n  `SELECT slug FROM building_types ORDER BY slug` → 10 строк\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  cryo_factory — новое здание из addendum (для лёд⇄вода)."
+    },
+    {
+      "id": "P1-105",
+      "epic": "EPIC-P1-DB",
+      "size": "M",
+      "title": "ship_types + ships",
+      "description": "ship_types: id (slug), name, role, hp, speed, cargo, dps, armor, fuel_consumption, build_time_sec, build_cost (jsonb), required_buildings, sensor_range.\nships: id, owner_id, type_id, location_planet_id (nullable), status (idle|moving|building), cargo_json, fuel.\nСидер заполняет 5 типов: scout, cargo_light, colonizer, recon_probe, jump_ship.",
+      "acceptance": [
+        "Таблицы созданы",
+        "Сидер: 5 ship_types (Scout, Cargo Light, Colonizer, Recon Probe, Jump Ship)",
+        "Поле sensor_range заполнено (Scout=30, Recon=60, Cargo=8 и т.д.)"
+      ],
+      "files": [
+        "backend/src/db/schema/ships.ts",
+        "backend/src/db/seed/ship-types.ts"
+      ],
+      "deps": [
+        "P1-103"
+      ],
+      "verify": "`SELECT slug, sensor_range FROM ship_types`",
+      "notes": "Jump Ship — новый тип из addendum, требует Engines lvl 3 + Jump Drive.",
+      "prompt": "[TASK P1-105] ship_types + ships\n\nОПИСАНИЕ\nship_types: id (slug), name, role, hp, speed, cargo, dps, armor, fuel_consumption, build_time_sec, build_cost (jsonb), required_buildings, sensor_range.\nships: id, owner_id, type_id, location_planet_id (nullable), status (idle|moving|building), cargo_json, fuel.\nСидер заполняет 5 типов: scout, cargo_light, colonizer, recon_probe, jump_ship.\n\nACCEPTANCE CRITERIA\n  1. Таблицы созданы\n  2. Сидер: 5 ship_types (Scout, Cargo Light, Colonizer, Recon Probe, Jump Ship)\n  3. Поле sensor_range заполнено (Scout=30, Recon=60, Cargo=8 и т.д.)\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/schema/ships.ts\n  - backend/src/db/seed/ship-types.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-103\n\nКАК ПРОВЕРИТЬ\n  `SELECT slug, sensor_range FROM ship_types`\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Jump Ship — новый тип из addendum, требует Engines lvl 3 + Jump Drive."
+    },
+    {
+      "id": "P1-106",
+      "epic": "EPIC-P1-DB",
+      "size": "S",
+      "title": "research, research_progress",
+      "description": "research_branches (catalog: mining, engineering, engines, weapons, sensors, logistics, jump_drive). research_progress (user_id, branch, level, completes_at).",
+      "acceptance": [
+        "Таблицы созданы",
+        "Сидер заполняет 7 веток (включая jump_drive из addendum)"
+      ],
+      "files": [
+        "backend/src/db/schema/research.ts",
+        "backend/src/db/seed/research-branches.ts"
+      ],
+      "deps": [
+        "P1-101"
+      ],
+      "verify": "`SELECT * FROM research_branches`",
+      "notes": "—",
+      "prompt": "[TASK P1-106] research, research_progress\n\nОПИСАНИЕ\nresearch_branches (catalog: mining, engineering, engines, weapons, sensors, logistics, jump_drive). research_progress (user_id, branch, level, completes_at).\n\nACCEPTANCE CRITERIA\n  1. Таблицы созданы\n  2. Сидер заполняет 7 веток (включая jump_drive из addendum)\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/schema/research.ts\n  - backend/src/db/seed/research-branches.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-101\n\nКАК ПРОВЕРИТЬ\n  `SELECT * FROM research_branches`\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  —"
+    },
+    {
+      "id": "P1-107",
+      "epic": "EPIC-P1-DB",
+      "size": "M",
+      "title": "expeditions",
+      "description": "expeditions: id, ship_id, type (scout|cargo|colonize|jump), origin_planet_id, target_x/y/z, target_planet_id (nullable), status (queued|in_flight|arrived|returning|completed|failed), eta, returned_at, result (jsonb).",
+      "acceptance": [
+        "Таблица создана",
+        "Индексы по eta + status (для быстрого poll-а воркером)"
+      ],
+      "files": [
+        "backend/src/db/schema/expeditions.ts"
+      ],
+      "deps": [
+        "P1-105"
+      ],
+      "verify": "Миграция применена",
+      "notes": "—",
+      "prompt": "[TASK P1-107] expeditions\n\nОПИСАНИЕ\nexpeditions: id, ship_id, type (scout|cargo|colonize|jump), origin_planet_id, target_x/y/z, target_planet_id (nullable), status (queued|in_flight|arrived|returning|completed|failed), eta, returned_at, result (jsonb).\n\nACCEPTANCE CRITERIA\n  1. Таблица создана\n  2. Индексы по eta + status (для быстрого poll-а воркером)\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/schema/expeditions.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-105\n\nКАК ПРОВЕРИТЬ\n  Миграция применена\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  —"
+    },
+    {
+      "id": "P1-108",
+      "epic": "EPIC-P1-DB",
+      "size": "S",
+      "title": "discovered_planets, discovered_systems (per-player)",
+      "description": "Таблицы для per-player видимости (см. addendum §3.4). discovered_planets (user_id, planet_id, discovered_at). discovered_systems (user_id, system_id, discovered_at). Уникальный индекс (user_id, planet_id) / (user_id, system_id).",
+      "acceptance": [
+        "Таблицы созданы",
+        "Индексы корректные"
+      ],
+      "files": [
+        "backend/src/db/schema/discovery.ts"
+      ],
+      "deps": [
+        "P1-103"
+      ],
+      "verify": "Миграция применена",
+      "notes": "Все API, возвращающие планеты/системы, должны фильтровать через JOIN с этими таблицами.",
+      "prompt": "[TASK P1-108] discovered_planets, discovered_systems (per-player)\n\nОПИСАНИЕ\nТаблицы для per-player видимости (см. addendum §3.4). discovered_planets (user_id, planet_id, discovered_at). discovered_systems (user_id, system_id, discovered_at). Уникальный индекс (user_id, planet_id) / (user_id, system_id).\n\nACCEPTANCE CRITERIA\n  1. Таблицы созданы\n  2. Индексы корректные\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/schema/discovery.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-103\n\nКАК ПРОВЕРИТЬ\n  Миграция применена\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Все API, возвращающие планеты/системы, должны фильтровать через JOIN с этими таблицами."
+    },
+    {
+      "id": "P1-120",
+      "epic": "EPIC-P1-AUTH",
+      "size": "M",
+      "title": "Telegram initData валидация",
+      "description": "Middleware, проверяющий заголовок X-Telegram-Init-Data: HMAC по boilerplate Telegram. Парсит user_id, username из строки. Если валидно — кладёт в request.user.",
+      "acceptance": [
+        "Корректный initData (от реального Telegram) → middleware пропускает",
+        "Истёкший initData (auth_date > 1 час) → 401",
+        "Подделанный hash → 401",
+        "Без заголовка → 401"
+      ],
+      "files": [
+        "backend/src/middleware/telegram-auth.ts",
+        "backend/src/lib/telegram.ts",
+        "backend/src/middleware/telegram-auth.test.ts"
+      ],
+      "deps": [
+        "P0-008"
+      ],
+      "verify": "Unit-тест проходит",
+      "notes": "Использовать алгоритм из официальной документации: https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app",
+      "prompt": "[TASK P1-120] Telegram initData валидация\n\nОПИСАНИЕ\nMiddleware, проверяющий заголовок X-Telegram-Init-Data: HMAC по boilerplate Telegram. Парсит user_id, username из строки. Если валидно — кладёт в request.user.\n\nACCEPTANCE CRITERIA\n  1. Корректный initData (от реального Telegram) → middleware пропускает\n  2. Истёкший initData (auth_date > 1 час) → 401\n  3. Подделанный hash → 401\n  4. Без заголовка → 401\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/middleware/telegram-auth.ts\n  - backend/src/lib/telegram.ts\n  - backend/src/middleware/telegram-auth.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P0-008\n\nКАК ПРОВЕРИТЬ\n  Unit-тест проходит\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Использовать алгоритм из официальной документации: https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app"
+    },
+    {
+      "id": "P1-121",
+      "epic": "EPIC-P1-AUTH",
+      "size": "M",
+      "title": "POST /auth/telegram → создание/получение пользователя",
+      "description": "Эндпоинт принимает валидированный initData (через middleware). Если user с tg_id не существует — создаёт + триггерит P1-141 (генерация Home System). Возвращает JWT-сессию (httpOnly cookie + body).",
+      "acceptance": [
+        "Первый запрос с новым tg_id → создаёт user + home system",
+        "Второй запрос с тем же tg_id → возвращает existing user",
+        "Возвращает session token, который можно использовать в Authorization header"
+      ],
+      "files": [
+        "backend/src/features/auth/routes.ts",
+        "backend/src/features/auth/service.ts",
+        "backend/src/features/auth/auth.test.ts"
+      ],
+      "deps": [
+        "P1-120",
+        "P1-141"
+      ],
+      "verify": "curl с тестовым initData → возвращает 200 + token",
+      "notes": "JWT secret из .env. Срок жизни 30 дней.",
+      "prompt": "[TASK P1-121] POST /auth/telegram → создание/получение пользователя\n\nОПИСАНИЕ\nЭндпоинт принимает валидированный initData (через middleware). Если user с tg_id не существует — создаёт + триггерит P1-141 (генерация Home System). Возвращает JWT-сессию (httpOnly cookie + body).\n\nACCEPTANCE CRITERIA\n  1. Первый запрос с новым tg_id → создаёт user + home system\n  2. Второй запрос с тем же tg_id → возвращает existing user\n  3. Возвращает session token, который можно использовать в Authorization header\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/auth/routes.ts\n  - backend/src/features/auth/service.ts\n  - backend/src/features/auth/auth.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-120\n  - P1-141\n\nКАК ПРОВЕРИТЬ\n  curl с тестовым initData → возвращает 200 + token\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  JWT secret из .env. Срок жизни 30 дней."
+    },
+    {
+      "id": "P1-122",
+      "epic": "EPIC-P1-AUTH",
+      "size": "S",
+      "title": "GET /me → состояние игрока",
+      "description": "Возвращает: текущий user, домашняя система, открытые планеты, корабли, очереди стройки, ресурсы (с актуальным lazy-compute), исследования.",
+      "acceptance": [
+        "Без авторизации → 401",
+        "С авторизацией → 200 с полным state в JSON",
+        "Время ответа ≤ 200 мс при нормальной нагрузке"
+      ],
+      "files": [
+        "backend/src/features/me/routes.ts",
+        "backend/src/features/me/service.ts"
+      ],
+      "deps": [
+        "P1-121",
+        "P1-130"
+      ],
+      "verify": "Интеграционный тест: создать user → GET /me → видеть Home System",
+      "notes": "Это основной \"single source of truth\" для frontend. Должен возвращать минимально необходимое.",
+      "prompt": "[TASK P1-122] GET /me → состояние игрока\n\nОПИСАНИЕ\nВозвращает: текущий user, домашняя система, открытые планеты, корабли, очереди стройки, ресурсы (с актуальным lazy-compute), исследования.\n\nACCEPTANCE CRITERIA\n  1. Без авторизации → 401\n  2. С авторизацией → 200 с полным state в JSON\n  3. Время ответа ≤ 200 мс при нормальной нагрузке\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/me/routes.ts\n  - backend/src/features/me/service.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-121\n  - P1-130\n\nКАК ПРОВЕРИТЬ\n  Интеграционный тест: создать user → GET /me → видеть Home System\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Это основной \"single source of truth\" для frontend. Должен возвращать минимально необходимое."
+    },
+    {
+      "id": "P1-141",
+      "epic": "EPIC-P1-WORLD",
+      "size": "L",
+      "title": "Генерация Home System",
+      "description": "Сервис generateHomeSystem(userId): создаёт систему + 4-7 планет с детерминированным seed = hash(userId, server_secret). Гарантирует, что 1 планета имеет все 5 базовых ресурсов, 1 планета содержит Tritium с низким richness. Все планеты НЕ открыты (discovered_planets — пусто, кроме стартовой).",
+      "acceptance": [
+        "Вызов с одним userId всегда возвращает одну и ту же планетарную систему",
+        "5 базовых ресурсов гарантированно присутствуют",
+        "1 планета имеет Tritium с richness 0.3-0.8",
+        "Стартовая планета (CommandCenter lvl 1) добавлена в discovered_planets",
+        "Tier 3 (кроме Tritium) и Tier 4 ресурсы ОТСУТСТВУЮТ в Home System"
+      ],
+      "files": [
+        "backend/src/features/world/home-system-generator.ts",
+        "backend/src/features/world/biomes.ts",
+        "backend/src/features/world/home-system-generator.test.ts"
+      ],
+      "deps": [
+        "P1-103",
+        "P1-102"
+      ],
+      "verify": "Unit-тест: дважды генерируем home system для userId=1 → результаты идентичны",
+      "notes": "Использовать seedrandom или собственный детерминированный PRNG. Биомы из GDD §4.2.",
+      "prompt": "[TASK P1-141] Генерация Home System\n\nОПИСАНИЕ\nСервис generateHomeSystem(userId): создаёт систему + 4-7 планет с детерминированным seed = hash(userId, server_secret). Гарантирует, что 1 планета имеет все 5 базовых ресурсов, 1 планета содержит Tritium с низким richness. Все планеты НЕ открыты (discovered_planets — пусто, кроме стартовой).\n\nACCEPTANCE CRITERIA\n  1. Вызов с одним userId всегда возвращает одну и ту же планетарную систему\n  2. 5 базовых ресурсов гарантированно присутствуют\n  3. 1 планета имеет Tritium с richness 0.3-0.8\n  4. Стартовая планета (CommandCenter lvl 1) добавлена в discovered_planets\n  5. Tier 3 (кроме Tritium) и Tier 4 ресурсы ОТСУТСТВУЮТ в Home System\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/world/home-system-generator.ts\n  - backend/src/features/world/biomes.ts\n  - backend/src/features/world/home-system-generator.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-103\n  - P1-102\n\nКАК ПРОВЕРИТЬ\n  Unit-тест: дважды генерируем home system для userId=1 → результаты идентичны\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Использовать seedrandom или собственный детерминированный PRNG. Биомы из GDD §4.2."
+    },
+    {
+      "id": "P1-142",
+      "epic": "EPIC-P1-WORLD",
+      "size": "M",
+      "title": "Sectors — структура общего пула",
+      "description": "Таблица sectors: id (composite x,y,z), seed, generated_at, system_count. Сервис getOrCreateSector(x,y,z): возвращает существующий или создаёт пустой. Используется при первом обращении из jump.",
+      "acceptance": [
+        "getOrCreateSector(0,0,0) → создаёт запись если нет",
+        "Повторный вызов возвращает existing",
+        "Seed детерминированный"
+      ],
+      "files": [
+        "backend/src/db/schema/sectors.ts",
+        "backend/src/features/world/sectors.ts"
+      ],
+      "deps": [
+        "P1-103"
+      ],
+      "verify": "Unit-тест: getOrCreateSector(1,2,3) дважды → одна запись в БД",
+      "notes": "Размер сектора 500×500×500 (см. addendum §3.7).",
+      "prompt": "[TASK P1-142] Sectors — структура общего пула\n\nОПИСАНИЕ\nТаблица sectors: id (composite x,y,z), seed, generated_at, system_count. Сервис getOrCreateSector(x,y,z): возвращает существующий или создаёт пустой. Используется при первом обращении из jump.\n\nACCEPTANCE CRITERIA\n  1. getOrCreateSector(0,0,0) → создаёт запись если нет\n  2. Повторный вызов возвращает existing\n  3. Seed детерминированный\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/schema/sectors.ts\n  - backend/src/features/world/sectors.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-103\n\nКАК ПРОВЕРИТЬ\n  Unit-тест: getOrCreateSector(1,2,3) дважды → одна запись в БД\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Размер сектора 500×500×500 (см. addendum §3.7)."
+    },
+    {
+      "id": "P1-143",
+      "epic": "EPIC-P1-WORLD",
+      "size": "L",
+      "title": "Lazy generation систем в секторе",
+      "description": "Сервис generateSystemsInSector(sector, target_count=5): создаёт недостающие системы рандомно в координатах сектора. Использует seed сектора. Не превышает 12 систем.",
+      "acceptance": [
+        "Если в секторе уже 5 систем — ничего не делает",
+        "Если 0 — генерирует 5 систем",
+        "Координаты систем не пересекаются (мин. дистанция 50 ед)",
+        "Биомы планет в системах распределены по весам из GDD"
+      ],
+      "files": [
+        "backend/src/features/world/sector-generator.ts",
+        "backend/src/features/world/sector-generator.test.ts"
+      ],
+      "deps": [
+        "P1-142",
+        "P1-141"
+      ],
+      "verify": "Тест: для пустого сектора генерируется 5 систем; повторный вызов не добавляет",
+      "notes": "Системы в общем пуле — owner_id=null, is_home_system=false.",
+      "prompt": "[TASK P1-143] Lazy generation систем в секторе\n\nОПИСАНИЕ\nСервис generateSystemsInSector(sector, target_count=5): создаёт недостающие системы рандомно в координатах сектора. Использует seed сектора. Не превышает 12 систем.\n\nACCEPTANCE CRITERIA\n  1. Если в секторе уже 5 систем — ничего не делает\n  2. Если 0 — генерирует 5 систем\n  3. Координаты систем не пересекаются (мин. дистанция 50 ед)\n  4. Биомы планет в системах распределены по весам из GDD\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/world/sector-generator.ts\n  - backend/src/features/world/sector-generator.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-142\n  - P1-141\n\nКАК ПРОВЕРИТЬ\n  Тест: для пустого сектора генерируется 5 систем; повторный вызов не добавляет\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Системы в общем пуле — owner_id=null, is_home_system=false."
+    },
+    {
+      "id": "P1-144",
+      "epic": "EPIC-P1-WORLD",
+      "size": "M",
+      "title": "Visibility check service",
+      "description": "Сервис checkVisibility(ship): берёт текущую позицию корабля, ищет невидимые игроку планеты/системы в радиусе ship.sensor_range. Если найдены — добавляет в discovered_planets/discovered_systems и возвращает массив новых открытий (для пушей).",
+      "acceptance": [
+        "Если планета в радиусе и не открыта → попадает в discovered",
+        "Если уже открыта → не дублируется",
+        "Уважается home_system: чужой корабль не может \"увидеть\" чужую home system"
+      ],
+      "files": [
+        "backend/src/features/world/visibility.ts",
+        "backend/src/features/world/visibility.test.ts"
+      ],
+      "deps": [
+        "P1-108",
+        "P1-105"
+      ],
+      "verify": "Unit-тест: запустить корабль с sensor_range=30, поставить планету в 25 ед → она открывается",
+      "notes": "Радиус — евклидов. Используется в worker tick_expeditions.",
+      "prompt": "[TASK P1-144] Visibility check service\n\nОПИСАНИЕ\nСервис checkVisibility(ship): берёт текущую позицию корабля, ищет невидимые игроку планеты/системы в радиусе ship.sensor_range. Если найдены — добавляет в discovered_planets/discovered_systems и возвращает массив новых открытий (для пушей).\n\nACCEPTANCE CRITERIA\n  1. Если планета в радиусе и не открыта → попадает в discovered\n  2. Если уже открыта → не дублируется\n  3. Уважается home_system: чужой корабль не может \"увидеть\" чужую home system\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/world/visibility.ts\n  - backend/src/features/world/visibility.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-108\n  - P1-105\n\nКАК ПРОВЕРИТЬ\n  Unit-тест: запустить корабль с sensor_range=30, поставить планету в 25 ед → она открывается\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Радиус — евклидов. Используется в worker tick_expeditions."
+    },
+    {
+      "id": "P1-150",
+      "epic": "EPIC-P1-RES",
+      "size": "M",
+      "title": "Resource accrual: lazy compute on read",
+      "description": "Сервис computeCurrentResources(planetId): для каждого resource — amount + rate × (now - last_update_at). Не пишет в БД, только возвращает значения. Учитывает cap склада (storage cap).",
+      "acceptance": [
+        "Если last_update = now-3600s, rate=10/h → amount += 10",
+        "Не превышает storage cap",
+        "Возвращает массив всех ресурсов планеты"
+      ],
+      "files": [
+        "backend/src/features/resources/accrual.ts",
+        "backend/src/features/resources/accrual.test.ts"
+      ],
+      "deps": [
+        "P1-103"
+      ],
+      "verify": "Unit-тест с мок-временем",
+      "notes": "Это основной паттерн event-based симуляции. Описано в Stellar_Forge_GDD.docx §14.3.",
+      "prompt": "[TASK P1-150] Resource accrual: lazy compute on read\n\nОПИСАНИЕ\nСервис computeCurrentResources(planetId): для каждого resource — amount + rate × (now - last_update_at). Не пишет в БД, только возвращает значения. Учитывает cap склада (storage cap).\n\nACCEPTANCE CRITERIA\n  1. Если last_update = now-3600s, rate=10/h → amount += 10\n  2. Не превышает storage cap\n  3. Возвращает массив всех ресурсов планеты\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/resources/accrual.ts\n  - backend/src/features/resources/accrual.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-103\n\nКАК ПРОВЕРИТЬ\n  Unit-тест с мок-временем\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Это основной паттерн event-based симуляции. Описано в Stellar_Forge_GDD.docx §14.3."
+    },
+    {
+      "id": "P1-151",
+      "epic": "EPIC-P1-RES",
+      "size": "M",
+      "title": "Resource transactions: spend/gain (атомарно)",
+      "description": "Сервис spendResources(planetId, costs[]) и gainResources(planetId, gains[]): транзакция, SELECT FOR UPDATE на planet_resources, обновляет last_update_at. Возвращает {success, balanceAfter} или {success:false, error:\"not enough X\"}.",
+      "acceptance": [
+        "Параллельные вызовы не приводят к отрицательным значениям",
+        "Если не хватает ресурса — транзакция откатывается, ничего не списано",
+        "last_update_at синхронизируется со списанием"
+      ],
+      "files": [
+        "backend/src/features/resources/transactions.ts",
+        "backend/src/features/resources/transactions.test.ts"
+      ],
+      "deps": [
+        "P1-150"
+      ],
+      "verify": "Stress-тест: 100 параллельных списаний → итоговый баланс корректный",
+      "notes": "КРИТИЧЕСКАЯ ВЕЩЬ. Любая ошибка тут = дюп ресурсов. Должно быть >=80% покрытие тестами.",
+      "prompt": "[TASK P1-151] Resource transactions: spend/gain (атомарно)\n\nОПИСАНИЕ\nСервис spendResources(planetId, costs[]) и gainResources(planetId, gains[]): транзакция, SELECT FOR UPDATE на planet_resources, обновляет last_update_at. Возвращает {success, balanceAfter} или {success:false, error:\"not enough X\"}.\n\nACCEPTANCE CRITERIA\n  1. Параллельные вызовы не приводят к отрицательным значениям\n  2. Если не хватает ресурса — транзакция откатывается, ничего не списано\n  3. last_update_at синхронизируется со списанием\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/resources/transactions.ts\n  - backend/src/features/resources/transactions.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-150\n\nКАК ПРОВЕРИТЬ\n  Stress-тест: 100 параллельных списаний → итоговый баланс корректный\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  КРИТИЧЕСКАЯ ВЕЩЬ. Любая ошибка тут = дюп ресурсов. Должно быть >=80% покрытие тестами."
+    },
+    {
+      "id": "P1-152",
+      "epic": "EPIC-P1-RES",
+      "size": "M",
+      "title": "POST /resources/convert — Лёд ⇄ Вода",
+      "description": "Эндпоинт принимает {from: \"ice\"|\"water\", to, amount}. Проверяет наличие Cryogenic Factory или Smelter lvl 3+. Списывает ресурс, начисляет другой с учётом потерь (5% при воде→льду, 0% при льду→воде).",
+      "acceptance": [
+        "Без Cryogenic Factory → 400",
+        "С Cryo lvl 1 → конвертация работает",
+        "Лёд→Вода: 100 льда → 100 воды",
+        "Вода→Лёд: 100 воды → 95 льда",
+        "Энергия списывается"
+      ],
+      "files": [
+        "backend/src/features/resources/convert.ts",
+        "backend/src/features/resources/convert.test.ts"
+      ],
+      "deps": [
+        "P1-151",
+        "P1-160"
+      ],
+      "verify": "Integration-тест",
+      "notes": "См. addendum §2.1.",
+      "prompt": "[TASK P1-152] POST /resources/convert — Лёд ⇄ Вода\n\nОПИСАНИЕ\nЭндпоинт принимает {from: \"ice\"|\"water\", to, amount}. Проверяет наличие Cryogenic Factory или Smelter lvl 3+. Списывает ресурс, начисляет другой с учётом потерь (5% при воде→льду, 0% при льду→воде).\n\nACCEPTANCE CRITERIA\n  1. Без Cryogenic Factory → 400\n  2. С Cryo lvl 1 → конвертация работает\n  3. Лёд→Вода: 100 льда → 100 воды\n  4. Вода→Лёд: 100 воды → 95 льда\n  5. Энергия списывается\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/resources/convert.ts\n  - backend/src/features/resources/convert.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-151\n  - P1-160\n\nКАК ПРОВЕРИТЬ\n  Integration-тест\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  См. addendum §2.1."
+    },
+    {
+      "id": "P1-160",
+      "epic": "EPIC-P1-BLD",
+      "size": "M",
+      "title": "POST /buildings/build — постройка нового здания",
+      "description": "Принимает {planetId, typeSlug, slot}. Проверяет: планета принадлежит игроку, есть свободный слот, выполнены deps, хватает ресурсов. Списывает ресурсы, создаёт buildings запись с queue_completes_at = now + base_time, ставит BullMQ job.",
+      "acceptance": [
+        "Если не хватает ресурсов → 400 с деталями",
+        "Если слот занят → 400",
+        "Если deps не выполнены → 400",
+        "Успех → возвращает building с queue_completes_at",
+        "Очередь стройки лимитирована 1 (без премиума)"
+      ],
+      "files": [
+        "backend/src/features/buildings/routes.ts",
+        "backend/src/features/buildings/service.ts",
+        "backend/src/features/buildings/service.test.ts"
+      ],
+      "deps": [
+        "P1-151",
+        "P1-104"
+      ],
+      "verify": "Integration-тест полного flow",
+      "notes": "Все формулы стоимости из Stellar_Forge_GDD.docx §5.2.",
+      "prompt": "[TASK P1-160] POST /buildings/build — постройка нового здания\n\nОПИСАНИЕ\nПринимает {planetId, typeSlug, slot}. Проверяет: планета принадлежит игроку, есть свободный слот, выполнены deps, хватает ресурсов. Списывает ресурсы, создаёт buildings запись с queue_completes_at = now + base_time, ставит BullMQ job.\n\nACCEPTANCE CRITERIA\n  1. Если не хватает ресурсов → 400 с деталями\n  2. Если слот занят → 400\n  3. Если deps не выполнены → 400\n  4. Успех → возвращает building с queue_completes_at\n  5. Очередь стройки лимитирована 1 (без премиума)\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/buildings/routes.ts\n  - backend/src/features/buildings/service.ts\n  - backend/src/features/buildings/service.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-151\n  - P1-104\n\nКАК ПРОВЕРИТЬ\n  Integration-тест полного flow\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Все формулы стоимости из Stellar_Forge_GDD.docx §5.2."
+    },
+    {
+      "id": "P1-161",
+      "epic": "EPIC-P1-BLD",
+      "size": "M",
+      "title": "POST /buildings/{id}/upgrade — апгрейд здания",
+      "description": "Аналогично build, но для existing building. Стоимость = base_cost × 1.6^(level-1). Время = base_time × 1.5^(level-1).",
+      "acceptance": [
+        "Не апгрейдит дальше max_level",
+        "Стоимость считается по формуле",
+        "queue_action = \"upgrade\", level не меняется до завершения"
+      ],
+      "files": [
+        "backend/src/features/buildings/upgrade.ts",
+        "backend/src/features/buildings/upgrade.test.ts"
+      ],
+      "deps": [
+        "P1-160"
+      ],
+      "verify": "Integration-тест",
+      "notes": "—",
+      "prompt": "[TASK P1-161] POST /buildings/{id}/upgrade — апгрейд здания\n\nОПИСАНИЕ\nАналогично build, но для existing building. Стоимость = base_cost × 1.6^(level-1). Время = base_time × 1.5^(level-1).\n\nACCEPTANCE CRITERIA\n  1. Не апгрейдит дальше max_level\n  2. Стоимость считается по формуле\n  3. queue_action = \"upgrade\", level не меняется до завершения\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/buildings/upgrade.ts\n  - backend/src/features/buildings/upgrade.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-160\n\nКАК ПРОВЕРИТЬ\n  Integration-тест\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  —"
+    },
+    {
+      "id": "P1-162",
+      "epic": "EPIC-P1-BLD",
+      "size": "M",
+      "title": "Worker: tick_buildings",
+      "description": "BullMQ воркер, бежит каждые 30 секунд. Находит buildings, у которых queue_completes_at ≤ now. Применяет результат: для build — level=1, для upgrade — level+=1. Обновляет regen_rate ресурсов на этой планете (в planet_resources).",
+      "acceptance": [
+        "Здание завершается ровно по таймеру (±30 сек)",
+        "Скорость добычи на планете обновляется (если это шахта)",
+        "Уведомление кладётся в notifications таблицу"
+      ],
+      "files": [
+        "backend/src/workers/tick-buildings.ts",
+        "backend/src/workers/tick-buildings.test.ts"
+      ],
+      "deps": [
+        "P1-161"
+      ],
+      "verify": "Integration-тест: построить здание с base_time=10s, подождать → level=1",
+      "notes": "Использовать BullMQ repeat-job.",
+      "prompt": "[TASK P1-162] Worker: tick_buildings\n\nОПИСАНИЕ\nBullMQ воркер, бежит каждые 30 секунд. Находит buildings, у которых queue_completes_at ≤ now. Применяет результат: для build — level=1, для upgrade — level+=1. Обновляет regen_rate ресурсов на этой планете (в planet_resources).\n\nACCEPTANCE CRITERIA\n  1. Здание завершается ровно по таймеру (±30 сек)\n  2. Скорость добычи на планете обновляется (если это шахта)\n  3. Уведомление кладётся в notifications таблицу\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/workers/tick-buildings.ts\n  - backend/src/workers/tick-buildings.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-161\n\nКАК ПРОВЕРИТЬ\n  Integration-тест: построить здание с base_time=10s, подождать → level=1\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Использовать BullMQ repeat-job."
+    },
+    {
+      "id": "P1-170",
+      "epic": "EPIC-P1-SHP",
+      "size": "M",
+      "title": "POST /ships/build — постройка корабля",
+      "description": "Принимает {planetId, typeSlug}. Проверяет: shipyard есть, deps выполнены, ресурсы хватает. Списывает, ставит в очередь верфи. Очередь лимитирована.",
+      "acceptance": [
+        "Без shipyard → 400",
+        "Слот верфи занят → 400",
+        "Успех → возвращает ship с status=\"building\""
+      ],
+      "files": [
+        "backend/src/features/ships/build.ts",
+        "backend/src/features/ships/build.test.ts"
+      ],
+      "deps": [
+        "P1-151",
+        "P1-105"
+      ],
+      "verify": "Integration-тест",
+      "notes": "—",
+      "prompt": "[TASK P1-170] POST /ships/build — постройка корабля\n\nОПИСАНИЕ\nПринимает {planetId, typeSlug}. Проверяет: shipyard есть, deps выполнены, ресурсы хватает. Списывает, ставит в очередь верфи. Очередь лимитирована.\n\nACCEPTANCE CRITERIA\n  1. Без shipyard → 400\n  2. Слот верфи занят → 400\n  3. Успех → возвращает ship с status=\"building\"\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/ships/build.ts\n  - backend/src/features/ships/build.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-151\n  - P1-105\n\nКАК ПРОВЕРИТЬ\n  Integration-тест\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  —"
+    },
+    {
+      "id": "P1-171",
+      "epic": "EPIC-P1-SHP",
+      "size": "M",
+      "title": "Worker: tick_ships",
+      "description": "BullMQ воркер. Завершает постройку кораблей. Меняет status: building → idle, location_planet_id = where_built.",
+      "acceptance": [
+        "Корабль готов в срок",
+        "Уведомление в notifications"
+      ],
+      "files": [
+        "backend/src/workers/tick-ships.ts"
+      ],
+      "deps": [
+        "P1-170"
+      ],
+      "verify": "Integration-тест",
+      "notes": "—",
+      "prompt": "[TASK P1-171] Worker: tick_ships\n\nОПИСАНИЕ\nBullMQ воркер. Завершает постройку кораблей. Меняет status: building → idle, location_planet_id = where_built.\n\nACCEPTANCE CRITERIA\n  1. Корабль готов в срок\n  2. Уведомление в notifications\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/workers/tick-ships.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-170\n\nКАК ПРОВЕРИТЬ\n  Integration-тест\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  —"
+    },
+    {
+      "id": "P1-180",
+      "epic": "EPIC-P1-EXP",
+      "size": "L",
+      "title": "POST /expeditions — отправить корабль",
+      "description": "Принимает {shipId, targetX, targetY, targetZ, fuelLoaded, cargoLoaded}. Проверяет: корабль idle, принадлежит игроку, на стартовой планете есть достаточно топлива и груза. Создаёт expedition, ставит ship.status=moving, рассчитывает eta.",
+      "acceptance": [
+        "Корабль не idle → 400",
+        "Не хватает топлива → 400",
+        "eta = distance × 60 / speed × engine_factor",
+        "BullMQ job на eta запланирован"
+      ],
+      "files": [
+        "backend/src/features/expeditions/launch.ts",
+        "backend/src/features/expeditions/launch.test.ts"
+      ],
+      "deps": [
+        "P1-170",
+        "P1-151"
+      ],
+      "verify": "Integration-тест: запустить scout на 10 ед → видеть expedition с eta",
+      "notes": "—",
+      "prompt": "[TASK P1-180] POST /expeditions — отправить корабль\n\nОПИСАНИЕ\nПринимает {shipId, targetX, targetY, targetZ, fuelLoaded, cargoLoaded}. Проверяет: корабль idle, принадлежит игроку, на стартовой планете есть достаточно топлива и груза. Создаёт expedition, ставит ship.status=moving, рассчитывает eta.\n\nACCEPTANCE CRITERIA\n  1. Корабль не idle → 400\n  2. Не хватает топлива → 400\n  3. eta = distance × 60 / speed × engine_factor\n  4. BullMQ job на eta запланирован\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/expeditions/launch.ts\n  - backend/src/features/expeditions/launch.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-170\n  - P1-151\n\nКАК ПРОВЕРИТЬ\n  Integration-тест: запустить scout на 10 ед → видеть expedition с eta\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  —"
+    },
+    {
+      "id": "P1-181",
+      "epic": "EPIC-P1-EXP",
+      "size": "L",
+      "title": "Worker: tick_expeditions",
+      "description": "BullMQ воркер каждые 30 сек. Для всех in_flight expeditions: рассчитывает текущую позицию (linear interp), вызывает checkVisibility, если eta достигнут — переводит в \"arrived\" и стартует возврат (если scout/probe). При возврате — apply результат (planet discovery, cargo unload).",
+      "acceptance": [
+        "Корабль \"движется\" во времени, видимость обновляется",
+        "По прибытии — discovered_planets обновляется (если visibility сработал)",
+        "Возвращается в стартовую планету (для scout/cargo-empty), eta удваивается"
+      ],
+      "files": [
+        "backend/src/workers/tick-expeditions.ts",
+        "backend/src/workers/tick-expeditions.test.ts"
+      ],
+      "deps": [
+        "P1-180",
+        "P1-144"
+      ],
+      "verify": "Integration-тест полного цикла scout → return",
+      "notes": "Самая сложная логика. Тестировать каждый кейс отдельно.",
+      "prompt": "[TASK P1-181] Worker: tick_expeditions\n\nОПИСАНИЕ\nBullMQ воркер каждые 30 сек. Для всех in_flight expeditions: рассчитывает текущую позицию (linear interp), вызывает checkVisibility, если eta достигнут — переводит в \"arrived\" и стартует возврат (если scout/probe). При возврате — apply результат (planet discovery, cargo unload).\n\nACCEPTANCE CRITERIA\n  1. Корабль \"движется\" во времени, видимость обновляется\n  2. По прибытии — discovered_planets обновляется (если visibility сработал)\n  3. Возвращается в стартовую планету (для scout/cargo-empty), eta удваивается\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/workers/tick-expeditions.ts\n  - backend/src/workers/tick-expeditions.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-180\n  - P1-144\n\nКАК ПРОВЕРИТЬ\n  Integration-тест полного цикла scout → return\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Самая сложная логика. Тестировать каждый кейс отдельно."
+    },
+    {
+      "id": "P1-182",
+      "epic": "EPIC-P1-EXP",
+      "size": "M",
+      "title": "POST /expeditions/jump — межсистемный прыжок",
+      "description": "Особый эндпоинт для Jump Ship. Принимает {shipId, targetSector{x,y,z}}. Проверяет: ship.type = jump_ship, есть Jump Fuel в баке, Jump Drive исследован lvl 1+. Lazy-генерит сектор, выбирает целевую систему. После прибытия — добавляет в discovered_systems.",
+      "acceptance": [
+        "Без Jump Drive → 400",
+        "Не Jump Ship → 400",
+        "Не хватает Jump Fuel → 400",
+        "Успех → корабль попадает в общий пул"
+      ],
+      "files": [
+        "backend/src/features/expeditions/jump.ts"
+      ],
+      "deps": [
+        "P1-180",
+        "P1-143"
+      ],
+      "verify": "Integration-тест",
+      "notes": "См. addendum §3.5-§3.6.",
+      "prompt": "[TASK P1-182] POST /expeditions/jump — межсистемный прыжок\n\nОПИСАНИЕ\nОсобый эндпоинт для Jump Ship. Принимает {shipId, targetSector{x,y,z}}. Проверяет: ship.type = jump_ship, есть Jump Fuel в баке, Jump Drive исследован lvl 1+. Lazy-генерит сектор, выбирает целевую систему. После прибытия — добавляет в discovered_systems.\n\nACCEPTANCE CRITERIA\n  1. Без Jump Drive → 400\n  2. Не Jump Ship → 400\n  3. Не хватает Jump Fuel → 400\n  4. Успех → корабль попадает в общий пул\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/expeditions/jump.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-180\n  - P1-143\n\nКАК ПРОВЕРИТЬ\n  Integration-тест\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  См. addendum §3.5-§3.6."
+    },
+    {
+      "id": "P1-200",
+      "epic": "EPIC-P1-FE",
+      "size": "M",
+      "title": "API client + auth flow",
+      "description": "frontend/src/lib/api.ts: единый клиент с автоматической передачей session token из Telegram WebApp SDK. React Query для всех запросов. Auth flow: при загрузке → POST /auth/telegram → сохранить token → GET /me.",
+      "acceptance": [
+        "При первом запуске игрок авторизован автоматически",
+        "Token хранится в memory (НЕ localStorage)",
+        "Все запросы автоматически шлют Authorization header"
+      ],
+      "files": [
+        "frontend/src/lib/api.ts",
+        "frontend/src/hooks/useAuth.ts",
+        "frontend/src/hooks/useMe.ts"
+      ],
+      "deps": [
+        "P0-004",
+        "P1-122"
+      ],
+      "verify": "Открыть TMA → видеть данные игрока",
+      "notes": "Использовать @tanstack/react-query.",
+      "prompt": "[TASK P1-200] API client + auth flow\n\nОПИСАНИЕ\nfrontend/src/lib/api.ts: единый клиент с автоматической передачей session token из Telegram WebApp SDK. React Query для всех запросов. Auth flow: при загрузке → POST /auth/telegram → сохранить token → GET /me.\n\nACCEPTANCE CRITERIA\n  1. При первом запуске игрок авторизован автоматически\n  2. Token хранится в memory (НЕ localStorage)\n  3. Все запросы автоматически шлют Authorization header\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - frontend/src/lib/api.ts\n  - frontend/src/hooks/useAuth.ts\n  - frontend/src/hooks/useMe.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P0-004\n  - P1-122\n\nКАК ПРОВЕРИТЬ\n  Открыть TMA → видеть данные игрока\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Использовать @tanstack/react-query."
+    },
+    {
+      "id": "P1-201",
+      "epic": "EPIC-P1-FE",
+      "size": "L",
+      "title": "Главный экран: ресурсы + очередь стройки",
+      "description": "Основной экран TMA: верх — плашка с балансом ресурсов (с регенерацией в реальном времени через requestAnimationFrame), середина — текущая фокус-планета (схема со зданиями), низ — таб-бар: Planets, Ships, Map, Tech, Profile.",
+      "acceptance": [
+        "Ресурсы тикают в UI (анимированно увеличиваются)",
+        "Очередь стройки видна с countdown",
+        "Tap на здание → открывает деталь"
+      ],
+      "files": [
+        "frontend/src/pages/Home.tsx",
+        "frontend/src/components/ResourceBar.tsx",
+        "frontend/src/components/PlanetView.tsx",
+        "frontend/src/components/BuildQueue.tsx"
+      ],
+      "deps": [
+        "P1-200"
+      ],
+      "verify": "UI matches описание",
+      "notes": "Тёмная тема, космический стиль. Tailwind + Lucide icons.",
+      "prompt": "[TASK P1-201] Главный экран: ресурсы + очередь стройки\n\nОПИСАНИЕ\nОсновной экран TMA: верх — плашка с балансом ресурсов (с регенерацией в реальном времени через requestAnimationFrame), середина — текущая фокус-планета (схема со зданиями), низ — таб-бар: Planets, Ships, Map, Tech, Profile.\n\nACCEPTANCE CRITERIA\n  1. Ресурсы тикают в UI (анимированно увеличиваются)\n  2. Очередь стройки видна с countdown\n  3. Tap на здание → открывает деталь\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - frontend/src/pages/Home.tsx\n  - frontend/src/components/ResourceBar.tsx\n  - frontend/src/components/PlanetView.tsx\n  - frontend/src/components/BuildQueue.tsx\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-200\n\nКАК ПРОВЕРИТЬ\n  UI matches описание\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Тёмная тема, космический стиль. Tailwind + Lucide icons."
+    },
+    {
+      "id": "P1-202",
+      "epic": "EPIC-P1-FE",
+      "size": "M",
+      "title": "Экран планеты: слоты и апгрейды",
+      "description": "Список зданий планеты + пустые слоты. Tap на слот → диалог выбора здания. Tap на existing → диалог апгрейда с показом стоимости.",
+      "acceptance": [
+        "Видны все здания + пустые слоты",
+        "Стоимость апгрейда видна заранее",
+        "После постройки/апгрейда — оптимистичный UI с rollback при ошибке"
+      ],
+      "files": [
+        "frontend/src/pages/PlanetDetail.tsx",
+        "frontend/src/components/BuildingSlot.tsx",
+        "frontend/src/components/UpgradeDialog.tsx"
+      ],
+      "deps": [
+        "P1-201",
+        "P1-160",
+        "P1-161"
+      ],
+      "verify": "Полный flow стройки шахты",
+      "notes": "—",
+      "prompt": "[TASK P1-202] Экран планеты: слоты и апгрейды\n\nОПИСАНИЕ\nСписок зданий планеты + пустые слоты. Tap на слот → диалог выбора здания. Tap на existing → диалог апгрейда с показом стоимости.\n\nACCEPTANCE CRITERIA\n  1. Видны все здания + пустые слоты\n  2. Стоимость апгрейда видна заранее\n  3. После постройки/апгрейда — оптимистичный UI с rollback при ошибке\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - frontend/src/pages/PlanetDetail.tsx\n  - frontend/src/components/BuildingSlot.tsx\n  - frontend/src/components/UpgradeDialog.tsx\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-201\n  - P1-160\n  - P1-161\n\nКАК ПРОВЕРИТЬ\n  Полный flow стройки шахты\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  —"
+    },
+    {
+      "id": "P1-203",
+      "epic": "EPIC-P1-FE",
+      "size": "M",
+      "title": "Карта домашней системы",
+      "description": "Top-down карта Home System на PixiJS. Звезда в центре, планеты на орбитах, открытые — с именами и ресурсами, неоткрытые — \"?\". Маркеры кораблей с траекториями.",
+      "acceptance": [
+        "Карта рендерится 60fps на mid-tier мобильных",
+        "Pan + pinch zoom",
+        "Tap на планету → переход на экран планеты"
+      ],
+      "files": [
+        "frontend/src/pages/SystemMap.tsx",
+        "frontend/src/components/pixi/SystemRenderer.tsx"
+      ],
+      "deps": [
+        "P1-201"
+      ],
+      "verify": "Открыть карту → видеть свою систему",
+      "notes": "PixiJS v8.",
+      "prompt": "[TASK P1-203] Карта домашней системы\n\nОПИСАНИЕ\nTop-down карта Home System на PixiJS. Звезда в центре, планеты на орбитах, открытые — с именами и ресурсами, неоткрытые — \"?\". Маркеры кораблей с траекториями.\n\nACCEPTANCE CRITERIA\n  1. Карта рендерится 60fps на mid-tier мобильных\n  2. Pan + pinch zoom\n  3. Tap на планету → переход на экран планеты\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - frontend/src/pages/SystemMap.tsx\n  - frontend/src/components/pixi/SystemRenderer.tsx\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-201\n\nКАК ПРОВЕРИТЬ\n  Открыть карту → видеть свою систему\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  PixiJS v8."
+    },
+    {
+      "id": "P1-204",
+      "epic": "EPIC-P1-FE",
+      "size": "M",
+      "title": "Экран кораблей + запуск экспедиции",
+      "description": "Список кораблей с состоянием. Кнопка «Отправить» → диалог: выбор точки на мини-карте + загрузка топлива + ETA preview.",
+      "acceptance": [
+        "Видно все корабли",
+        "Можно запустить scout, видеть его на карте",
+        "ETA отсчитывается в реальном времени"
+      ],
+      "files": [
+        "frontend/src/pages/Ships.tsx",
+        "frontend/src/components/ExpeditionDialog.tsx"
+      ],
+      "deps": [
+        "P1-203",
+        "P1-180"
+      ],
+      "verify": "Запустить scout → видеть в полёте на карте",
+      "notes": "—",
+      "prompt": "[TASK P1-204] Экран кораблей + запуск экспедиции\n\nОПИСАНИЕ\nСписок кораблей с состоянием. Кнопка «Отправить» → диалог: выбор точки на мини-карте + загрузка топлива + ETA preview.\n\nACCEPTANCE CRITERIA\n  1. Видно все корабли\n  2. Можно запустить scout, видеть его на карте\n  3. ETA отсчитывается в реальном времени\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - frontend/src/pages/Ships.tsx\n  - frontend/src/components/ExpeditionDialog.tsx\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-203\n  - P1-180\n\nКАК ПРОВЕРИТЬ\n  Запустить scout → видеть в полёте на карте\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  —"
+    },
+    {
+      "id": "P1-205",
+      "epic": "EPIC-P1-FE",
+      "size": "M",
+      "title": "Экран исследований (tech tree)",
+      "description": "7 веток × 5 уровней. Tap на узел → диалог с деталями + кнопка start. Отображение прогресса.",
+      "acceptance": [
+        "Все ветки видны",
+        "Можно начать исследование если хватает ресурсов и lab lvl",
+        "Прогресс таймера в реальном времени"
+      ],
+      "files": [
+        "frontend/src/pages/Research.tsx",
+        "frontend/src/components/TechTreeNode.tsx"
+      ],
+      "deps": [
+        "P1-200",
+        "P1-106"
+      ],
+      "verify": "Start research → ждать → done",
+      "notes": "—",
+      "prompt": "[TASK P1-205] Экран исследований (tech tree)\n\nОПИСАНИЕ\n7 веток × 5 уровней. Tap на узел → диалог с деталями + кнопка start. Отображение прогресса.\n\nACCEPTANCE CRITERIA\n  1. Все ветки видны\n  2. Можно начать исследование если хватает ресурсов и lab lvl\n  3. Прогресс таймера в реальном времени\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - frontend/src/pages/Research.tsx\n  - frontend/src/components/TechTreeNode.tsx\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-200\n  - P1-106\n\nКАК ПРОВЕРИТЬ\n  Start research → ждать → done\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  —"
+    },
+    {
+      "id": "P1-206",
+      "epic": "EPIC-P1-FE",
+      "size": "M",
+      "title": "Onboarding tutorial",
+      "description": "5 шагов: Welcome → Build first mine → Build storage → Build scout → Send first expedition. Skipable, но ресурсы за выполнение.",
+      "acceptance": [
+        "Запускается на первом входе нового user",
+        "Можно скипнуть и вернуться позже",
+        "Награда (200 Fe + 100 H₂O) за прохождение"
+      ],
+      "files": [
+        "frontend/src/components/Tutorial.tsx",
+        "frontend/src/pages/onboarding/"
+      ],
+      "deps": [
+        "P1-201",
+        "P1-202",
+        "P1-204"
+      ],
+      "verify": "Создать нового user → пройти tutorial → получить награду",
+      "notes": "—",
+      "prompt": "[TASK P1-206] Onboarding tutorial\n\nОПИСАНИЕ\n5 шагов: Welcome → Build first mine → Build storage → Build scout → Send first expedition. Skipable, но ресурсы за выполнение.\n\nACCEPTANCE CRITERIA\n  1. Запускается на первом входе нового user\n  2. Можно скипнуть и вернуться позже\n  3. Награда (200 Fe + 100 H₂O) за прохождение\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - frontend/src/components/Tutorial.tsx\n  - frontend/src/pages/onboarding/\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-201\n  - P1-202\n  - P1-204\n\nКАК ПРОВЕРИТЬ\n  Создать нового user → пройти tutorial → получить награду\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  —"
+    },
+    {
+      "id": "P1-220",
+      "epic": "EPIC-P1-BOT",
+      "size": "M",
+      "title": "Telegram bot webhook + /start",
+      "description": "POST /tg/webhook принимает обновления от Telegram. Команда /start отвечает с inline-кнопкой \"Открыть New Universe\" → запуск Mini App.",
+      "acceptance": [
+        "Webhook настроен",
+        "/start работает",
+        "Кнопка открывает TMA"
+      ],
+      "files": [
+        "backend/src/features/bot/webhook.ts",
+        "backend/src/features/bot/commands.ts"
+      ],
+      "deps": [
+        "P0-010"
+      ],
+      "verify": "В Telegram: /start → видеть кнопку",
+      "notes": "—",
+      "prompt": "[TASK P1-220] Telegram bot webhook + /start\n\nОПИСАНИЕ\nPOST /tg/webhook принимает обновления от Telegram. Команда /start отвечает с inline-кнопкой \"Открыть New Universe\" → запуск Mini App.\n\nACCEPTANCE CRITERIA\n  1. Webhook настроен\n  2. /start работает\n  3. Кнопка открывает TMA\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/bot/webhook.ts\n  - backend/src/features/bot/commands.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P0-010\n\nКАК ПРОВЕРИТЬ\n  В Telegram: /start → видеть кнопку\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  —"
+    },
+    {
+      "id": "P1-221",
+      "epic": "EPIC-P1-BOT",
+      "size": "M",
+      "title": "Push-уведомления о ключевых событиях",
+      "description": "Сервис sendPush(userId, type, payload). Воркер раз в минуту берёт notifications из БД с pending=true и шлёт в Telegram. Для типов: building_done, ship_done, expedition_returned, research_done.",
+      "acceptance": [
+        "После завершения постройки → пуш приходит в Telegram",
+        "Notification помечается sent_at",
+        "Соблюдается лимит 20 сообщений/мин на user"
+      ],
+      "files": [
+        "backend/src/workers/notifications.ts",
+        "backend/src/features/bot/push.ts"
+      ],
+      "deps": [
+        "P1-220",
+        "P1-162"
+      ],
+      "verify": "Построить здание → дождаться → пуш в Telegram",
+      "notes": "—",
+      "prompt": "[TASK P1-221] Push-уведомления о ключевых событиях\n\nОПИСАНИЕ\nСервис sendPush(userId, type, payload). Воркер раз в минуту берёт notifications из БД с pending=true и шлёт в Telegram. Для типов: building_done, ship_done, expedition_returned, research_done.\n\nACCEPTANCE CRITERIA\n  1. После завершения постройки → пуш приходит в Telegram\n  2. Notification помечается sent_at\n  3. Соблюдается лимит 20 сообщений/мин на user\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/workers/notifications.ts\n  - backend/src/features/bot/push.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-220\n  - P1-162\n\nКАК ПРОВЕРИТЬ\n  Построить здание → дождаться → пуш в Telegram\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  —"
+    },
+    {
+      "id": "P1-240",
+      "epic": "EPIC-P1-QA",
+      "size": "L",
+      "title": "Integration test: full first-day flow",
+      "description": "Один большой E2E-тест: создать user → home system сгенерирована → построить шахту → апгрейднуть → построить scout → запустить → дождаться возврата → открыть планету.",
+      "acceptance": [
+        "Тест проходит за < 30 сек (с ускоренным временем)",
+        "Покрывает основные ошибочные пути"
+      ],
+      "files": [
+        "backend/tests/e2e/first-day.test.ts"
+      ],
+      "deps": [
+        "P1-181",
+        "P1-162",
+        "P1-171"
+      ],
+      "verify": "`npm run test:e2e` зелёный",
+      "notes": "Использовать testcontainers если нужен изолированный Postgres.",
+      "prompt": "[TASK P1-240] Integration test: full first-day flow\n\nОПИСАНИЕ\nОдин большой E2E-тест: создать user → home system сгенерирована → построить шахту → апгрейднуть → построить scout → запустить → дождаться возврата → открыть планету.\n\nACCEPTANCE CRITERIA\n  1. Тест проходит за < 30 сек (с ускоренным временем)\n  2. Покрывает основные ошибочные пути\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/tests/e2e/first-day.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-181\n  - P1-162\n  - P1-171\n\nКАК ПРОВЕРИТЬ\n  `npm run test:e2e` зелёный\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Использовать testcontainers если нужен изолированный Postgres."
+    },
+    {
+      "id": "P1-241",
+      "epic": "EPIC-P1-QA",
+      "size": "M",
+      "title": "Playwright E2E на frontend",
+      "description": "Тест: открыть TMA с моком Telegram initData → пройти onboarding → построить шахту → проверить что ресурсы тикают.",
+      "acceptance": [
+        "Тест проходит"
+      ],
+      "files": [
+        "frontend/tests/e2e/onboarding.spec.ts"
+      ],
+      "deps": [
+        "P1-206"
+      ],
+      "verify": "`npx playwright test` зелёный",
+      "notes": "—",
+      "prompt": "[TASK P1-241] Playwright E2E на frontend\n\nОПИСАНИЕ\nТест: открыть TMA с моком Telegram initData → пройти onboarding → построить шахту → проверить что ресурсы тикают.\n\nACCEPTANCE CRITERIA\n  1. Тест проходит\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - frontend/tests/e2e/onboarding.spec.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-206\n\nКАК ПРОВЕРИТЬ\n  `npx playwright test` зелёный\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  —"
+    },
+    {
+      "id": "P2-EPIC-COLONIZE",
+      "epic": "EPIC-P2-OUT",
+      "size": "XL",
+      "title": "[Эпик] Колонизация и вторая планета",
+      "description": "Колонизатор как корабль, развёртывание новой колонии в Common Pool, синхронизация ресурсов между планетами через Cargo.",
+      "acceptance": [
+        "К концу Phase 2 игрок может иметь 2-3 колонии и перевозить груз"
+      ],
+      "files": [
+        "будут расписаны при разбиении эпика на микротаски"
+      ],
+      "deps": [
+        "P1-181"
+      ],
+      "verify": "—",
+      "notes": "Разбить на ~10 микротасок при старте Phase 2.",
+      "prompt": "[TASK P2-EPIC-COLONIZE] [Эпик] Колонизация и вторая планета\n\nОПИСАНИЕ\nКолонизатор как корабль, развёртывание новой колонии в Common Pool, синхронизация ресурсов между планетами через Cargo.\n\nACCEPTANCE CRITERIA\n  1. К концу Phase 2 игрок может иметь 2-3 колонии и перевозить груз\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - будут расписаны при разбиении эпика на микротаски\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-181\n\nКАК ПРОВЕРИТЬ\n  —\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Разбить на ~10 микротасок при старте Phase 2."
+    },
+    {
+      "id": "P2-EPIC-MARKET-NPC",
+      "epic": "EPIC-P2-OUT",
+      "size": "L",
+      "title": "[Эпик] NPC-маркет (биржа)",
+      "description": "Игрок может выставлять и покупать ордера у NPC брокера в системе. Карго-перевозка автоматизированно.",
+      "acceptance": [
+        "Эконом-цикл: продать излишек одного ресурса за нужный"
+      ],
+      "files": [
+        "—"
+      ],
+      "deps": [
+        "P2-EPIC-COLONIZE"
+      ],
+      "verify": "—",
+      "notes": "—",
+      "prompt": "[TASK P2-EPIC-MARKET-NPC] [Эпик] NPC-маркет (биржа)\n\nОПИСАНИЕ\nИгрок может выставлять и покупать ордера у NPC брокера в системе. Карго-перевозка автоматизированно.\n\nACCEPTANCE CRITERIA\n  1. Эконом-цикл: продать излишек одного ресурса за нужный\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - —\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-EPIC-COLONIZE\n\nКАК ПРОВЕРИТЬ\n  —\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  —"
+    },
+    {
+      "id": "P2-EPIC-RESEARCH",
+      "epic": "EPIC-P2-OUT",
+      "size": "L",
+      "title": "[Эпик] Research lvl 1-3 для всех веток",
+      "description": "Полная имплементация tech-веток до 3 уровня + UI прогресса.",
+      "acceptance": [
+        "Игрок может пройти любую ветку до lvl 3"
+      ],
+      "files": [
+        "—"
+      ],
+      "deps": [
+        "P1-205"
+      ],
+      "verify": "—",
+      "notes": "—",
+      "prompt": "[TASK P2-EPIC-RESEARCH] [Эпик] Research lvl 1-3 для всех веток\n\nОПИСАНИЕ\nПолная имплементация tech-веток до 3 уровня + UI прогресса.\n\nACCEPTANCE CRITERIA\n  1. Игрок может пройти любую ветку до lvl 3\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - —\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-205\n\nКАК ПРОВЕРИТЬ\n  —\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  —"
+    },
+    {
+      "id": "P3-EPIC-MULTIPLAYER-MAP",
+      "epic": "EPIC-P3-OUT",
+      "size": "XL",
+      "title": "[Эпик] Multiplayer карта Common Pool",
+      "description": "Видны другие игроки, их колонии, флоты. Глобальный поиск систем. Sector map UI.",
+      "acceptance": [
+        "Игрок видит соседей в Sector Map"
+      ],
+      "files": [
+        "—"
+      ],
+      "deps": [
+        "P1-182"
+      ],
+      "verify": "—",
+      "notes": "—",
+      "prompt": "[TASK P3-EPIC-MULTIPLAYER-MAP] [Эпик] Multiplayer карта Common Pool\n\nОПИСАНИЕ\nВидны другие игроки, их колонии, флоты. Глобальный поиск систем. Sector map UI.\n\nACCEPTANCE CRITERIA\n  1. Игрок видит соседей в Sector Map\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - —\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-182\n\nКАК ПРОВЕРИТЬ\n  —\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  —"
+    },
+    {
+      "id": "P3-EPIC-ALLIANCES",
+      "epic": "EPIC-P3-OUT",
+      "size": "L",
+      "title": "[Эпик] Альянсы (кланы)",
+      "description": "Создание альянса, общий банк, чат, карта членов, объявления о войне.",
+      "acceptance": [
+        "Игроки могут объединяться в альянсы до 30 человек"
+      ],
+      "files": [
+        "—"
+      ],
+      "deps": [
+        "P3-EPIC-MULTIPLAYER-MAP"
+      ],
+      "verify": "—",
+      "notes": "—",
+      "prompt": "[TASK P3-EPIC-ALLIANCES] [Эпик] Альянсы (кланы)\n\nОПИСАНИЕ\nСоздание альянса, общий банк, чат, карта членов, объявления о войне.\n\nACCEPTANCE CRITERIA\n  1. Игроки могут объединяться в альянсы до 30 человек\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - —\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P3-EPIC-MULTIPLAYER-MAP\n\nКАК ПРОВЕРИТЬ\n  —\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  —"
+    },
+    {
+      "id": "P3-EPIC-MARKET-PVP",
+      "epic": "EPIC-P3-OUT",
+      "size": "L",
+      "title": "[Эпик] Маркет между игроками",
+      "description": "Биржа доступна между игроками с автоматической доставкой через NPC-карго.",
+      "acceptance": [
+        "Игроки могут торговать друг с другом"
+      ],
+      "files": [
+        "—"
+      ],
+      "deps": [
+        "P2-EPIC-MARKET-NPC"
+      ],
+      "verify": "—",
+      "notes": "—",
+      "prompt": "[TASK P3-EPIC-MARKET-PVP] [Эпик] Маркет между игроками\n\nОПИСАНИЕ\nБиржа доступна между игроками с автоматической доставкой через NPC-карго.\n\nACCEPTANCE CRITERIA\n  1. Игроки могут торговать друг с другом\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - —\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-EPIC-MARKET-NPC\n\nКАК ПРОВЕРИТЬ\n  —\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  —"
+    },
+    {
+      "id": "P2-COL-001",
+      "epic": "EPIC-P2-COL",
+      "size": "M",
+      "title": "Colonies data model and ownership rules",
+      "description": "Add the data model for player colonies outside the home system: colony identity, owner, planet binding, founding timestamp, active/inactive state, and limits per user.",
+      "acceptance": [
+        "A player can own multiple colonies linked to discovered planets",
+        "Home-system planet ownership is still protected from other players",
+        "Database constraints prevent duplicate colonies on the same planet for one owner",
+        "Migration is generated and reversible in local dev"
+      ],
+      "files": [
+        "backend/src/db/schema/colonies.ts",
+        "backend/src/features/colonies/colonies.ts",
+        "backend/src/features/colonies/colonies.test.ts"
+      ],
+      "deps": [
+        "P1-103",
+        "P1-108"
+      ],
+      "verify": "Run colony model unit tests and inspect the generated migration in Postgres",
+      "notes": "This is the base contract for all Phase 2 colonization flows.",
+      "prompt": "[TASK P2-COL-001] Colonies data model and ownership rules\n\nОПИСАНИЕ\nAdd the data model for player colonies outside the home system: colony identity, owner, planet binding, founding timestamp, active/inactive state, and limits per user.\n\nACCEPTANCE CRITERIA\n  1. A player can own multiple colonies linked to discovered planets\n  2. Home-system planet ownership is still protected from other players\n  3. Database constraints prevent duplicate colonies on the same planet for one owner\n  4. Migration is generated and reversible in local dev\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/schema/colonies.ts\n  - backend/src/features/colonies/colonies.ts\n  - backend/src/features/colonies/colonies.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-103\n  - P1-108\n\nКАК ПРОВЕРИТЬ\n  Run colony model unit tests and inspect the generated migration in Postgres\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  This is the base contract for all Phase 2 colonization flows."
+    },
+    {
+      "id": "P2-COL-002",
+      "epic": "EPIC-P2-COL",
+      "size": "L",
+      "title": "Colonizer deployment flow",
+      "description": "Implement the backend service and API for deploying a colonizer ship on an eligible discovered planet in the common pool.",
+      "acceptance": [
+        "Only colonizer ships can found a colony",
+        "Target planet must be discovered by the player and outside protected foreign home systems",
+        "Ship is consumed or converted according to the GDD rule chosen in implementation notes",
+        "Founding creates a colony and a level 1 command center"
+      ],
+      "files": [
+        "backend/src/features/colonies/found-colony.ts",
+        "backend/src/routes/colonies.ts",
+        "backend/src/features/colonies/found-colony.test.ts"
+      ],
+      "deps": [
+        "P2-COL-001",
+        "P1-170",
+        "P1-182"
+      ],
+      "verify": "API test: build colonizer, jump to discovered planet, found a colony, verify colony state",
+      "notes": "If GDD is ambiguous, prefer consuming the colonizer to avoid duplication exploits.",
+      "prompt": "[TASK P2-COL-002] Colonizer deployment flow\n\nОПИСАНИЕ\nImplement the backend service and API for deploying a colonizer ship on an eligible discovered planet in the common pool.\n\nACCEPTANCE CRITERIA\n  1. Only colonizer ships can found a colony\n  2. Target planet must be discovered by the player and outside protected foreign home systems\n  3. Ship is consumed or converted according to the GDD rule chosen in implementation notes\n  4. Founding creates a colony and a level 1 command center\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/colonies/found-colony.ts\n  - backend/src/routes/colonies.ts\n  - backend/src/features/colonies/found-colony.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-COL-001\n  - P1-170\n  - P1-182\n\nКАК ПРОВЕРИТЬ\n  API test: build colonizer, jump to discovered planet, found a colony, verify colony state\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  If GDD is ambiguous, prefer consuming the colonizer to avoid duplication exploits."
+    },
+    {
+      "id": "P2-COL-003",
+      "epic": "EPIC-P2-COL",
+      "size": "M",
+      "title": "Colony bootstrap economy",
+      "description": "Define the starting resource, storage, and building state for a newly founded colony so it can become useful without breaking early-game balance.",
+      "acceptance": [
+        "New colony starts with configured minimal storage and command center",
+        "No resource is created unless explicitly defined by bootstrap config",
+        "Bootstrap values are versioned and test-covered",
+        "Colony cannot immediately create infinite resource loops with home planet"
+      ],
+      "files": [
+        "backend/src/features/colonies/bootstrap.ts",
+        "backend/src/config/colony-bootstrap.ts",
+        "backend/src/features/colonies/bootstrap.test.ts"
+      ],
+      "deps": [
+        "P2-COL-002",
+        "P1-150",
+        "P1-160"
+      ],
+      "verify": "Unit test creates a colony and asserts resource/storage/building state",
+      "notes": "Keep config centralized so balance can change without rewriting services.",
+      "prompt": "[TASK P2-COL-003] Colony bootstrap economy\n\nОПИСАНИЕ\nDefine the starting resource, storage, and building state for a newly founded colony so it can become useful without breaking early-game balance.\n\nACCEPTANCE CRITERIA\n  1. New colony starts with configured minimal storage and command center\n  2. No resource is created unless explicitly defined by bootstrap config\n  3. Bootstrap values are versioned and test-covered\n  4. Colony cannot immediately create infinite resource loops with home planet\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/colonies/bootstrap.ts\n  - backend/src/config/colony-bootstrap.ts\n  - backend/src/features/colonies/bootstrap.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-COL-002\n  - P1-150\n  - P1-160\n\nКАК ПРОВЕРИТЬ\n  Unit test creates a colony and asserts resource/storage/building state\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Keep config centralized so balance can change without rewriting services."
+    },
+    {
+      "id": "P2-COL-004",
+      "epic": "EPIC-P2-COL",
+      "size": "L",
+      "title": "Interplanetary cargo transfer API",
+      "description": "Add API and service logic for sending resources between player-owned planets through cargo ships.",
+      "acceptance": [
+        "Player can transfer resources only between owned colonies/planets",
+        "Cargo capacity and travel time are enforced",
+        "Resources are reserved atomically at departure",
+        "Cancelled/failed transfers cannot duplicate resources"
+      ],
+      "files": [
+        "backend/src/features/logistics/cargo-transfer.ts",
+        "backend/src/routes/cargo.ts",
+        "backend/src/features/logistics/cargo-transfer.test.ts"
+      ],
+      "deps": [
+        "P2-COL-001",
+        "P1-151",
+        "P1-170"
+      ],
+      "verify": "API test sends cargo from home planet to colony and verifies reserved resources",
+      "notes": "Use the same resource transaction primitives from P1-151.",
+      "prompt": "[TASK P2-COL-004] Interplanetary cargo transfer API\n\nОПИСАНИЕ\nAdd API and service logic for sending resources between player-owned planets through cargo ships.\n\nACCEPTANCE CRITERIA\n  1. Player can transfer resources only between owned colonies/planets\n  2. Cargo capacity and travel time are enforced\n  3. Resources are reserved atomically at departure\n  4. Cancelled/failed transfers cannot duplicate resources\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/logistics/cargo-transfer.ts\n  - backend/src/routes/cargo.ts\n  - backend/src/features/logistics/cargo-transfer.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-COL-001\n  - P1-151\n  - P1-170\n\nКАК ПРОВЕРИТЬ\n  API test sends cargo from home planet to colony and verifies reserved resources\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Use the same resource transaction primitives from P1-151."
+    },
+    {
+      "id": "P2-COL-005",
+      "epic": "EPIC-P2-COL",
+      "size": "M",
+      "title": "Cargo route worker",
+      "description": "Implement a worker that completes cargo transfers, applies delivered resources, and records failures safely.",
+      "acceptance": [
+        "Completed transfer adds cargo to destination exactly once",
+        "Worker is idempotent when run repeatedly",
+        "Late or failed transfers are visible for debugging",
+        "Notifications can be emitted after delivery"
+      ],
+      "files": [
+        "backend/src/workers/cargo-routes.ts",
+        "backend/src/features/logistics/cargo-route-worker.test.ts"
+      ],
+      "deps": [
+        "P2-COL-004",
+        "P1-221"
+      ],
+      "verify": "Worker test advances time and verifies one-time delivery",
+      "notes": "Design for retry safety before optimizing throughput.",
+      "prompt": "[TASK P2-COL-005] Cargo route worker\n\nОПИСАНИЕ\nImplement a worker that completes cargo transfers, applies delivered resources, and records failures safely.\n\nACCEPTANCE CRITERIA\n  1. Completed transfer adds cargo to destination exactly once\n  2. Worker is idempotent when run repeatedly\n  3. Late or failed transfers are visible for debugging\n  4. Notifications can be emitted after delivery\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/workers/cargo-routes.ts\n  - backend/src/features/logistics/cargo-route-worker.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-COL-004\n  - P1-221\n\nКАК ПРОВЕРИТЬ\n  Worker test advances time and verifies one-time delivery\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Design for retry safety before optimizing throughput."
+    },
+    {
+      "id": "P2-COL-006",
+      "epic": "EPIC-P2-COL",
+      "size": "M",
+      "title": "Colony management UI",
+      "description": "Add frontend screens for viewing colonies, switching active planet, and initiating cargo transfers.",
+      "acceptance": [
+        "Player can see all owned colonies and their core resources",
+        "Player can switch focus between planets",
+        "Cargo transfer dialog shows capacity, ETA, and validation errors",
+        "UI handles empty colony state cleanly"
+      ],
+      "files": [
+        "frontend/src/pages/Colonies.tsx",
+        "frontend/src/components/CargoTransferDialog.tsx",
+        "frontend/src/hooks/useColonies.ts"
+      ],
+      "deps": [
+        "P2-COL-004",
+        "P1-201"
+      ],
+      "verify": "Manual/UI test: view colony list and start a cargo transfer",
+      "notes": "Keep UI dense and mobile-first for Telegram Mini App.",
+      "prompt": "[TASK P2-COL-006] Colony management UI\n\nОПИСАНИЕ\nAdd frontend screens for viewing colonies, switching active planet, and initiating cargo transfers.\n\nACCEPTANCE CRITERIA\n  1. Player can see all owned colonies and their core resources\n  2. Player can switch focus between planets\n  3. Cargo transfer dialog shows capacity, ETA, and validation errors\n  4. UI handles empty colony state cleanly\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - frontend/src/pages/Colonies.tsx\n  - frontend/src/components/CargoTransferDialog.tsx\n  - frontend/src/hooks/useColonies.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-COL-004\n  - P1-201\n\nКАК ПРОВЕРИТЬ\n  Manual/UI test: view colony list and start a cargo transfer\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Keep UI dense and mobile-first for Telegram Mini App."
+    },
+    {
+      "id": "P2-COL-007",
+      "epic": "EPIC-P2-COL",
+      "size": "M",
+      "title": "Colonization constraints and cost balance",
+      "description": "Define and enforce costs, cooldowns, max colony count, distance limits, and required tech/building gates for colonization.",
+      "acceptance": [
+        "Colonization rules are declared in a typed config",
+        "Backend validates all gates before founding",
+        "Frontend can display why colonization is blocked",
+        "Balance numbers are documented for future tuning"
+      ],
+      "files": [
+        "backend/src/config/colonization-rules.ts",
+        "backend/src/features/colonies/colonization-rules.ts",
+        "frontend/src/components/ColonizationRequirements.tsx"
+      ],
+      "deps": [
+        "P2-COL-002",
+        "P2-RES-003"
+      ],
+      "verify": "Tests cover allowed and blocked colonization attempts",
+      "notes": "Prefer conservative limits until telemetry exists.",
+      "prompt": "[TASK P2-COL-007] Colonization constraints and cost balance\n\nОПИСАНИЕ\nDefine and enforce costs, cooldowns, max colony count, distance limits, and required tech/building gates for colonization.\n\nACCEPTANCE CRITERIA\n  1. Colonization rules are declared in a typed config\n  2. Backend validates all gates before founding\n  3. Frontend can display why colonization is blocked\n  4. Balance numbers are documented for future tuning\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/config/colonization-rules.ts\n  - backend/src/features/colonies/colonization-rules.ts\n  - frontend/src/components/ColonizationRequirements.tsx\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-COL-002\n  - P2-RES-003\n\nКАК ПРОВЕРИТЬ\n  Tests cover allowed and blocked colonization attempts\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Prefer conservative limits until telemetry exists."
+    },
+    {
+      "id": "P2-COL-008",
+      "epic": "EPIC-P2-COL",
+      "size": "L",
+      "title": "Colonization end-to-end scenario",
+      "description": "Add an automated scenario covering first colony discovery, colonizer build, colonization, and first cargo transfer.",
+      "acceptance": [
+        "E2E scenario passes against local stack",
+        "Scenario covers at least one blocked colonization attempt",
+        "Scenario verifies no resource duplication during transfer",
+        "Test runtime remains acceptable for CI"
+      ],
+      "files": [
+        "backend/tests/e2e/colonization.test.ts",
+        "frontend/tests/e2e/colonization.spec.ts"
+      ],
+      "deps": [
+        "P2-COL-006",
+        "P2-COL-007"
+      ],
+      "verify": "Run backend and frontend colonization E2E tests",
+      "notes": "Use accelerated time hooks if workers would otherwise make CI too slow.",
+      "prompt": "[TASK P2-COL-008] Colonization end-to-end scenario\n\nОПИСАНИЕ\nAdd an automated scenario covering first colony discovery, colonizer build, colonization, and first cargo transfer.\n\nACCEPTANCE CRITERIA\n  1. E2E scenario passes against local stack\n  2. Scenario covers at least one blocked colonization attempt\n  3. Scenario verifies no resource duplication during transfer\n  4. Test runtime remains acceptable for CI\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/tests/e2e/colonization.test.ts\n  - frontend/tests/e2e/colonization.spec.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-COL-006\n  - P2-COL-007\n\nКАК ПРОВЕРИТЬ\n  Run backend and frontend colonization E2E tests\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Use accelerated time hooks if workers would otherwise make CI too slow."
+    },
+    {
+      "id": "P2-MKT-001",
+      "epic": "EPIC-P2-MKT",
+      "size": "M",
+      "title": "NPC market data model",
+      "description": "Add tables for NPC market offers, player orders, fulfillment state, prices, fees, and delivery references.",
+      "acceptance": [
+        "Market tables support buy and sell orders",
+        "Order state transitions are explicit",
+        "Indexes cover user, resource, state, and created_at queries",
+        "Schema supports future player market reuse"
+      ],
+      "files": [
+        "backend/src/db/schema/market.ts",
+        "backend/src/features/market/types.ts"
+      ],
+      "deps": [
+        "P1-102",
+        "P1-151"
+      ],
+      "verify": "Migration applies and schema tests validate order state constraints",
+      "notes": "Design with P3 player market in mind, but do not implement P3 behavior here.",
+      "prompt": "[TASK P2-MKT-001] NPC market data model\n\nОПИСАНИЕ\nAdd tables for NPC market offers, player orders, fulfillment state, prices, fees, and delivery references.\n\nACCEPTANCE CRITERIA\n  1. Market tables support buy and sell orders\n  2. Order state transitions are explicit\n  3. Indexes cover user, resource, state, and created_at queries\n  4. Schema supports future player market reuse\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/schema/market.ts\n  - backend/src/features/market/types.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-102\n  - P1-151\n\nКАК ПРОВЕРИТЬ\n  Migration applies and schema tests validate order state constraints\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Design with P3 player market in mind, but do not implement P3 behavior here."
+    },
+    {
+      "id": "P2-MKT-002",
+      "epic": "EPIC-P2-MKT",
+      "size": "M",
+      "title": "NPC broker pricing model",
+      "description": "Implement deterministic NPC pricing with spread, stock pressure, resource tier weighting, and anti-abuse limits.",
+      "acceptance": [
+        "Each resource has a deterministic baseline price",
+        "Buy/sell spread prevents trivial arbitrage",
+        "Prices can be recalculated without corrupting existing orders",
+        "Unit tests cover edge resources and tier effects"
+      ],
+      "files": [
+        "backend/src/features/market/pricing.ts",
+        "backend/src/config/market-prices.ts",
+        "backend/src/features/market/pricing.test.ts"
+      ],
+      "deps": [
+        "P2-MKT-001"
+      ],
+      "verify": "Unit tests assert stable prices and no instant buy/sell profit loop",
+      "notes": "Keep the model simple enough to tune manually after telemetry.",
+      "prompt": "[TASK P2-MKT-002] NPC broker pricing model\n\nОПИСАНИЕ\nImplement deterministic NPC pricing with spread, stock pressure, resource tier weighting, and anti-abuse limits.\n\nACCEPTANCE CRITERIA\n  1. Each resource has a deterministic baseline price\n  2. Buy/sell spread prevents trivial arbitrage\n  3. Prices can be recalculated without corrupting existing orders\n  4. Unit tests cover edge resources and tier effects\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/market/pricing.ts\n  - backend/src/config/market-prices.ts\n  - backend/src/features/market/pricing.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-MKT-001\n\nКАК ПРОВЕРИТЬ\n  Unit tests assert stable prices and no instant buy/sell profit loop\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Keep the model simple enough to tune manually after telemetry."
+    },
+    {
+      "id": "P2-MKT-003",
+      "epic": "EPIC-P2-MKT",
+      "size": "M",
+      "title": "Market order API",
+      "description": "Add endpoints to list market offers and create/cancel NPC buy/sell orders.",
+      "acceptance": [
+        "GET market offers returns resource prices and availability",
+        "POST order validates ownership, resources, capacity, and price",
+        "Cancel returns reserved resources when allowed",
+        "All mutations use atomic resource transactions"
+      ],
+      "files": [
+        "backend/src/routes/market.ts",
+        "backend/src/features/market/orders.ts",
+        "backend/src/features/market/orders.test.ts"
+      ],
+      "deps": [
+        "P2-MKT-002",
+        "P1-151"
+      ],
+      "verify": "API tests cover create, reject, cancel, and insufficient resources",
+      "notes": "Do not expose direct price override through public API.",
+      "prompt": "[TASK P2-MKT-003] Market order API\n\nОПИСАНИЕ\nAdd endpoints to list market offers and create/cancel NPC buy/sell orders.\n\nACCEPTANCE CRITERIA\n  1. GET market offers returns resource prices and availability\n  2. POST order validates ownership, resources, capacity, and price\n  3. Cancel returns reserved resources when allowed\n  4. All mutations use atomic resource transactions\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/routes/market.ts\n  - backend/src/features/market/orders.ts\n  - backend/src/features/market/orders.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-MKT-002\n  - P1-151\n\nКАК ПРОВЕРИТЬ\n  API tests cover create, reject, cancel, and insufficient resources\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Do not expose direct price override through public API."
+    },
+    {
+      "id": "P2-MKT-004",
+      "epic": "EPIC-P2-MKT",
+      "size": "L",
+      "title": "Market fulfillment and NPC cargo delivery",
+      "description": "Implement worker/service logic that fulfills NPC orders and delivers bought goods through an abstracted cargo delivery path.",
+      "acceptance": [
+        "Fulfilled sell orders credit the player correctly",
+        "Fulfilled buy orders deliver resources after configured ETA",
+        "Worker is idempotent and retry-safe",
+        "Market fulfillment does not bypass storage caps"
+      ],
+      "files": [
+        "backend/src/workers/market.ts",
+        "backend/src/features/market/fulfillment.ts",
+        "backend/src/features/market/fulfillment.test.ts"
+      ],
+      "deps": [
+        "P2-MKT-003",
+        "P2-COL-005"
+      ],
+      "verify": "Worker test fulfills buy and sell orders without duplicating resources",
+      "notes": "Use NPC cargo as a gameplay abstraction; no visible NPC fleet required yet.",
+      "prompt": "[TASK P2-MKT-004] Market fulfillment and NPC cargo delivery\n\nОПИСАНИЕ\nImplement worker/service logic that fulfills NPC orders and delivers bought goods through an abstracted cargo delivery path.\n\nACCEPTANCE CRITERIA\n  1. Fulfilled sell orders credit the player correctly\n  2. Fulfilled buy orders deliver resources after configured ETA\n  3. Worker is idempotent and retry-safe\n  4. Market fulfillment does not bypass storage caps\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/workers/market.ts\n  - backend/src/features/market/fulfillment.ts\n  - backend/src/features/market/fulfillment.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-MKT-003\n  - P2-COL-005\n\nКАК ПРОВЕРИТЬ\n  Worker test fulfills buy and sell orders without duplicating resources\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Use NPC cargo as a gameplay abstraction; no visible NPC fleet required yet."
+    },
+    {
+      "id": "P2-MKT-005",
+      "epic": "EPIC-P2-MKT",
+      "size": "M",
+      "title": "Market UI",
+      "description": "Build the Telegram Mini App market screen for viewing prices, placing orders, and tracking pending deliveries.",
+      "acceptance": [
+        "Player can browse buy/sell prices by resource",
+        "Player can place a valid market order",
+        "Pending orders and ETA are visible",
+        "Error states are clear for insufficient resources or storage"
+      ],
+      "files": [
+        "frontend/src/pages/Market.tsx",
+        "frontend/src/components/MarketOrderDialog.tsx",
+        "frontend/src/hooks/useMarket.ts"
+      ],
+      "deps": [
+        "P2-MKT-003",
+        "P1-200"
+      ],
+      "verify": "Manual/UI test places one buy order and one sell order",
+      "notes": "Avoid stock-market complexity; this is a utility economy screen.",
+      "prompt": "[TASK P2-MKT-005] Market UI\n\nОПИСАНИЕ\nBuild the Telegram Mini App market screen for viewing prices, placing orders, and tracking pending deliveries.\n\nACCEPTANCE CRITERIA\n  1. Player can browse buy/sell prices by resource\n  2. Player can place a valid market order\n  3. Pending orders and ETA are visible\n  4. Error states are clear for insufficient resources or storage\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - frontend/src/pages/Market.tsx\n  - frontend/src/components/MarketOrderDialog.tsx\n  - frontend/src/hooks/useMarket.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-MKT-003\n  - P1-200\n\nКАК ПРОВЕРИТЬ\n  Manual/UI test places one buy order and one sell order\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Avoid stock-market complexity; this is a utility economy screen."
+    },
+    {
+      "id": "P2-RES-001",
+      "epic": "EPIC-P2-RES",
+      "size": "M",
+      "title": "Research effects engine",
+      "description": "Implement a typed effects engine that applies research bonuses to production, storage, ship speed, sensor range, and build times.",
+      "acceptance": [
+        "Effects are typed and testable",
+        "Multiple research bonuses compose deterministically",
+        "Backend services consume effects through a single API",
+        "No frontend-only bonus calculation is trusted"
+      ],
+      "files": [
+        "backend/src/features/research/effects.ts",
+        "backend/src/features/research/effects.test.ts"
+      ],
+      "deps": [
+        "P1-106",
+        "P1-150"
+      ],
+      "verify": "Unit tests verify stacked effects for resources and ships",
+      "notes": "This is the foundation for all research upgrades.",
+      "prompt": "[TASK P2-RES-001] Research effects engine\n\nОПИСАНИЕ\nImplement a typed effects engine that applies research bonuses to production, storage, ship speed, sensor range, and build times.\n\nACCEPTANCE CRITERIA\n  1. Effects are typed and testable\n  2. Multiple research bonuses compose deterministically\n  3. Backend services consume effects through a single API\n  4. No frontend-only bonus calculation is trusted\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/research/effects.ts\n  - backend/src/features/research/effects.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-106\n  - P1-150\n\nКАК ПРОВЕРИТЬ\n  Unit tests verify stacked effects for resources and ships\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  This is the foundation for all research upgrades."
+    },
+    {
+      "id": "P2-RES-002",
+      "epic": "EPIC-P2-RES",
+      "size": "M",
+      "title": "Tech catalog levels 1-3",
+      "description": "Expand the seeded research catalog to levels 1-3 for all planned Phase 2 branches.",
+      "acceptance": [
+        "Each branch has levels 1-3 with cost and duration",
+        "Seeder is idempotent",
+        "Catalog includes ru/en names and descriptions",
+        "Catalog entries reference typed effects"
+      ],
+      "files": [
+        "backend/src/db/seed/research.ts",
+        "backend/src/config/research-catalog.ts"
+      ],
+      "deps": [
+        "P2-RES-001"
+      ],
+      "verify": "Seed database and verify expected research count and effects",
+      "notes": "Use conservative effects until balance telemetry exists.",
+      "prompt": "[TASK P2-RES-002] Tech catalog levels 1-3\n\nОПИСАНИЕ\nExpand the seeded research catalog to levels 1-3 for all planned Phase 2 branches.\n\nACCEPTANCE CRITERIA\n  1. Each branch has levels 1-3 with cost and duration\n  2. Seeder is idempotent\n  3. Catalog includes ru/en names and descriptions\n  4. Catalog entries reference typed effects\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/seed/research.ts\n  - backend/src/config/research-catalog.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-RES-001\n\nКАК ПРОВЕРИТЬ\n  Seed database and verify expected research count and effects\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Use conservative effects until balance telemetry exists."
+    },
+    {
+      "id": "P2-RES-003",
+      "epic": "EPIC-P2-RES",
+      "size": "M",
+      "title": "Research unlock gates",
+      "description": "Implement gates that unlock buildings, ships, colonization, cargo capacity, and market capabilities based on completed research.",
+      "acceptance": [
+        "Backend validates unlock gates for gated actions",
+        "Frontend can display missing research requirements",
+        "Research dependencies are stored in catalog config",
+        "Tests cover blocked and allowed actions"
+      ],
+      "files": [
+        "backend/src/features/research/gates.ts",
+        "frontend/src/components/RequirementList.tsx",
+        "backend/src/features/research/gates.test.ts"
+      ],
+      "deps": [
+        "P2-RES-002",
+        "P1-160",
+        "P1-170"
+      ],
+      "verify": "Tests confirm locked ship/building/colonization actions are rejected",
+      "notes": "This connects research to actual progression rather than just timers.",
+      "prompt": "[TASK P2-RES-003] Research unlock gates\n\nОПИСАНИЕ\nImplement gates that unlock buildings, ships, colonization, cargo capacity, and market capabilities based on completed research.\n\nACCEPTANCE CRITERIA\n  1. Backend validates unlock gates for gated actions\n  2. Frontend can display missing research requirements\n  3. Research dependencies are stored in catalog config\n  4. Tests cover blocked and allowed actions\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/research/gates.ts\n  - frontend/src/components/RequirementList.tsx\n  - backend/src/features/research/gates.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-RES-002\n  - P1-160\n  - P1-170\n\nКАК ПРОВЕРИТЬ\n  Tests confirm locked ship/building/colonization actions are rejected\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  This connects research to actual progression rather than just timers."
+    },
+    {
+      "id": "P2-RES-004",
+      "epic": "EPIC-P2-RES",
+      "size": "M",
+      "title": "Research completion worker and effect cache invalidation",
+      "description": "Add worker logic for completing research, applying unlock state, and invalidating any cached effect snapshots.",
+      "acceptance": [
+        "Research transitions to completed exactly once",
+        "Effects are available immediately after completion",
+        "Player notification is created if notifications are enabled",
+        "Worker is retry-safe"
+      ],
+      "files": [
+        "backend/src/workers/research.ts",
+        "backend/src/features/research/completion.ts",
+        "backend/src/features/research/completion.test.ts"
+      ],
+      "deps": [
+        "P2-RES-001",
+        "P1-221"
+      ],
+      "verify": "Worker test advances research and verifies effects become active",
+      "notes": "Avoid caching until needed; if cached, invalidate explicitly.",
+      "prompt": "[TASK P2-RES-004] Research completion worker and effect cache invalidation\n\nОПИСАНИЕ\nAdd worker logic for completing research, applying unlock state, and invalidating any cached effect snapshots.\n\nACCEPTANCE CRITERIA\n  1. Research transitions to completed exactly once\n  2. Effects are available immediately after completion\n  3. Player notification is created if notifications are enabled\n  4. Worker is retry-safe\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/workers/research.ts\n  - backend/src/features/research/completion.ts\n  - backend/src/features/research/completion.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-RES-001\n  - P1-221\n\nКАК ПРОВЕРИТЬ\n  Worker test advances research and verifies effects become active\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Avoid caching until needed; if cached, invalidate explicitly."
+    },
+    {
+      "id": "P2-RES-005",
+      "epic": "EPIC-P2-RES",
+      "size": "M",
+      "title": "Research UI levels 1-3",
+      "description": "Upgrade the research UI to show full level 1-3 branches, requirements, effects, and real-time progress.",
+      "acceptance": [
+        "All available research branches and levels are visible",
+        "Locked nodes explain missing requirements",
+        "Completed research shows applied effects",
+        "Starting research updates UI optimistically with safe rollback"
+      ],
+      "files": [
+        "frontend/src/pages/Research.tsx",
+        "frontend/src/components/TechTreeNode.tsx",
+        "frontend/src/hooks/useResearch.ts"
+      ],
+      "deps": [
+        "P2-RES-003",
+        "P1-205"
+      ],
+      "verify": "Manual/UI test starts and completes one level 2 research path",
+      "notes": "Keep rendering light enough for mobile Telegram webview.",
+      "prompt": "[TASK P2-RES-005] Research UI levels 1-3\n\nОПИСАНИЕ\nUpgrade the research UI to show full level 1-3 branches, requirements, effects, and real-time progress.\n\nACCEPTANCE CRITERIA\n  1. All available research branches and levels are visible\n  2. Locked nodes explain missing requirements\n  3. Completed research shows applied effects\n  4. Starting research updates UI optimistically with safe rollback\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - frontend/src/pages/Research.tsx\n  - frontend/src/components/TechTreeNode.tsx\n  - frontend/src/hooks/useResearch.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-RES-003\n  - P1-205\n\nКАК ПРОВЕРИТЬ\n  Manual/UI test starts and completes one level 2 research path\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Keep rendering light enough for mobile Telegram webview."
+    },
+    {
+      "id": "P2-POL-001",
+      "epic": "EPIC-P2-POL",
+      "size": "M",
+      "title": "Economy balance simulator",
+      "description": "Create a deterministic simulator for first-day and first-week resource, building, ship, research, and colonization progression.",
+      "acceptance": [
+        "Simulator can run without external services",
+        "Outputs key timings and bottleneck resources",
+        "Scenario fixtures cover beginner and optimized paths",
+        "Results are saved as artifacts for comparison"
+      ],
+      "files": [
+        "tools/balance-sim/",
+        "tools/balance-sim/scenarios/first-week.json"
+      ],
+      "deps": [
+        "P2-COL-007",
+        "P2-RES-002",
+        "P2-MKT-002"
+      ],
+      "verify": "Run balance simulator and compare generated summary to expected ranges",
+      "notes": "This is a design safety tool, not gameplay code.",
+      "prompt": "[TASK P2-POL-001] Economy balance simulator\n\nОПИСАНИЕ\nCreate a deterministic simulator for first-day and first-week resource, building, ship, research, and colonization progression.\n\nACCEPTANCE CRITERIA\n  1. Simulator can run without external services\n  2. Outputs key timings and bottleneck resources\n  3. Scenario fixtures cover beginner and optimized paths\n  4. Results are saved as artifacts for comparison\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - tools/balance-sim/\n  - tools/balance-sim/scenarios/first-week.json\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-COL-007\n  - P2-RES-002\n  - P2-MKT-002\n\nКАК ПРОВЕРИТЬ\n  Run balance simulator and compare generated summary to expected ranges\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  This is a design safety tool, not gameplay code."
+    },
+    {
+      "id": "P2-POL-002",
+      "epic": "EPIC-P2-POL",
+      "size": "S",
+      "title": "Content and seed consistency audit",
+      "description": "Add a repeatable audit that validates catalog seeds, resource ids, building ids, ship ids, and research ids against GDD-derived expectations.",
+      "acceptance": [
+        "Audit fails on missing or duplicate catalog ids",
+        "Audit verifies every user-facing catalog item has ru/en names",
+        "Audit checks resource tier consistency",
+        "Audit can run in CI"
+      ],
+      "files": [
+        "backend/src/db/seed/audit.ts",
+        "backend/src/db/seed/audit.test.ts"
+      ],
+      "deps": [
+        "P2-RES-002",
+        "P1-104",
+        "P1-105"
+      ],
+      "verify": "Run seed audit test suite",
+      "notes": "This prevents silent content drift as more phases are added.",
+      "prompt": "[TASK P2-POL-002] Content and seed consistency audit\n\nОПИСАНИЕ\nAdd a repeatable audit that validates catalog seeds, resource ids, building ids, ship ids, and research ids against GDD-derived expectations.\n\nACCEPTANCE CRITERIA\n  1. Audit fails on missing or duplicate catalog ids\n  2. Audit verifies every user-facing catalog item has ru/en names\n  3. Audit checks resource tier consistency\n  4. Audit can run in CI\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/seed/audit.ts\n  - backend/src/db/seed/audit.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-RES-002\n  - P1-104\n  - P1-105\n\nКАК ПРОВЕРИТЬ\n  Run seed audit test suite\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  This prevents silent content drift as more phases are added."
+    },
+    {
+      "id": "P2-POL-003",
+      "epic": "EPIC-P2-POL",
+      "size": "L",
+      "title": "Phase 2 regression suite",
+      "description": "Create a regression suite covering P2 colonization, market, research, and cargo flows together.",
+      "acceptance": [
+        "Suite covers one full expansion path from first colony to first market order",
+        "Suite validates no resource duplication across cargo and market",
+        "Suite is documented for local and CI execution",
+        "Failures point to the responsible feature area"
+      ],
+      "files": [
+        "backend/tests/e2e/phase2-regression.test.ts",
+        "docs/testing/phase2-regression.md"
+      ],
+      "deps": [
+        "P2-COL-008",
+        "P2-MKT-005",
+        "P2-RES-005"
+      ],
+      "verify": "Run Phase 2 regression suite locally",
+      "notes": "This is the gate before breaking down P3 into fine-grained implementation tasks.",
+      "prompt": "[TASK P2-POL-003] Phase 2 regression suite\n\nОПИСАНИЕ\nCreate a regression suite covering P2 colonization, market, research, and cargo flows together.\n\nACCEPTANCE CRITERIA\n  1. Suite covers one full expansion path from first colony to first market order\n  2. Suite validates no resource duplication across cargo and market\n  3. Suite is documented for local and CI execution\n  4. Failures point to the responsible feature area\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/tests/e2e/phase2-regression.test.ts\n  - docs/testing/phase2-regression.md\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-COL-008\n  - P2-MKT-005\n  - P2-RES-005\n\nКАК ПРОВЕРИТЬ\n  Run Phase 2 regression suite locally\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  This is the gate before breaking down P3 into fine-grained implementation tasks."
+    },
+    {
+      "id": "P3-MAP-001",
+      "epic": "EPIC-P3-MAP",
+      "size": "L",
+      "title": "Shared sector presence model",
+      "description": "Define how player-owned colonies and fleets become visible in common sectors without exposing protected home-system data.",
+      "acceptance": [
+        "Presence model distinguishes home, colony, fleet, and public sector entities",
+        "Visibility rules are explicit and testable",
+        "Data model supports multiple players in one sector",
+        "No private home-system entity leaks to another player"
+      ],
+      "files": [
+        "backend/src/db/schema/multiplayer.ts",
+        "backend/src/features/multiplayer/presence.ts",
+        "docs/multiplayer/visibility.md"
+      ],
+      "deps": [
+        "P2-COL-008",
+        "P1-144"
+      ],
+      "verify": "Visibility tests with two players in the same sector",
+      "notes": "This is a roadmap task; refine after P2 regression is stable.",
+      "prompt": "[TASK P3-MAP-001] Shared sector presence model\n\nОПИСАНИЕ\nDefine how player-owned colonies and fleets become visible in common sectors without exposing protected home-system data.\n\nACCEPTANCE CRITERIA\n  1. Presence model distinguishes home, colony, fleet, and public sector entities\n  2. Visibility rules are explicit and testable\n  3. Data model supports multiple players in one sector\n  4. No private home-system entity leaks to another player\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/schema/multiplayer.ts\n  - backend/src/features/multiplayer/presence.ts\n  - docs/multiplayer/visibility.md\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-COL-008\n  - P1-144\n\nКАК ПРОВЕРИТЬ\n  Visibility tests with two players in the same sector\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  This is a roadmap task; refine after P2 regression is stable."
+    },
+    {
+      "id": "P3-MAP-002",
+      "epic": "EPIC-P3-MAP",
+      "size": "L",
+      "title": "Sector map multiplayer UI",
+      "description": "Add a sector map UI layer that can show other player colonies, visible fleets, neutral systems, and local player assets.",
+      "acceptance": [
+        "Map distinguishes local, neutral, and other-player entities",
+        "Entity details respect visibility permissions",
+        "UI remains usable on mobile",
+        "Unknown entities are represented without leaking hidden data"
+      ],
+      "files": [
+        "frontend/src/pages/SectorMap.tsx",
+        "frontend/src/components/pixi/SectorRenderer.tsx"
+      ],
+      "deps": [
+        "P3-MAP-001",
+        "P1-203"
+      ],
+      "verify": "Manual/UI test with fixture sector containing two players",
+      "notes": "Use PixiJS patterns from home system map.",
+      "prompt": "[TASK P3-MAP-002] Sector map multiplayer UI\n\nОПИСАНИЕ\nAdd a sector map UI layer that can show other player colonies, visible fleets, neutral systems, and local player assets.\n\nACCEPTANCE CRITERIA\n  1. Map distinguishes local, neutral, and other-player entities\n  2. Entity details respect visibility permissions\n  3. UI remains usable on mobile\n  4. Unknown entities are represented without leaking hidden data\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - frontend/src/pages/SectorMap.tsx\n  - frontend/src/components/pixi/SectorRenderer.tsx\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P3-MAP-001\n  - P1-203\n\nКАК ПРОВЕРИТЬ\n  Manual/UI test with fixture sector containing two players\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Use PixiJS patterns from home system map."
+    },
+    {
+      "id": "P3-ALL-001",
+      "epic": "EPIC-P3-ALL",
+      "size": "L",
+      "title": "Alliance membership model",
+      "description": "Add alliance creation, membership, roles, invitations, and basic permissions.",
+      "acceptance": [
+        "Player can create an alliance",
+        "Player can invite, accept, leave, and remove members according to role",
+        "Alliance size limit is enforced",
+        "Membership changes are auditable"
+      ],
+      "files": [
+        "backend/src/db/schema/alliances.ts",
+        "backend/src/features/alliances/membership.ts",
+        "backend/src/routes/alliances.ts"
+      ],
+      "deps": [
+        "P2-POL-003"
+      ],
+      "verify": "API tests cover create, invite, accept, kick, and leave",
+      "notes": "Keep diplomacy simple until real multiplayer traffic exists.",
+      "prompt": "[TASK P3-ALL-001] Alliance membership model\n\nОПИСАНИЕ\nAdd alliance creation, membership, roles, invitations, and basic permissions.\n\nACCEPTANCE CRITERIA\n  1. Player can create an alliance\n  2. Player can invite, accept, leave, and remove members according to role\n  3. Alliance size limit is enforced\n  4. Membership changes are auditable\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/schema/alliances.ts\n  - backend/src/features/alliances/membership.ts\n  - backend/src/routes/alliances.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-POL-003\n\nКАК ПРОВЕРИТЬ\n  API tests cover create, invite, accept, kick, and leave\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Keep diplomacy simple until real multiplayer traffic exists."
+    },
+    {
+      "id": "P3-ALL-002",
+      "epic": "EPIC-P3-ALL",
+      "size": "M",
+      "title": "Alliance bank and permissions",
+      "description": "Add a shared alliance bank with deposit/withdraw permissions and basic transaction logs.",
+      "acceptance": [
+        "Members can deposit allowed resources",
+        "Only permitted roles can withdraw",
+        "All transactions are logged",
+        "Bank actions cannot bypass storage/resource transaction safety"
+      ],
+      "files": [
+        "backend/src/features/alliances/bank.ts",
+        "frontend/src/pages/AllianceBank.tsx"
+      ],
+      "deps": [
+        "P3-ALL-001",
+        "P1-151"
+      ],
+      "verify": "API tests cover deposit/withdraw permission paths",
+      "notes": "No alliance market automation in this task.",
+      "prompt": "[TASK P3-ALL-002] Alliance bank and permissions\n\nОПИСАНИЕ\nAdd a shared alliance bank with deposit/withdraw permissions and basic transaction logs.\n\nACCEPTANCE CRITERIA\n  1. Members can deposit allowed resources\n  2. Only permitted roles can withdraw\n  3. All transactions are logged\n  4. Bank actions cannot bypass storage/resource transaction safety\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/alliances/bank.ts\n  - frontend/src/pages/AllianceBank.tsx\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P3-ALL-001\n  - P1-151\n\nКАК ПРОВЕРИТЬ\n  API tests cover deposit/withdraw permission paths\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  No alliance market automation in this task."
+    },
+    {
+      "id": "P3-MKT-001",
+      "epic": "EPIC-P3-MKT",
+      "size": "L",
+      "title": "Player market order book",
+      "description": "Extend the market model to support player-created buy/sell orders with escrow, cancellation, and settlement.",
+      "acceptance": [
+        "Player order book reuses safe market primitives from P2",
+        "Sell orders reserve resources in escrow",
+        "Buy orders reserve payment in escrow",
+        "Cancellation and matching are atomic"
+      ],
+      "files": [
+        "backend/src/features/market/player-orders.ts",
+        "backend/src/db/schema/player-market.ts"
+      ],
+      "deps": [
+        "P2-MKT-004"
+      ],
+      "verify": "Order matching tests cover partial fill, cancel, and settlement",
+      "notes": "Do not add complex trading tools before basic safety is verified.",
+      "prompt": "[TASK P3-MKT-001] Player market order book\n\nОПИСАНИЕ\nExtend the market model to support player-created buy/sell orders with escrow, cancellation, and settlement.\n\nACCEPTANCE CRITERIA\n  1. Player order book reuses safe market primitives from P2\n  2. Sell orders reserve resources in escrow\n  3. Buy orders reserve payment in escrow\n  4. Cancellation and matching are atomic\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/market/player-orders.ts\n  - backend/src/db/schema/player-market.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-MKT-004\n\nКАК ПРОВЕРИТЬ\n  Order matching tests cover partial fill, cancel, and settlement\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Do not add complex trading tools before basic safety is verified."
+    },
+    {
+      "id": "P3-MKT-002",
+      "epic": "EPIC-P3-MKT",
+      "size": "L",
+      "title": "Player trade delivery and settlement",
+      "description": "Implement player-to-player trade delivery through NPC cargo abstraction or explicit cargo route depending on Phase 3 design decision.",
+      "acceptance": [
+        "Filled orders settle exactly once",
+        "Delivery timing is transparent to both players",
+        "Storage caps are enforced at destination",
+        "Failed delivery has a documented refund/holding behavior"
+      ],
+      "files": [
+        "backend/src/workers/player-market.ts",
+        "backend/src/features/market/player-settlement.ts"
+      ],
+      "deps": [
+        "P3-MKT-001",
+        "P2-COL-005"
+      ],
+      "verify": "Two-player integration test completes a trade and validates balances",
+      "notes": "This is intentionally after the order book, not part of it.",
+      "prompt": "[TASK P3-MKT-002] Player trade delivery and settlement\n\nОПИСАНИЕ\nImplement player-to-player trade delivery through NPC cargo abstraction or explicit cargo route depending on Phase 3 design decision.\n\nACCEPTANCE CRITERIA\n  1. Filled orders settle exactly once\n  2. Delivery timing is transparent to both players\n  3. Storage caps are enforced at destination\n  4. Failed delivery has a documented refund/holding behavior\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/workers/player-market.ts\n  - backend/src/features/market/player-settlement.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P3-MKT-001\n  - P2-COL-005\n\nКАК ПРОВЕРИТЬ\n  Two-player integration test completes a trade and validates balances\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  This is intentionally after the order book, not part of it."
+    },
+    {
+      "id": "P4-DEP-001",
+      "epic": "EPIC-P4-DEPLOY",
+      "size": "L",
+      "title": "Production environment plan",
+      "description": "Document and implement the target production topology for backend, frontend, worker, Postgres, Redis, secrets, and domains.",
+      "acceptance": [
+        "Production topology is documented with service responsibilities",
+        "Secrets strategy is documented and excludes repo storage",
+        "Deployment target and rollback approach are chosen",
+        "Open infrastructure costs are estimated"
+      ],
+      "files": [
+        "docs/production/environment.md",
+        "infra/production/README.md"
+      ],
+      "deps": [
+        "P2-POL-003"
+      ],
+      "verify": "Production plan review checklist is completed",
+      "notes": "Do this before writing irreversible deployment automation.",
+      "prompt": "[TASK P4-DEP-001] Production environment plan\n\nОПИСАНИЕ\nDocument and implement the target production topology for backend, frontend, worker, Postgres, Redis, secrets, and domains.\n\nACCEPTANCE CRITERIA\n  1. Production topology is documented with service responsibilities\n  2. Secrets strategy is documented and excludes repo storage\n  3. Deployment target and rollback approach are chosen\n  4. Open infrastructure costs are estimated\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - docs/production/environment.md\n  - infra/production/README.md\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-POL-003\n\nКАК ПРОВЕРИТЬ\n  Production plan review checklist is completed\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Do this before writing irreversible deployment automation."
+    },
+    {
+      "id": "P4-DEP-002",
+      "epic": "EPIC-P4-DEPLOY",
+      "size": "L",
+      "title": "Deployment pipeline and release workflow",
+      "description": "Create CI/CD workflow for production deploys, migrations, release tagging, and rollback documentation.",
+      "acceptance": [
+        "Deploy pipeline runs from protected branch or manual approval",
+        "Database migrations are handled safely",
+        "Release tag and changelog are generated",
+        "Rollback procedure is documented and tested in staging"
+      ],
+      "files": [
+        ".github/workflows/deploy.yml",
+        "docs/production/release-workflow.md"
+      ],
+      "deps": [
+        "P4-DEP-001",
+        "P0-006"
+      ],
+      "verify": "Run staging deployment and rollback drill",
+      "notes": "Do not deploy production directly before staging succeeds.",
+      "prompt": "[TASK P4-DEP-002] Deployment pipeline and release workflow\n\nОПИСАНИЕ\nCreate CI/CD workflow for production deploys, migrations, release tagging, and rollback documentation.\n\nACCEPTANCE CRITERIA\n  1. Deploy pipeline runs from protected branch or manual approval\n  2. Database migrations are handled safely\n  3. Release tag and changelog are generated\n  4. Rollback procedure is documented and tested in staging\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - .github/workflows/deploy.yml\n  - docs/production/release-workflow.md\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P4-DEP-001\n  - P0-006\n\nКАК ПРОВЕРИТЬ\n  Run staging deployment and rollback drill\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Do not deploy production directly before staging succeeds."
+    },
+    {
+      "id": "P4-OPS-001",
+      "epic": "EPIC-P4-OPS",
+      "size": "M",
+      "title": "Monitoring dashboards and alerts",
+      "description": "Define metrics, logs, alerts, and dashboards for API health, worker queues, database, Redis, Telegram bot, and user-facing errors.",
+      "acceptance": [
+        "Critical alerts exist for API down, worker stuck, DB unavailable, queue backlog, and high error rate",
+        "Dashboard shows key service health",
+        "Runbook links are attached to alerts",
+        "Alert thresholds are documented"
+      ],
+      "files": [
+        "docs/production/observability.md",
+        "backend/src/lib/metrics.ts"
+      ],
+      "deps": [
+        "P4-DEP-001",
+        "P0-007",
+        "P0-008"
+      ],
+      "verify": "Trigger test alert and verify runbook path",
+      "notes": "Start pragmatic; avoid over-instrumentation before launch.",
+      "prompt": "[TASK P4-OPS-001] Monitoring dashboards and alerts\n\nОПИСАНИЕ\nDefine metrics, logs, alerts, and dashboards for API health, worker queues, database, Redis, Telegram bot, and user-facing errors.\n\nACCEPTANCE CRITERIA\n  1. Critical alerts exist for API down, worker stuck, DB unavailable, queue backlog, and high error rate\n  2. Dashboard shows key service health\n  3. Runbook links are attached to alerts\n  4. Alert thresholds are documented\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - docs/production/observability.md\n  - backend/src/lib/metrics.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P4-DEP-001\n  - P0-007\n  - P0-008\n\nКАК ПРОВЕРИТЬ\n  Trigger test alert and verify runbook path\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Start pragmatic; avoid over-instrumentation before launch."
+    },
+    {
+      "id": "P4-OPS-002",
+      "epic": "EPIC-P4-OPS",
+      "size": "M",
+      "title": "Backups and restore drill",
+      "description": "Implement and document database backup, restore, retention, and verification process.",
+      "acceptance": [
+        "Backup schedule and retention are documented",
+        "Restore process works in staging",
+        "Restore drill captures RPO/RTO",
+        "Secrets and PII handling are documented"
+      ],
+      "files": [
+        "docs/production/backups.md",
+        "infra/production/backup-checklist.md"
+      ],
+      "deps": [
+        "P4-DEP-001"
+      ],
+      "verify": "Run staging restore drill from backup artifact",
+      "notes": "A backup that has not been restored is not considered valid.",
+      "prompt": "[TASK P4-OPS-002] Backups and restore drill\n\nОПИСАНИЕ\nImplement and document database backup, restore, retention, and verification process.\n\nACCEPTANCE CRITERIA\n  1. Backup schedule and retention are documented\n  2. Restore process works in staging\n  3. Restore drill captures RPO/RTO\n  4. Secrets and PII handling are documented\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - docs/production/backups.md\n  - infra/production/backup-checklist.md\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P4-DEP-001\n\nКАК ПРОВЕРИТЬ\n  Run staging restore drill from backup artifact\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  A backup that has not been restored is not considered valid."
+    },
+    {
+      "id": "P4-SEC-001",
+      "epic": "EPIC-P4-SEC",
+      "size": "L",
+      "title": "Security hardening and abuse limits",
+      "description": "Audit and harden auth, Telegram initData validation, rate limits, request validation, secret handling, and write endpoints.",
+      "acceptance": [
+        "All public mutation endpoints have rate limits and validation",
+        "Telegram auth cannot be replayed outside accepted rules",
+        "Secrets are loaded from production secret storage",
+        "Security checklist is documented and reviewed"
+      ],
+      "files": [
+        "docs/security/launch-checklist.md",
+        "backend/src/lib/rate-limit.ts",
+        "backend/src/lib/security.ts"
+      ],
+      "deps": [
+        "P1-120",
+        "P2-POL-003"
+      ],
+      "verify": "Run security checklist and endpoint validation tests",
+      "notes": "This is a launch gate, not optional polish.",
+      "prompt": "[TASK P4-SEC-001] Security hardening and abuse limits\n\nОПИСАНИЕ\nAudit and harden auth, Telegram initData validation, rate limits, request validation, secret handling, and write endpoints.\n\nACCEPTANCE CRITERIA\n  1. All public mutation endpoints have rate limits and validation\n  2. Telegram auth cannot be replayed outside accepted rules\n  3. Secrets are loaded from production secret storage\n  4. Security checklist is documented and reviewed\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - docs/security/launch-checklist.md\n  - backend/src/lib/rate-limit.ts\n  - backend/src/lib/security.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-120\n  - P2-POL-003\n\nКАК ПРОВЕРИТЬ\n  Run security checklist and endpoint validation tests\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  This is a launch gate, not optional polish."
+    },
+    {
+      "id": "P4-SEC-002",
+      "epic": "EPIC-P4-SEC",
+      "size": "M",
+      "title": "Economy exploit and anti-cheat review",
+      "description": "Add tests and review notes for resource duplication, clock abuse, repeated worker execution, market arbitrage, and cargo settlement exploits.",
+      "acceptance": [
+        "Known exploit classes have regression tests or documented mitigations",
+        "Worker idempotency is verified for critical paths",
+        "Market/cargo/resource loops are reviewed",
+        "Risk register is updated with accepted risks"
+      ],
+      "files": [
+        "docs/security/economy-exploits.md",
+        "backend/tests/security/economy-exploits.test.ts"
+      ],
+      "deps": [
+        "P2-POL-003",
+        "P3-MKT-002"
+      ],
+      "verify": "Run economy exploit regression suite",
+      "notes": "This should happen before any real-money monetization.",
+      "prompt": "[TASK P4-SEC-002] Economy exploit and anti-cheat review\n\nОПИСАНИЕ\nAdd tests and review notes for resource duplication, clock abuse, repeated worker execution, market arbitrage, and cargo settlement exploits.\n\nACCEPTANCE CRITERIA\n  1. Known exploit classes have regression tests or documented mitigations\n  2. Worker idempotency is verified for critical paths\n  3. Market/cargo/resource loops are reviewed\n  4. Risk register is updated with accepted risks\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - docs/security/economy-exploits.md\n  - backend/tests/security/economy-exploits.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-POL-003\n  - P3-MKT-002\n\nКАК ПРОВЕРИТЬ\n  Run economy exploit regression suite\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  This should happen before any real-money monetization."
+    },
+    {
+      "id": "P4-ANA-001",
+      "epic": "EPIC-P4-ANALYTICS",
+      "size": "M",
+      "title": "Product analytics event taxonomy",
+      "description": "Define and implement core product analytics events for onboarding, retention, building, ships, research, expeditions, market, and monetization.",
+      "acceptance": [
+        "Analytics event taxonomy is documented",
+        "Events include stable names and safe properties",
+        "No sensitive Telegram data is sent unnecessarily",
+        "Frontend and backend emit critical events consistently"
+      ],
+      "files": [
+        "docs/analytics/events.md",
+        "frontend/src/lib/analytics.ts",
+        "backend/src/lib/analytics.ts"
+      ],
+      "deps": [
+        "P1-206",
+        "P2-POL-003"
+      ],
+      "verify": "Run local analytics sink and verify core events",
+      "notes": "Analytics is required for balance and retention decisions.",
+      "prompt": "[TASK P4-ANA-001] Product analytics event taxonomy\n\nОПИСАНИЕ\nDefine and implement core product analytics events for onboarding, retention, building, ships, research, expeditions, market, and monetization.\n\nACCEPTANCE CRITERIA\n  1. Analytics event taxonomy is documented\n  2. Events include stable names and safe properties\n  3. No sensitive Telegram data is sent unnecessarily\n  4. Frontend and backend emit critical events consistently\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - docs/analytics/events.md\n  - frontend/src/lib/analytics.ts\n  - backend/src/lib/analytics.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-206\n  - P2-POL-003\n\nКАК ПРОВЕРИТЬ\n  Run local analytics sink and verify core events\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Analytics is required for balance and retention decisions."
+    },
+    {
+      "id": "P4-MON-001",
+      "epic": "EPIC-P4-MON",
+      "size": "L",
+      "title": "Monetization and Telegram policy readiness",
+      "description": "Define launch-safe monetization surfaces, Telegram policy constraints, purchase flow boundaries, and non-pay-to-win guardrails.",
+      "acceptance": [
+        "Monetization design is documented and mapped to Telegram requirements",
+        "No paid flow is implemented without policy review",
+        "Economy impact and abuse risks are documented",
+        "Implementation tasks can be created from the approved plan"
+      ],
+      "files": [
+        "docs/product/monetization.md",
+        "docs/product/telegram-policy-checklist.md"
+      ],
+      "deps": [
+        "P4-ANA-001",
+        "P4-SEC-001"
+      ],
+      "verify": "Complete monetization readiness review checklist",
+      "notes": "Keep this as design/readiness until the game loop is validated.",
+      "prompt": "[TASK P4-MON-001] Monetization and Telegram policy readiness\n\nОПИСАНИЕ\nDefine launch-safe monetization surfaces, Telegram policy constraints, purchase flow boundaries, and non-pay-to-win guardrails.\n\nACCEPTANCE CRITERIA\n  1. Monetization design is documented and mapped to Telegram requirements\n  2. No paid flow is implemented without policy review\n  3. Economy impact and abuse risks are documented\n  4. Implementation tasks can be created from the approved plan\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - docs/product/monetization.md\n  - docs/product/telegram-policy-checklist.md\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P4-ANA-001\n  - P4-SEC-001\n\nКАК ПРОВЕРИТЬ\n  Complete monetization readiness review checklist\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Keep this as design/readiness until the game loop is validated."
+    },
+    {
+      "id": "P5-LIVE-001",
+      "epic": "EPIC-P5-LIVE",
+      "size": "M",
+      "title": "Live ops calendar and event framework",
+      "description": "Create the framework for scheduled live events, modifiers, announcements, and rollback/disable switches.",
+      "acceptance": [
+        "Event calendar format is documented",
+        "Events can be enabled/disabled without deployment",
+        "Announcements can be shown in TMA and bot",
+        "Rollback path is documented"
+      ],
+      "files": [
+        "docs/liveops/events.md",
+        "backend/src/features/liveops/events.ts",
+        "frontend/src/components/LiveEventBanner.tsx"
+      ],
+      "deps": [
+        "P4-DEP-002",
+        "P4-ANA-001"
+      ],
+      "verify": "Enable a test event locally and verify UI/banner state",
+      "notes": "Live ops begins after launch readiness, not before core stability.",
+      "prompt": "[TASK P5-LIVE-001] Live ops calendar and event framework\n\nОПИСАНИЕ\nCreate the framework for scheduled live events, modifiers, announcements, and rollback/disable switches.\n\nACCEPTANCE CRITERIA\n  1. Event calendar format is documented\n  2. Events can be enabled/disabled without deployment\n  3. Announcements can be shown in TMA and bot\n  4. Rollback path is documented\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - docs/liveops/events.md\n  - backend/src/features/liveops/events.ts\n  - frontend/src/components/LiveEventBanner.tsx\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P4-DEP-002\n  - P4-ANA-001\n\nКАК ПРОВЕРИТЬ\n  Enable a test event locally and verify UI/banner state\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Live ops begins after launch readiness, not before core stability."
+    },
+    {
+      "id": "P5-CONT-001",
+      "epic": "EPIC-P5-CONTENT",
+      "size": "M",
+      "title": "Content pack pipeline",
+      "description": "Define how new resources, buildings, ships, research, events, and localized text are added safely after launch.",
+      "acceptance": [
+        "Content pack format is documented",
+        "Validation catches missing localization and invalid ids",
+        "Content can be reviewed before enabling",
+        "Rollback process exists for bad content"
+      ],
+      "files": [
+        "docs/content/content-packs.md",
+        "tools/content-validate/"
+      ],
+      "deps": [
+        "P2-POL-002",
+        "P5-LIVE-001"
+      ],
+      "verify": "Validate a sample content pack with intentional errors",
+      "notes": "This reduces risk when the game starts receiving ongoing content.",
+      "prompt": "[TASK P5-CONT-001] Content pack pipeline\n\nОПИСАНИЕ\nDefine how new resources, buildings, ships, research, events, and localized text are added safely after launch.\n\nACCEPTANCE CRITERIA\n  1. Content pack format is documented\n  2. Validation catches missing localization and invalid ids\n  3. Content can be reviewed before enabling\n  4. Rollback process exists for bad content\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - docs/content/content-packs.md\n  - tools/content-validate/\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-POL-002\n  - P5-LIVE-001\n\nКАК ПРОВЕРИТЬ\n  Validate a sample content pack with intentional errors\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  This reduces risk when the game starts receiving ongoing content."
+    },
+    {
+      "id": "P5-BAL-001",
+      "epic": "EPIC-P5-BALANCE",
+      "size": "M",
+      "title": "Balance review loop and telemetry dashboard",
+      "description": "Create the recurring balance review process using analytics, economy simulator outputs, retention data, and player progression metrics.",
+      "acceptance": [
+        "Balance review checklist exists",
+        "Telemetry dashboard tracks progression bottlenecks",
+        "Simulator scenarios can be compared between balance versions",
+        "Changes produce documented before/after notes"
+      ],
+      "files": [
+        "docs/liveops/balance-loop.md",
+        "tools/balance-sim/reports/"
+      ],
+      "deps": [
+        "P2-POL-001",
+        "P4-ANA-001"
+      ],
+      "verify": "Run a sample balance review using synthetic telemetry",
+      "notes": "This is the process that keeps the game maintainable after launch.",
+      "prompt": "[TASK P5-BAL-001] Balance review loop and telemetry dashboard\n\nОПИСАНИЕ\nCreate the recurring balance review process using analytics, economy simulator outputs, retention data, and player progression metrics.\n\nACCEPTANCE CRITERIA\n  1. Balance review checklist exists\n  2. Telemetry dashboard tracks progression bottlenecks\n  3. Simulator scenarios can be compared between balance versions\n  4. Changes produce documented before/after notes\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - docs/liveops/balance-loop.md\n  - tools/balance-sim/reports/\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-POL-001\n  - P4-ANA-001\n\nКАК ПРОВЕРИТЬ\n  Run a sample balance review using synthetic telemetry\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  This is the process that keeps the game maintainable after launch."
+    },
+    {
+      "id": "P5-SUP-001",
+      "epic": "EPIC-P5-SUPPORT",
+      "size": "M",
+      "title": "Support and admin runbook",
+      "description": "Document support workflows for player lookup, issue triage, refunds/compensation policy, incident response, and safe admin actions.",
+      "acceptance": [
+        "Support runbook covers common player issues",
+        "Admin actions require audit logs or manual log procedure",
+        "Compensation policy is documented",
+        "Incident response path is clear"
+      ],
+      "files": [
+        "docs/support/runbook.md",
+        "docs/support/admin-actions.md"
+      ],
+      "deps": [
+        "P4-OPS-001",
+        "P4-SEC-001"
+      ],
+      "verify": "Run tabletop incident/support scenario against the runbook",
+      "notes": "Do not expose admin tools before audit and permission rules exist.",
+      "prompt": "[TASK P5-SUP-001] Support and admin runbook\n\nОПИСАНИЕ\nDocument support workflows for player lookup, issue triage, refunds/compensation policy, incident response, and safe admin actions.\n\nACCEPTANCE CRITERIA\n  1. Support runbook covers common player issues\n  2. Admin actions require audit logs or manual log procedure\n  3. Compensation policy is documented\n  4. Incident response path is clear\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - docs/support/runbook.md\n  - docs/support/admin-actions.md\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P4-OPS-001\n  - P4-SEC-001\n\nКАК ПРОВЕРИТЬ\n  Run tabletop incident/support scenario against the runbook\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Do not expose admin tools before audit and permission rules exist."
+    },
+    {
+      "id": "P2-EPIC-POLISH",
+      "epic": "EPIC-P2-POL",
+      "size": "L",
+      "title": "[Эпик] Phase 2 balance, polish, and regression gate",
+      "description": "Top-level Phase 2 gate that groups economy simulation, content audit, and regression work required before the roadmap should proceed into detailed Phase 3 execution.",
+      "acceptance": [
+        "P2 balance simulator produces a reviewable first-week report",
+        "Content audit passes against catalog and localization expectations",
+        "Phase 2 regression suite passes locally and is documented",
+        "Known P2 tuning risks are recorded before Phase 3 task breakdown"
+      ],
+      "files": [
+        "tasks/ROADMAP_COVERAGE_MATRIX.md",
+        "docs/testing/phase2-regression.md",
+        "tools/balance-sim/"
+      ],
+      "deps": [
+        "P2-POL-001",
+        "P2-POL-002",
+        "P2-POL-003"
+      ],
+      "verify": "Review Phase 2 completion gate evidence in ROADMAP_COVERAGE_MATRIX.md",
+      "notes": "This is an epic issue for Project navigation, not a separate implementation module.",
+      "prompt": "[TASK P2-EPIC-POLISH] [Эпик] Phase 2 balance, polish, and regression gate\n\nОПИСАНИЕ\nTop-level Phase 2 gate that groups economy simulation, content audit, and regression work required before the roadmap should proceed into detailed Phase 3 execution.\n\nACCEPTANCE CRITERIA\n  1. P2 balance simulator produces a reviewable first-week report\n  2. Content audit passes against catalog and localization expectations\n  3. Phase 2 regression suite passes locally and is documented\n  4. Known P2 tuning risks are recorded before Phase 3 task breakdown\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - tasks/ROADMAP_COVERAGE_MATRIX.md\n  - docs/testing/phase2-regression.md\n  - tools/balance-sim/\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-POL-001\n  - P2-POL-002\n  - P2-POL-003\n\nКАК ПРОВЕРИТЬ\n  Review Phase 2 completion gate evidence in ROADMAP_COVERAGE_MATRIX.md\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  This is an epic issue for Project navigation, not a separate implementation module."
+    },
+    {
+      "id": "P4-EPIC-LAUNCH",
+      "epic": "EPIC-P4-DEPLOY",
+      "size": "XL",
+      "title": "[Эпик] Production launch readiness",
+      "description": "Top-level launch readiness gate covering production deployment, observability, backups, security hardening, analytics, and monetization policy readiness.",
+      "acceptance": [
+        "Staging deployment and rollback workflow are proven",
+        "Monitoring, alerting, and backup restore drill are complete",
+        "Security and abuse-prevention checklists pass",
+        "Analytics and monetization readiness documents are reviewed"
+      ],
+      "files": [
+        "docs/production/",
+        "docs/security/",
+        "docs/analytics/",
+        "docs/product/"
+      ],
+      "deps": [
+        "P4-DEP-002",
+        "P4-OPS-001",
+        "P4-OPS-002",
+        "P4-SEC-001",
+        "P4-ANA-001",
+        "P4-MON-001"
+      ],
+      "verify": "Complete launch readiness checklist and link all evidence in the issue",
+      "notes": "Keep this epic open until production launch is genuinely ready.",
+      "prompt": "[TASK P4-EPIC-LAUNCH] [Эпик] Production launch readiness\n\nОПИСАНИЕ\nTop-level launch readiness gate covering production deployment, observability, backups, security hardening, analytics, and monetization policy readiness.\n\nACCEPTANCE CRITERIA\n  1. Staging deployment and rollback workflow are proven\n  2. Monitoring, alerting, and backup restore drill are complete\n  3. Security and abuse-prevention checklists pass\n  4. Analytics and monetization readiness documents are reviewed\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - docs/production/\n  - docs/security/\n  - docs/analytics/\n  - docs/product/\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P4-DEP-002\n  - P4-OPS-001\n  - P4-OPS-002\n  - P4-SEC-001\n  - P4-ANA-001\n  - P4-MON-001\n\nКАК ПРОВЕРИТЬ\n  Complete launch readiness checklist and link all evidence in the issue\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Keep this epic open until production launch is genuinely ready."
+    },
+    {
+      "id": "P5-EPIC-LIVEOPS",
+      "epic": "EPIC-P5-LIVE",
+      "size": "L",
+      "title": "[Эпик] Live operations readiness",
+      "description": "Top-level post-launch operations gate covering events, content packs, balance review, and support/admin runbooks.",
+      "acceptance": [
+        "Live event framework can be enabled and disabled safely",
+        "Content pack validation catches bad content before rollout",
+        "Balance review loop has simulator and telemetry inputs",
+        "Support/admin runbook is usable for incident and player-support scenarios"
+      ],
+      "files": [
+        "docs/liveops/",
+        "docs/content/",
+        "docs/support/",
+        "tools/content-validate/"
+      ],
+      "deps": [
+        "P5-LIVE-001",
+        "P5-CONT-001",
+        "P5-BAL-001",
+        "P5-SUP-001"
+      ],
+      "verify": "Complete live-ops readiness review and link evidence in the issue",
+      "notes": "This epic starts after launch readiness and remains the umbrella for ongoing live work.",
+      "prompt": "[TASK P5-EPIC-LIVEOPS] [Эпик] Live operations readiness\n\nОПИСАНИЕ\nTop-level post-launch operations gate covering events, content packs, balance review, and support/admin runbooks.\n\nACCEPTANCE CRITERIA\n  1. Live event framework can be enabled and disabled safely\n  2. Content pack validation catches bad content before rollout\n  3. Balance review loop has simulator and telemetry inputs\n  4. Support/admin runbook is usable for incident and player-support scenarios\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - docs/liveops/\n  - docs/content/\n  - docs/support/\n  - tools/content-validate/\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P5-LIVE-001\n  - P5-CONT-001\n  - P5-BAL-001\n  - P5-SUP-001\n\nКАК ПРОВЕРИТЬ\n  Complete live-ops readiness review and link evidence in the issue\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  This epic starts after launch readiness and remains the umbrella for ongoing live work."
+    }
+  ]
+}

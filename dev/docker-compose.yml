@@ -1,0 +1,150 @@
+# New Universe — локальное dev-окружение
+# Запуск: docker compose up -d
+# Логи:   docker compose logs -f backend
+# Стоп:   docker compose down
+# Полная очистка volumes: docker compose down -v
+
+name: new-universe
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: nu-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-nu}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpassword}
+      POSTGRES_DB: ${POSTGRES_DB:-new_universe}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backend/src/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nu} -d ${POSTGRES_DB:-new_universe}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: nu-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: dev
+    container_name: nu-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_URL: postgres://${POSTGRES_USER:-nu}:${POSTGRES_PASSWORD:-devpassword}@postgres:5432/${POSTGRES_DB:-new_universe}
+      REDIS_URL: redis://redis:6379
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_BOT_SECRET: ${TELEGRAM_BOT_SECRET:-dev-secret-change-me}
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-me}
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend/src:/app/src:cached
+      - ./backend/package.json:/app/package.json:ro
+      - ./backend/package-lock.json:/app/package-lock.json:ro
+      - ./shared:/app/shared:cached
+      - backend_node_modules:/app/node_modules
+    command: npm run dev
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: dev
+    container_name: nu-worker
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgres://${POSTGRES_USER:-nu}:${POSTGRES_PASSWORD:-devpassword}@postgres:5432/${POSTGRES_DB:-new_universe}
+      REDIS_URL: redis://redis:6379
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+    volumes:
+      - ./backend/src:/app/src:cached
+      - ./shared:/app/shared:cached
+      - backend_node_modules:/app/node_modules
+    command: npm run worker:dev
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: dev
+    container_name: nu-frontend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
+      VITE_TG_BOT_NAME: ${VITE_TG_BOT_NAME:-NewUniverseDevBot}
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend/src:/app/src:cached
+      - ./frontend/index.html:/app/index.html:ro
+      - ./frontend/public:/app/public:ro
+      - ./frontend/package.json:/app/package.json:ro
+      - ./frontend/vite.config.ts:/app/vite.config.ts:ro
+      - ./shared:/app/shared:cached
+      - frontend_node_modules:/app/node_modules
+    command: npm run dev -- --host 0.0.0.0
+
+  # ===== UI-инструменты для разработки (опционально) =====
+  # Поднять только их: docker compose up -d adminer redis-commander
+
+  adminer:
+    image: adminer:latest
+    container_name: nu-adminer
+    restart: unless-stopped
+    profiles: ["devtools"]
+    ports:
+      - "8080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: nu-redis-commander
+    restart: unless-stopped
+    profiles: ["devtools"]
+    ports:
+      - "8081:8081"
+    environment:
+      REDIS_HOSTS: local:redis:6379
+
+volumes:
+  pgdata:
+  redisdata:
+  backend_node_modules:
+  frontend_node_modules:
