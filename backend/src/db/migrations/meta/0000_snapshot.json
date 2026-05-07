@@ -1,0 +1,85 @@
+{
+  "id": "9dd49c8e-c74a-46fd-96a6-b020aad0b909",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.users": {
+      "name": "users",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tg_id": {
+          "name": "tg_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tg_username": {
+          "name": "tg_username",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tg_first_name": {
+          "name": "tg_first_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "premium_until": {
+          "name": "premium_until",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "power_score": {
+          "name": "power_score",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "users_tg_id_unique": {
+          "name": "users_tg_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tg_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
