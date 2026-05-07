@@ -38,7 +38,7 @@ export async function meRoutes(app: FastifyInstance) {
             tgId: user.tgId.toString()
           }
         };
-      } catch (err) {
+      } catch (_err) {
         return reply.status(401).send({
           error: 'Unauthorized',
           message: 'Invalid or expired session token',
