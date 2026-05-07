@@ -2,6 +2,14 @@ import { db as defaultDb } from '../../db/index.js';
 import { planetResources, resources } from '../../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 
+interface DBRecord {
+  resourceId: string;
+  amount: string;
+  regenRate: string;
+  lastUpdateAt: Date;
+  storageCap: number;
+}
+
 interface ComputedResource {
   resourceId: string;
   amount: number;
@@ -27,7 +35,7 @@ export async function computeCurrentResources(planetId: string, tx?: any) {
 
   const now = new Date();
 
-  return records.map((record) => {
+  return records.map((record: DBRecord) => {
     const amount = Number(record.amount);
     const regenRate = Number(record.regenRate);
     const storageCap = Number(record.storageCap);
