@@ -63,28 +63,7 @@ function parseFlags(args) {
 
 const PROJECT_QUERY = `
 query($owner: String!, $number: Int!) {
-  user(login: $owner) {
-    projectV2(number: $number) {
-      id
-      fields(first: 50) {
-        nodes {
-          ... on ProjectV2SingleSelectField { id name options { id name } }
-        }
-      }
-      items(first: 100) {
-        nodes {
-          id
-          content { ... on Issue { title number } ... on PullRequest { title number } }
-          fieldValues(first: 20) {
-            nodes {
-              ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2FieldCommon { name } } }
-            }
-          }
-        }
-      }
-    }
-  }
-  organization(login: $owner) {
+  repositoryOwner(login: $owner) {
     projectV2(number: $number) {
       id
       fields(first: 50) {
@@ -110,7 +89,7 @@ query($owner: String!, $number: Int!) {
 function loadProject() {
   try {
     const data = ghApi(PROJECT_QUERY, { owner: OWNER, number: PROJECT_NUMBER });
-    const project = data.data?.user?.projectV2 || data.data?.organization?.projectV2;
+    const project = data.data?.repositoryOwner?.projectV2;
     
     if (!project) {
       throw new Error(`Project #${PROJECT_NUMBER} not found for owner ${OWNER}`);
