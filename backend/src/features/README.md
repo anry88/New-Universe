@@ -36,6 +36,16 @@ Player state retrieval.
 
 - **`routes.ts`** — `meRoutes(app)` registers `GET /me`. Requires a valid JWT in the `Authorization: Bearer <token>` header. Returns the database user record mapped to the `User` shared type.
 
+## `resources/`
+
+Resource accrual and management.
+
+- **`accrual.ts`** — exports `computeCurrentResources(planetId, tx?)` which lazily computes current resource amounts without writing to the database. For each resource: `amount += regenRate × (now - lastUpdateAt)`. Respects `defaultStorageCap` from the `resources` table. Returns array of `{ resourceId, amount, regenRate, lastUpdateAt, storageCap }`.
+  - Does NOT write to the database - this is a read-only computation for lazy updates.
+  - Caps each resource amount at its `storageCap`.
+  - Used by planet view and production features to show current state without constant DB writes.
+- **`accrual.test.ts`** — Vitest coverage asserting: regen math (10/h for 1h → +10), storage cap enforcement, array of all planet resources, and multiple resources with different regen rates.
+
 ## `world/`
 
 Procedural world generation primitives. Today this contains the home-system seeder used by `auth/service.ts` and the sector pool management.
