@@ -64,12 +64,59 @@ function parseFlags(args) {
 const PROJECT_QUERY = `
 query($owner: String!, $number: Int!) {
   repositoryOwner(login: $owner) {
-    projectV2(number: $number) {
+    ... on User { projectV2(number: $number) { ...ProjectFields } }
+    ... on Organization { projectV2(number: $number) { ...ProjectFields } }
+  }
+}
+
+fragment ProjectFields on ProjectV2 {
+  id
+  fields(first: 50) {
+    nodes {
+      ... on ProjectV2SingleSelectField { id name options { id name } }
+    }
+  }
+  items(first: 100) {
+    nodes {
       id
-      fields(first: 50) {
+      content { ... on Issue { title number } ... on PullRequest { title number } }
+      fieldValues(first: 20) {
         nodes {
-          ... on ProjectV2SingleSelectField { id name options { id name } }
+          ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2FieldCommon { name } } }
         }
+      }
+    }
+  }
+}`;
+
+function loadProject() {
+  try {
+    const data = ghApi(PROJECT_QUERY, { owner: OWNER, number: PROJECT_NUMBER });
+    const project = data.data?.repositoryOwner?.projectV2;
+    
+    if (!project) {
+      throw new Error(`Project #${PROJECT_NUMBER} not found for owner ${OWNER}`);
+    }
+
+    const fields = project.fields.nodes.filter(f => f.id);
+    const items = project.items.nodes.map(item => {
+      const statusValue = (item.fieldValues?.nodes || []).find(v => v.field?.name === 'Status');
+      const verificationValue = (item.fieldValues?.nodes || []).find(v => v.field?.name === 'Verification');
+      return {
+        id: item.id,
+        title: item.content?.title || '',
+        number: item.content?.number,
+        status: statusValue?.name,
+        verification: verificationValue?.name,
+      };
+    });
+
+    return { projectId: project.id, fields, items };
+  } catch (error) {
+    const details = error instanceof Error ? error.message : String(error);
+    throw new Error(`${projectAccessHint()}\n\nUnderlying error:\n${details}`);
+  }
+}
       }
       items(first: 100) {
         nodes {
