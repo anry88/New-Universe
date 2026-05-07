@@ -31,6 +31,14 @@ function ghJson(args) {
   return readJson('gh', args);
 }
 
+function projectAccessHint() {
+  return [
+    `Cannot read GitHub Project #${PROJECT_NUMBER} for owner ${OWNER}.`,
+    'In GitHub Actions, set repository secret PROJECT_TOKEN to a classic personal access token owned by a user who can access the Project, with repo and project scopes.',
+    'Do not rely on GITHUB_TOKEN or a fine-grained token for this user-owned Project v2 automation.',
+  ].join(' ');
+}
+
 function usage() {
   console.error(`Usage:
   node tasks/project_status.mjs task <TASK_ID> [--status <Status>] [--verification <Verification>] [--comment <text>]
@@ -59,10 +67,15 @@ function parseFlags(args) {
 }
 
 function loadProject() {
-  const project = ghJson(['project', 'view', PROJECT_NUMBER, '--owner', OWNER, '--format', 'json']);
-  const fields = ghJson(['project', 'field-list', PROJECT_NUMBER, '--owner', OWNER, '--format', 'json']).fields || [];
-  const items = ghJson(['project', 'item-list', PROJECT_NUMBER, '--owner', OWNER, '--limit', '200', '--format', 'json']).items || [];
-  return { projectId: project.id, fields, items };
+  try {
+    const project = ghJson(['project', 'view', PROJECT_NUMBER, '--owner', OWNER, '--format', 'json']);
+    const fields = ghJson(['project', 'field-list', PROJECT_NUMBER, '--owner', OWNER, '--format', 'json']).fields || [];
+    const items = ghJson(['project', 'item-list', PROJECT_NUMBER, '--owner', OWNER, '--limit', '200', '--format', 'json']).items || [];
+    return { projectId: project.id, fields, items };
+  } catch (error) {
+    const details = error instanceof Error ? error.message : String(error);
+    throw new Error(`${projectAccessHint()}\n\nUnderlying error:\n${details}`);
+  }
 }
 
 function fieldByName(fields, name) {
@@ -172,6 +185,22 @@ function extractTaskIds(...parts) {
   return [...found].sort();
 }
 
+function referencedIssueNumbers(body) {
+  const found = new Set();
+  const re = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?|refs?|references?)\s+#(?<number>\d+)\b/gi;
+  for (const match of (body || '').matchAll(re)) {
+    if (match.groups?.number) found.add(match.groups.number);
+  }
+  return [...found].sort((left, right) => Number(left) - Number(right));
+}
+
+function issueTitles(issueNumbers) {
+  return issueNumbers.map((issueNumber) => {
+    const issue = ghJson(['issue', 'view', issueNumber, '--repo', REPO, '--json', 'title']);
+    return issue.title;
+  });
+}
+
 function updateFromPr(flags) {
   const number = flags.number;
   const action = flags.action;
@@ -188,7 +217,8 @@ function updateFromPr(flags) {
   ]);
 
   const closingTitles = (pr.closingIssuesReferences || []).map((issue) => issue.title).join('\n');
-  const ids = extractTaskIds(pr.title, pr.body, pr.headRefName, closingTitles);
+  const linkedIssueTitles = issueTitles(referencedIssueNumbers(pr.body)).join('\n');
+  const ids = extractTaskIds(pr.title, pr.headRefName, closingTitles, linkedIssueTitles);
   if (ids.length === 0) {
     console.log(`PR #${number}: no task ids found`);
     return;
