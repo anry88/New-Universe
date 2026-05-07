@@ -1,0 +1,39 @@
+export interface PlanetResource {
+  planetId: string;
+  resourceId: string;
+  amount: string;
+  lastUpdateAt: string;
+  regenRate: string;
+}
+
+export interface Building {
+  id: string;
+  planetId: string;
+  typeId: string;
+  level: number;
+  queueAction?: 'build' | 'upgrade' | 'destroy';
+  queueCompletesAt?: string;
+}
+
+export interface Planet {
+  id: string;
+  systemId: string;
+  biome: string;
+  size: number;
+  slotCount: number;
+  name: string;
+  resources?: PlanetResource[];
+  buildings?: Building[];
+}
+
+export interface HomeSystem {
+  id: string;
+  ownerId: string;
+  isHome: boolean;
+  sectorX: number;
+  sectorY: number;
+  sectorZ: number;
+  name: string;
+  seed: number;
+  planets?: Planet[];
+}

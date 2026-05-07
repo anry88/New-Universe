@@ -8,8 +8,12 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
 - `hooks/` — custom React hooks.
   - **`useAuth.ts`** — manages JWT session state in memory via Zustand.
   - **`useMe.ts`** — React Query hook for fetching current player data from `GET /me`.
-- `pages/` — page-level components routed by `react-router-dom` (currently empty, create when adding the first router-driven page).
-- `components/` — reusable presentational components (currently empty, create as the UI grows).
+- `pages/` — page-level components routed by `react-router-dom`.
+  - **`Home.tsx`** — main game screen with resource bar, planet view, build queue, and bottom tab bar.
+- `components/` — reusable presentational components.
+  - **`ResourceBar.tsx`** — displays planet resources with real-time regeneration animation via `requestAnimationFrame`.
+  - **`PlanetView.tsx`** — shows the current focus planet with its buildings schema.
+  - **`BuildQueue.tsx`** — displays the current build queue with countdown timers.
 - `assets/` — static assets imported by Vite (currently empty).
 
 The folders above are reserved by `AGENTS.md` (`Engineering Rules` → "Keep frontend state and API calls in clear `lib/`, `pages/`, and `components/` boundaries"). Create them as soon as a feature needs them and document new files here.

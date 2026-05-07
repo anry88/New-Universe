@@ -1,3 +1,5 @@
+import type { HomeSystem } from './world.js';
+
 export interface User {
   id: string;
   tgId: string;
@@ -6,4 +8,5 @@ export interface User {
   createdAt: string;
   premiumUntil: string | null;
   powerScore: number;
+  homeSystem?: HomeSystem;
 }
