@@ -8,6 +8,13 @@
       "when": 1778163129779,
       "tag": "0000_cold_iron_patriot",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1778165881618,
+      "tag": "0001_odd_wolf_cub",
+      "breakpoints": true
     }
   ]
 }
