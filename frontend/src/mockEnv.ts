@@ -5,7 +5,7 @@ if (import.meta.env.DEV) {
   try {
     retrieveLaunchParams();
     shouldMock = false;
-  } catch (e) {
+  } catch {
     shouldMock = true;
   }
 

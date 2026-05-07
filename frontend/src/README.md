@@ -5,6 +5,9 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
 ## Layout
 
 - `lib/` — shared infrastructure (API client, store, Sentry init, helpers). Today contains `sentry.ts`; future API clients (`api.ts`), stores (`store.ts`), and React Query helpers go here.
+- `hooks/` — custom React hooks.
+  - **`useAuth.ts`** — manages JWT session state in memory via Zustand.
+  - **`useMe.ts`** — React Query hook for fetching current player data from `GET /me`.
 - `pages/` — page-level components routed by `react-router-dom` (currently empty, create when adding the first router-driven page).
 - `components/` — reusable presentational components (currently empty, create as the UI grows).
 - `assets/` — static assets imported by Vite (currently empty).
@@ -28,7 +31,9 @@ The folders above are reserved by `AGENTS.md` (`Engineering Rules` → "Keep fro
 
 ## `lib/`
 
-- **`sentry.ts`** — initializes `@sentry/react` only when `import.meta.env.VITE_SENTRY_DSN` is present. Uses `browserTracingIntegration` and `replayIntegration` with `replaysSessionSampleRate: 0.1` and `replaysOnErrorSampleRate: 1.0`, sets `tracesSampleRate: 1.0`, and reports `import.meta.env.MODE` as the environment. The module exports the `Sentry` namespace so error-boundary or `Sentry.captureException` calls can import directly from here.
+- **`api.ts`** — Unified fetch client. Automatically injects `X-Telegram-Init-Data` from the SDK and `Authorization: Bearer <token>` when a session is active.
+- **`sentry.ts`** — initializes `@sentry/react` only when `import.meta.env.VITE_SENTRY_DSN` is present.
+ Uses `browserTracingIntegration` and `replayIntegration` with `replaysSessionSampleRate: 0.1` and `replaysOnErrorSampleRate: 1.0`, sets `tracesSampleRate: 1.0`, and reports `import.meta.env.MODE` as the environment. The module exports the `Sentry` namespace so error-boundary or `Sentry.captureException` calls can import directly from here.
 
 ## Adding a feature to the frontend
 

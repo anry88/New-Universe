@@ -30,6 +30,12 @@ Telegram Bot logic and webhook handling.
 - **`webhook.ts`** — Dispatcher for incoming Telegram updates.
 - **`commands.ts`** — Implementation of bot commands like `/start`.
 
+## `me/`
+
+Player state retrieval.
+
+- **`routes.ts`** — `meRoutes(app)` registers `GET /me`. Requires a valid JWT in the `Authorization: Bearer <token>` header. Returns the database user record mapped to the `User` shared type.
+
 ## `world/`
 
 Procedural world generation primitives. Today this contains the home-system seeder used by `auth/service.ts`.
