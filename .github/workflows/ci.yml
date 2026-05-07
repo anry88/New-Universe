@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Start infrastructure
+        run: docker compose up -d postgres redis
+
+      - name: Build backend
+        run: docker compose build backend
+
+      - name: Backend Lint
+        run: docker compose run --rm backend npm run lint
+
+      - name: Backend Type-check
+        run: docker compose run --rm backend npm run build
+
+      - name: Backend Test
+        run: docker compose run --rm backend npm test
+
+      - name: Build frontend
+        run: docker compose --profile frontend build frontend
+
+      - name: Frontend Lint
+        run: docker compose --profile frontend run --rm frontend npm run lint
+
+      - name: Frontend Type-check
+        run: docker compose --profile frontend run --rm frontend npm run build
+
+      - name: Frontend Test
+        run: docker compose --profile frontend run --rm frontend npm test
+
+      - name: Cleanup
+        if: always()
+        run: docker compose down -v
