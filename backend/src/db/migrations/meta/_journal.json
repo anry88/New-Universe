@@ -15,6 +15,13 @@
       "when": 1778165881618,
       "tag": "0001_odd_wolf_cub",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1778166582710,
+      "tag": "0002_fast_boomerang",
+      "breakpoints": true
     }
   ]
 }
