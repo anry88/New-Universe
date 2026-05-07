@@ -24,7 +24,9 @@ export async function apiFetch<T>(
     if (initDataRaw) {
       headers.set('X-Telegram-Init-Data', initDataRaw);
     }
-  } catch (e) {}
+  } catch {
+    // SDK not available
+  }
 
   if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
@@ -37,7 +39,10 @@ export async function apiFetch<T>(
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    const error = new Error(errorData.message || `API Error: ${response.status}`) as any;
+    const error = new Error(errorData.message || `API Error: ${response.status}`) as Error & {
+      status?: number;
+      data?: any;
+    };
     error.status = response.status;
     error.data = errorData;
     throw error;
