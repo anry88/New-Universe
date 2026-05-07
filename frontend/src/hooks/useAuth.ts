@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { apiFetch, setSessionToken } from '../lib/api';
-import type { AuthResponse } from '../../../shared/types/auth';
-import type { User } from '../../../shared/types/user';
+import type { AuthResponse } from '@shared/types/auth';
+import type { User } from '@shared/types/user';
 
 interface AuthState {
   token: string | null;

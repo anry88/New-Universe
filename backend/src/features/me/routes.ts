@@ -4,6 +4,7 @@ import { env } from '../../lib/env.js';
 import { db } from '../../db/index.js';
 import { users } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
+import { User } from '@shared/types/user.js';
 
 export async function meRoutes(app: FastifyInstance) {
   app.get(

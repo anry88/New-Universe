@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '../lib/api';
-import type { User } from '../../../shared/types/user';
+import type { User } from '@shared/types/user';
 import { useAuthStore } from './useAuth';
 
 export function useMe() {
