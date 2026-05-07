@@ -673,7 +673,7 @@ URL=$(gh issue create --repo "$REPO" --title '[P1-122] GET /me → состоя�
 
 ## Зависимости
 - P1-121
-- P1-130
+- P1-141
 
 ## Как проверить
 Интеграционный тест: создать user → GET /me → видеть Home System
