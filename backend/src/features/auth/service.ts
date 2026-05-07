@@ -15,16 +15,25 @@ export class AuthService {
     });
 
     if (!user) {
-      user = await db.transaction(async (tx) => {
-        const [newUser] = await tx.insert(users).values({
-          tgId,
-          tgUsername: telegramUser.username,
-          tgFirstName: telegramUser.first_name,
-        }).returning();
+      try {
+        user = await db.transaction(async (tx) => {
+          const [newUser] = await tx.insert(users).values({
+            tgId,
+            tgUsername: telegramUser.username,
+            tgFirstName: telegramUser.first_name,
+          }).returning();
 
-        await generateHomeSystem(newUser.id, tx);
-        return newUser;
-      });
+          await generateHomeSystem(newUser.id, tx);
+          return newUser;
+        });
+      } catch (err: any) {
+        if (err?.code === '23505' || err?.message?.includes('unique constraint')) {
+          user = await db.query.users.findFirst({
+            where: eq(users.tgId, tgId),
+          });
+        }
+        if (!user) throw err;
+      }
     }
 
     if (!user) {
