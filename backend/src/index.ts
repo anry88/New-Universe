@@ -4,6 +4,7 @@ import { env } from './lib/env.js';
 import { logger } from './lib/logger.js';
 import { generateRequestId } from './middleware/request-id.js';
 import { healthRoutes } from './routes/health.js';
+import { botRoutes } from './routes/bot.js';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 
@@ -25,6 +26,7 @@ await fastify.register(cors);
 await fastify.register(helmet);
 
 await fastify.register(healthRoutes);
+await fastify.register(botRoutes);
 
 const start = async () => {
   try {
