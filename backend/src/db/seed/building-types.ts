@@ -1,7 +1,9 @@
 import { db } from '../index.js';
 import { buildingTypes } from '../schema/buildings.js';
 
-const buildingTypeData = [
+type BuildingTypeInsert = typeof buildingTypes.$inferInsert;
+
+const buildingTypeData: BuildingTypeInsert[] = [
   {
     id: 'command_center',
     name: { ru: 'Командный центр', en: 'Command Center' },
