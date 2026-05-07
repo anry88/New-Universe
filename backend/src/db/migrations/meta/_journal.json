@@ -22,6 +22,13 @@
       "when": 1778166582710,
       "tag": "0002_fast_boomerang",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1778167964441,
+      "tag": "0003_fresh_deadpool",
+      "breakpoints": true
     }
   ]
 }
