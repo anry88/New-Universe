@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 
 const OWNER = process.env.PROJECT_OWNER || process.env.OWNER || 'anry88';
-const PROJECT_NUMBER = process.env.PROJECT_NUMBER || '3';
+const PROJECT_NUMBER = parseInt(process.env.PROJECT_NUMBER || '3', 10);
 const REPO = process.env.REPO || 'anry88/New-Universe';
 const TASKS_JSON = process.env.TASKS_JSON || 'tasks/tasks.json';
 
@@ -22,20 +22,19 @@ function gh(args, options = {}) {
   return run('gh', args, options);
 }
 
-function readJson(command, args) {
-  const output = run(command, args);
+function ghApi(query, variables = {}) {
+  const args = ['api', 'graphql', '-f', `query=${query}`];
+  for (const [key, value] of Object.entries(variables)) {
+    args.push('-F', `${key}=${value}`);
+  }
+  const output = gh(args);
   return output ? JSON.parse(output) : {};
-}
-
-function ghJson(args) {
-  return readJson('gh', args);
 }
 
 function projectAccessHint() {
   return [
-    `Cannot read GitHub Project #${PROJECT_NUMBER} for owner ${OWNER}.`,
-    'In GitHub Actions, set repository secret PROJECT_TOKEN to a classic personal access token owned by a user who can access the Project, with repo, project, and read:org scopes.',
-    'Do not rely on GITHUB_TOKEN or a fine-grained token for this user-owned Project v2 automation.',
+    `Cannot access GitHub Project #${PROJECT_NUMBER} for owner ${OWNER}.`,
+    'Check if PROJECT_TOKEN is valid and has repo, project, and read:org scopes.',
   ].join(' ');
 }
 
@@ -44,12 +43,7 @@ function usage() {
   node tasks/project_status.mjs task <TASK_ID> [--status <Status>] [--verification <Verification>] [--comment <text>]
   node tasks/project_status.mjs start <TASK_ID> [--branch <branch-name>]
   node tasks/project_status.mjs sync-ready
-  node tasks/project_status.mjs pr --number <PR_NUMBER> --action <opened|reopened|ready_for_review|converted_to_draft|closed|synchronize> [--merged true|false]
-
-Environment:
-  PROJECT_OWNER=${OWNER}
-  PROJECT_NUMBER=${PROJECT_NUMBER}
-  REPO=${REPO}`);
+  node tasks/project_status.mjs pr --number <PR_NUMBER> --action <opened|reopened|ready_for_review|converted_to_draft|closed|synchronize> [--merged true|false]`);
   process.exit(2);
 }
 
@@ -67,11 +61,74 @@ function parseFlags(args) {
   return flags;
 }
 
+const PROJECT_QUERY = `
+query($owner: String!, $number: Int!) {
+  user(login: $owner) {
+    projectV2(number: $number) {
+      id
+      fields(first: 50) {
+        nodes {
+          ... on ProjectV2SingleSelectField { id name options { id name } }
+        }
+      }
+      items(first: 100) {
+        nodes {
+          id
+          content { ... on Issue { title number } ... on PullRequest { title number } }
+          fieldValues(first: 20) {
+            nodes {
+              ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2FieldCommon { name } } }
+            }
+          }
+        }
+      }
+    }
+  }
+  organization(login: $owner) {
+    projectV2(number: $number) {
+      id
+      fields(first: 50) {
+        nodes {
+          ... on ProjectV2SingleSelectField { id name options { id name } }
+        }
+      }
+      items(first: 100) {
+        nodes {
+          id
+          content { ... on Issue { title number } ... on PullRequest { title number } }
+          fieldValues(first: 20) {
+            nodes {
+              ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2FieldCommon { name } } }
+            }
+          }
+        }
+      }
+    }
+  }
+}`;
+
 function loadProject() {
   try {
-    const project = ghJson(['project', 'view', PROJECT_NUMBER, '--owner', OWNER, '--format', 'json']);
-    const fields = ghJson(['project', 'field-list', PROJECT_NUMBER, '--owner', OWNER, '--format', 'json']).fields || [];
-    const items = ghJson(['project', 'item-list', PROJECT_NUMBER, '--owner', OWNER, '--limit', '200', '--format', 'json']).items || [];
+    const data = ghApi(PROJECT_QUERY, { owner: OWNER, number: PROJECT_NUMBER });
+    const project = data.data?.user?.projectV2 || data.data?.organization?.projectV2;
+    
+    if (!project) {
+      throw new Error(`Project #${PROJECT_NUMBER} not found for owner ${OWNER}`);
+    }
+
+    const fields = project.fields.nodes.filter(f => f.id);
+    const items = project.items.nodes.map(item => {
+      const statusValue = item.fieldValues.nodes.find(v => v.field?.name === 'Status');
+      const verificationValue = item.fieldValues.nodes.find(v => v.field?.name === 'Verification');
+      return {
+        id: item.id,
+        title: item.content?.title || '',
+        number: item.content?.number,
+        status: statusValue?.name,
+        verification: verificationValue?.name,
+      };
+    });
+
     return { projectId: project.id, fields, items };
   } catch (error) {
     const details = error instanceof Error ? error.message : String(error);
@@ -81,17 +138,13 @@ function loadProject() {
 
 function fieldByName(fields, name) {
   const field = fields.find((candidate) => candidate.name === name);
-  if (!field) {
-    throw new Error(`Project field not found: ${name}`);
-  }
+  if (!field) throw new Error(`Project field not found: ${name}`);
   return field;
 }
 
 function optionByName(field, name) {
   const option = (field.options || []).find((candidate) => candidate.name === name);
-  if (!option) {
-    throw new Error(`Project option not found: ${field.name}=${name}`);
-  }
+  if (!option) throw new Error(`Project option not found: ${field.name}=${name}`);
   return option;
 }
 
@@ -103,30 +156,22 @@ function itemForTask(items, taskId) {
   return items.find((item) => (item.title || '').startsWith(taskPrefix(taskId)));
 }
 
-function issueNumberForItem(item) {
-  return item?.content?.number;
-}
-
 function setSingleSelect(project, item, fieldName, optionName) {
   const field = fieldByName(project.fields, fieldName);
   const option = optionByName(field, optionName);
   gh([
-    'project',
-    'item-edit',
-    '--id',
-    item.id,
-    '--project-id',
-    project.projectId,
-    '--field-id',
-    field.id,
-    '--single-select-option-id',
-    option.id,
+    'project', 'item-edit', '--id', item.id, '--project-id', project.projectId,
+    '--field-id', field.id, '--single-select-option-id', option.id,
   ]);
 }
 
 function commentIssue(issueNumber, body) {
   if (!issueNumber || !body) return;
-  gh(['issue', 'comment', String(issueNumber), '--repo', REPO, '--body', body], { stdio: 'inherit' });
+  try {
+    gh(['issue', 'comment', String(issueNumber), '--repo', REPO, '--body', body]);
+  } catch (e) {
+    console.warn(`Failed to comment on issue #${issueNumber}: ${e.message}`);
+  }
 }
 
 function updateTask(taskId, flags) {
@@ -142,7 +187,7 @@ function updateTask(taskId, flags) {
 
   if (status && item.status !== status) setSingleSelect(project, item, 'Status', status);
   if (verification && item.verification !== verification) setSingleSelect(project, item, 'Verification', verification);
-  if (flags.comment) commentIssue(issueNumberForItem(item), flags.comment);
+  if (flags.comment) commentIssue(item.number, flags.comment);
 
   console.log(`${taskId}: ${status || item.status}${verification ? ` / ${verification}` : ''}`);
 }
@@ -182,7 +227,6 @@ function syncReady() {
     promoted += 1;
     console.log(`${task.id}: Backlog -> Ready`);
   }
-
   console.log(`Promoted to Ready: ${promoted}`);
 }
 
@@ -206,8 +250,12 @@ function referencedIssueNumbers(body) {
 
 function issueTitles(issueNumbers) {
   return issueNumbers.map((issueNumber) => {
-    const issue = ghJson(['issue', 'view', issueNumber, '--repo', REPO, '--json', 'title']);
-    return issue.title;
+    try {
+      const output = gh(['issue', 'view', String(issueNumber), '--repo', REPO, '--json', 'title']);
+      return JSON.parse(output).title;
+    } catch (e) {
+      return '';
+    }
   });
 }
 
@@ -216,19 +264,13 @@ function updateFromPr(flags) {
   const action = flags.action;
   if (!number || !action) usage();
 
-  const pr = ghJson([
-    'pr',
-    'view',
-    number,
-    '--repo',
-    REPO,
-    '--json',
-    'title,body,headRefName,url,isDraft,mergedAt,state,closingIssuesReferences',
-  ]);
+  const output = gh(['pr', 'view', String(number), '--repo', REPO, '--json', 'title,body,headRefName,url,isDraft,mergedAt,state,closingIssuesReferences']);
+  const pr = JSON.parse(output);
 
   const closingTitles = (pr.closingIssuesReferences || []).map((issue) => issue.title).join('\n');
   const linkedIssueTitles = issueTitles(referencedIssueNumbers(pr.body)).join('\n');
   const ids = extractTaskIds(pr.title, pr.headRefName, closingTitles, linkedIssueTitles);
+  
   if (ids.length === 0) {
     console.log(`PR #${number}: no task ids found`);
     return;
@@ -249,12 +291,7 @@ function updateFromPr(flags) {
     status = pr.isDraft ? 'In Progress' : 'Review';
   }
 
-  const comment =
-    status === 'Review'
-      ? `PR opened for review: ${pr.url}`
-      : status === 'Done'
-        ? `PR merged: ${pr.url}`
-        : undefined;
+  const comment = status === 'Review' ? `PR opened for review: ${pr.url}` : status === 'Done' ? `PR merged: ${pr.url}` : undefined;
 
   for (const taskId of ids) {
     updateTask(taskId, { status, verification, comment });
