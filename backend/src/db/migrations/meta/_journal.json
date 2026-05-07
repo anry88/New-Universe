@@ -43,6 +43,13 @@
       "when": 1778172067623,
       "tag": "0005_messy_franklin_storm",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1778172554411,
+      "tag": "0006_loving_sue_storm",
+      "breakpoints": true
     }
   ]
 }
