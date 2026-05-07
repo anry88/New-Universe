@@ -21,6 +21,15 @@ Telegram-Mini-App authentication. The route layer delegates everything to `authS
   - The exported singleton is `authService = new AuthService()`.
 - **`auth.test.ts`** — Vitest suite covering the service in isolation: it asserts that an existing `tgId` is reused (no insert, no home-system generation), that a missing `tgId` triggers `users.insert` plus `generateHomeSystem`, and that the issued JWT verifies with `env.JWT_SECRET`.
 
+## `bot/`
+
+Telegram Bot logic and webhook handling.
+
+- **`README.md`** — [Detailed bot documentation](./bot/README.md).
+- **`service.ts`** — `BotService` singleton for processing Telegram updates.
+- **`webhook.ts`** — Dispatcher for incoming Telegram updates.
+- **`commands.ts`** — Implementation of bot commands like `/start`.
+
 ## `world/`
 
 Procedural world generation primitives. Today this contains the home-system seeder used by `auth/service.ts`.
