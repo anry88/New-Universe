@@ -22,6 +22,7 @@ if (import.meta.env.DEV) {
       })],
       ['hash', '89d60791b923627835824986612d02c89286d915'],
       ['auth_date', '1716922846'],
+      ['signature', 'abc123signature'],
       ['start_param', 'debug'],
       ['chat_type', 'sender'],
       ['chat_instance', '842820958918054333'],

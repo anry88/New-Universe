@@ -1,12 +1,12 @@
-import { useSignal, initData, themeParams, useLaunchParams } from '@telegram-apps/sdk-react';
+import { useSignal, themeParams, useLaunchParams } from '@telegram-apps/sdk-react';
 
 function App() {
-  const user = useSignal(initData.user);
-  const tp = useSignal(themeParams.state);
   const lp = useLaunchParams();
-
-  const username = user?.username || user?.firstName || 'DevUser';
+  const tp = useSignal(themeParams.state);
   const isDark = useSignal(themeParams.isDark);
+
+  const user = lp?.initData?.user;
+  const username = user?.username || user?.firstName || 'DevUser';
 
   return (
     <div
