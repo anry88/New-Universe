@@ -1,0 +1,79 @@
+# New Universe architecture
+
+This document explains how the New Universe backend, frontend, and supporting code are organized and where to find more details. The structure mirrors the source tree so you can jump from directories to package and function descriptions.
+
+- [Backend source root (`backend/src`)](backend/src/README.md)
+- [Backend database layer (`backend/src/db`)](backend/src/db/README.md)
+- [Backend feature modules (`backend/src/features`)](backend/src/features/README.md)
+- [Backend shared libraries (`backend/src/lib`)](backend/src/lib/README.md)
+- [Backend middleware (`backend/src/middleware`)](backend/src/middleware/README.md)
+- [Backend HTTP routes (`backend/src/routes`)](backend/src/routes/README.md)
+- [Frontend source root (`frontend/src`)](frontend/src/README.md)
+- [Shared cross-package types (`shared`)](shared/README.md)
+
+## Overview
+
+New Universe is a Telegram Mini App space-strategy game. The implementation is split across three top-level code areas:
+
+- `backend/` — Fastify v5 + TypeScript (ESM) HTTP API. Entry point is `backend/src/index.ts`, which loads Sentry, builds the Fastify instance with Pino logging, registers global plugins (`@fastify/cors`, `@fastify/helmet`), wires the request ID generator, and mounts the route trees from `routes/health`, `routes/bot`, and `features/auth/routes`. The server listens on `env.PORT` (default `3000`) and binds to `0.0.0.0` so it works inside Docker.
+- `frontend/` — Vite + React 18 Telegram Mini App client. Entry point is `frontend/src/main.tsx`, which initializes the Telegram Apps SDK (`init`, `miniApp.mount`, `themeParams.mount`, `viewport.mount`, `miniApp.ready`), boots Sentry, optionally mocks the Telegram environment for browser dev (`mockEnv.ts`), and renders `App.tsx` into `#root`.
+- `shared/` — cross-package contracts (currently `shared/types/`) consumed by both backend and frontend so HTTP payload shapes stay in sync.
+
+The `dev/`, `docs/`, and `tasks/` folders contain non-runtime materials: dev-environment scaffolding, the GDD/roadmap PDFs, and the task plan / GitHub Project automation scripts. They do not ship as application code.
+
+## Runtime composition
+
+### Backend
+
+`backend/src/index.ts` is the only HTTP process today:
+
+- Plugins: `@fastify/cors`, `@fastify/helmet` (registered for every route).
+- Logging: Pino instance from `lib/logger.ts`, switched to `pino-pretty` in development.
+- Request IDs: every incoming request gets a UUID via `middleware/request-id.ts` and the ID is exposed under the `requestId` log key.
+- Sentry: `lib/sentry.ts` is imported as the very first module to capture early-startup errors; it stays disabled when `SENTRY_DSN` is empty.
+- Routes: `/health` (`routes/health.ts`), `/webhook/telegram` (`routes/bot.ts`), and `/auth/telegram` (`features/auth/routes.ts` mounted at the `/auth` prefix).
+
+A future BullMQ worker process is planned (`backend/package.json` scripts `worker:dev` / `worker`), but the worker entry point does not yet exist in `backend/src/`.
+
+### Database (Drizzle ORM + Postgres)
+
+`backend/src/db/index.ts` opens a `postgres-js` connection from `DATABASE_URL` and exposes a typed Drizzle client via `db`. The schema is split per domain under `backend/src/db/schema/` and re-exported from `backend/src/db/schema.ts`:
+
+- `users` — Telegram-linked player accounts.
+- `resources`, `richness`, `planet_resources` — universe resource catalog and per-planet inventory.
+- `systems`, `planets` — generated star systems and their planets, including biome and slot count.
+- `building_types`, `buildings` — building catalog and per-planet build queue rows.
+- `research_branches`, `research_progress` — research tree definitions and per-user progress.
+- `ship_types`, `ships` — ship catalog and player-owned ship instances.
+- `discovered_planets`, `discovered_systems` — fog-of-war reveal records.
+- `expeditions` — scheduled expedition jobs with `eta` / `status` index.
+
+Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Kit (`npm run db:generate`, `npm run db:migrate`). Static reference data is loaded by `backend/src/db/seed.ts`, which runs the four seeders in `backend/src/db/seed/` (`resources`, `research-branches`, `building-types`, `ship-types`).
+
+### Authentication
+
+`POST /auth/telegram` is the only authenticated endpoint today. The request flows through `middleware/telegram-auth.ts`, which validates the `X-Telegram-Init-Data` header using `lib/telegram.ts`. On first contact, `features/auth/service.ts#loginWithTelegram` creates a `users` row inside a transaction and immediately calls `features/world/home-system-generator.ts#generateHomeSystem` to seed the player's deterministic home system with planets, resource richness, planet inventory, a starting `command_center` building, and a `discoveredPlanets` row for the home planet. The service signs a 30-day JWT (`JWT_SECRET`), and the route sets a `Set-Cookie: session=<token>` cookie (`HttpOnly`, `SameSite=Strict`, `Secure` only in production) and returns `{ user, token }`.
+
+### World generation
+
+`features/world/biomes.ts` defines the seven biome catalog (`rocky`, `ocean`, `gas_giant`, `ice`, `volcanic`, `green`, `anomaly`) with their `commonResources`, `rareResources`, `bonuses`, and `penalties`. `features/world/home-system-generator.ts` implements a deterministic per-user RNG (`hashString(userId-SERVER_SECRET)` + `mulberry32`-style PRNG) so a given player always gets the same home system. The home system is restricted to the four "tame" biomes (`rocky`, `ocean`, `green`, `ice`), forces tier-1 resources on the first planet, guarantees a tritium presence on the second planet, and forbids tier-3/tier-4 resources from spawning anywhere in the home system.
+
+### Frontend
+
+`frontend/src/main.tsx` is the only entry point. It depends on `@telegram-apps/sdk-react` for Telegram launch parameters, theme, and viewport, and renders `App.tsx`. The current `App.tsx` is a placeholder welcome screen that uses Tailwind, reads launch parameters with `useLaunchParams`, and renders the player's Telegram username plus platform/theme info. `frontend/src/lib/sentry.ts` initializes Sentry only when `VITE_SENTRY_DSN` is set, including `browserTracingIntegration` and `replayIntegration`. `frontend/src/mockEnv.ts` injects a fake Telegram launch context when running in the plain browser (`import.meta.env.DEV`) so the SDK does not throw `retrieveLaunchParams()` errors during local frontend dev.
+
+### Shared types
+
+`shared/types/` is intended as the cross-cutting contract folder for backend ↔ frontend payloads. It is currently empty; new shared interfaces should be added here and imported from both sides.
+
+## Local environment
+
+`docker-compose.yml` at the repo root composes the local dev stack: `postgres` (with `pgdata` volume), `redis`, `backend` (`Dockerfile` target `dev`, mounts `backend/src` and `shared` for hot reload), an optional `worker` profile, an optional `frontend` profile, and the optional `devtools` profile (`adminer`, `redis-commander`). All variables are read from `.env` (template in `.env.example`).
+
+## How to navigate this codebase
+
+To understand how a specific piece of code works, open the README for the relevant package and follow the links to the detailed files. Start at [`backend/src/README.md`](backend/src/README.md) for backend code and [`frontend/src/README.md`](frontend/src/README.md) for frontend code. Each package README lists every file in that directory with a short description of its responsibilities and the key exports/functions that other packages call into.
+
+## Keeping this document fresh
+
+`AGENTS.md` requires every code change to update the matching `*/README.md` and, when the change affects cross-cutting concerns, this `DOCUMENTATION.md` overview. Do not let the documentation drift; agents reading the codebase rely on it to navigate quickly.
