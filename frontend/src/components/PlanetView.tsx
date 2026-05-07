@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useMe } from '../hooks/useMe';
-import type { Planet } from '@shared/types/world';
+import type { Planet, Building } from '@shared/types/world';
 
 export function PlanetView() {
   const { data: meData } = useMe();
@@ -40,7 +40,7 @@ export function PlanetView() {
 
           <div className="grid grid-cols-2 gap-3">
             {Array.from({ length: planet.slotCount }, (_, i) => {
-              const building = (planet as any).buildings?.[i];
+              const building = planet.buildings?.[i];
               return (
                 <button
                   key={i}
