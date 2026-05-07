@@ -59,10 +59,12 @@ Your goal is not just to edit files. Your goal is to complete the task end to en
    - Prefer TypeScript strictness, typed boundaries, Zod validation for config/input, Drizzle for database access, and small feature modules.
    - Keep business logic in backend feature/service modules, route handlers thin, and database schema changes explicit.
    - Keep frontend state and API calls in clear `lib/`, `pages/`, and `components/` boundaries.
+   - When adding or changing behavior, write or update focused unit tests in the same change before reporting the task as complete.
 
 6. Verify.
    - Run the command listed in the task `verify` field when possible.
    - Also run the nearest relevant tests/build/type-check for changed code.
+   - Check the code you wrote immediately after implementation: run the smallest relevant unit tests first, then broader build/type-check/lint commands as appropriate.
    - If verification cannot run because dependencies, secrets, Docker, or local services are missing, state exactly what blocked it and what command should be run after the blocker is fixed.
 
 7. Finish the task record.
@@ -236,7 +238,7 @@ Do not treat generated planning PDFs or CSV files as implementation code.
 - Use `rg`/`rg --files` for search.
 - Use structured parsers and project tooling instead of ad hoc text manipulation where practical.
 - Keep changes scoped to the task and its dependencies.
-- Add or update tests when behavior, schemas, routes, services, or frontend flows change.
+- Add or update focused unit tests immediately when behavior, schemas, routes, services, or frontend flows change; do not leave tests as a follow-up unless a concrete blocker prevents it.
 - Prefer clear, boring implementation over new abstractions.
 - Do not commit secrets. `.env` stays local and must not be committed.
 
