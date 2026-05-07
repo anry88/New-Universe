@@ -156,6 +156,7 @@ gh pr create --repo anry88/New-Universe --title "[P1-141] Generate Home System" 
 Move a task through the GitHub Project lifecycle:
 
 ```bash
+node tasks/project_status.mjs start P1-141 --branch task/P1-141-home-system
 node tasks/project_status.mjs task P1-141 --status "In Progress" --verification "Not run" --comment "Started in branch task/P1-141-home-system."
 node tasks/project_status.mjs task P1-141 --status "Blocked" --verification "Blocked" --comment "Blocked: provide TELEGRAM_BOT_TOKEN in local .env."
 node tasks/project_status.mjs task P1-141 --status "Review" --verification "Local pass" --comment "PR opened: <url>. Verification: <commands>."

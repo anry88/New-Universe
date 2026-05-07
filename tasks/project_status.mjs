@@ -42,6 +42,7 @@ function projectAccessHint() {
 function usage() {
   console.error(`Usage:
   node tasks/project_status.mjs task <TASK_ID> [--status <Status>] [--verification <Verification>] [--comment <text>]
+  node tasks/project_status.mjs start <TASK_ID> [--branch <branch-name>]
   node tasks/project_status.mjs sync-ready
   node tasks/project_status.mjs pr --number <PR_NUMBER> --action <opened|reopened|ready_for_review|converted_to_draft|closed|synchronize> [--merged true|false]
 
@@ -144,6 +145,15 @@ function updateTask(taskId, flags) {
   if (flags.comment) commentIssue(issueNumberForItem(item), flags.comment);
 
   console.log(`${taskId}: ${status || item.status}${verification ? ` / ${verification}` : ''}`);
+}
+
+function startTask(taskId, flags) {
+  const branch = flags.branch || run('git', ['rev-parse', '--abbrev-ref', 'HEAD']);
+  updateTask(taskId, {
+    status: 'In Progress',
+    verification: 'Not run',
+    comment: `Started in branch ${branch}.`,
+  });
 }
 
 function loadTasks() {
@@ -259,6 +269,9 @@ try {
   if (command === 'task') {
     if (!maybeTaskId) usage();
     updateTask(maybeTaskId, parseFlags(rest));
+  } else if (command === 'start') {
+    if (!maybeTaskId) usage();
+    startTask(maybeTaskId, parseFlags(rest));
   } else if (command === 'sync-ready') {
     syncReady();
   } else if (command === 'pr') {
