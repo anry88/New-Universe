@@ -64,6 +64,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-me}
       LOG_LEVEL: ${LOG_LEVEL:-debug}
       SENTRY_DSN: ${SENTRY_DSN:-}
+      PUBLIC_FRONTEND_URL: ${PUBLIC_FRONTEND_URL:-}
+      TELEGRAM_APP_URL: ${TELEGRAM_APP_URL:-}
     ports:
       - "3000:3000"
       - "4983:4983"
