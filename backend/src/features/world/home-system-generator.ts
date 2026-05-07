@@ -42,13 +42,20 @@ export async function generateHomeSystem(userId: string, tx?: any) {
     const sectorX = Math.floor(random() * 1001) - 500;
     const sectorY = Math.floor(random() * 1001) - 500;
     const sectorZ = Math.floor(random() * 1001) - 500;
-    
+
+    const x = sectorX * 500 + random() * 500;
+    const y = sectorY * 500 + random() * 500;
+    const z = sectorZ * 500 + random() * 500;
+
     const [system] = await database.insert(systems).values({
       ownerId: userId,
       isHome: true,
       sectorX,
       sectorY,
       sectorZ,
+      x: x.toFixed(2),
+      y: y.toFixed(2),
+      z: z.toFixed(2),
       name: `Home System ${userId.slice(0, 4)}`,
       seed: Math.floor(random() * 1000000),
     }).returning();
