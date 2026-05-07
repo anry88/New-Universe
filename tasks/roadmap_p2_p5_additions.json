@@ -1,0 +1,736 @@
+{
+  "epics": [
+    {"id": "EPIC-P2-COL", "phase": 2, "title": "Phase 2 — Colonization and second planet"},
+    {"id": "EPIC-P2-MKT", "phase": 2, "title": "Phase 2 — NPC market and logistics"},
+    {"id": "EPIC-P2-RES", "phase": 2, "title": "Phase 2 — Research levels 1-3"},
+    {"id": "EPIC-P2-POL", "phase": 2, "title": "Phase 2 — Balance, polish, regression"},
+    {"id": "EPIC-P3-MAP", "phase": 3, "title": "Phase 3 — Multiplayer common map"},
+    {"id": "EPIC-P3-ALL", "phase": 3, "title": "Phase 3 — Alliances"},
+    {"id": "EPIC-P3-MKT", "phase": 3, "title": "Phase 3 — Player market"},
+    {"id": "EPIC-P4-DEPLOY", "phase": 4, "title": "Phase 4 — Production deployment"},
+    {"id": "EPIC-P4-OPS", "phase": 4, "title": "Phase 4 — Operations and observability"},
+    {"id": "EPIC-P4-SEC", "phase": 4, "title": "Phase 4 — Security and abuse prevention"},
+    {"id": "EPIC-P4-ANALYTICS", "phase": 4, "title": "Phase 4 — Product analytics"},
+    {"id": "EPIC-P4-MON", "phase": 4, "title": "Phase 4 — Monetization readiness"},
+    {"id": "EPIC-P5-LIVE", "phase": 5, "title": "Phase 5 — Live operations"},
+    {"id": "EPIC-P5-CONTENT", "phase": 5, "title": "Phase 5 — Content pipeline"},
+    {"id": "EPIC-P5-BALANCE", "phase": 5, "title": "Phase 5 — Balance loop"},
+    {"id": "EPIC-P5-SUPPORT", "phase": 5, "title": "Phase 5 — Support and admin runbooks"}
+  ],
+  "tasks": [
+    {
+      "id": "P2-COL-001",
+      "epic": "EPIC-P2-COL",
+      "size": "M",
+      "title": "Colonies data model and ownership rules",
+      "description": "Add the data model for player colonies outside the home system: colony identity, owner, planet binding, founding timestamp, active/inactive state, and limits per user.",
+      "acceptance": [
+        "A player can own multiple colonies linked to discovered planets",
+        "Home-system planet ownership is still protected from other players",
+        "Database constraints prevent duplicate colonies on the same planet for one owner",
+        "Migration is generated and reversible in local dev"
+      ],
+      "files": ["backend/src/db/schema/colonies.ts", "backend/src/features/colonies/colonies.ts", "backend/src/features/colonies/colonies.test.ts"],
+      "deps": ["P1-103", "P1-108"],
+      "verify": "Run colony model unit tests and inspect the generated migration in Postgres",
+      "notes": "This is the base contract for all Phase 2 colonization flows."
+    },
+    {
+      "id": "P2-COL-002",
+      "epic": "EPIC-P2-COL",
+      "size": "L",
+      "title": "Colonizer deployment flow",
+      "description": "Implement the backend service and API for deploying a colonizer ship on an eligible discovered planet in the common pool.",
+      "acceptance": [
+        "Only colonizer ships can found a colony",
+        "Target planet must be discovered by the player and outside protected foreign home systems",
+        "Ship is consumed or converted according to the GDD rule chosen in implementation notes",
+        "Founding creates a colony and a level 1 command center"
+      ],
+      "files": ["backend/src/features/colonies/found-colony.ts", "backend/src/routes/colonies.ts", "backend/src/features/colonies/found-colony.test.ts"],
+      "deps": ["P2-COL-001", "P1-170", "P1-182"],
+      "verify": "API test: build colonizer, jump to discovered planet, found a colony, verify colony state",
+      "notes": "If GDD is ambiguous, prefer consuming the colonizer to avoid duplication exploits."
+    },
+    {
+      "id": "P2-COL-003",
+      "epic": "EPIC-P2-COL",
+      "size": "M",
+      "title": "Colony bootstrap economy",
+      "description": "Define the starting resource, storage, and building state for a newly founded colony so it can become useful without breaking early-game balance.",
+      "acceptance": [
+        "New colony starts with configured minimal storage and command center",
+        "No resource is created unless explicitly defined by bootstrap config",
+        "Bootstrap values are versioned and test-covered",
+        "Colony cannot immediately create infinite resource loops with home planet"
+      ],
+      "files": ["backend/src/features/colonies/bootstrap.ts", "backend/src/config/colony-bootstrap.ts", "backend/src/features/colonies/bootstrap.test.ts"],
+      "deps": ["P2-COL-002", "P1-150", "P1-160"],
+      "verify": "Unit test creates a colony and asserts resource/storage/building state",
+      "notes": "Keep config centralized so balance can change without rewriting services."
+    },
+    {
+      "id": "P2-COL-004",
+      "epic": "EPIC-P2-COL",
+      "size": "L",
+      "title": "Interplanetary cargo transfer API",
+      "description": "Add API and service logic for sending resources between player-owned planets through cargo ships.",
+      "acceptance": [
+        "Player can transfer resources only between owned colonies/planets",
+        "Cargo capacity and travel time are enforced",
+        "Resources are reserved atomically at departure",
+        "Cancelled/failed transfers cannot duplicate resources"
+      ],
+      "files": ["backend/src/features/logistics/cargo-transfer.ts", "backend/src/routes/cargo.ts", "backend/src/features/logistics/cargo-transfer.test.ts"],
+      "deps": ["P2-COL-001", "P1-151", "P1-170"],
+      "verify": "API test sends cargo from home planet to colony and verifies reserved resources",
+      "notes": "Use the same resource transaction primitives from P1-151."
+    },
+    {
+      "id": "P2-COL-005",
+      "epic": "EPIC-P2-COL",
+      "size": "M",
+      "title": "Cargo route worker",
+      "description": "Implement a worker that completes cargo transfers, applies delivered resources, and records failures safely.",
+      "acceptance": [
+        "Completed transfer adds cargo to destination exactly once",
+        "Worker is idempotent when run repeatedly",
+        "Late or failed transfers are visible for debugging",
+        "Notifications can be emitted after delivery"
+      ],
+      "files": ["backend/src/workers/cargo-routes.ts", "backend/src/features/logistics/cargo-route-worker.test.ts"],
+      "deps": ["P2-COL-004", "P1-221"],
+      "verify": "Worker test advances time and verifies one-time delivery",
+      "notes": "Design for retry safety before optimizing throughput."
+    },
+    {
+      "id": "P2-COL-006",
+      "epic": "EPIC-P2-COL",
+      "size": "M",
+      "title": "Colony management UI",
+      "description": "Add frontend screens for viewing colonies, switching active planet, and initiating cargo transfers.",
+      "acceptance": [
+        "Player can see all owned colonies and their core resources",
+        "Player can switch focus between planets",
+        "Cargo transfer dialog shows capacity, ETA, and validation errors",
+        "UI handles empty colony state cleanly"
+      ],
+      "files": ["frontend/src/pages/Colonies.tsx", "frontend/src/components/CargoTransferDialog.tsx", "frontend/src/hooks/useColonies.ts"],
+      "deps": ["P2-COL-004", "P1-201"],
+      "verify": "Manual/UI test: view colony list and start a cargo transfer",
+      "notes": "Keep UI dense and mobile-first for Telegram Mini App."
+    },
+    {
+      "id": "P2-COL-007",
+      "epic": "EPIC-P2-COL",
+      "size": "M",
+      "title": "Colonization constraints and cost balance",
+      "description": "Define and enforce costs, cooldowns, max colony count, distance limits, and required tech/building gates for colonization.",
+      "acceptance": [
+        "Colonization rules are declared in a typed config",
+        "Backend validates all gates before founding",
+        "Frontend can display why colonization is blocked",
+        "Balance numbers are documented for future tuning"
+      ],
+      "files": ["backend/src/config/colonization-rules.ts", "backend/src/features/colonies/colonization-rules.ts", "frontend/src/components/ColonizationRequirements.tsx"],
+      "deps": ["P2-COL-002", "P2-RES-003"],
+      "verify": "Tests cover allowed and blocked colonization attempts",
+      "notes": "Prefer conservative limits until telemetry exists."
+    },
+    {
+      "id": "P2-COL-008",
+      "epic": "EPIC-P2-COL",
+      "size": "L",
+      "title": "Colonization end-to-end scenario",
+      "description": "Add an automated scenario covering first colony discovery, colonizer build, colonization, and first cargo transfer.",
+      "acceptance": [
+        "E2E scenario passes against local stack",
+        "Scenario covers at least one blocked colonization attempt",
+        "Scenario verifies no resource duplication during transfer",
+        "Test runtime remains acceptable for CI"
+      ],
+      "files": ["backend/tests/e2e/colonization.test.ts", "frontend/tests/e2e/colonization.spec.ts"],
+      "deps": ["P2-COL-006", "P2-COL-007"],
+      "verify": "Run backend and frontend colonization E2E tests",
+      "notes": "Use accelerated time hooks if workers would otherwise make CI too slow."
+    },
+    {
+      "id": "P2-MKT-001",
+      "epic": "EPIC-P2-MKT",
+      "size": "M",
+      "title": "NPC market data model",
+      "description": "Add tables for NPC market offers, player orders, fulfillment state, prices, fees, and delivery references.",
+      "acceptance": [
+        "Market tables support buy and sell orders",
+        "Order state transitions are explicit",
+        "Indexes cover user, resource, state, and created_at queries",
+        "Schema supports future player market reuse"
+      ],
+      "files": ["backend/src/db/schema/market.ts", "backend/src/features/market/types.ts"],
+      "deps": ["P1-102", "P1-151"],
+      "verify": "Migration applies and schema tests validate order state constraints",
+      "notes": "Design with P3 player market in mind, but do not implement P3 behavior here."
+    },
+    {
+      "id": "P2-MKT-002",
+      "epic": "EPIC-P2-MKT",
+      "size": "M",
+      "title": "NPC broker pricing model",
+      "description": "Implement deterministic NPC pricing with spread, stock pressure, resource tier weighting, and anti-abuse limits.",
+      "acceptance": [
+        "Each resource has a deterministic baseline price",
+        "Buy/sell spread prevents trivial arbitrage",
+        "Prices can be recalculated without corrupting existing orders",
+        "Unit tests cover edge resources and tier effects"
+      ],
+      "files": ["backend/src/features/market/pricing.ts", "backend/src/config/market-prices.ts", "backend/src/features/market/pricing.test.ts"],
+      "deps": ["P2-MKT-001"],
+      "verify": "Unit tests assert stable prices and no instant buy/sell profit loop",
+      "notes": "Keep the model simple enough to tune manually after telemetry."
+    },
+    {
+      "id": "P2-MKT-003",
+      "epic": "EPIC-P2-MKT",
+      "size": "M",
+      "title": "Market order API",
+      "description": "Add endpoints to list market offers and create/cancel NPC buy/sell orders.",
+      "acceptance": [
+        "GET market offers returns resource prices and availability",
+        "POST order validates ownership, resources, capacity, and price",
+        "Cancel returns reserved resources when allowed",
+        "All mutations use atomic resource transactions"
+      ],
+      "files": ["backend/src/routes/market.ts", "backend/src/features/market/orders.ts", "backend/src/features/market/orders.test.ts"],
+      "deps": ["P2-MKT-002", "P1-151"],
+      "verify": "API tests cover create, reject, cancel, and insufficient resources",
+      "notes": "Do not expose direct price override through public API."
+    },
+    {
+      "id": "P2-MKT-004",
+      "epic": "EPIC-P2-MKT",
+      "size": "L",
+      "title": "Market fulfillment and NPC cargo delivery",
+      "description": "Implement worker/service logic that fulfills NPC orders and delivers bought goods through an abstracted cargo delivery path.",
+      "acceptance": [
+        "Fulfilled sell orders credit the player correctly",
+        "Fulfilled buy orders deliver resources after configured ETA",
+        "Worker is idempotent and retry-safe",
+        "Market fulfillment does not bypass storage caps"
+      ],
+      "files": ["backend/src/workers/market.ts", "backend/src/features/market/fulfillment.ts", "backend/src/features/market/fulfillment.test.ts"],
+      "deps": ["P2-MKT-003", "P2-COL-005"],
+      "verify": "Worker test fulfills buy and sell orders without duplicating resources",
+      "notes": "Use NPC cargo as a gameplay abstraction; no visible NPC fleet required yet."
+    },
+    {
+      "id": "P2-MKT-005",
+      "epic": "EPIC-P2-MKT",
+      "size": "M",
+      "title": "Market UI",
+      "description": "Build the Telegram Mini App market screen for viewing prices, placing orders, and tracking pending deliveries.",
+      "acceptance": [
+        "Player can browse buy/sell prices by resource",
+        "Player can place a valid market order",
+        "Pending orders and ETA are visible",
+        "Error states are clear for insufficient resources or storage"
+      ],
+      "files": ["frontend/src/pages/Market.tsx", "frontend/src/components/MarketOrderDialog.tsx", "frontend/src/hooks/useMarket.ts"],
+      "deps": ["P2-MKT-003", "P1-200"],
+      "verify": "Manual/UI test places one buy order and one sell order",
+      "notes": "Avoid stock-market complexity; this is a utility economy screen."
+    },
+    {
+      "id": "P2-RES-001",
+      "epic": "EPIC-P2-RES",
+      "size": "M",
+      "title": "Research effects engine",
+      "description": "Implement a typed effects engine that applies research bonuses to production, storage, ship speed, sensor range, and build times.",
+      "acceptance": [
+        "Effects are typed and testable",
+        "Multiple research bonuses compose deterministically",
+        "Backend services consume effects through a single API",
+        "No frontend-only bonus calculation is trusted"
+      ],
+      "files": ["backend/src/features/research/effects.ts", "backend/src/features/research/effects.test.ts"],
+      "deps": ["P1-106", "P1-150"],
+      "verify": "Unit tests verify stacked effects for resources and ships",
+      "notes": "This is the foundation for all research upgrades."
+    },
+    {
+      "id": "P2-RES-002",
+      "epic": "EPIC-P2-RES",
+      "size": "M",
+      "title": "Tech catalog levels 1-3",
+      "description": "Expand the seeded research catalog to levels 1-3 for all planned Phase 2 branches.",
+      "acceptance": [
+        "Each branch has levels 1-3 with cost and duration",
+        "Seeder is idempotent",
+        "Catalog includes ru/en names and descriptions",
+        "Catalog entries reference typed effects"
+      ],
+      "files": ["backend/src/db/seed/research.ts", "backend/src/config/research-catalog.ts"],
+      "deps": ["P2-RES-001"],
+      "verify": "Seed database and verify expected research count and effects",
+      "notes": "Use conservative effects until balance telemetry exists."
+    },
+    {
+      "id": "P2-RES-003",
+      "epic": "EPIC-P2-RES",
+      "size": "M",
+      "title": "Research unlock gates",
+      "description": "Implement gates that unlock buildings, ships, colonization, cargo capacity, and market capabilities based on completed research.",
+      "acceptance": [
+        "Backend validates unlock gates for gated actions",
+        "Frontend can display missing research requirements",
+        "Research dependencies are stored in catalog config",
+        "Tests cover blocked and allowed actions"
+      ],
+      "files": ["backend/src/features/research/gates.ts", "frontend/src/components/RequirementList.tsx", "backend/src/features/research/gates.test.ts"],
+      "deps": ["P2-RES-002", "P1-160", "P1-170"],
+      "verify": "Tests confirm locked ship/building/colonization actions are rejected",
+      "notes": "This connects research to actual progression rather than just timers."
+    },
+    {
+      "id": "P2-RES-004",
+      "epic": "EPIC-P2-RES",
+      "size": "M",
+      "title": "Research completion worker and effect cache invalidation",
+      "description": "Add worker logic for completing research, applying unlock state, and invalidating any cached effect snapshots.",
+      "acceptance": [
+        "Research transitions to completed exactly once",
+        "Effects are available immediately after completion",
+        "Player notification is created if notifications are enabled",
+        "Worker is retry-safe"
+      ],
+      "files": ["backend/src/workers/research.ts", "backend/src/features/research/completion.ts", "backend/src/features/research/completion.test.ts"],
+      "deps": ["P2-RES-001", "P1-221"],
+      "verify": "Worker test advances research and verifies effects become active",
+      "notes": "Avoid caching until needed; if cached, invalidate explicitly."
+    },
+    {
+      "id": "P2-RES-005",
+      "epic": "EPIC-P2-RES",
+      "size": "M",
+      "title": "Research UI levels 1-3",
+      "description": "Upgrade the research UI to show full level 1-3 branches, requirements, effects, and real-time progress.",
+      "acceptance": [
+        "All available research branches and levels are visible",
+        "Locked nodes explain missing requirements",
+        "Completed research shows applied effects",
+        "Starting research updates UI optimistically with safe rollback"
+      ],
+      "files": ["frontend/src/pages/Research.tsx", "frontend/src/components/TechTreeNode.tsx", "frontend/src/hooks/useResearch.ts"],
+      "deps": ["P2-RES-003", "P1-205"],
+      "verify": "Manual/UI test starts and completes one level 2 research path",
+      "notes": "Keep rendering light enough for mobile Telegram webview."
+    },
+    {
+      "id": "P2-POL-001",
+      "epic": "EPIC-P2-POL",
+      "size": "M",
+      "title": "Economy balance simulator",
+      "description": "Create a deterministic simulator for first-day and first-week resource, building, ship, research, and colonization progression.",
+      "acceptance": [
+        "Simulator can run without external services",
+        "Outputs key timings and bottleneck resources",
+        "Scenario fixtures cover beginner and optimized paths",
+        "Results are saved as artifacts for comparison"
+      ],
+      "files": ["tools/balance-sim/", "tools/balance-sim/scenarios/first-week.json"],
+      "deps": ["P2-COL-007", "P2-RES-002", "P2-MKT-002"],
+      "verify": "Run balance simulator and compare generated summary to expected ranges",
+      "notes": "This is a design safety tool, not gameplay code."
+    },
+    {
+      "id": "P2-POL-002",
+      "epic": "EPIC-P2-POL",
+      "size": "S",
+      "title": "Content and seed consistency audit",
+      "description": "Add a repeatable audit that validates catalog seeds, resource ids, building ids, ship ids, and research ids against GDD-derived expectations.",
+      "acceptance": [
+        "Audit fails on missing or duplicate catalog ids",
+        "Audit verifies every user-facing catalog item has ru/en names",
+        "Audit checks resource tier consistency",
+        "Audit can run in CI"
+      ],
+      "files": ["backend/src/db/seed/audit.ts", "backend/src/db/seed/audit.test.ts"],
+      "deps": ["P2-RES-002", "P1-104", "P1-105"],
+      "verify": "Run seed audit test suite",
+      "notes": "This prevents silent content drift as more phases are added."
+    },
+    {
+      "id": "P2-POL-003",
+      "epic": "EPIC-P2-POL",
+      "size": "L",
+      "title": "Phase 2 regression suite",
+      "description": "Create a regression suite covering P2 colonization, market, research, and cargo flows together.",
+      "acceptance": [
+        "Suite covers one full expansion path from first colony to first market order",
+        "Suite validates no resource duplication across cargo and market",
+        "Suite is documented for local and CI execution",
+        "Failures point to the responsible feature area"
+      ],
+      "files": ["backend/tests/e2e/phase2-regression.test.ts", "docs/testing/phase2-regression.md"],
+      "deps": ["P2-COL-008", "P2-MKT-005", "P2-RES-005"],
+      "verify": "Run Phase 2 regression suite locally",
+      "notes": "This is the gate before breaking down P3 into fine-grained implementation tasks."
+    },
+    {
+      "id": "P3-MAP-001",
+      "epic": "EPIC-P3-MAP",
+      "size": "L",
+      "title": "Shared sector presence model",
+      "description": "Define how player-owned colonies and fleets become visible in common sectors without exposing protected home-system data.",
+      "acceptance": [
+        "Presence model distinguishes home, colony, fleet, and public sector entities",
+        "Visibility rules are explicit and testable",
+        "Data model supports multiple players in one sector",
+        "No private home-system entity leaks to another player"
+      ],
+      "files": ["backend/src/db/schema/multiplayer.ts", "backend/src/features/multiplayer/presence.ts", "docs/multiplayer/visibility.md"],
+      "deps": ["P2-COL-008", "P1-144"],
+      "verify": "Visibility tests with two players in the same sector",
+      "notes": "This is a roadmap task; refine after P2 regression is stable."
+    },
+    {
+      "id": "P3-MAP-002",
+      "epic": "EPIC-P3-MAP",
+      "size": "L",
+      "title": "Sector map multiplayer UI",
+      "description": "Add a sector map UI layer that can show other player colonies, visible fleets, neutral systems, and local player assets.",
+      "acceptance": [
+        "Map distinguishes local, neutral, and other-player entities",
+        "Entity details respect visibility permissions",
+        "UI remains usable on mobile",
+        "Unknown entities are represented without leaking hidden data"
+      ],
+      "files": ["frontend/src/pages/SectorMap.tsx", "frontend/src/components/pixi/SectorRenderer.tsx"],
+      "deps": ["P3-MAP-001", "P1-203"],
+      "verify": "Manual/UI test with fixture sector containing two players",
+      "notes": "Use PixiJS patterns from home system map."
+    },
+    {
+      "id": "P3-ALL-001",
+      "epic": "EPIC-P3-ALL",
+      "size": "L",
+      "title": "Alliance membership model",
+      "description": "Add alliance creation, membership, roles, invitations, and basic permissions.",
+      "acceptance": [
+        "Player can create an alliance",
+        "Player can invite, accept, leave, and remove members according to role",
+        "Alliance size limit is enforced",
+        "Membership changes are auditable"
+      ],
+      "files": ["backend/src/db/schema/alliances.ts", "backend/src/features/alliances/membership.ts", "backend/src/routes/alliances.ts"],
+      "deps": ["P2-POL-003"],
+      "verify": "API tests cover create, invite, accept, kick, and leave",
+      "notes": "Keep diplomacy simple until real multiplayer traffic exists."
+    },
+    {
+      "id": "P3-ALL-002",
+      "epic": "EPIC-P3-ALL",
+      "size": "M",
+      "title": "Alliance bank and permissions",
+      "description": "Add a shared alliance bank with deposit/withdraw permissions and basic transaction logs.",
+      "acceptance": [
+        "Members can deposit allowed resources",
+        "Only permitted roles can withdraw",
+        "All transactions are logged",
+        "Bank actions cannot bypass storage/resource transaction safety"
+      ],
+      "files": ["backend/src/features/alliances/bank.ts", "frontend/src/pages/AllianceBank.tsx"],
+      "deps": ["P3-ALL-001", "P1-151"],
+      "verify": "API tests cover deposit/withdraw permission paths",
+      "notes": "No alliance market automation in this task."
+    },
+    {
+      "id": "P3-MKT-001",
+      "epic": "EPIC-P3-MKT",
+      "size": "L",
+      "title": "Player market order book",
+      "description": "Extend the market model to support player-created buy/sell orders with escrow, cancellation, and settlement.",
+      "acceptance": [
+        "Player order book reuses safe market primitives from P2",
+        "Sell orders reserve resources in escrow",
+        "Buy orders reserve payment in escrow",
+        "Cancellation and matching are atomic"
+      ],
+      "files": ["backend/src/features/market/player-orders.ts", "backend/src/db/schema/player-market.ts"],
+      "deps": ["P2-MKT-004"],
+      "verify": "Order matching tests cover partial fill, cancel, and settlement",
+      "notes": "Do not add complex trading tools before basic safety is verified."
+    },
+    {
+      "id": "P3-MKT-002",
+      "epic": "EPIC-P3-MKT",
+      "size": "L",
+      "title": "Player trade delivery and settlement",
+      "description": "Implement player-to-player trade delivery through NPC cargo abstraction or explicit cargo route depending on Phase 3 design decision.",
+      "acceptance": [
+        "Filled orders settle exactly once",
+        "Delivery timing is transparent to both players",
+        "Storage caps are enforced at destination",
+        "Failed delivery has a documented refund/holding behavior"
+      ],
+      "files": ["backend/src/workers/player-market.ts", "backend/src/features/market/player-settlement.ts"],
+      "deps": ["P3-MKT-001", "P2-COL-005"],
+      "verify": "Two-player integration test completes a trade and validates balances",
+      "notes": "This is intentionally after the order book, not part of it."
+    },
+    {
+      "id": "P4-DEP-001",
+      "epic": "EPIC-P4-DEPLOY",
+      "size": "L",
+      "title": "Production environment plan",
+      "description": "Document and implement the target production topology for backend, frontend, worker, Postgres, Redis, secrets, and domains.",
+      "acceptance": [
+        "Production topology is documented with service responsibilities",
+        "Secrets strategy is documented and excludes repo storage",
+        "Deployment target and rollback approach are chosen",
+        "Open infrastructure costs are estimated"
+      ],
+      "files": ["docs/production/environment.md", "infra/production/README.md"],
+      "deps": ["P2-POL-003"],
+      "verify": "Production plan review checklist is completed",
+      "notes": "Do this before writing irreversible deployment automation."
+    },
+    {
+      "id": "P4-DEP-002",
+      "epic": "EPIC-P4-DEPLOY",
+      "size": "L",
+      "title": "Deployment pipeline and release workflow",
+      "description": "Create CI/CD workflow for production deploys, migrations, release tagging, and rollback documentation.",
+      "acceptance": [
+        "Deploy pipeline runs from protected branch or manual approval",
+        "Database migrations are handled safely",
+        "Release tag and changelog are generated",
+        "Rollback procedure is documented and tested in staging"
+      ],
+      "files": [".github/workflows/deploy.yml", "docs/production/release-workflow.md"],
+      "deps": ["P4-DEP-001", "P0-006"],
+      "verify": "Run staging deployment and rollback drill",
+      "notes": "Do not deploy production directly before staging succeeds."
+    },
+    {
+      "id": "P4-OPS-001",
+      "epic": "EPIC-P4-OPS",
+      "size": "M",
+      "title": "Monitoring dashboards and alerts",
+      "description": "Define metrics, logs, alerts, and dashboards for API health, worker queues, database, Redis, Telegram bot, and user-facing errors.",
+      "acceptance": [
+        "Critical alerts exist for API down, worker stuck, DB unavailable, queue backlog, and high error rate",
+        "Dashboard shows key service health",
+        "Runbook links are attached to alerts",
+        "Alert thresholds are documented"
+      ],
+      "files": ["docs/production/observability.md", "backend/src/lib/metrics.ts"],
+      "deps": ["P4-DEP-001", "P0-007", "P0-008"],
+      "verify": "Trigger test alert and verify runbook path",
+      "notes": "Start pragmatic; avoid over-instrumentation before launch."
+    },
+    {
+      "id": "P4-OPS-002",
+      "epic": "EPIC-P4-OPS",
+      "size": "M",
+      "title": "Backups and restore drill",
+      "description": "Implement and document database backup, restore, retention, and verification process.",
+      "acceptance": [
+        "Backup schedule and retention are documented",
+        "Restore process works in staging",
+        "Restore drill captures RPO/RTO",
+        "Secrets and PII handling are documented"
+      ],
+      "files": ["docs/production/backups.md", "infra/production/backup-checklist.md"],
+      "deps": ["P4-DEP-001"],
+      "verify": "Run staging restore drill from backup artifact",
+      "notes": "A backup that has not been restored is not considered valid."
+    },
+    {
+      "id": "P4-SEC-001",
+      "epic": "EPIC-P4-SEC",
+      "size": "L",
+      "title": "Security hardening and abuse limits",
+      "description": "Audit and harden auth, Telegram initData validation, rate limits, request validation, secret handling, and write endpoints.",
+      "acceptance": [
+        "All public mutation endpoints have rate limits and validation",
+        "Telegram auth cannot be replayed outside accepted rules",
+        "Secrets are loaded from production secret storage",
+        "Security checklist is documented and reviewed"
+      ],
+      "files": ["docs/security/launch-checklist.md", "backend/src/lib/rate-limit.ts", "backend/src/lib/security.ts"],
+      "deps": ["P1-120", "P2-POL-003"],
+      "verify": "Run security checklist and endpoint validation tests",
+      "notes": "This is a launch gate, not optional polish."
+    },
+    {
+      "id": "P4-SEC-002",
+      "epic": "EPIC-P4-SEC",
+      "size": "M",
+      "title": "Economy exploit and anti-cheat review",
+      "description": "Add tests and review notes for resource duplication, clock abuse, repeated worker execution, market arbitrage, and cargo settlement exploits.",
+      "acceptance": [
+        "Known exploit classes have regression tests or documented mitigations",
+        "Worker idempotency is verified for critical paths",
+        "Market/cargo/resource loops are reviewed",
+        "Risk register is updated with accepted risks"
+      ],
+      "files": ["docs/security/economy-exploits.md", "backend/tests/security/economy-exploits.test.ts"],
+      "deps": ["P2-POL-003", "P3-MKT-002"],
+      "verify": "Run economy exploit regression suite",
+      "notes": "This should happen before any real-money monetization."
+    },
+    {
+      "id": "P4-ANA-001",
+      "epic": "EPIC-P4-ANALYTICS",
+      "size": "M",
+      "title": "Product analytics event taxonomy",
+      "description": "Define and implement core product analytics events for onboarding, retention, building, ships, research, expeditions, market, and monetization.",
+      "acceptance": [
+        "Analytics event taxonomy is documented",
+        "Events include stable names and safe properties",
+        "No sensitive Telegram data is sent unnecessarily",
+        "Frontend and backend emit critical events consistently"
+      ],
+      "files": ["docs/analytics/events.md", "frontend/src/lib/analytics.ts", "backend/src/lib/analytics.ts"],
+      "deps": ["P1-206", "P2-POL-003"],
+      "verify": "Run local analytics sink and verify core events",
+      "notes": "Analytics is required for balance and retention decisions."
+    },
+    {
+      "id": "P4-MON-001",
+      "epic": "EPIC-P4-MON",
+      "size": "L",
+      "title": "Monetization and Telegram policy readiness",
+      "description": "Define launch-safe monetization surfaces, Telegram policy constraints, purchase flow boundaries, and non-pay-to-win guardrails.",
+      "acceptance": [
+        "Monetization design is documented and mapped to Telegram requirements",
+        "No paid flow is implemented without policy review",
+        "Economy impact and abuse risks are documented",
+        "Implementation tasks can be created from the approved plan"
+      ],
+      "files": ["docs/product/monetization.md", "docs/product/telegram-policy-checklist.md"],
+      "deps": ["P4-ANA-001", "P4-SEC-001"],
+      "verify": "Complete monetization readiness review checklist",
+      "notes": "Keep this as design/readiness until the game loop is validated."
+    },
+    {
+      "id": "P5-LIVE-001",
+      "epic": "EPIC-P5-LIVE",
+      "size": "M",
+      "title": "Live ops calendar and event framework",
+      "description": "Create the framework for scheduled live events, modifiers, announcements, and rollback/disable switches.",
+      "acceptance": [
+        "Event calendar format is documented",
+        "Events can be enabled/disabled without deployment",
+        "Announcements can be shown in TMA and bot",
+        "Rollback path is documented"
+      ],
+      "files": ["docs/liveops/events.md", "backend/src/features/liveops/events.ts", "frontend/src/components/LiveEventBanner.tsx"],
+      "deps": ["P4-DEP-002", "P4-ANA-001"],
+      "verify": "Enable a test event locally and verify UI/banner state",
+      "notes": "Live ops begins after launch readiness, not before core stability."
+    },
+    {
+      "id": "P5-CONT-001",
+      "epic": "EPIC-P5-CONTENT",
+      "size": "M",
+      "title": "Content pack pipeline",
+      "description": "Define how new resources, buildings, ships, research, events, and localized text are added safely after launch.",
+      "acceptance": [
+        "Content pack format is documented",
+        "Validation catches missing localization and invalid ids",
+        "Content can be reviewed before enabling",
+        "Rollback process exists for bad content"
+      ],
+      "files": ["docs/content/content-packs.md", "tools/content-validate/"],
+      "deps": ["P2-POL-002", "P5-LIVE-001"],
+      "verify": "Validate a sample content pack with intentional errors",
+      "notes": "This reduces risk when the game starts receiving ongoing content."
+    },
+    {
+      "id": "P5-BAL-001",
+      "epic": "EPIC-P5-BALANCE",
+      "size": "M",
+      "title": "Balance review loop and telemetry dashboard",
+      "description": "Create the recurring balance review process using analytics, economy simulator outputs, retention data, and player progression metrics.",
+      "acceptance": [
+        "Balance review checklist exists",
+        "Telemetry dashboard tracks progression bottlenecks",
+        "Simulator scenarios can be compared between balance versions",
+        "Changes produce documented before/after notes"
+      ],
+      "files": ["docs/liveops/balance-loop.md", "tools/balance-sim/reports/"],
+      "deps": ["P2-POL-001", "P4-ANA-001"],
+      "verify": "Run a sample balance review using synthetic telemetry",
+      "notes": "This is the process that keeps the game maintainable after launch."
+    },
+    {
+      "id": "P5-SUP-001",
+      "epic": "EPIC-P5-SUPPORT",
+      "size": "M",
+      "title": "Support and admin runbook",
+      "description": "Document support workflows for player lookup, issue triage, refunds/compensation policy, incident response, and safe admin actions.",
+      "acceptance": [
+        "Support runbook covers common player issues",
+        "Admin actions require audit logs or manual log procedure",
+        "Compensation policy is documented",
+        "Incident response path is clear"
+      ],
+      "files": ["docs/support/runbook.md", "docs/support/admin-actions.md"],
+      "deps": ["P4-OPS-001", "P4-SEC-001"],
+      "verify": "Run tabletop incident/support scenario against the runbook",
+      "notes": "Do not expose admin tools before audit and permission rules exist."
+    },
+    {
+      "id": "P2-EPIC-POLISH",
+      "epic": "EPIC-P2-POL",
+      "size": "L",
+      "title": "[Эпик] Phase 2 balance, polish, and regression gate",
+      "description": "Top-level Phase 2 gate that groups economy simulation, content audit, and regression work required before the roadmap should proceed into detailed Phase 3 execution.",
+      "acceptance": [
+        "P2 balance simulator produces a reviewable first-week report",
+        "Content audit passes against catalog and localization expectations",
+        "Phase 2 regression suite passes locally and is documented",
+        "Known P2 tuning risks are recorded before Phase 3 task breakdown"
+      ],
+      "files": ["tasks/ROADMAP_COVERAGE_MATRIX.md", "docs/testing/phase2-regression.md", "tools/balance-sim/"],
+      "deps": ["P2-POL-001", "P2-POL-002", "P2-POL-003"],
+      "verify": "Review Phase 2 completion gate evidence in ROADMAP_COVERAGE_MATRIX.md",
+      "notes": "This is an epic issue for Project navigation, not a separate implementation module."
+    },
+    {
+      "id": "P4-EPIC-LAUNCH",
+      "epic": "EPIC-P4-DEPLOY",
+      "size": "XL",
+      "title": "[Эпик] Production launch readiness",
+      "description": "Top-level launch readiness gate covering production deployment, observability, backups, security hardening, analytics, and monetization policy readiness.",
+      "acceptance": [
+        "Staging deployment and rollback workflow are proven",
+        "Monitoring, alerting, and backup restore drill are complete",
+        "Security and abuse-prevention checklists pass",
+        "Analytics and monetization readiness documents are reviewed"
+      ],
+      "files": ["docs/production/", "docs/security/", "docs/analytics/", "docs/product/"],
+      "deps": ["P4-DEP-002", "P4-OPS-001", "P4-OPS-002", "P4-SEC-001", "P4-ANA-001", "P4-MON-001"],
+      "verify": "Complete launch readiness checklist and link all evidence in the issue",
+      "notes": "Keep this epic open until production launch is genuinely ready."
+    },
+    {
+      "id": "P5-EPIC-LIVEOPS",
+      "epic": "EPIC-P5-LIVE",
+      "size": "L",
+      "title": "[Эпик] Live operations readiness",
+      "description": "Top-level post-launch operations gate covering events, content packs, balance review, and support/admin runbooks.",
+      "acceptance": [
+        "Live event framework can be enabled and disabled safely",
+        "Content pack validation catches bad content before rollout",
+        "Balance review loop has simulator and telemetry inputs",
+        "Support/admin runbook is usable for incident and player-support scenarios"
+      ],
+      "files": ["docs/liveops/", "docs/content/", "docs/support/", "tools/content-validate/"],
+      "deps": ["P5-LIVE-001", "P5-CONT-001", "P5-BAL-001", "P5-SUP-001"],
+      "verify": "Complete live-ops readiness review and link evidence in the issue",
+      "notes": "This epic starts after launch readiness and remains the umbrella for ongoing live work."
+    }
+  ]
+}
