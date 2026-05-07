@@ -7,6 +7,8 @@ New Universe — это многопользовательская космич�
 Подробная информация о дизайне и механике игры находится в разделе GDD:
 - [Stellar Forge GDD](docs/Stellar_Forge_GDD.pdf)
 - [New Universe GDD Addendum v1.1](docs/New_Universe_GDD_Addendum_v1.1.pdf)
+- [Infrastructure Costs](docs/Stellar_Forge_Infra_Costs.pdf)
+- [Architecture Diagrams](docs/Stellar_Forge_Diagrams.html)
 
 Все проектные документы и спецификации доступны в папке [docs/](docs/).
 
@@ -14,13 +16,13 @@ New Universe — это многопользовательская космич�
 
 ## Локальная разработка
 
-Окружение для разработки в Docker. Поднимает Postgres, Redis, бэкенд (Fastify), воркер очередей (BullMQ) и фронтенд (Vite + React + Telegram Mini App SDK) одной командой.
+Окружение для разработки в Docker. Core-стек поднимает Postgres, Redis и бэкенд (Fastify). Воркер очередей и фронтенд вынесены в отдельные Compose profiles до завершения их скелетных задач.
 
 ### Требования
 
 - Docker Desktop (Mac/Windows) или Docker Engine + Compose plugin (Linux), версия ≥ 24
 - ~4 GB свободного RAM
-- Свободные порты: 3000, 5173, 5432, 6379 (плюс 8080/8081 для devtools)
+- Свободные порты: 3000, 5432, 6379 (плюс 5173 для frontend и 8080/8081 для devtools)
 
 ### Быстрый старт
 
@@ -28,23 +30,36 @@ New Universe — это многопользовательская космич�
 # 1. Скопировать конфиг
 cp .env.example .env
 
-# 2. (опционально) Получить токен тестового бота у @BotFather и вписать в .env
+# 2. Получить токен тестового бота у @BotFather и вписать в .env
 #    TELEGRAM_BOT_TOKEN=...
 
-# 3. Поднять стек
+# 3. Поднять core-стек
 docker compose up -d
+```
+
+Если токена Telegram ещё нет, можно поднять только инфраструктуру:
+
+```bash
+docker compose up -d postgres redis
 ```
 
 ### Куда что доступно
 
 | Сервис | URL | Логин/пароль |
 |---|---|---|
-| Frontend (TMA dev) | http://localhost:5173 | — |
+| Frontend (TMA dev, profile `frontend`) | http://localhost:5173 | — |
 | Backend API | http://localhost:3000 | — |
 | Postgres | localhost:5432 | nu / devpassword |
 | Redis | localhost:6379 | — |
 | Adminer (Postgres GUI) | http://localhost:8080 | postgres / nu / devpassword / new_universe |
 | Redis Commander (Redis GUI) | http://localhost:8081 | — |
+
+Frontend и worker сейчас не поднимаются по умолчанию. После завершения соответствующих задач их можно запускать явно:
+
+```bash
+docker compose --profile frontend up -d frontend
+docker compose --profile worker up -d worker
+```
 
 UI-инструменты `adminer` и `redis-commander` находятся в профиле `devtools` и не поднимаются автоматически. Запустить только их:
 
@@ -55,10 +70,8 @@ docker compose --profile devtools up -d adminer redis-commander
 ### Часто используемые команды
 
 ```bash
-# Логи
+# Логи core-стека
 docker compose logs -f backend
-docker compose logs -f worker
-docker compose logs -f frontend
 
 # Перезапуск одного сервиса
 docker compose restart backend
@@ -67,4 +80,4 @@ docker compose restart backend
 docker compose down -v
 ```
 
-Подробные инструкции по разработке доступны в [dev/README.md](dev/README.md).
+Проектные задачи и дополнительные материалы находятся в [tasks/](tasks/) и [docs/](docs/).
