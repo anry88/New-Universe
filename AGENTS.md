@@ -119,7 +119,7 @@ Status policy:
 - When local verification passes, set `Verification=Local pass`; when CI is green, set `Verification=CI pass`; when manual user acceptance is still needed, set `Verification=Manual needed`.
 - When blocked, set `Status=Blocked` and `Verification=Blocked`, then comment on the issue with exact user actions needed to unblock it.
 - When a PR is merged, the `Project Status` GitHub Action moves linked task IDs to `Done`, sets `Verification=Accepted`, and promotes newly unblocked tasks from `Backlog` to `Ready`.
-- If GitHub automation cannot access the Project, run the local Project status script manually. If that fails too, comment on the issue and report the blocker.
+- If GitHub automation cannot access the Project, check that repository secret `PROJECT_TOKEN` is a classic PAT with `repo`, `project`, and `read:org` scopes. Then run the local Project status script manually if needed. If that fails too, comment on the issue and report the blocker.
 
 ## Useful Commands
 

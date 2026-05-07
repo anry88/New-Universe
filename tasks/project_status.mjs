@@ -34,7 +34,7 @@ function ghJson(args) {
 function projectAccessHint() {
   return [
     `Cannot read GitHub Project #${PROJECT_NUMBER} for owner ${OWNER}.`,
-    'In GitHub Actions, set repository secret PROJECT_TOKEN to a classic personal access token owned by a user who can access the Project, with repo and project scopes.',
+    'In GitHub Actions, set repository secret PROJECT_TOKEN to a classic personal access token owned by a user who can access the Project, with repo, project, and read:org scopes.',
     'Do not rely on GITHUB_TOKEN or a fine-grained token for this user-owned Project v2 automation.',
   ].join(' ');
 }

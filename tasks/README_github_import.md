@@ -36,13 +36,13 @@
 gh auth login
 # выбрать GitHub.com → SSH → авторизоваться через браузер
 gh auth status
-# проверить, что есть scopes: repo, project
+# проверить, что есть scopes: repo, project, read:org
 ```
 
-Если нет scope `project`:
+Если не хватает scopes:
 
 ```bash
-gh auth refresh -s project,read:project
+gh auth refresh -s repo,project,read:org
 ```
 
 ## Шаг 2: Создать репозиторий (если ещё нет)
@@ -98,7 +98,7 @@ chmod +x import_to_github_idempotent.sh
 
 ## Если что-то пошло не так
 
-- **Скрипт падает с "Resource not accessible"** — нет scope `project`. См. шаг 1.
+- **Скрипт падает с "Resource not accessible" или "unknown owner type"** — нет scope `project` или `read:org`. См. шаг 1.
 - **"Project not found"** — неправильный `PROJECT_NUMBER`. Возьми из URL проекта.
 
 ## Движение статусов
@@ -121,9 +121,9 @@ node tasks/project_status.mjs task P0-004 --status "Blocked" --verification "Blo
 node tasks/project_status.mjs sync-ready
 ```
 
-GitHub Action `.github/workflows/project-status.yml` двигает связанные задачи в `Review` при открытии PR и в `Done` после merge. Для user-owned Project v2 нужен repository secret `PROJECT_TOKEN`: classic personal access token пользователя, который видит Project, со scopes `repo` и `project`. Не используй `GITHUB_TOKEN` или fine-grained token для этой автоматизации: они часто не имеют доступа к user-owned Project v2.
+GitHub Action `.github/workflows/project-status.yml` двигает связанные задачи в `Review` при открытии PR и в `Done` после merge. Для user-owned Project v2 нужен repository secret `PROJECT_TOKEN`: classic personal access token пользователя, который видит Project, со scopes `repo`, `project` и `read:org`. Не используй `GITHUB_TOKEN` или fine-grained token для этой автоматизации: они часто не имеют доступа к user-owned Project v2.
 
-Если workflow падает на `gh project view 3 --owner anry88 --format json` с `unknown owner type`, `Could not resolve to a ProjectV2`, `Resource not accessible` или похожей ошибкой, почти всегда проблема в `PROJECT_TOKEN`: секрет отсутствует, токен создан не как classic PAT, не хватает scopes `repo`/`project`, токен истёк или создан пользователем без доступа к Project.
+Если workflow падает на `gh project view 3 --owner anry88 --format json` с `unknown owner type`, `Could not resolve to a ProjectV2`, `Resource not accessible` или похожей ошибкой, почти всегда проблема в `PROJECT_TOKEN`: секрет отсутствует, токен создан не как classic PAT, не хватает scopes `repo`/`project`/`read:org`, токен истёк или создан пользователем без доступа к Project.
 - **Дубликаты issue** — скрипт идемпотентным НЕ написан (для простоты). Если нужно перезапустить — закрой все ранее созданные через:
   ```bash
   gh issue list --repo anry88/new-universe --label 'phase:P0' --json number --jq '.[].number' | xargs -I{} gh issue close {} --repo anry88/new-universe
