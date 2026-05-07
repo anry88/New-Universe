@@ -31,12 +31,22 @@ Your goal is not just to edit files. Your goal is to complete the task end to en
 - After completing, blocking, or reporting a task, stop and wait for the next explicit task instruction. Do not automatically pick up the next task from the backlog.
 - If the user provides a secret such as a Telegram bot token, use it only for the current task's local configuration or verification. Never print it back, commit it, put it in task metadata, or treat it as a new task command.
 
+## Multi-Agent Workflow
+
+- Assume multiple agents may be working in parallel. Before changing branches, stashing, formatting, generating migrations, installing dependencies, or committing, run `git status --short --branch` and check whether the dirty files belong to your current task.
+- Do not switch branches, run `git stash`, or otherwise move another agent's uncommitted work out of the shared checkout. If unrelated dirty files are present, leave that checkout alone and create a separate `git worktree` from the appropriate base branch for your own task.
+- Prefer one branch and one worktree per active task: `task/<TASK_ID>-short-slug` for implementation tasks, `chore/<short-slug>` for repository maintenance, and a separate directory such as `../New-Universe-<task-id>`.
+- Commit only the files you intentionally changed for your task. Review `git diff` and `git status --short` before `git add`; never use broad staging when unrelated files are dirty.
+- If two agents need the same files, coordinate through PRs. The branch owner rebases or merges the latest `main`, resolves conflicts, reruns the relevant verification, and explains the conflict resolution in the PR or final report.
+- Keep generated artifacts scoped to the task. Database migrations, lockfiles, generated clients, and formatted files are common conflict sources; generate them only in your task worktree and commit them only when they are part of the requested change.
+- When a PR merges, other agents should update their own worktrees from `origin/main` before continuing if their task depends on the merged files.
+
 ## Task Workflow
 
 1. Sync the repository before starting a task.
    - Work in the real git checkout, not the planning bundle.
-   - Run `git status --short --branch` first. If there are uncommitted changes you did not make, preserve them and either work around them or ask before touching the affected files.
-   - Before creating a new task branch, run `git fetch origin`, switch to `main`, and update it with `git pull --ff-only`.
+   - Run `git status --short --branch` first. If there are uncommitted changes you did not make, do not stash them or switch branches in that checkout; create a separate worktree or ask the user before touching the affected files.
+   - Before creating a new task branch in a clean checkout, run `git fetch origin`, switch to `main`, and update it with `git pull --ff-only`.
    - Create the task branch from the updated base. If a required dependency branch or PR is not merged into `main`, base on that dependency only when necessary and state that choice in the final report.
 
 2. Resolve the task.
