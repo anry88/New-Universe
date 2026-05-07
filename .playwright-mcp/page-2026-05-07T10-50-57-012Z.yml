@@ -1,0 +1,14 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - heading "New Universe" [level=1] [ref=e5]
+    - paragraph [ref=e6]: Hello, rogue!
+    - generic [ref=e7]:
+      - generic [ref=e8]:
+        - paragraph [ref=e9]: Platform
+        - paragraph [ref=e10]: tdesktop
+      - generic [ref=e11]:
+        - paragraph [ref=e12]: Theme
+        - paragraph [ref=e13]: Dark
+    - button "Debug Sentry" [ref=e14] [cursor=pointer]
+    - button "Enter the Game" [ref=e15] [cursor=pointer]
+  - paragraph [ref=e16]: Stellar Forge Project

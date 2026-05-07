@@ -1,3 +1,4 @@
+import './lib/sentry';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { init, miniApp, themeParams, viewport } from '@telegram-apps/sdk-react';

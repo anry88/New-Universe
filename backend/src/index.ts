@@ -1,3 +1,4 @@
+import './lib/sentry.js';
 import Fastify from 'fastify';
 import { env } from './lib/env.js';
 import { logger } from './lib/logger.js';
