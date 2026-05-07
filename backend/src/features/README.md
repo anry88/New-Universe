@@ -45,6 +45,11 @@ Resource accrual and management.
   - Caps each resource amount at its `storageCap`.
   - Used by planet view and production features to show current state without constant DB writes.
 - **`accrual.test.ts`** — Vitest coverage asserting: regen math (10/h for 1h → +10), storage cap enforcement, array of all planet resources, and multiple resources with different regen rates.
+- **`transactions.ts`** — exports `spendResources(planetId, costs[])` and `gainResources(planetId, gains[])` for atomic resource transactions. Uses `SELECT FOR UPDATE` on `planet_resources` for row-level locking. Updates `lastUpdateAt` synchronously with spend/gain. Returns `{ success, balanceAfter }` or `{ success: false, error: "not enough X" }`.
+  - Parallel calls do not lead to negative values (transaction isolation).
+  - If resource is insufficient → transaction rolls back, nothing spent.
+  - `lastUpdateAt` synced with spend/gain.
+- **`transactions.test.ts`** — Vitest coverage asserting: successful spend, insufficient resource rollback, gain resources, sync `lastUpdateAt`, and multiple resource atomic handling.
 
 ## `world/`
 
