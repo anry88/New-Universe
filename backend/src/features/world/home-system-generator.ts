@@ -1,4 +1,4 @@
-import { db } from '../../db/index.js';
+import { db as defaultDb } from '../../db/index.js';
 import { 
   systems, 
   planets, 
@@ -28,14 +28,14 @@ function hashString(str: string): number {
   return hash;
 }
 
-export async function generateHomeSystem(userId: string) {
+export async function generateHomeSystem(userId: string, tx?: any) {
   const SERVER_SECRET = process.env.SERVER_SECRET || 'default-secret';
   const seed = hashString(`${userId}-${SERVER_SECRET}`);
   const random = createRandom(seed);
 
-  return await db.transaction(async (tx) => {
-    const existing = await tx.query.systems.findFirst({
-      where: (systems, { and, eq }) => and(eq(systems.ownerId, userId), eq(systems.isHome, true)),
+  const perform = async (database: any) => {
+    const existing = await database.query.systems.findFirst({
+      where: (systems: any, { and, eq }: any) => and(eq(systems.ownerId, userId), eq(systems.isHome, true)),
     });
     if (existing) return existing.id;
 
@@ -43,7 +43,7 @@ export async function generateHomeSystem(userId: string) {
     const sectorY = Math.floor(random() * 1001) - 500;
     const sectorZ = Math.floor(random() * 1001) - 500;
     
-    const [system] = await tx.insert(systems).values({
+    const [system] = await database.insert(systems).values({
       ownerId: userId,
       isHome: true,
       sectorX,
@@ -54,8 +54,6 @@ export async function generateHomeSystem(userId: string) {
     }).returning();
 
     const planetCount = Math.floor(random() * 4) + 4;
-    const planetIds: string[] = [];
-
     const homeBiomes: BiomeType[] = ['rocky', 'ocean', 'green', 'ice'];
 
     for (let i = 0; i < planetCount; i++) {
@@ -63,7 +61,7 @@ export async function generateHomeSystem(userId: string) {
       const size = Math.floor(random() * 10) + 10;
       const slotCount = Math.floor(size * 0.8);
 
-      const [planet] = await tx.insert(planets).values({
+      const [planet] = await database.insert(planets).values({
         systemId: system.id,
         biome: biomeType,
         size,
@@ -71,8 +69,6 @@ export async function generateHomeSystem(userId: string) {
         name: `${system.name} - ${i + 1}`,
       }).returning();
       
-      planetIds.push(planet.id);
-
       const planetResourcesList: string[] = [];
       
       if (i === 0) {
@@ -96,13 +92,13 @@ export async function generateHomeSystem(userId: string) {
           resRichness = random() * 0.5 + 0.3;
         }
 
-        await tx.insert(richness).values({
+        await database.insert(richness).values({
           planetId: planet.id,
           resourceId: resId,
           value: Math.round(resRichness),
         });
 
-        await tx.insert(planetResources).values({
+        await database.insert(planetResources).values({
           planetId: planet.id,
           resourceId: resId,
           amount: '1000',
@@ -111,13 +107,13 @@ export async function generateHomeSystem(userId: string) {
       }
 
       if (i === 0) {
-        await tx.insert(buildings).values({
+        await database.insert(buildings).values({
           planetId: planet.id,
           typeId: 'command_center',
           level: 1,
         });
 
-        await tx.insert(discoveredPlanets).values({
+        await database.insert(discoveredPlanets).values({
           userId,
           planetId: planet.id,
         });
@@ -125,5 +121,13 @@ export async function generateHomeSystem(userId: string) {
     }
 
     return system.id;
-  });
+  };
+
+  if (tx) {
+    return await perform(tx);
+  } else {
+    return await defaultDb.transaction(async (nestedTx) => {
+      return await perform(nestedTx);
+    });
+  }
 }
