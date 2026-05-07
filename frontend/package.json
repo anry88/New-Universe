@@ -13,6 +13,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@sentry/react": "^10.52.0",
     "@tanstack/react-query": "^5.55.0",
     "@telegram-apps/sdk-react": "^2.0.0",
     "lucide-react": "^0.441.0",
