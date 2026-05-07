@@ -17,6 +17,47 @@ Primary links:
 - GDD addendum: `New_Universe_GDD_Addendum_v1.1.pdf`
 - Local dev guide: `README.md` in the implementation repo; `dev/README.md` only exists in the planning bundle before files are moved.
 
+## Documentation Split
+
+- `README.md` — human-facing product overview, local-development quickstart, and links to GDD/tasks.
+- `DOCUMENTATION.md` — engineering architecture overview. Lists every top-level area (backend, frontend, shared) and links to the package READMEs that describe individual files and functions.
+- `AGENTS.md` (this file) — repository-wide rules and workflows for AI coding assistants.
+- `backend/src/README.md`, `backend/src/<package>/README.md`, `frontend/src/README.md`, `shared/README.md` — low-level code navigation. Each README describes every file in that directory with a short description of its responsibilities and the key exports/functions other code calls into.
+- `docs/` — product/design materials (GDD PDFs, infrastructure cost notes, architecture diagrams). Generated planning PDFs and CSV files in `docs/` and `tasks/` are not implementation code.
+
+## Repository Map
+
+- `backend/src/index.ts` — Fastify entry point. Loads Sentry, builds the Pino-backed Fastify instance with request IDs, registers `@fastify/cors` and `@fastify/helmet`, and mounts `routes/health`, `routes/bot`, and `features/auth/routes` (at `/auth`).
+- `backend/src/db/` — Drizzle ORM client, per-domain schema modules (`users`, `resources`, `world`, `buildings`, `research`, `ships`, `discovery`, `expeditions`), generated SQL migrations, and idempotent seeders for resources, research branches, building types, and ship types.
+- `backend/src/features/` — feature modules. `auth/` handles Telegram-Mini-App login and JWT issuance plus first-time home-system creation. `world/` contains biome data and the deterministic home-system generator used by the auth flow.
+- `backend/src/lib/` — env validation (Zod), Pino logger, Sentry init, and Telegram `initData` HMAC verification.
+- `backend/src/middleware/` — `request-id.ts` UUID generator and `telegram-auth.ts` `preHandler` that attaches `request.user`.
+- `backend/src/routes/` — generic non-feature routes (`/health`, `/webhook/telegram`).
+- `frontend/src/` — Vite + React 18 Telegram Mini App. `main.tsx` boots the SDK and renders `App.tsx`; `lib/sentry.ts` initializes Sentry; `mockEnv.ts` injects a fake Telegram environment for plain-browser dev.
+- `shared/types/` — cross-package TypeScript contracts shared between backend and frontend (currently empty; add new contracts here when features need them).
+- `tasks/` — task plan (`tasks.json`), GitHub Project automation scripts, and the imported microtasks docs.
+- `docs/` — GDD, addenda, infrastructure costs, architecture diagrams.
+- `dev/` — starter Docker/dev scaffolding from the planning bundle.
+- `docker-compose.yml` — local stack: Postgres 16, Redis 7, Backend (Fastify, hot reload), optional Worker/Frontend/devtools profiles.
+
+## First Pass For Any Agent
+
+1. Read [README.md](README.md) for product positioning and local quickstart.
+2. Read [AGENTS.md](AGENTS.md) and [DOCUMENTATION.md](DOCUMENTATION.md) for repo structure, runtime boundaries, and the file-level navigation map.
+3. Read the package README closest to the area you are about to change:
+   - [backend/src/README.md](backend/src/README.md)
+   - [backend/src/db/README.md](backend/src/db/README.md)
+   - [backend/src/features/README.md](backend/src/features/README.md)
+   - [backend/src/lib/README.md](backend/src/lib/README.md)
+   - [backend/src/middleware/README.md](backend/src/middleware/README.md)
+   - [backend/src/routes/README.md](backend/src/routes/README.md)
+   - [frontend/src/README.md](frontend/src/README.md)
+   - [shared/README.md](shared/README.md)
+4. If the task touches the database schema, also read [backend/src/db/README.md](backend/src/db/README.md) end-to-end and the affected `schema/<file>.ts`.
+5. If the task touches a request/response contract used by the frontend, also read [shared/README.md](shared/README.md) and put the type in `shared/types/`.
+6. If the task touches Telegram auth or session handling, also read `backend/src/lib/telegram.ts` and `backend/src/middleware/telegram-auth.ts`.
+7. Skim the related test files (`*.test.ts` in the same folder) before changing behavior — they document the current contract precisely.
+
 ## Main Agent Prompt
 
 You are the implementation agent for New Universe. When the user explicitly asks to start or continue work on a task, for example "take task P1-141", "возьми таску P1-141", or "сделай issue #22", resolve the task from GitHub and `tasks/tasks.json`, then implement it according to this file, the task acceptance criteria, the GDD, and the existing project architecture.
@@ -251,6 +292,51 @@ Do not treat generated planning PDFs or CSV files as implementation code.
 - Add or update focused unit tests immediately when behavior, schemas, routes, services, or frontend flows change; do not leave tests as a follow-up unless a concrete blocker prevents it.
 - Prefer clear, boring implementation over new abstractions.
 - Do not commit secrets. `.env` stays local and must not be committed.
+- Update the matching `README.md` files (see "Documentation Update Rules" below) in the same change as the code, so the documentation tree never drifts out of sync with the source tree.
+
+## Documentation Update Rules
+
+Documentation lives next to the code it describes. The structure mirrors `RiverKing` (an internal reference project) and is the contract every agent must keep current:
+
+- `README.md` — product-facing overview and local-dev quickstart.
+- `DOCUMENTATION.md` — engineering architecture overview. Lists every top-level area and links to package READMEs.
+- `<package>/README.md` — file-level navigation for every directory that contains source code. The current set is:
+  - `backend/src/README.md`
+  - `backend/src/db/README.md`
+  - `backend/src/features/README.md`
+  - `backend/src/lib/README.md`
+  - `backend/src/middleware/README.md`
+  - `backend/src/routes/README.md`
+  - `frontend/src/README.md`
+  - `shared/README.md`
+
+Required behavior whenever you change the codebase:
+
+1. **New file in an existing documented directory** — add a bullet to that directory's `README.md` describing the file's responsibilities and its key exports/functions. Place the bullet alphabetically inside the most appropriate subsection (e.g. "Files", "Schema modules", "Top-level files").
+2. **New directory under `backend/src/` or `frontend/src/`** — create `<dir>/README.md` following the existing template (short header, "Files" / "Layout" sections, "Adding a …" / "Conventions" trailing sections). Link to it from the parent `README.md` and from `DOCUMENTATION.md`.
+3. **Renamed or removed file** — rename or delete the matching bullet in the relevant `README.md`. If a file is removed, also remove any references to it from sibling READMEs and from `DOCUMENTATION.md`.
+4. **Renamed or removed export/function** — update every README that previously referenced the old name. Use `rg "<oldName>"` over `*.md` to find references quickly.
+5. **Behavioral change in an existing function** — update the bullet for that function so the description still matches the implementation. Do not let outdated function summaries linger.
+6. **New database table or seeded reference data** — update `backend/src/db/README.md` (table list and seeders), and add a one-line description in `DOCUMENTATION.md` under "Database (Drizzle ORM + Postgres)".
+7. **New HTTP route or feature module** — update `backend/src/features/README.md` (or `backend/src/routes/README.md` for non-feature routes) and `DOCUMENTATION.md` under "Runtime composition".
+8. **New shared contract** — add a module under `shared/types/`, document it in `shared/README.md`, and link from `DOCUMENTATION.md` if it changes the public API surface.
+9. **New product surface** (worker, second frontend, mobile client, etc.) — add a top-level `README.md` for that surface, link it from `DOCUMENTATION.md`, and update the "Repository Map" section of `AGENTS.md` so future agents discover it.
+
+Style guarantees that keep the docs uniform across the repo:
+
+- Each package `README.md` starts with a level-1 heading of the form `` # `<path>` directory `` followed by one short paragraph describing the role of that directory.
+- Each file bullet uses **`fileName`** as the lead label (Markdown bold + inline code), then a short phrase, then a sentence-level description. Multi-step responsibilities go on their own indented bullets so they stay scannable.
+- Function/method names are wrapped in backticks. Mention the most useful exported symbols, not every private helper.
+- Closing sections name "Adding a new …" steps and any verification commands so agents can act without context-hopping.
+- Do not duplicate the GDD or product spec inside engineering READMEs. Link to `docs/` instead.
+- Do not document secrets, internal URLs, or credentials inside any README.
+
+Verification that documentation stays in sync:
+
+- Before opening a PR, run `git diff --name-only $(git merge-base HEAD origin/main) HEAD` and check that every changed `*.ts`, `*.tsx`, `*.sql`, and `*.json` schema/seed file has a matching update in the closest `README.md`.
+- If you renamed an exported symbol, run `rg "<oldName>" -- '*.md'` and update every hit.
+- If you added a new package directory, confirm it appears in `DOCUMENTATION.md` and in the "Repository Map" / "First Pass For Any Agent" sections of `AGENTS.md`.
+- Treat doc updates as part of the task: a PR that ships code without the matching README updates is not "done" under these rules.
 
 ## GitHub Bookkeeping Rules
 
@@ -300,7 +386,7 @@ Do not treat generated planning PDFs or CSV files as implementation code.
 When finishing a task, report:
 
 - Task ID and GitHub issue number/link.
-- Files changed.
+- Files changed (including the `README.md` / `DOCUMENTATION.md` updates required by "Documentation Update Rules").
 - Verification commands run and their result.
 - Any blocker or follow-up that remains.
 
