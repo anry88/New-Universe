@@ -115,6 +115,7 @@ chmod +x import_to_github_idempotent.sh
 Ручные команды:
 
 ```bash
+node tasks/project_status.mjs start P0-004 --branch task/P0-004-frontend-skeleton
 node tasks/project_status.mjs task P0-004 --status "In Progress" --verification "Not run" --comment "Started in branch task/P0-004-frontend-skeleton."
 node tasks/project_status.mjs task P0-004 --status "Review" --verification "Local pass" --comment "PR opened: <url>. Verification: <commands>."
 node tasks/project_status.mjs task P0-004 --status "Blocked" --verification "Blocked" --comment "Blocked: provide <exact missing input>."
