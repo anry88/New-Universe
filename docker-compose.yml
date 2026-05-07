@@ -66,10 +66,12 @@ services:
       SENTRY_DSN: ${SENTRY_DSN:-}
     ports:
       - "3000:3000"
+      - "4983:4983"
     volumes:
       - ./backend/src:/app/src:cached
       - ./backend/package.json:/app/package.json:ro
       - ./backend/package-lock.json:/app/package-lock.json:ro
+      - ./backend/drizzle.config.ts:/app/drizzle.config.ts:ro
       - ./shared:/app/shared:cached
       - backend_node_modules:/app/node_modules
     command: npm run dev
