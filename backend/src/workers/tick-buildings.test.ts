@@ -43,6 +43,7 @@ describe('Tick Buildings Worker', () => {
     const [mine] = await db.insert(buildings).values({
       planetId,
       typeId: 'mine',
+      slotIndex: 0,
       level: 1,
       queueAction: 'build',
       queueCompletesAt: past,
@@ -68,6 +69,7 @@ describe('Tick Buildings Worker', () => {
     const [mine] = await db.insert(buildings).values({
       planetId,
       typeId: 'mine',
+      slotIndex: 0,
       level: 2,
       queueAction: 'upgrade',
       queueCompletesAt: past,
@@ -109,6 +111,7 @@ describe('Tick Buildings Worker', () => {
     await db.insert(buildings).values({
       planetId,
       typeId: 'mine',
+      slotIndex: 0,
       level: 1,
       queueAction: 'build',
       queueCompletesAt: past,
@@ -135,6 +138,7 @@ describe('Tick Buildings Worker', () => {
     await db.insert(buildings).values({
       planetId,
       typeId: 'mine',
+      slotIndex: 0,
       level: 1,
       queueAction: 'build',
       queueCompletesAt: past,
@@ -164,6 +168,7 @@ describe('Tick Buildings Worker', () => {
     await db.insert(buildings).values({
       planetId,
       typeId: 'command_center',
+      slotIndex: 0,
       level: 1,
       queueAction: 'build',
       queueCompletesAt: past,
@@ -189,6 +194,7 @@ describe('Tick Buildings Worker', () => {
     const [mine] = await db.insert(buildings).values({
       planetId,
       typeId: 'mine',
+      slotIndex: 0,
       level: 1,
       queueAction: 'build',
       queueCompletesAt: future,

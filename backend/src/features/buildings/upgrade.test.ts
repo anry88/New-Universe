@@ -74,6 +74,7 @@ describe('Building Upgrade - POST /buildings/:id/upgrade', () => {
     const [building] = await db.insert(buildings).values({
       planetId,
       typeId: 'mine',
+      slotIndex: 0,
       level: 1,
     }).returning();
 
@@ -125,6 +126,7 @@ describe('Building Upgrade - POST /buildings/:id/upgrade', () => {
     const [building] = await db.insert(buildings).values({
       planetId,
       typeId: 'command_center',
+      slotIndex: 0,
       level: 20,
     }).returning();
 
@@ -146,6 +148,7 @@ describe('Building Upgrade - POST /buildings/:id/upgrade', () => {
     const [building] = await db.insert(buildings).values({
       planetId,
       typeId: 'mine',
+      slotIndex: 0,
       level: 1,
       queueAction: 'build',
       queueCompletesAt: new Date(Date.now() + 60000),
@@ -169,12 +172,14 @@ describe('Building Upgrade - POST /buildings/:id/upgrade', () => {
     const [upgradeTarget] = await db.insert(buildings).values({
       planetId,
       typeId: 'mine',
+      slotIndex: 0,
       level: 1,
     }).returning();
 
     await db.insert(buildings).values({
       planetId,
       typeId: 'drill',
+      slotIndex: 1,
       level: 1,
       queueAction: 'build',
       queueCompletesAt: new Date(Date.now() + 60000),
@@ -204,6 +209,7 @@ describe('Building Upgrade - POST /buildings/:id/upgrade', () => {
     const [building] = await db.insert(buildings).values({
       planetId,
       typeId: 'mine',
+      slotIndex: 0,
       level: 1,
     }).returning();
 

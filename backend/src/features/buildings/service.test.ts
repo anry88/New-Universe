@@ -100,9 +100,10 @@ describe('Buildings Service - POST /buildings/build', () => {
     });
 
     // Fill all planet slots by inserting completed buildings directly (queueAction=null bypasses queue limit)
-    const fillBuildings = Array.from({ length: userPlanet!.slotCount }, () => ({
+    const fillBuildings = Array.from({ length: userPlanet!.slotCount }, (_, slotIndex) => ({
       planetId: userPlanet!.id,
       typeId: 'storage',
+      slotIndex,
       level: 1,
       queueAction: null as string | null,
       queueCompletesAt: null as Date | null,

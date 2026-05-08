@@ -20,9 +20,6 @@ describe('computeCurrentResources', () => {
       sectorX: 999,
       sectorY: 999,
       sectorZ: 999,
-      x: '100.00',
-      y: '200.00',
-      z: '300.00',
       name: 'Test System',
       seed: 12345,
     }).returning();
