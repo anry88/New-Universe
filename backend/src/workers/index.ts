@@ -6,11 +6,14 @@ async function main() {
   const { createBuildingsWorker } = await import('./tick-buildings.js');
   const buildingsWorker = await createBuildingsWorker();
 
-  logger.info('Buildings worker started');
+  const { createShipsWorker } = await import('./tick-ships.js');
+  const shipsWorker = await createShipsWorker();
+
+  logger.info('All workers started');
 
   const shutdown = async () => {
     logger.info('Shutting down workers...');
-    await buildingsWorker.close();
+    await Promise.all([buildingsWorker.close(), shipsWorker.close()]);
     logger.info('Workers shut down');
     process.exit(0);
   };
