@@ -11,6 +11,7 @@ export interface Building {
   planetId: string;
   typeId: string;
   level: number;
+  slotIndex: number;
   queueAction?: 'build' | 'upgrade' | 'destroy';
   queueCompletesAt?: string;
 }
@@ -24,7 +25,6 @@ export interface Planet {
   name: string;
   resources?: PlanetResource[];
   buildings?: Building[];
-  slotIndex?: number;
 }
 
 export interface HomeSystem {

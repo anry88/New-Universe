@@ -5,7 +5,7 @@ import { apiFetch } from '../lib/api';
 import { BuildingSlot } from '../components/BuildingSlot';
 import { UpgradeDialog } from '../components/UpgradeDialog';
 import { BuildDialog } from '../components/BuildDialog';
-import type { Planet, Building } from '@shared/types/world';
+import type { Building } from '@shared/types/world';
 import type { BuildingType, ConstructionStatus } from '@shared/types/buildings';
 import { ArrowLeft } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -57,8 +57,8 @@ export function PlanetDetailPage() {
     const typeInfo = buildingTypes.find(t => t.id === typeId);
     
     if (meData && typeInfo) {
-      const optimisticMe = JSON.parse(JSON.stringify(meData));
-      const p = optimisticMe.homeSystem.planets.find((p: any) => p.id === planet.id);
+      const optimisticMe = structuredClone(meData);
+      const p = optimisticMe.homeSystem?.planets?.find((planetItem) => planetItem.id === planet.id);
       if (p) {
         p.buildings = p.buildings || [];
         p.buildings.push({
@@ -83,8 +83,9 @@ export function PlanetDetailPage() {
         }),
       });
       setSelectedSlot(null);
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to start building';
+      alert(message);
       queryClient.setQueryData(['me'], previousMeData);
     } finally {
       setIsProcessing(false);
@@ -98,10 +99,10 @@ export function PlanetDetailPage() {
     const previousMeData = queryClient.getQueryData(['me']);
     
     if (meData) {
-      const optimisticMe = JSON.parse(JSON.stringify(meData));
-      const p = optimisticMe.homeSystem.planets.find((p: any) => p.id === planet.id);
+      const optimisticMe = structuredClone(meData);
+      const p = optimisticMe.homeSystem?.planets?.find((planetItem) => planetItem.id === planet.id);
       if (p) {
-        const b = p.buildings.find((b: any) => b.id === buildingId);
+        const b = p.buildings?.find((buildingItem) => buildingItem.id === buildingId);
         if (b) {
           b.queueAction = 'upgrade';
         }
@@ -115,8 +116,9 @@ export function PlanetDetailPage() {
         body: JSON.stringify({ buildingId }),
       });
       setSelectedBuilding(null);
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to start upgrade';
+      alert(message);
       queryClient.setQueryData(['me'], previousMeData);
     } finally {
       setIsProcessing(false);

@@ -6,7 +6,7 @@ export interface BuildingType {
   deps: { typeId: string; level: number }[];
   baseCost: Record<string, number>;
   baseTimeSec: number;
-  baseOutput: Record<string, any>;
+  baseOutput: Record<string, unknown>;
   energyConsumption: number;
 }
 
