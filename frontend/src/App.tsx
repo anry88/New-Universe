@@ -3,6 +3,7 @@ import { useAuth } from './hooks/useAuth';
 import { HomePage } from './pages/Home';
 import { PlanetDetailPage } from './pages/PlanetDetail';
 import { SystemMapPage } from './pages/SystemMap';
+import { ResearchPage } from './pages/Research';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
@@ -36,6 +37,7 @@ function AppContent() {
       <Route path="/" element={<HomePage />} />
       <Route path="/planet/:planetId" element={<PlanetDetailPage />} />
       <Route path="/map" element={<SystemMapPage />} />
+      <Route path="/research" element={<ResearchPage />} />
     </Routes>
   );
 }
