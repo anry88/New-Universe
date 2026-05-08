@@ -17,15 +17,21 @@ describe('Building Service', () => {
     userId = user.id;
 
     await generateHomeSystem(userId);
-    const planet = await db.query.planets.findFirst({
-      where: eq(planets.systemId, (await db.query.systems.findFirst({ where: eq(systems.ownerId, userId) }))!.id),
+    
+    const system = await db.query.systems.findFirst({ where: eq(systems.ownerId, userId) });
+    const planetsList = await db.query.planets.findMany({
+      where: (table, { eq }) => eq(table.systemId, system!.id),
+      orderBy: (table, { asc }) => [asc(table.name)],
     });
-    planetId = planet!.id;
+    
+    // The home planet (where command center is) is actually the one from discovered_planets
+    const discovered = await db.query.discoveredPlanets.findFirst({
+      where: (table, { eq }) => eq(table.userId, userId)
+    });
+    planetId = discovered!.planetId;
 
-    await db.update(planetResources)
-      .set({ amount: '1000000' })
-      .where(eq(planetResources.planetId, planetId));
   });
+
 
   it('should list building types', async () => {
     const types = await buildingService.getBuildingTypes();

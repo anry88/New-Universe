@@ -1,7 +1,8 @@
 import { db } from '../../db/index.js';
-import { buildings, buildingTypes, planets, planetResources } from '../../db/schema.js';
-import { eq, and } from 'drizzle-orm';
-import { BuildingType, ConstructionStatus } from '@shared/types/buildings.js';
+import { buildings, buildingTypes, planets, planetResources, systems } from '../../db/schema.js';
+import { eq, and, sql } from 'drizzle-orm';
+import { BuildingType, ConstructionStatus, BuildRequest, UpgradeRequest } from '@shared/types/buildings.js';
+import { spendResources } from '../resources/transactions.js';
 
 export class BuildingService {
   async getBuildingTypes(): Promise<BuildingType[]> {
@@ -10,56 +11,71 @@ export class BuildingService {
   }
 
   async build(userId: string, planetId: string, typeId: string, slotIndex: number): Promise<ConstructionStatus> {
+    const planet = await db.query.planets.findFirst({
+      where: eq(planets.id, planetId),
+      with: {
+        system: true,
+        buildings: true,
+      }
+    });
+
+    if (!planet || (planet.system as any).ownerId !== userId) {
+      throw new Error('Planet not found or not owned by user');
+    }
+
+    if (slotIndex < 0 || slotIndex >= planet.slotCount) {
+      throw new Error('Invalid slot index');
+    }
+
+    const existingAtSlot = planet.buildings?.find((b: any) => b.slotIndex === slotIndex);
+    if (existingAtSlot) {
+      throw new Error('Slot already occupied');
+    }
+
+    const typeInfo = await db.query.buildingTypes.findFirst({
+      where: eq(buildingTypes.id, typeId),
+    });
+
+    if (!typeInfo) {
+      throw new Error('Building type not found');
+    }
+
+    const queuedBuildings = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(buildings)
+      .where(
+        and(
+          eq(buildings.planetId, planetId),
+          sql`${buildings.queueAction} IS NOT NULL`,
+        ),
+      );
+    const queueCount = Number(queuedBuildings[0]?.count || 0);
+    if (queueCount >= 1) {
+      throw new Error('Build queue is full (max 1 building at a time)');
+    }
+
+    const deps = typeInfo.deps as { typeId: string; level: number }[] | null;
+    if (deps && deps.length > 0) {
+      for (const dep of deps) {
+        const depBuilding = planet.buildings?.find((b: any) => b.typeId === dep.typeId);
+        if (!depBuilding || depBuilding.level < dep.level) {
+          throw new Error(`Missing dependency: ${dep.typeId} level ${dep.level}`);
+        }
+      }
+    }
+
+    const costs = typeInfo.baseCost as Record<string, number>;
+    const resourceCosts = Object.entries(costs).map(([resourceId, amount]) => ({
+      resourceId,
+      amount,
+    }));
+
     return db.transaction(async (tx) => {
-      const planet = await tx.query.planets.findFirst({
-        where: eq(planets.id, planetId),
-        with: {
-          system: true,
-          buildings: true,
+      if (resourceCosts.length > 0) {
+        const spendResult = await spendResources(planetId, resourceCosts, tx);
+        if (!spendResult.success) {
+          throw new Error(spendResult.error);
         }
-      });
-
-      if (!planet || (planet.system as any).ownerId !== userId) {
-        throw new Error('Planet not found or not owned by user');
-      }
-
-      if (slotIndex < 0 || slotIndex >= planet.slotCount) {
-        throw new Error('Invalid slot index');
-      }
-
-      const existingAtSlot = planet.buildings?.find((b: any) => b.slotIndex === slotIndex);
-      if (existingAtSlot) {
-        throw new Error('Slot already occupied');
-      }
-
-      const typeInfo = await tx.query.buildingTypes.findFirst({
-        where: eq(buildingTypes.id, typeId),
-      });
-
-      if (!typeInfo) {
-        throw new Error('Building type not found');
-      }
-
-      const costs = typeInfo.baseCost as Record<string, number>;
-      for (const [resId, amount] of Object.entries(costs)) {
-        const res = await tx.query.planetResources.findFirst({
-          where: and(
-            eq(planetResources.planetId, planetId),
-            eq(planetResources.resourceId, resId)
-          ),
-        });
-
-        const resAmount = Math.floor(parseFloat(res?.amount || '0'));
-        if (!res || resAmount < amount) {
-          throw new Error(`Insufficient resource: ${resId}`);
-        }
-
-        await tx.update(planetResources)
-          .set({ amount: (resAmount - amount).toString() })
-          .where(and(
-            eq(planetResources.planetId, planetId),
-            eq(planetResources.resourceId, resId)
-          ));
       }
 
       const completesAt = new Date(Date.now() + typeInfo.baseTimeSec * 1000);
@@ -72,6 +88,24 @@ export class BuildingService {
         queueCompletesAt: completesAt,
       }).returning();
 
+      try {
+        const { Queue: BQueue } = await import('bullmq');
+        const Redis = (await import('ioredis')).default as unknown as new (...args: any[]) => any;
+        const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+          maxRetriesPerRequest: null,
+          lazyConnect: true,
+        });
+        const buildQueue = new BQueue('buildings', { connection: redis });
+        await buildQueue.add(
+          'complete-build',
+          { buildingId: newBuilding.id, planetId },
+          { delay: typeInfo.baseTimeSec * 1000 },
+        );
+        await buildQueue.close();
+        await redis.quit();
+      } catch {
+      }
+
       return {
         success: true,
         queueItem: {
@@ -83,63 +117,67 @@ export class BuildingService {
   }
 
   async upgrade(userId: string, buildingId: string): Promise<ConstructionStatus> {
-    return db.transaction(async (tx) => {
-      const building = await tx.query.buildings.findFirst({
-        where: eq(buildings.id, buildingId),
-        with: {
-          planet: {
-            with: {
-              system: true
-            }
+    const building = await db.query.buildings.findFirst({
+      where: eq(buildings.id, buildingId),
+      with: {
+        planet: {
+          with: {
+            system: true
           }
         }
-      });
-
-      if (!building || (building.planet as any).system.ownerId !== userId) {
-        throw new Error('Building not found or not owned by user');
       }
+    });
 
-      if (building.queueAction) {
-        throw new Error('Building already in queue');
-      }
+    if (!building || (building.planet as any).system.ownerId !== userId) {
+      throw new Error('Building not found or not owned by user');
+    }
 
-      const typeInfo = await tx.query.buildingTypes.findFirst({
-        where: eq(buildingTypes.id, building.typeId),
-      });
+    if (building.queueAction) {
+      throw new Error('Building already in queue');
+    }
 
-      if (!typeInfo) {
-        throw new Error('Building type not found');
-      }
+    const typeInfo = await db.query.buildingTypes.findFirst({
+      where: eq(buildingTypes.id, building.typeId),
+    });
 
-      if (building.level >= typeInfo.maxLevel) {
-        throw new Error('Maximum level reached');
-      }
+    if (!typeInfo) {
+      throw new Error('Building type not found');
+    }
 
-      const costs = typeInfo.baseCost as Record<string, number>;
-      
-      for (const [resId, amount] of Object.entries(costs)) {
-        const upgradeCost = Math.floor(amount * Math.pow(2, building.level));
-        const res = await tx.query.planetResources.findFirst({
-          where: and(
-            eq(planetResources.planetId, building.planetId),
-            eq(planetResources.resourceId, resId)
-          ),
-        });
+    if (building.level >= typeInfo.maxLevel) {
+      throw new Error('Maximum level reached');
+    }
 
-        const resAmount = Math.floor(parseFloat(res?.amount || '0'));
-        if (!res || resAmount < upgradeCost) {
-          throw new Error(`Insufficient resource: ${resId}`);
+    const queuedBuildings = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(buildings)
+      .where(
+        and(
+          eq(buildings.planetId, building.planetId),
+          sql`${buildings.queueAction} IS NOT NULL`,
+        ),
+      );
+    const queueCount = Number(queuedBuildings[0]?.count || 0);
+    if (queueCount >= 1) {
+      throw new Error('Build queue is full (max 1 building at a time)');
+    }
+
+    const multiplier = Math.pow(2, building.level);
+    const costs = typeInfo.baseCost as Record<string, number>;
+    const resourceCosts = Object.entries(costs).map(([resourceId, amount]) => ({
+      resourceId,
+      amount: Math.floor(amount * multiplier),
+    }));
+
+    return db.transaction(async (tx) => {
+      if (resourceCosts.length > 0) {
+        const spendResult = await spendResources(building.planetId, resourceCosts, tx);
+        if (!spendResult.success) {
+          throw new Error(spendResult.error);
         }
-
-        await tx.update(planetResources)
-          .set({ amount: (resAmount - upgradeCost).toString() })
-          .where(and(
-            eq(planetResources.planetId, building.planetId),
-            eq(planetResources.resourceId, resId)
-          ));
       }
 
-      const buildTime = Math.floor(typeInfo.baseTimeSec * Math.pow(2, building.level));
+      const buildTime = Math.floor(typeInfo.baseTimeSec * multiplier);
       const completesAt = new Date(Date.now() + buildTime * 1000);
 
       await tx.update(buildings)
@@ -148,6 +186,24 @@ export class BuildingService {
           queueCompletesAt: completesAt,
         })
         .where(eq(buildings.id, buildingId));
+
+      try {
+        const { Queue: BQueue } = await import('bullmq');
+        const Redis = (await import('ioredis')).default as unknown as new (...args: any[]) => any;
+        const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+          maxRetriesPerRequest: null,
+          lazyConnect: true,
+        });
+        const buildQueue = new BQueue('buildings', { connection: redis });
+        await buildQueue.add(
+          'complete-upgrade',
+          { buildingId, planetId: building.planetId },
+          { delay: buildTime * 1000 },
+        );
+        await buildQueue.close();
+        await redis.quit();
+      } catch {
+      }
 
       return {
         success: true,
