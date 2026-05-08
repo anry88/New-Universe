@@ -34,6 +34,7 @@ export function HomePage() {
                 className="flex flex-col items-center gap-1 px-3 py-1 rounded-lg transition-colors hover:bg-slate-700/50"
                 onClick={() => {
                   if (tab.id === 'map') navigate('/map');
+                  else if (tab.id === 'tech') navigate('/research');
                   else alert(`Navigate to ${tab.label}`);
                 }}
               >

@@ -1,6 +1,7 @@
 import type { HomeSystem } from './world.js';
 import type { Ship } from './ships.js';
 import type { Expedition } from './expeditions.js';
+import type { ResearchProgress } from './research.js';
 
 export interface User {
   id: string;
@@ -13,4 +14,5 @@ export interface User {
   homeSystem?: HomeSystem;
   ships?: Ship[];
   expeditions?: Expedition[];
+  research?: ResearchProgress[];
 }
