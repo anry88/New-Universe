@@ -7,6 +7,7 @@ import { healthRoutes } from './routes/health.js';
 import { botRoutes } from './routes/bot.js';
 import { authRoutes } from './features/auth/routes.js';
 import { meRoutes } from './features/me/routes.js';
+import { buildingsRoutes } from './features/buildings/routes.js';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 
@@ -31,6 +32,7 @@ await fastify.register(healthRoutes);
 await fastify.register(botRoutes);
 await fastify.register(authRoutes, { prefix: '/auth' });
 await fastify.register(meRoutes, { prefix: '/me' });
+await fastify.register(buildingsRoutes, { prefix: '/buildings' });
 
 const start = async () => {
   try {

@@ -36,6 +36,22 @@ Player state retrieval.
 
 - **`routes.ts`** — `meRoutes(app)` registers `GET /me`. Requires a valid JWT in the `Authorization: Bearer <token>` header. Returns the database user record mapped to the `User` shared type.
 
+## `buildings/`
+
+Building construction and queue management. [Detailed documentation](./buildings/README.md).
+
+- **`routes.ts`** — `buildingsRoutes(app)` registers `POST /build/build` (mounted at `/buildings` from `index.ts`, so the public path is `POST /buildings/build`). Requires a valid JWT in the `Authorization: Bearer <token>` header. Accepts `{ planetId, typeSlug }` in the request body.
+- **`service.ts`** — `BuildingService.build(userId, { planetId, typeSlug })` performs the full build flow:
+  1. Validates the planet exists and belongs to the requesting user.
+  2. Looks up the building type from the catalog.
+  3. Checks that the planet has a free slot (`buildingCount < planet.slotCount`).
+  4. Ensures the build queue is not full (max 1 concurrent build without premium).
+  5. Verifies all dependency buildings exist at the required level.
+  6. Deducts resource costs via `spendResources` (from `features/resources/transactions.ts`).
+  7. Creates a `buildings` row with `queueAction='build'` and `queueCompletesAt = now + baseTime`.
+  8. Enqueues a BullMQ delayed job for completion (non-blocking; gracefully handles unavailable Redis).
+- **`service.test.ts`** — Vitest integration suite covering the full build flow: successful mine construction, free-slot exhaustion (via direct DB insert), queue limit enforcement, missing auth, unknown building type, and non-existent planet.
+
 ## `resources/`
 
 Resource accrual and management.
