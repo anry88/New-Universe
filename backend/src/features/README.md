@@ -2,7 +2,7 @@
 
 Feature modules group business logic, route handlers, and tests for one bounded context. The convention mirrors what `AGENTS.md` requires: keep handlers thin, push reusable behavior into a `service.ts` class/module, and write a co-located test file (e.g. `auth.test.ts`, `home-system-generator.test.ts`) before reporting a feature complete.
 
-Each subfolder is a single feature and is wired into Fastify from `backend/src/index.ts`. Add a new feature by creating `backend/src/features/<name>/{routes.ts,service.ts,<name>.test.ts}` and `app.register(<name>Routes, { prefix: '/<name>' })` in `index.ts`.
+Each subfolder is a single feature and is wired into Fastify from `backend/src/index.ts`. Add a new feature by creating `backend/src/features/<name>/{routes.ts,service.ts,<name>.test.ts}` and `app.register(<name>Routes, { prefix: '/<name>' })` in `index.ts`. When the feature is a single action module instead of a long-lived service class, keep the domain logic in that named file and document the exception locally.
 
 ## `buildings/`
 
@@ -78,6 +78,14 @@ Resource accrual, transactions, and conversion.
   - `lastUpdateAt` synced with spend/gain.
 - **`transactions.test.ts`** — Vitest coverage asserting: successful spend, insufficient resource rollback, gain resources, sync `lastUpdateAt`, and multiple resource atomic handling.
 
+## `expeditions/`
+
+Ship launch and travel scheduling. [Detailed documentation](./expeditions/README.md).
+
+- **`routes.ts`** — `expeditionsRoutes(app)` registers `POST /` (mounted at `/expeditions` from `index.ts`, so the public path is `POST /expeditions`). Requires a Bearer JWT in the `Authorization` header and accepts `{ shipId, targetX, targetY, targetZ, fuelLoaded, cargoLoaded }`.
+- **`launch.ts`** — `launchExpedition(userId, request)` validates ship ownership and idle state, checks the launch planet has enough cargo stock, spends `fuelLoaded`, creates an `expeditions` row with `status='in_flight'`, updates the ship to `moving`, computes `eta = distance × 60 / speed × engine_factor`, and enqueues the delayed BullMQ job.
+- **`launch.test.ts`** — Vitest integration suite covering the happy path, non-idle ship rejection, insufficient fuel, and missing auth.
+
 ## `world/`
 
 Procedural world generation primitives and visibility checks. Contains the home-system seeder used by `auth/service.ts`, sector pool management, and the fog-of-war visibility service.
@@ -115,6 +123,6 @@ Procedural world generation primitives and visibility checks. Contains the home-
 
 1. Pick a kebab-case folder name that matches the bounded context (`buildings`, `expeditions`, `research`, …).
 2. Create `routes.ts` with `export async function <name>Routes(app: FastifyInstance) { ... }` and register it from `backend/src/index.ts` with the appropriate prefix.
-3. Move all DB and domain logic into `service.ts` (typically a class plus an exported singleton). Inject `db` and any tx via parameters so services remain testable.
+3. Move all DB and domain logic into `service.ts` (typically a class plus an exported singleton). If the feature is a single-operation module, keep the logic in the named action file and call it from the route. Inject `db` and any tx via parameters so the domain code stays testable.
 4. Co-locate `<name>.test.ts` and run `npm test` before committing.
 5. Update this README and [`backend/src/README.md`](../README.md) to describe the new module.
