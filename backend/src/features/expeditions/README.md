@@ -4,7 +4,9 @@ Ship launch and expedition scheduling live here. The module accepts launch reque
 
 ## Files
 
-- **`routes.ts`** — `expeditionsRoutes(app)` registers `POST /` (mounted at `/expeditions` from `index.ts`, so the public path is `POST /expeditions`). Requires a Bearer JWT in `Authorization`. Accepts `{ shipId, targetX, targetY, targetZ, fuelLoaded, cargoLoaded }`.
+- **`routes.ts`** — `expeditionsRoutes(app)` registers:
+  - `POST /` — launches a standard expedition. Accepts `{ shipId, targetX, targetY, targetZ, fuelLoaded, cargoLoaded }`.
+  - `POST /jump` — performs an inter-sector jump. Accepts `{ shipId, targetSector: { x, y, z } }`.
 - **`launch.ts`** — `launchExpedition(userId, request)` performs the launch flow:
   - Loads the ship, its type, and current planet/system context.
   - Verifies the ship belongs to the caller and is `idle`.
@@ -12,7 +14,14 @@ Ship launch and expedition scheduling live here. The module accepts launch reque
   - Spends `fuelLoaded` from the launch planet via `spendResources`.
   - Creates the expedition row with `status='in_flight'`, updates the ship to `moving`, and computes `eta = distance × 60 / speed × engine_factor` with the current neutral engine factor.
   - Enqueues a BullMQ delayed job at `eta` and returns the created expedition plus queue metadata.
-- **`launch.test.ts`** — Vitest integration suite covering the happy path, non-idle ship rejection, insufficient fuel, and missing auth.
+- **`jump.ts`** — `jumpShip(userId, request)` handles Jump Ship inter-sector jumps:
+  - Verifies the ship is a `jump_ship` and `idle`.
+  - Verifies `jump_drive` research level 1+.
+  - Deducts 50 Jump Fuel from the ship's internal tank.
+  - Lazily generates the target sector and moves the ship to the first planet of its first system.
+  - Updates `discovered_systems` and `discovered_planets` for the user.
+- **`launch.test.ts`** — Vitest integration suite for standard launches.
+- **`jump.test.ts`** — Vitest integration suite for the jump feature.
 
 ## Adding a new expedition action
 
