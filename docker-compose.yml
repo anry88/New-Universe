@@ -59,7 +59,7 @@ services:
       PORT: 3000
       DATABASE_URL: postgres://${POSTGRES_USER:-nu}:${POSTGRES_PASSWORD:-devpassword}@postgres:5432/${POSTGRES_DB:-new_universe}
       REDIS_URL: redis://redis:6379
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-dev-bot-token-change-me}
       TELEGRAM_BOT_SECRET: ${TELEGRAM_BOT_SECRET:-dev-secret-change-me}
       JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-me}
       LOG_LEVEL: ${LOG_LEVEL:-debug}
@@ -99,6 +99,9 @@ services:
       NODE_ENV: development
       DATABASE_URL: postgres://${POSTGRES_USER:-nu}:${POSTGRES_PASSWORD:-devpassword}@postgres:5432/${POSTGRES_DB:-new_universe}
       REDIS_URL: redis://redis:6379
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-dev-bot-token-change-me}
+      TELEGRAM_BOT_SECRET: ${TELEGRAM_BOT_SECRET:-dev-secret-change-me}
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-me}
       LOG_LEVEL: ${LOG_LEVEL:-debug}
     volumes:
       - ./backend/src:/app/src:cached
