@@ -84,7 +84,6 @@ services:
     command: npm run dev
 
   worker:
-    profiles: ["worker"]
     build:
       context: ./backend
       dockerfile: Dockerfile

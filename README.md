@@ -54,11 +54,10 @@ docker compose up -d postgres redis
 | Adminer (Postgres GUI) | http://localhost:8080 | postgres / nu / devpassword / new_universe |
 | Redis Commander (Redis GUI) | http://localhost:8081 | — |
 
-Frontend и worker сейчас не поднимаются по умолчанию. После завершения соответствующих задач их можно запускать явно:
+Worker теперь поднимается вместе с `docker compose up -d`. Frontend по-прежнему опционален и включается отдельным профилем:
 
 ```bash
 docker compose --profile frontend up -d frontend
-docker compose --profile worker up -d worker
 ```
 
 UI-инструменты `adminer` и `redis-commander` находятся в профиле `devtools` и не поднимаются автоматически. Запустить только их:
