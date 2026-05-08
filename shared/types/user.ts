@@ -1,4 +1,6 @@
 import type { HomeSystem } from './world.js';
+import type { Ship } from './ships.js';
+import type { Expedition } from './expeditions.js';
 
 export interface User {
   id: string;
@@ -9,4 +11,6 @@ export interface User {
   premiumUntil: string | null;
   powerScore: number;
   homeSystem?: HomeSystem;
+  ships?: Ship[];
+  expeditions?: Expedition[];
 }

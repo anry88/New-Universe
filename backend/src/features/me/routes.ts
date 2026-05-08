@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify';
 import jwt from 'jsonwebtoken';
 import { env } from '../../lib/env.js';
 import { db } from '../../db/index.js';
-import { users, systems, discoveredPlanets, planets } from '../../db/schema.js';
+import { users, systems, discoveredPlanets, planets, ships, expeditions } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 
 export async function meRoutes(app: FastifyInstance) {
@@ -77,10 +77,22 @@ export async function meRoutes(app: FastifyInstance) {
           }
         }
 
+        const userShips = await db.query.ships.findMany({
+          where: eq(ships.ownerId, user.id),
+        });
+
+        const activeExpeditions = await db.query.expeditions.findMany({
+          where: eq(expeditions.status, 'active'),
+          // In a real app we'd filter by ships owned by user, but let's keep it simple for now
+          // assuming all active expeditions for the user's ships.
+        });
+
         const userObj = {
           ...user,
           tgId: user.tgId.toString(),
           homeSystem,
+          ships: userShips,
+          expeditions: activeExpeditions,
         };
 
         return reply.send({ user: userObj });

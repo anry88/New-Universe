@@ -1,9 +1,11 @@
+import { useNavigate } from 'react-router-dom';
 import { ResourceBar } from '../components/ResourceBar';
 import { PlanetView } from '../components/PlanetView';
 import { BuildQueue } from '../components/BuildQueue';
 import { Home, Ship, Map, Beaker, User } from 'lucide-react';
 
 export function HomePage() {
+  const navigate = useNavigate();
   const tabs = [
     { id: 'planets', label: 'Planets', icon: Home },
     { id: 'ships', label: 'Ships', icon: Ship },
@@ -30,7 +32,10 @@ export function HomePage() {
               <button
                 key={tab.id}
                 className="flex flex-col items-center gap-1 px-3 py-1 rounded-lg transition-colors hover:bg-slate-700/50"
-                onClick={() => alert(`Navigate to ${tab.label}`)}
+                onClick={() => {
+                  if (tab.id === 'map') navigate('/map');
+                  else alert(`Navigate to ${tab.label}`);
+                }}
               >
                 <Icon className="w-5 h-5 text-slate-400" />
                 <span className="text-xs text-slate-400">{tab.label}</span>
