@@ -10,6 +10,8 @@ import {
   users,
   planetResources,
   shipTypes,
+  richness,
+  buildings,
 } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 
@@ -111,6 +113,8 @@ describe('Visibility Check Service', () => {
     await db.delete(discoveredSystems);
     await db.delete(planetResources);
     await db.delete(ships);
+    await db.delete(buildings);
+    await db.delete(richness);
     await db.delete(planets);
     await db.delete(systems);
     await db.delete(users);
@@ -124,6 +128,8 @@ describe('Visibility Check Service', () => {
     await db.delete(discoveredSystems);
     await db.delete(planetResources);
     await db.delete(ships);
+    await db.delete(buildings);
+    await db.delete(richness);
     await db.delete(planets);
     await db.delete(systems);
     await db.delete(users);
