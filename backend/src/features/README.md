@@ -54,8 +54,11 @@ Building construction and queue management. [Detailed documentation](./buildings
 
 ## `resources/`
 
-Resource accrual and management.
+Resource accrual, transactions, and conversion.
 
+- **`routes.ts`** — `resourcesRoutes(app)` registers `POST /convert` (mounted at `/resources` from `index.ts`, so the public path is `POST /resources/convert`). Requires a valid JWT in the `Authorization: Bearer <token>` header. Accepts `{ planetId, from, to, amount }` in the request body.
+- **`convert.ts`** — `convertResources(userId, { planetId, from, to, amount })` converts ice ↔ water on a player-owned planet. Validates planet ownership, checks for a `cryo_factory` building (level ≥ 1), verifies energy availability (solar_plant production ≥ building consumption), then atomically spends the source resource and gains the target resource. Ice→water converts at 1:1; water→ice incurs a 5% loss (100 → 95).
+- **`convert.test.ts`** — Vitest integration suite covering: missing cryo_factory (400), ice→water success, water→ice with 5% loss, missing auth (401), non-existent planet (404), invalid resource type (400), and insufficient source resource (400).
 - **`accrual.ts`** — exports `computeCurrentResources(planetId, tx?)` which lazily computes current resource amounts without writing to the database. For each resource: `amount += regenRate × (now - lastUpdateAt)`. Respects `defaultStorageCap` from the `resources` table. Returns array of `{ resourceId, amount, regenRate, lastUpdateAt, storageCap }`.
   - Does NOT write to the database - this is a read-only computation for lazy updates.
   - Caps each resource amount at its `storageCap`.
