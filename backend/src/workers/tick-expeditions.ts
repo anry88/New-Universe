@@ -5,8 +5,11 @@ import {
   ships,
   planets,
   systems,
+  notifications,
 } from '../db/schema.js';
-import { eq, and, or } from 'drizzle-orm';
+
+import { eq, or } from 'drizzle-orm';
+
 import { logger } from '../lib/logger.js';
 import { env } from '../lib/env.js';
 import { checkVisibility } from '../features/world/visibility.js';
@@ -111,7 +114,24 @@ async function handleArrivalAtHome(
     { expeditionId: expedition.id, shipId: expedition.shipId },
     'Expedition returned home and completed',
   );
+
+  // Send notification
+  const ship = await tx.query.ships.findFirst({
+    where: eq(ships.id, expedition.shipId),
+  });
+  if (ship) {
+    await tx.insert(notifications).values({
+      userId: ship.ownerId,
+      type: 'expedition_returned',
+      payload: {
+        expeditionId: expedition.id,
+        shipId: ship.id,
+        typeId: ship.typeId,
+      },
+    });
+  }
 }
+
 
 export async function processExpeditions(): Promise<void> {
   const now = new Date();

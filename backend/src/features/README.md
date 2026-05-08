@@ -37,6 +37,8 @@ Telegram Bot logic and webhook handling.
 - **`service.ts`** — `BotService` singleton for processing Telegram updates.
 - **`webhook.ts`** — Dispatcher for incoming Telegram updates.
 - **`commands.ts`** — Implementation of bot commands like `/start`.
+- **`push.ts`** — `sendPush(userId, type, payload)` service to queue push notifications in the database.
+
 
 ## `me/`
 

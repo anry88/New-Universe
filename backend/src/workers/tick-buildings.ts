@@ -90,8 +90,9 @@ export async function processCompletedBuildings(): Promise<void> {
           const actionLabel = isBuild ? 'built' : `upgraded to level ${newLevel}`;
           await tx.insert(notifications).values({
             userId: system.ownerId,
-            type: 'building_complete',
+            type: 'building_done',
             payload: {
+
               buildingId: building.id,
               typeId: building.typeId,
               planetId: building.planetId,
