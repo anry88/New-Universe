@@ -12,6 +12,7 @@ import {
   shipTypes,
   richness,
   buildings,
+  notifications,
 } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 
@@ -117,6 +118,7 @@ describe('Visibility Check Service', () => {
     await db.delete(richness);
     await db.delete(planets);
     await db.delete(systems);
+    await db.delete(notifications);
     await db.delete(users);
     // Upsert test ship type instead of deleting all shipTypes — avoids races
     // with other parallel workers that may have ships referencing seed types.
@@ -132,6 +134,7 @@ describe('Visibility Check Service', () => {
     await db.delete(richness);
     await db.delete(planets);
     await db.delete(systems);
+    await db.delete(notifications);
     await db.delete(users);
   });
 
