@@ -46,6 +46,8 @@ The repository ships with the following npm scripts in `backend/package.json` (a
 
 - `npm run dev` — `tsx watch src/index.ts` (hot reload for local development).
 - `npm run build` — `tsc` typecheck + emit to `dist/`.
-- `npm test` / `npm run test:watch` — Vitest run / watch mode.
+- `npm test` / `npm run test:watch` — Vitest run / watch mode for unit/integration tests.
+- `npm run test:e2e` — Vitest run for end-to-end integration tests.
 - `npm run lint` — ESLint over `*.ts`.
+
 - `npm run db:generate` / `db:migrate` / `db:seed` / `db:studio` — Drizzle Kit operations.

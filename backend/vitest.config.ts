@@ -3,7 +3,8 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'tests/**/*.test.ts'],
+
     globals: true,
     setupFiles: ['src/vitest-setup.ts'],
     // Sequential execution — all tests share one Postgres/Redis and blanket

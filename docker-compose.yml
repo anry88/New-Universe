@@ -71,6 +71,8 @@ services:
       - "4983:4983"
     volumes:
       - ./backend/src:/app/src:cached
+      - ./backend/tests:/app/tests:cached
+
       - ./backend/package.json:/app/package.json:ro
       - ./backend/package-lock.json:/app/package-lock.json:ro
       - ./backend/drizzle.config.ts:/app/drizzle.config.ts:ro
