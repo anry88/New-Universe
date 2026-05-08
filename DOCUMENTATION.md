@@ -8,6 +8,7 @@ This document explains how the New Universe backend, frontend, and supporting co
 - [Backend shared libraries (`backend/src/lib`)](backend/src/lib/README.md)
 - [Backend middleware (`backend/src/middleware`)](backend/src/middleware/README.md)
 - [Backend HTTP routes (`backend/src/routes`)](backend/src/routes/README.md)
+- [Backend workers (`backend/src/workers`)](backend/src/workers/README.md)
 - [Frontend source root (`frontend/src`)](frontend/src/README.md)
 - [Shared cross-package types (`shared`)](shared/README.md)
 
@@ -32,6 +33,15 @@ The `dev/`, `docs/`, and `tasks/` folders contain non-runtime materials: dev-env
 - Request IDs: every incoming request gets a UUID via `middleware/request-id.ts` and the ID is exposed under the `requestId` log key.
 - Sentry: `lib/sentry.ts` is imported as the very first module to capture early-startup errors; it stays disabled when `SENTRY_DSN` is empty.
 - Routes: `/health` (`routes/health.ts`), `/webhook/telegram` (`routes/bot.ts`), `/auth/telegram` (`features/auth/routes.ts`), `/me` (`features/me/routes.ts`), `/buildings/*` (`features/buildings/routes.ts`), `/resources/convert` (`features/resources/routes.ts`), `/ships/build` (`features/ships/routes.ts`), and `/expeditions` (`features/expeditions/routes.ts`).
+
+### Workers
+
+`backend/src/workers/index.ts` boots the background processing layer:
+
+- **Repeat Queue**: Uses BullMQ's repeatable jobs to "tick" game logic every 30 seconds.
+- **`tick-buildings`**: Completes construction/upgrades and updates resource regen rates.
+- **`tick-expeditions`**: The most complex worker; it interpolates ship positions in 3D space during travel and performs real-time fog-of-war visibility checks.
+- **`tick-ships`**: Finalizes ship production.
 
 ### Telegram Bot
 

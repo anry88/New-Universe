@@ -10,9 +10,9 @@ export interface Discovery {
 
 interface ShipPosition {
   ownerId: string;
-  shipSectorX: number;
-  shipSectorY: number;
-  shipSectorZ: number;
+  shipSectorX: number | null;
+  shipSectorY: number | null;
+  shipSectorZ: number | null;
   sensorRange: number;
 }
 
@@ -41,8 +41,16 @@ interface PlanetRow {
  *
  * Returns the array of newly discovered entities.
  * Used by the expedition tick worker (`tick_expeditions`).
+ *
+ * @param shipId Ship ID
+ * @param tx Optional transaction
+ * @param overrideCoords Optional coordinates to use instead of ship's current planet position (for in-flight ships)
  */
-export async function checkVisibility(shipId: string, tx?: any): Promise<Discovery[]> {
+export async function checkVisibility(
+  shipId: string,
+  tx?: any,
+  overrideCoords?: { x: number; y: number; z: number },
+): Promise<Discovery[]> {
   const database = tx || defaultDb;
 
   const [ship] = await database
@@ -55,17 +63,31 @@ export async function checkVisibility(shipId: string, tx?: any): Promise<Discove
     })
     .from(ships)
     .innerJoin(shipTypes, eq(shipTypes.id, ships.typeId))
-    .innerJoin(planets, eq(planets.id, ships.locationPlanetId))
-    .innerJoin(systems, eq(systems.id, planets.systemId))
+    .leftJoin(planets, eq(planets.id, ships.locationPlanetId))
+    .leftJoin(systems, eq(systems.id, planets.systemId))
     .where(eq(ships.id, shipId))
     .limit(1) as ShipPosition[];
 
-  if (!ship || ship.shipSectorX == null || !ship.ownerId) {
+  if (!ship || !ship.ownerId) {
     return [];
   }
 
-  const { ownerId, shipSectorX, shipSectorY, shipSectorZ } = ship;
+  const { ownerId } = ship;
   const range = Number(ship.sensorRange);
+
+  let shipSectorX = ship.shipSectorX;
+  let shipSectorY = ship.shipSectorY;
+  let shipSectorZ = ship.shipSectorZ;
+
+  if (overrideCoords) {
+    shipSectorX = overrideCoords.x;
+    shipSectorY = overrideCoords.y;
+    shipSectorZ = overrideCoords.z;
+  }
+
+  if (shipSectorX == null || shipSectorY == null || shipSectorZ == null) {
+    return [];
+  }
 
   const candidateSystems = await database
     .select({
