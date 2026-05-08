@@ -42,7 +42,7 @@ export function PlanetView() {
 
           <div className="grid grid-cols-2 gap-3">
             {Array.from({ length: planet.slotCount }, (_, i) => {
-              const building = planet.buildings?.[i];
+              const building = planet.buildings?.find((item) => item.slotIndex === i);
               return (
                 <button
                   key={i}

@@ -3,6 +3,9 @@ import jwt from 'jsonwebtoken';
 import { env } from '../../lib/env.js';
 import { buildingService } from './service.js';
 import { BuildRequest, UpgradeRequest } from '@shared/types/buildings.js';
+import { db } from '../../db/index.js';
+import { buildings, planets, systems } from '../../db/schema.js';
+import { and, eq, isNotNull } from 'drizzle-orm';
 
 export async function buildingsRoutes(app: FastifyInstance) {
   app.addHook('preHandler', async (request, reply) => {
@@ -59,5 +62,41 @@ export async function buildingsRoutes(app: FastifyInstance) {
         message: err.message,
       });
     }
+  });
+
+  app.get('/queue', async (request) => {
+    const userId = (request as any).userId as string;
+
+    const rows = await db
+      .select({
+        id: buildings.id,
+        buildingTypeId: buildings.typeId,
+        level: buildings.level,
+        queueAction: buildings.queueAction,
+        queueCompletesAt: buildings.queueCompletesAt,
+      })
+      .from(buildings)
+      .innerJoin(planets, eq(planets.id, buildings.planetId))
+      .innerJoin(systems, eq(systems.id, planets.systemId))
+      .where(
+        and(
+          eq(systems.ownerId, userId),
+          isNotNull(buildings.queueAction),
+          isNotNull(buildings.queueCompletesAt),
+        ),
+      );
+
+    return {
+      queue: rows
+        .map((row) => ({
+          ...row,
+          queueAction: row.queueAction as 'build' | 'upgrade' | 'destroy',
+          queueCompletesAt: row.queueCompletesAt!.toISOString(),
+        }))
+        .sort(
+          (a, b) =>
+            new Date(a.queueCompletesAt).getTime() - new Date(b.queueCompletesAt).getTime(),
+        ),
+    };
   });
 }

@@ -19,19 +19,13 @@ export function BuildQueue() {
         const data = await apiFetch<{ queue: BuildQueueItem[] }>('/buildings/queue');
         setQueue(data.queue || []);
       } catch {
-        // Mock data for now
-        setQueue([
-          {
-            id: '1',
-            buildingTypeId: 'mine',
-            level: 2,
-            queueAction: 'upgrade',
-            queueCompletesAt: new Date(Date.now() + 300000).toISOString(),
-          },
-        ]);
+        setQueue([]);
       }
     };
+
     fetchQueue();
+    const interval = setInterval(fetchQueue, 15000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
