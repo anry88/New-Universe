@@ -200,7 +200,6 @@ describe('Building Upgrade - POST /buildings/:id/upgrade', () => {
     });
     const baseCost = mineType!.baseCost as Record<string, number>;
     const scaledIron = Math.ceil((baseCost.iron || 0) * Math.pow(1.6, 0));
-    const scaledSilicon = Math.ceil((baseCost.silicon || 0) * Math.pow(1.6, 0));
 
     const [building] = await db.insert(buildings).values({
       planetId,

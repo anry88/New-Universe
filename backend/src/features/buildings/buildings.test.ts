@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { buildingService } from './service.js';
 import { db } from '../../db/index.js';
-import { users, systems, planets, planetResources, buildings, buildingTypes } from '../../db/schema.js';
+import { users, systems, buildings } from '../../db/schema.js';
 import { generateHomeSystem } from '../world/home-system-generator.js';
-import { eq, and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 describe('Building Service', () => {
   let userId: string;
@@ -19,7 +19,7 @@ describe('Building Service', () => {
     await generateHomeSystem(userId);
     
     const system = await db.query.systems.findFirst({ where: eq(systems.ownerId, userId) });
-    const planetsList = await db.query.planets.findMany({
+    await db.query.planets.findMany({
       where: (table, { eq }) => eq(table.systemId, system!.id),
       orderBy: (table, { asc }) => [asc(table.name)],
     });

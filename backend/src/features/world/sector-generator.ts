@@ -1,21 +1,11 @@
 import { db as defaultDb } from '../../db/index.js';
-import { systems, planets, richness, planetResources } from '../../db/schema.js';
-import { BIOMES, BiomeType } from './biomes.js';
+import { systems, planets } from '../../db/schema.js';
+import { BiomeType } from './biomes.js';
 
 const SECTOR_SIZE = 500;
 const MIN_DISTANCE = 50;
 const MAX_SYSTEMS_PER_SECTOR = 12;
 const DEFAULT_TARGET_COUNT = 5;
-
-function hashString(str: string): number {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash |= 0;
-  }
-  return hash;
-}
 
 function createRandom(seed: number) {
   return function() {
@@ -92,13 +82,14 @@ function generateSystemPosition(
 }
 
 export async function generateSystemsInSector(sector: any, targetCount: number = DEFAULT_TARGET_COUNT, tx?: any) {
+
   const database = tx || defaultDb;
 
   const existingSystems = await database.query.systems.findMany({
-    where: (systems: any, { and, eq }: any) => and(
-      eq(systems.sectorX, sector.x),
-      eq(systems.sectorY, sector.y),
-      eq(systems.sectorZ, sector.z)
+    where: (systemsTable: any, { and, eq }: any) => and(
+      eq(systemsTable.sectorX, sector.x),
+      eq(systemsTable.sectorY, sector.y),
+      eq(systemsTable.sectorZ, sector.z)
     ),
   });
 

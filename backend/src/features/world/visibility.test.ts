@@ -14,7 +14,6 @@ import {
   buildings,
   notifications,
 } from '../../db/schema.js';
-import { eq } from 'drizzle-orm';
 
 const TEST_SHIP_TYPE = 'test_scout';
 
@@ -226,7 +225,7 @@ describe('Visibility Check Service', () => {
     const userId = await createTestUser();
 
     const homeSystem = await createSystem(10, 0, 0, userId, true);
-    const homePlanetId = await createPlanet(homeSystem.id, 'Home Planet');
+    await createPlanet(homeSystem.id, 'Home Planet');
 
     const shipPlanetId = await createPlanet(
       (await createSystem(0, 0, 0)).id,

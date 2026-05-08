@@ -1,5 +1,5 @@
 import { db as defaultDb } from '../../db/index.js';
-import { ships, shipTypes, buildings, buildingTypes, planets, systems } from '../../db/schema.js';
+import { ships, shipTypes, buildings, planets, systems } from '../../db/schema.js';
 import { eq, and, sql } from 'drizzle-orm';
 import { spendResources } from '../resources/transactions.js';
 

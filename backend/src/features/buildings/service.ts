@@ -1,7 +1,7 @@
 import { db } from '../../db/index.js';
-import { buildings, buildingTypes, planets, planetResources, systems } from '../../db/schema.js';
+import { buildings, buildingTypes, planets } from '../../db/schema.js';
 import { eq, and, sql } from 'drizzle-orm';
-import { BuildingType, ConstructionStatus, BuildRequest, UpgradeRequest } from '@shared/types/buildings.js';
+import { BuildingType, ConstructionStatus } from '@shared/types/buildings.js';
 import { spendResources } from '../resources/transactions.js';
 
 export class BuildingService {
@@ -103,7 +103,9 @@ export class BuildingService {
         );
         await buildQueue.close();
         await redis.quit();
-      } catch {
+      } catch (err) {
+        // Redis/BullMQ is optional in tests/local runs; ignore enqueue failures.
+        void err;
       }
 
       return {
@@ -202,7 +204,9 @@ export class BuildingService {
         );
         await buildQueue.close();
         await redis.quit();
-      } catch {
+      } catch (err) {
+        // Redis/BullMQ is optional in tests/local runs; ignore enqueue failures.
+        void err;
       }
 
       return {

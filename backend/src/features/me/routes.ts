@@ -2,9 +2,8 @@ import { FastifyInstance } from 'fastify';
 import jwt from 'jsonwebtoken';
 import { env } from '../../lib/env.js';
 import { db } from '../../db/index.js';
-import { users, systems, planets, planetResources, resources, buildings } from '../../db/schema.js';
-import { eq, and } from 'drizzle-orm';
-import { User } from '@shared/types/user.js';
+import { users } from '../../db/schema.js';
+import { eq } from 'drizzle-orm';
 
 export async function meRoutes(app: FastifyInstance) {
   app.get(
@@ -21,10 +20,11 @@ export async function meRoutes(app: FastifyInstance) {
       }
 
       let payload: { userId: string };
-      try {
-        payload = jwt.verify(token, env.JWT_SECRET) as { userId: string };
-      } catch (_err) {
-        return reply.status(401).send({
+    try {
+      payload = jwt.verify(token, env.JWT_SECRET) as { userId: string };
+    } catch {
+      return reply.status(401).send({
+
           error: 'Unauthorized',
           message: 'Invalid or expired session token',
         });

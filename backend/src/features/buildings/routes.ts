@@ -19,7 +19,7 @@ export async function buildingsRoutes(app: FastifyInstance) {
     try {
       const payload = jwt.verify(token, env.JWT_SECRET) as { userId: string };
       (request as any).userId = payload.userId;
-    } catch (_err) {
+    } catch {
       return reply.status(401).send({
         error: 'Unauthorized',
         message: 'Invalid or expired session token',

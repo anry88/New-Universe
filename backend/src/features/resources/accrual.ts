@@ -1,6 +1,6 @@
 import { db as defaultDb } from '../../db/index.js';
 import { planetResources, resources } from '../../db/schema.js';
-import { eq, and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 interface DBRecord {
   resourceId: string;
