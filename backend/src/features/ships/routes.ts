@@ -2,8 +2,14 @@ import { FastifyInstance } from 'fastify';
 import jwt from 'jsonwebtoken';
 import { env } from '../../lib/env.js';
 import { buildShip } from './build.js';
+import { db } from '../../db/index.js';
+import { shipTypes } from '../../db/schema.js';
 
 export async function shipsRoutes(app: FastifyInstance) {
+  app.get('/types', async () => {
+    return db.query.shipTypes.findMany();
+  });
+
   app.post('/build', async (request, reply) => {
     const authHeader = request.headers.authorization;
     const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
