@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify';
 import jwt from 'jsonwebtoken';
 import { env } from '../../lib/env.js';
 import { db } from '../../db/index.js';
-import { users, systems } from '../../db/schema.js';
+import { users, systems, discoveredPlanets, planets } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 
 export async function meRoutes(app: FastifyInstance) {
@@ -42,7 +42,7 @@ export async function meRoutes(app: FastifyInstance) {
           });
         }
 
-        const homeSystem = await db.query.systems.findFirst({
+        let homeSystem = await db.query.systems.findFirst({
           where: eq(systems.ownerId, user.id),
           with: {
             planets: {
@@ -52,6 +52,30 @@ export async function meRoutes(app: FastifyInstance) {
             },
           },
         });
+
+        if (!homeSystem) {
+          const discoveredPlanet = await db.query.discoveredPlanets.findFirst({
+            where: eq(discoveredPlanets.userId, user.id),
+          });
+
+          if (discoveredPlanet) {
+            const discoveredSystem = await db.query.planets.findFirst({
+              where: eq(planets.id, discoveredPlanet.planetId),
+              with: {
+                system: {
+                  with: {
+                    planets: {
+                      with: {
+                        buildings: true,
+                      },
+                    },
+                  },
+                },
+              },
+            });
+            homeSystem = discoveredSystem?.system;
+          }
+        }
 
         const userObj = {
           ...user,
