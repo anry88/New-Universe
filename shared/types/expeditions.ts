@@ -10,5 +10,5 @@ export interface Expedition {
   status: string;
   eta: string;
   returnedAt: string | null;
-  result: Record<string, any>;
+  result: Record<string, unknown>;
 }

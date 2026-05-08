@@ -173,7 +173,7 @@ export function SystemRenderer({ system, ships, expeditions, onPlanetClick }: Sy
       });
 
       // Animation loop for small rotations
-      app.ticker.add((time) => {
+      app.ticker.add((_time) => {
         // Star pulse
         star.scale.set(1 + Math.sin(Date.now() / 1000) * 0.05);
       });
