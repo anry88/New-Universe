@@ -1,60 +1,43 @@
-import { db as defaultDb } from '../../db/index.js';
-import { buildings, buildingTypes, planets, systems } from '../../db/schema.js';
+import { db } from '../../db/index.js';
+import { buildings, buildingTypes, planets } from '../../db/schema.js';
 import { eq, and, sql } from 'drizzle-orm';
+import { BuildingType, ConstructionStatus } from '@shared/types/buildings.js';
 import { spendResources } from '../resources/transactions.js';
 
-export interface BuildRequest {
-  planetId: string;
-  typeSlug: string;
-}
-
-export interface BuildResult {
-  success: boolean;
-  status: number;
-  building?: typeof buildings.$inferSelect;
-  error?: string;
-}
-
 export class BuildingService {
-  async build(
-    userId: string,
-    req: BuildRequest,
-  ): Promise<BuildResult> {
-    const { planetId, typeSlug } = req;
-    const db = defaultDb;
+  async getBuildingTypes(): Promise<BuildingType[]> {
+    const types = await db.query.buildingTypes.findMany();
+    return types as BuildingType[];
+  }
 
+  async build(userId: string, planetId: string, typeId: string, slotIndex: number): Promise<ConstructionStatus> {
     const planet = await db.query.planets.findFirst({
       where: eq(planets.id, planetId),
+      with: {
+        system: true,
+        buildings: true,
+      }
     });
-    if (!planet) {
-      return { success: false, status: 404, error: 'Planet not found' };
+
+    if (!planet || (planet.system as any).ownerId !== userId) {
+      throw new Error('Planet not found or not owned by user');
     }
 
-    const system = await db.query.systems.findFirst({
-      where: eq(systems.id, planet.systemId),
-    });
-    if (!system || system.ownerId !== userId) {
-      return { success: false, status: 403, error: 'Planet does not belong to you' };
+    if (slotIndex < 0 || slotIndex >= planet.slotCount) {
+      throw new Error('Invalid slot index');
     }
 
-    const type = await db.query.buildingTypes.findFirst({
-      where: eq(buildingTypes.id, typeSlug),
-    });
-    if (!type) {
-      return { success: false, status: 404, error: `Unknown building type: ${typeSlug}` };
+    const existingAtSlot = planet.buildings?.find((b: any) => b.slotIndex === slotIndex);
+    if (existingAtSlot) {
+      throw new Error('Slot already occupied');
     }
 
-    const existingBuildings = await db
-      .select({ count: sql<number>`COUNT(*)` })
-      .from(buildings)
-      .where(eq(buildings.planetId, planetId));
-    const buildingCount = Number(existingBuildings[0]?.count || 0);
-    if (buildingCount >= planet.slotCount) {
-      return {
-        success: false,
-        status: 400,
-        error: `No free slots on this planet (${buildingCount}/${planet.slotCount} used)`,
-      };
+    const typeInfo = await db.query.buildingTypes.findFirst({
+      where: eq(buildingTypes.id, typeId),
+    });
+
+    if (!typeInfo) {
+      throw new Error('Building type not found');
     }
 
     const queuedBuildings = await db
@@ -68,61 +51,43 @@ export class BuildingService {
       );
     const queueCount = Number(queuedBuildings[0]?.count || 0);
     if (queueCount >= 1) {
-      return {
-        success: false,
-        status: 400,
-        error: 'Build queue is full (max 1 building at a time without premium)',
-      };
+      throw new Error('Build queue is full (max 1 building at a time)');
     }
 
-    const deps = type.deps as { typeId: string; level: number }[] | null;
+    const deps = typeInfo.deps as { typeId: string; level: number }[] | null;
     if (deps && deps.length > 0) {
       for (const dep of deps) {
-        const depBuilding = await db.query.buildings.findFirst({
-          where: and(
-            eq(buildings.planetId, planetId),
-            eq(buildings.typeId, dep.typeId),
-          ),
-        });
+        const depBuilding = planet.buildings?.find((b: any) => b.typeId === dep.typeId);
         if (!depBuilding || depBuilding.level < dep.level) {
-          return {
-            success: false,
-            status: 400,
-            error: `Missing dependency: ${dep.typeId} level ${dep.level}`,
-          };
+          throw new Error(`Missing dependency: ${dep.typeId} level ${dep.level}`);
         }
       }
     }
 
-    const costs = type.baseCost as Record<string, number>;
-    const costEntries = Object.entries(costs);
+    const costs = typeInfo.baseCost as Record<string, number>;
+    const resourceCosts = Object.entries(costs).map(([resourceId, amount]) => ({
+      resourceId,
+      amount,
+    }));
 
-    const result = await db.transaction(async (tx) => {
-      if (costEntries.length > 0) {
-        const resourceCosts = costEntries.map(([resourceId, amount]) => ({
-          resourceId,
-          amount,
-        }));
-
+    return db.transaction(async (tx) => {
+      if (resourceCosts.length > 0) {
         const spendResult = await spendResources(planetId, resourceCosts, tx);
         if (!spendResult.success) {
-          return { success: false, status: 400, error: spendResult.error } as BuildResult;
+          throw new Error(spendResult.error);
         }
       }
 
-      const queueCompletesAt = new Date(Date.now() + type.baseTimeSec * 1000);
-      const [newBuilding] = await tx
-        .insert(buildings)
-        .values({
-          planetId,
-          typeId: typeSlug,
-          level: 1,
-          queueAction: 'build',
-          queueCompletesAt,
-        })
-        .returning();
+      const completesAt = new Date(Date.now() + typeInfo.baseTimeSec * 1000);
+      const [newBuilding] = await tx.insert(buildings).values({
+        planetId,
+        typeId,
+        level: 1,
+        slotIndex,
+        queueAction: 'build',
+        queueCompletesAt: completesAt,
+      }).returning();
 
-      // Enqueue BullMQ job for delayed completion (gracefully handles missing Redis)
       try {
         const { Queue: BQueue } = await import('bullmq');
         const Redis = (await import('ioredis')).default as unknown as new (...args: any[]) => any;
@@ -134,22 +99,124 @@ export class BuildingService {
         await buildQueue.add(
           'complete-build',
           { buildingId: newBuilding.id, planetId },
-          { delay: type.baseTimeSec * 1000 },
+          { delay: typeInfo.baseTimeSec * 1000 },
         );
         await buildQueue.close();
         await redis.quit();
-      } catch {
-        // Redis/BullMQ not available - worker (P1-162) handles completion via polling
+      } catch (err) {
+        // Redis/BullMQ is optional in tests/local runs; ignore enqueue failures.
+        void err;
       }
 
       return {
         success: true,
-        status: 200,
-        building: newBuilding,
-      } satisfies BuildResult;
+        queueItem: {
+          id: newBuilding.id,
+          completesAt: completesAt.toISOString(),
+        }
+      };
+    });
+  }
+
+  async upgrade(userId: string, buildingId: string): Promise<ConstructionStatus> {
+    const building = await db.query.buildings.findFirst({
+      where: eq(buildings.id, buildingId),
+      with: {
+        planet: {
+          with: {
+            system: true
+          }
+        }
+      }
     });
 
-    return result;
+    if (!building || (building.planet as any).system.ownerId !== userId) {
+      throw new Error('Building not found or not owned by user');
+    }
+
+    if (building.queueAction) {
+      throw new Error('Building already in queue');
+    }
+
+    const typeInfo = await db.query.buildingTypes.findFirst({
+      where: eq(buildingTypes.id, building.typeId),
+    });
+
+    if (!typeInfo) {
+      throw new Error('Building type not found');
+    }
+
+    if (building.level >= typeInfo.maxLevel) {
+      throw new Error('Maximum level reached');
+    }
+
+    const queuedBuildings = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(buildings)
+      .where(
+        and(
+          eq(buildings.planetId, building.planetId),
+          sql`${buildings.queueAction} IS NOT NULL`,
+        ),
+      );
+    const queueCount = Number(queuedBuildings[0]?.count || 0);
+    if (queueCount >= 1) {
+      throw new Error('Build queue is full (max 1 building at a time)');
+    }
+
+    const multiplier = Math.pow(2, building.level);
+    const costs = typeInfo.baseCost as Record<string, number>;
+    const resourceCosts = Object.entries(costs).map(([resourceId, amount]) => ({
+      resourceId,
+      amount: Math.floor(amount * multiplier),
+    }));
+
+    return db.transaction(async (tx) => {
+      if (resourceCosts.length > 0) {
+        const spendResult = await spendResources(building.planetId, resourceCosts, tx);
+        if (!spendResult.success) {
+          throw new Error(spendResult.error);
+        }
+      }
+
+      const buildTime = Math.floor(typeInfo.baseTimeSec * multiplier);
+      const completesAt = new Date(Date.now() + buildTime * 1000);
+
+      await tx.update(buildings)
+        .set({
+          queueAction: 'upgrade',
+          queueCompletesAt: completesAt,
+        })
+        .where(eq(buildings.id, buildingId));
+
+      try {
+        const { Queue: BQueue } = await import('bullmq');
+        const Redis = (await import('ioredis')).default as unknown as new (...args: any[]) => any;
+        const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+          maxRetriesPerRequest: null,
+          lazyConnect: true,
+        });
+        const buildQueue = new BQueue('buildings', { connection: redis });
+        await buildQueue.add(
+          'complete-upgrade',
+          { buildingId, planetId: building.planetId },
+          { delay: buildTime * 1000 },
+        );
+        await buildQueue.close();
+        await redis.quit();
+      } catch (err) {
+        // Redis/BullMQ is optional in tests/local runs; ignore enqueue failures.
+        void err;
+      }
+
+      return {
+        success: true,
+        queueItem: {
+          id: buildingId,
+          completesAt: completesAt.toISOString(),
+        }
+      };
+    });
   }
 }
 

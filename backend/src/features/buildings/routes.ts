@@ -2,10 +2,13 @@ import { FastifyInstance } from 'fastify';
 import jwt from 'jsonwebtoken';
 import { env } from '../../lib/env.js';
 import { buildingService } from './service.js';
-import { upgradeBuilding } from './upgrade.js';
+import { BuildRequest, UpgradeRequest } from '@shared/types/buildings.js';
+import { db } from '../../db/index.js';
+import { buildings, planets, systems } from '../../db/schema.js';
+import { and, eq, isNotNull } from 'drizzle-orm';
 
 export async function buildingsRoutes(app: FastifyInstance) {
-  app.post('/build', async (request, reply) => {
+  app.addHook('preHandler', async (request, reply) => {
     const authHeader = request.headers.authorization;
     const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
 
@@ -16,75 +19,84 @@ export async function buildingsRoutes(app: FastifyInstance) {
       });
     }
 
-    let payload: { userId: string };
     try {
-      payload = jwt.verify(token, env.JWT_SECRET) as { userId: string };
+      const payload = jwt.verify(token, env.JWT_SECRET) as { userId: string };
+      (request as any).userId = payload.userId;
     } catch {
       return reply.status(401).send({
         error: 'Unauthorized',
         message: 'Invalid or expired session token',
       });
     }
-
-    const { planetId, typeSlug } = request.body as {
-      planetId?: string;
-      typeSlug?: string;
-    };
-
-    if (!planetId || !typeSlug) {
-      return reply.status(400).send({
-        error: 'Bad Request',
-        message: 'planetId and typeSlug are required',
-      });
-    }
-
-    const result = await buildingService.build(payload.userId, {
-      planetId,
-      typeSlug,
-    });
-
-    if (!result.success) {
-      return reply.status(result.status).send({ error: result.error });
-    }
-
-    return reply.send({ building: result.building });
   });
 
-  app.post('/:id/upgrade', async (request, reply) => {
-    const authHeader = request.headers.authorization;
-    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  app.get('/types', async () => {
+    return buildingService.getBuildingTypes();
+  });
 
-    if (!token) {
-      return reply.status(401).send({
-        error: 'Unauthorized',
-        message: 'Missing session token',
-      });
-    }
+  app.post('/build', async (request, reply) => {
+    const { planetId, typeId, slotIndex } = request.body as BuildRequest;
+    const userId = (request as any).userId;
 
-    let payload: { userId: string };
     try {
-      payload = jwt.verify(token, env.JWT_SECRET) as { userId: string };
-    } catch {
-      return reply.status(401).send({
-        error: 'Unauthorized',
-        message: 'Invalid or expired session token',
-      });
-    }
-
-    const { id } = request.params as { id: string };
-    if (!id) {
+      const result = await buildingService.build(userId, planetId, typeId, slotIndex);
+      return result;
+    } catch (err: any) {
       return reply.status(400).send({
         error: 'Bad Request',
-        message: 'Building ID is required',
+        message: err.message,
       });
     }
+  });
 
-    const result = await upgradeBuilding(payload.userId, id);
+  app.post('/upgrade', async (request, reply) => {
+    const { buildingId } = request.body as UpgradeRequest;
+    const userId = (request as any).userId;
 
-    if (!result.success) {
-      return reply.status(result.status).send({ error: result.error });
+    try {
+      const result = await buildingService.upgrade(userId, buildingId);
+      return result;
+    } catch (err: any) {
+      return reply.status(400).send({
+        error: 'Bad Request',
+        message: err.message,
+      });
     }
+  });
 
-    return reply.send({ building: result.building });
+  app.get('/queue', async (request) => {
+    const userId = (request as any).userId as string;
+
+    const rows = await db
+      .select({
+        id: buildings.id,
+        buildingTypeId: buildings.typeId,
+        level: buildings.level,
+        queueAction: buildings.queueAction,
+        queueCompletesAt: buildings.queueCompletesAt,
+      })
+      .from(buildings)
+      .innerJoin(planets, eq(planets.id, buildings.planetId))
+      .innerJoin(systems, eq(systems.id, planets.systemId))
+      .where(
+        and(
+          eq(systems.ownerId, userId),
+          isNotNull(buildings.queueAction),
+          isNotNull(buildings.queueCompletesAt),
+        ),
+      );
+
+    return {
+      queue: rows
+        .map((row) => ({
+          ...row,
+          queueAction: row.queueAction as 'build' | 'upgrade' | 'destroy',
+          queueCompletesAt: row.queueCompletesAt!.toISOString(),
+        }))
+        .sort(
+          (a, b) =>
+            new Date(a.queueCompletesAt).getTime() - new Date(b.queueCompletesAt).getTime(),
+        ),
+    };
   });
 }

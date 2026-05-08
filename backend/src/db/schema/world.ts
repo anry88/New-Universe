@@ -1,7 +1,8 @@
 import { pgTable, uuid, text, integer, boolean, timestamp, numeric, primaryKey, index, check } from 'drizzle-orm/pg-core';
-import { sql } from 'drizzle-orm';
+import { sql, relations } from 'drizzle-orm';
 import { users } from './users.js';
 import { resources } from './resources.js';
+import { buildings } from './buildings.js';
 
 export const systems = pgTable('systems', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -10,9 +11,6 @@ export const systems = pgTable('systems', {
   sectorX: integer('sector_x').notNull(),
   sectorY: integer('sector_y').notNull(),
   sectorZ: integer('sector_z').notNull(),
-  x: numeric('x', { precision: 10, scale: 2 }).notNull(),
-  y: numeric('y', { precision: 10, scale: 2 }).notNull(),
-  z: numeric('z', { precision: 10, scale: 2 }).notNull(),
   name: text('name').notNull(),
   seed: integer('seed').notNull(),
 });
@@ -45,4 +43,16 @@ export const richness = pgTable('richness', {
 }, (table) => ({
   pk: primaryKey({ columns: [table.planetId, table.resourceId] }),
   valueCheck: check('richness_value_check', sql`${table.value} >= 0 AND ${table.value} <= 5`),
+}));
+
+export const systemsRelations = relations(systems, ({ many }) => ({
+  planets: many(planets),
+}));
+
+export const planetsRelations = relations(planets, ({ one, many }) => ({
+  system: one(systems, {
+    fields: [planets.systemId],
+    references: [systems.id],
+  }),
+  buildings: many(buildings),
 }));

@@ -2,9 +2,8 @@ import { FastifyInstance } from 'fastify';
 import jwt from 'jsonwebtoken';
 import { env } from '../../lib/env.js';
 import { db } from '../../db/index.js';
-import { users, systems, planets, planetResources, resources, buildings } from '../../db/schema.js';
-import { eq, and } from 'drizzle-orm';
-import { User } from '@shared/types/user.js';
+import { users, systems, discoveredPlanets, planets } from '../../db/schema.js';
+import { eq } from 'drizzle-orm';
 
 export async function meRoutes(app: FastifyInstance) {
   app.get(
@@ -21,10 +20,11 @@ export async function meRoutes(app: FastifyInstance) {
       }
 
       let payload: { userId: string };
-      try {
-        payload = jwt.verify(token, env.JWT_SECRET) as { userId: string };
-      } catch (_err) {
-        return reply.status(401).send({
+    try {
+      payload = jwt.verify(token, env.JWT_SECRET) as { userId: string };
+    } catch {
+      return reply.status(401).send({
+
           error: 'Unauthorized',
           message: 'Invalid or expired session token',
         });
@@ -42,9 +42,45 @@ export async function meRoutes(app: FastifyInstance) {
           });
         }
 
+        let homeSystem = await db.query.systems.findFirst({
+          where: eq(systems.ownerId, user.id),
+          with: {
+            planets: {
+              with: {
+                buildings: true,
+              },
+            },
+          },
+        });
+
+        if (!homeSystem) {
+          const discoveredPlanet = await db.query.discoveredPlanets.findFirst({
+            where: eq(discoveredPlanets.userId, user.id),
+          });
+
+          if (discoveredPlanet) {
+            const discoveredSystem = await db.query.planets.findFirst({
+              where: eq(planets.id, discoveredPlanet.planetId),
+              with: {
+                system: {
+                  with: {
+                    planets: {
+                      with: {
+                        buildings: true,
+                      },
+                    },
+                  },
+                },
+              },
+            });
+            homeSystem = discoveredSystem?.system;
+          }
+        }
+
         const userObj = {
           ...user,
-          tgId: user.tgId.toString()
+          tgId: user.tgId.toString(),
+          homeSystem,
         };
 
         return reply.send({ user: userObj });

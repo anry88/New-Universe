@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { computeCurrentResources } from './accrual.js';
 import { db } from '../../db/index.js';
 import { planetResources, resources, planets, systems, ships, richness, buildings, discoveredPlanets, discoveredSystems } from '../../db/schema.js';
-import { eq } from 'drizzle-orm';
 
 describe('computeCurrentResources', () => {
   beforeEach(async () => {
@@ -21,9 +20,6 @@ describe('computeCurrentResources', () => {
       sectorX: 999,
       sectorY: 999,
       sectorZ: 999,
-      x: '100.00',
-      y: '200.00',
-      z: '300.00',
       name: 'Test System',
       seed: 12345,
     }).returning();

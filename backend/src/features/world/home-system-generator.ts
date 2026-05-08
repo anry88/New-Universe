@@ -118,6 +118,7 @@ export async function generateHomeSystem(userId: string, tx?: any) {
           planetId: planet.id,
           typeId: 'command_center',
           level: 1,
+          slotIndex: 0,
         });
 
         await database.insert(discoveredPlanets).values({

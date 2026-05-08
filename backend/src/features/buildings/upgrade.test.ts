@@ -9,7 +9,7 @@ import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 import { env } from '../../lib/env.js';
 
-describe('Building Upgrade - POST /buildings/:id/upgrade', () => {
+describe('Building Upgrade - POST /buildings/upgrade', () => {
   const botToken = env.TELEGRAM_BOT_TOKEN;
 
   function createValidInitData(user: any): string {
@@ -74,22 +74,23 @@ describe('Building Upgrade - POST /buildings/:id/upgrade', () => {
     const [building] = await db.insert(buildings).values({
       planetId,
       typeId: 'mine',
+      slotIndex: 0,
       level: 1,
     }).returning();
 
     const response = await app.inject({
       method: 'POST',
-      url: `/buildings/${building.id}/upgrade`,
+      url: '/buildings/upgrade',
       headers: { authorization: `Bearer ${token}` },
+      payload: { buildingId: building.id },
     });
 
     expect(response.statusCode).toBe(200);
     const body = response.json();
-    expect(body.building).toBeDefined();
-    expect(body.building.id).toBe(building.id);
-    expect(body.building.queueAction).toBe('upgrade');
-    expect(body.building.queueCompletesAt).toBeDefined();
-    expect(body.building.level).toBe(1);
+    expect(body.success).toBe(true);
+    expect(body.queueItem).toBeDefined();
+    expect(body.queueItem.id).toBe(building.id);
+    expect(body.queueItem.completesAt).toBeDefined();
   });
 
   it('should return 404 for non-existent building', async () => {
@@ -97,13 +98,14 @@ describe('Building Upgrade - POST /buildings/:id/upgrade', () => {
 
     const response = await app.inject({
       method: 'POST',
-      url: '/buildings/00000000-0000-0000-0000-000000000000/upgrade',
+      url: '/buildings/upgrade',
       headers: { authorization: `Bearer ${token}` },
+      payload: { buildingId: '00000000-0000-0000-0000-000000000000' },
     });
 
-    expect(response.statusCode).toBe(404);
+    expect(response.statusCode).toBe(400);
     const body = response.json();
-    expect(body.error).toContain('Building not found');
+    expect(body.message).toContain('Building not found');
   });
 
   it('should return 401 without authorization', async () => {
@@ -112,7 +114,8 @@ describe('Building Upgrade - POST /buildings/:id/upgrade', () => {
 
     const response = await app.inject({
       method: 'POST',
-      url: '/buildings/00000000-0000-0000-0000-000000000000/upgrade',
+      url: '/buildings/upgrade',
+      payload: { buildingId: '00000000-0000-0000-0000-000000000000' },
     });
 
     expect(response.statusCode).toBe(401);
@@ -125,18 +128,20 @@ describe('Building Upgrade - POST /buildings/:id/upgrade', () => {
     const [building] = await db.insert(buildings).values({
       planetId,
       typeId: 'command_center',
+      slotIndex: 0,
       level: 20,
     }).returning();
 
     const response = await app.inject({
       method: 'POST',
-      url: `/buildings/${building.id}/upgrade`,
+      url: '/buildings/upgrade',
       headers: { authorization: `Bearer ${token}` },
+      payload: { buildingId: building.id },
     });
 
     expect(response.statusCode).toBe(400);
     const body = response.json();
-    expect(body.error).toContain('max level');
+    expect(body.message).toContain('Maximum level reached');
   });
 
   it('should return 400 when building is already in a queue', async () => {
@@ -146,6 +151,7 @@ describe('Building Upgrade - POST /buildings/:id/upgrade', () => {
     const [building] = await db.insert(buildings).values({
       planetId,
       typeId: 'mine',
+      slotIndex: 0,
       level: 1,
       queueAction: 'build',
       queueCompletesAt: new Date(Date.now() + 60000),
@@ -153,13 +159,14 @@ describe('Building Upgrade - POST /buildings/:id/upgrade', () => {
 
     const response = await app.inject({
       method: 'POST',
-      url: `/buildings/${building.id}/upgrade`,
+      url: '/buildings/upgrade',
       headers: { authorization: `Bearer ${token}` },
+      payload: { buildingId: building.id },
     });
 
     expect(response.statusCode).toBe(400);
     const body = response.json();
-    expect(body.error).toContain('already in a queue');
+    expect(body.message).toContain('already in queue');
   });
 
   it('should return 400 when planet build queue is full', async () => {
@@ -169,12 +176,14 @@ describe('Building Upgrade - POST /buildings/:id/upgrade', () => {
     const [upgradeTarget] = await db.insert(buildings).values({
       planetId,
       typeId: 'mine',
+      slotIndex: 0,
       level: 1,
     }).returning();
 
     await db.insert(buildings).values({
       planetId,
       typeId: 'drill',
+      slotIndex: 1,
       level: 1,
       queueAction: 'build',
       queueCompletesAt: new Date(Date.now() + 60000),
@@ -182,16 +191,17 @@ describe('Building Upgrade - POST /buildings/:id/upgrade', () => {
 
     const response = await app.inject({
       method: 'POST',
-      url: `/buildings/${upgradeTarget.id}/upgrade`,
+      url: '/buildings/upgrade',
       headers: { authorization: `Bearer ${token}` },
+      payload: { buildingId: upgradeTarget.id },
     });
 
     expect(response.statusCode).toBe(400);
     const body = response.json();
-    expect(body.error).toContain('Build queue is full');
+    expect(body.message).toContain('Build queue is full');
   });
 
-  it('should calculate upgrade cost using base_cost * 1.6^(level-1)', async () => {
+  it('should calculate upgrade cost using base_cost * 2^level', async () => {
     const { app, token, userId } = await createTestUser();
     const planetId = await getHomePlanetId(userId);
 
@@ -199,19 +209,20 @@ describe('Building Upgrade - POST /buildings/:id/upgrade', () => {
       where: eq(buildingTypes.id, 'mine'),
     });
     const baseCost = mineType!.baseCost as Record<string, number>;
-    const scaledIron = Math.ceil((baseCost.iron || 0) * Math.pow(1.6, 0));
-    const scaledSilicon = Math.ceil((baseCost.silicon || 0) * Math.pow(1.6, 0));
+    const scaledIron = Math.floor((baseCost.iron || 0) * Math.pow(2, 1));
 
     const [building] = await db.insert(buildings).values({
       planetId,
       typeId: 'mine',
+      slotIndex: 0,
       level: 1,
     }).returning();
 
     const response = await app.inject({
       method: 'POST',
-      url: `/buildings/${building.id}/upgrade`,
+      url: '/buildings/upgrade',
       headers: { authorization: `Bearer ${token}` },
+      payload: { buildingId: building.id },
     });
 
     expect(response.statusCode).toBe(200);

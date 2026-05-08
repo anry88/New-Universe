@@ -11,6 +11,7 @@ export interface Building {
   planetId: string;
   typeId: string;
   level: number;
+  slotIndex: number;
   queueAction?: 'build' | 'upgrade' | 'destroy';
   queueCompletesAt?: string;
 }

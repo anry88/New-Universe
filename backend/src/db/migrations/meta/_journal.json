@@ -78,6 +78,13 @@
       "when": 1778229480156,
       "tag": "0010_ambiguous_banshee",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1778230983361,
+      "tag": "0011_rapid_ben_urich",
+      "breakpoints": true
     }
   ]
 }

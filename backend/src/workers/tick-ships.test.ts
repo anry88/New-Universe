@@ -103,6 +103,7 @@ describe('Tick Ships Worker', () => {
     await db.insert(buildings).values({
       planetId,
       typeId: 'shipyard',
+      slotIndex: 0,
       level: 1,
     });
 

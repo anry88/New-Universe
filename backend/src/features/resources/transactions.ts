@@ -1,7 +1,6 @@
 import { db as defaultDb } from '../../db/index.js';
-import { planetResources, resources } from '../../db/schema.js';
+import { planetResources } from '../../db/schema.js';
 import { eq, and, sql } from 'drizzle-orm';
-import type { PgTransaction } from 'drizzle-orm/pg-core';
 
 interface ResourceChange {
   resourceId: string;

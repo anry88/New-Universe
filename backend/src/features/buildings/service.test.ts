@@ -76,17 +76,17 @@ describe('Buildings Service - POST /buildings/build', () => {
       headers: { authorization: `Bearer ${token}` },
       payload: {
         planetId: userPlanet!.id,
-        typeSlug: 'mine',
+        typeId: 'mine',
+        slotIndex: 1,
       },
     });
 
     expect(response.statusCode).toBe(200);
     const body = response.json();
-    expect(body.building).toBeDefined();
-    expect(body.building.planetId).toBe(userPlanet!.id);
-    expect(body.building.typeId).toBe('mine');
-    expect(body.building.queueAction).toBe('build');
-    expect(body.building.queueCompletesAt).toBeDefined();
+    expect(body.success).toBe(true);
+    expect(body.queueItem).toBeDefined();
+    expect(body.queueItem.id).toBeDefined();
+    expect(body.queueItem.completesAt).toBeDefined();
   });
 
   it('should return 400 when planet has no free slots', async () => {
@@ -100,9 +100,10 @@ describe('Buildings Service - POST /buildings/build', () => {
     });
 
     // Fill all planet slots by inserting completed buildings directly (queueAction=null bypasses queue limit)
-    const fillBuildings = Array.from({ length: userPlanet!.slotCount }, () => ({
+    const fillBuildings = Array.from({ length: userPlanet!.slotCount }, (_, slotIndex) => ({
       planetId: userPlanet!.id,
       typeId: 'storage',
+      slotIndex,
       level: 1,
       queueAction: null as string | null,
       queueCompletesAt: null as Date | null,
@@ -115,13 +116,14 @@ describe('Buildings Service - POST /buildings/build', () => {
       headers: { authorization: `Bearer ${token}` },
       payload: {
         planetId: userPlanet!.id,
-        typeSlug: 'mine',
+        typeId: 'mine',
+        slotIndex: 0,
       },
     });
 
     expect(response.statusCode).toBe(400);
     const body = response.json();
-    expect(body.error).toContain('No free slots');
+    expect(body.message).toContain('Slot already occupied');
   });
 
   it('should return 400 when build queue is full', async () => {
@@ -140,7 +142,8 @@ describe('Buildings Service - POST /buildings/build', () => {
       headers: { authorization: `Bearer ${token}` },
       payload: {
         planetId: userPlanet!.id,
-        typeSlug: 'mine',
+        typeId: 'mine',
+        slotIndex: 1,
       },
     });
     expect(firstResponse.statusCode).toBe(200);
@@ -151,13 +154,14 @@ describe('Buildings Service - POST /buildings/build', () => {
       headers: { authorization: `Bearer ${token}` },
       payload: {
         planetId: userPlanet!.id,
-        typeSlug: 'drill',
+        typeId: 'drill',
+        slotIndex: 2,
       },
     });
 
     expect(secondResponse.statusCode).toBe(400);
     const body = secondResponse.json();
-    expect(body.error).toContain('Build queue is full');
+    expect(body.message).toContain('Build queue is full');
   });
 
   it('should return 401 without authorization', async () => {
@@ -169,7 +173,8 @@ describe('Buildings Service - POST /buildings/build', () => {
       url: '/buildings/build',
       payload: {
         planetId: '00000000-0000-0000-0000-000000000000',
-        typeSlug: 'mine',
+        typeId: 'mine',
+        slotIndex: 0,
       },
     });
 
@@ -192,13 +197,14 @@ describe('Buildings Service - POST /buildings/build', () => {
       headers: { authorization: `Bearer ${token}` },
       payload: {
         planetId: userPlanet!.id,
-        typeSlug: 'nonexistent_building',
+        typeId: 'nonexistent_building',
+        slotIndex: 2,
       },
     });
 
-    expect(response.statusCode).toBe(404);
+    expect(response.statusCode).toBe(400);
     const body = response.json();
-    expect(body.error).toContain('Unknown building type');
+    expect(body.message).toContain('Building type not found');
   });
 
   it('should return 404 for non-existent planet', async () => {
@@ -210,12 +216,13 @@ describe('Buildings Service - POST /buildings/build', () => {
       headers: { authorization: `Bearer ${token}` },
       payload: {
         planetId: '00000000-0000-0000-0000-000000000000',
-        typeSlug: 'mine',
+        typeId: 'mine',
+        slotIndex: 0,
       },
     });
 
-    expect(response.statusCode).toBe(404);
+    expect(response.statusCode).toBe(400);
     const body = response.json();
-    expect(body.error).toContain('Planet not found');
+    expect(body.message).toContain('Planet not found');
   });
 });

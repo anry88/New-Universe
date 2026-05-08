@@ -67,10 +67,11 @@ describe('Resource Conversion - POST /resources/convert', () => {
     return planet!.id;
   }
 
-  async function addBuilding(planetId: string, typeId: string, level = 1) {
+  async function addBuilding(planetId: string, typeId: string, level = 1, slotIndex = 0) {
     await db.insert(buildings).values({
       planetId,
       typeId,
+      slotIndex,
       level,
     });
   }
@@ -128,8 +129,8 @@ describe('Resource Conversion - POST /resources/convert', () => {
     const { app, token, userId } = await createTestUser();
     const planetId = await getHomePlanet(userId);
 
-    await addBuilding(planetId, 'cryo_factory', 1);
-    await addBuilding(planetId, 'solar_plant', 1);
+    await addBuilding(planetId, 'cryo_factory', 1, 0);
+    await addBuilding(planetId, 'solar_plant', 1, 1);
     await ensureResource(planetId, 'ice', 200);
 
     const iceBefore = await getResourceAmount(planetId, 'ice');
@@ -164,8 +165,8 @@ describe('Resource Conversion - POST /resources/convert', () => {
     const { app, token, userId } = await createTestUser();
     const planetId = await getHomePlanet(userId);
 
-    await addBuilding(planetId, 'cryo_factory', 1);
-    await addBuilding(planetId, 'solar_plant', 1);
+    await addBuilding(planetId, 'cryo_factory', 1, 0);
+    await addBuilding(planetId, 'solar_plant', 1, 1);
     await ensureResource(planetId, 'ice', 0);
 
     const waterBefore = await getResourceAmount(planetId, 'water');
@@ -238,8 +239,8 @@ describe('Resource Conversion - POST /resources/convert', () => {
     const { app, token, userId } = await createTestUser();
     const planetId = await getHomePlanet(userId);
 
-    await addBuilding(planetId, 'cryo_factory', 1);
-    await addBuilding(planetId, 'solar_plant', 1);
+    await addBuilding(planetId, 'cryo_factory', 1, 0);
+    await addBuilding(planetId, 'solar_plant', 1, 1);
 
     const response = await app.inject({
       method: 'POST',
@@ -262,8 +263,8 @@ describe('Resource Conversion - POST /resources/convert', () => {
     const { app, token, userId } = await createTestUser();
     const planetId = await getHomePlanet(userId);
 
-    await addBuilding(planetId, 'cryo_factory', 1);
-    await addBuilding(planetId, 'solar_plant', 1);
+    await addBuilding(planetId, 'cryo_factory', 1, 0);
+    await addBuilding(planetId, 'solar_plant', 1, 1);
     await ensureResource(planetId, 'ice', 5);
 
     const response = await app.inject({

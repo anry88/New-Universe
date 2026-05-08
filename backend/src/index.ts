@@ -26,7 +26,6 @@ fastify.addHook('preHandler', async (request) => {
   }
 });
 
-// Plugins
 await fastify.register(cors);
 await fastify.register(helmet);
 

@@ -4,6 +4,14 @@ Feature modules group business logic, route handlers, and tests for one bounded 
 
 Each subfolder is a single feature and is wired into Fastify from `backend/src/index.ts`. Add a new feature by creating `backend/src/features/<name>/{routes.ts,service.ts,<name>.test.ts}` and `app.register(<name>Routes, { prefix: '/<name>' })` in `index.ts`.
 
+## `buildings/`
+
+Planet infrastructure management.
+
+- **`routes.ts`** — registers `GET /types`, `POST /build`, and `POST /upgrade`.
+- **`service.ts`** — handles building logic, costs, and queueing.
+- **`buildings.test.ts`** — integration tests for construction flows.
+
 ## `auth/`
 
 Telegram-Mini-App authentication. The route layer delegates everything to `authService` and only translates between HTTP framing (header validation, cookie setting) and the service result.

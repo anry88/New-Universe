@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { generateSystemsInSector } from './sector-generator.js';
 import { db } from '../../db/index.js';
 import { sectors, systems, planets, planetResources, richness, buildings, discoveredPlanets, ships } from '../../db/schema.js';
-import { eq } from 'drizzle-orm';
 
 describe('generateSystemsInSector', () => {
   beforeEach(async () => {

@@ -101,6 +101,7 @@ describe('Ship Building - POST /ships/build', () => {
     await db.insert(buildings).values({
       planetId,
       typeId: 'shipyard',
+      slotIndex: 0,
       level: 1,
     });
 
@@ -151,6 +152,7 @@ describe('Ship Building - POST /ships/build', () => {
     await db.insert(buildings).values({
       planetId,
       typeId: 'shipyard',
+      slotIndex: 0,
       level: 1,
     });
 
@@ -203,6 +205,7 @@ describe('Ship Building - POST /ships/build', () => {
     await db.insert(buildings).values({
       planetId,
       typeId: 'shipyard',
+      slotIndex: 0,
       level: 1,
     });
 
@@ -228,6 +231,7 @@ describe('Ship Building - POST /ships/build', () => {
     await db.insert(buildings).values({
       planetId,
       typeId: 'shipyard',
+      slotIndex: 0,
       level: 1,
     });
 
