@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { buildingService } from './service.js';
 import { db } from '../../db/index.js';
 import { users, systems, buildings } from '../../db/schema.js';
@@ -32,6 +32,18 @@ describe('Building Service', () => {
 
   });
 
+  beforeEach(async () => {
+    await db.delete(buildings).where(eq(buildings.planetId, planetId));
+    await db.insert(buildings).values({
+      planetId,
+      typeId: 'command_center',
+      level: 1,
+      slotIndex: 0,
+      queueAction: null,
+      queueCompletesAt: null,
+    });
+  });
+
 
   it('should list building types', async () => {
     const types = await buildingService.getBuildingTypes();
@@ -40,8 +52,6 @@ describe('Building Service', () => {
   });
 
   it('should start building in an empty slot', async () => {
-    await db.delete(buildings).where(eq(buildings.planetId, planetId));
-
     const result = await buildingService.build(userId, planetId, 'mine', 1);
     expect(result.success).toBe(true);
     expect(result.queueItem).toBeDefined();
@@ -49,19 +59,27 @@ describe('Building Service', () => {
     const building = await db.query.buildings.findFirst({
       where: (table, { eq }) => eq(table.id, result.queueItem!.id),
     });
-    console.log('Building found:', JSON.stringify(building));
     expect(building?.typeId).toBe('mine');
     expect(building?.slotIndex).toBe(1);
     expect(building?.queueAction).toBe('build');
   });
 
   it('should fail if slot is occupied', async () => {
+    await db.insert(buildings).values({
+      planetId,
+      typeId: 'mine',
+      level: 1,
+      slotIndex: 1,
+      queueAction: null,
+      queueCompletesAt: null,
+    });
+
     await expect(buildingService.build(userId, planetId, 'mine', 1))
       .rejects.toThrow('Slot already occupied');
   });
 
   it('should start upgrading an existing building', async () => {
-    const typeId = 'test_mine';
+    const typeId = 'mine';
     const [building] = await db.insert(buildings).values({
       planetId,
       typeId: typeId,
@@ -81,7 +99,7 @@ describe('Building Service', () => {
   });
 
   it('should fail upgrade if already in queue', async () => {
-    const typeId = 'test_mine';
+    const typeId = 'mine';
     const [building] = await db.insert(buildings).values({
       planetId,
       typeId: typeId,
