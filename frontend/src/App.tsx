@@ -1,7 +1,9 @@
 import { useEffect } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { HomePage } from './pages/Home';
+import { PlanetDetailPage } from './pages/PlanetDetail';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
 const queryClient = new QueryClient();
 
@@ -28,13 +30,20 @@ function AppContent() {
     );
   }
   
-  return <HomePage />;
+  return (
+    <Routes>
+      <Route path="/" element={<HomePage />} />
+      <Route path="/planet/:planetId" element={<PlanetDetailPage />} />
+    </Routes>
+  );
 }
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AppContent />
+      <BrowserRouter>
+        <AppContent />
+      </BrowserRouter>
     </QueryClientProvider>
   );
 }

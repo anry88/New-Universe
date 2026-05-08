@@ -1,9 +1,11 @@
 import { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useMe } from '../hooks/useMe';
 import type { Planet, Building } from '@shared/types/world';
 
 export function PlanetView() {
   const { data: meData } = useMe();
+  const navigate = useNavigate();
   
   const currentPlanet = useMemo(() => {
     const homeSystem = meData?.homeSystem;
@@ -50,9 +52,7 @@ export function PlanetView() {
                       : 'bg-slate-800/50 border-slate-600 border-dashed'
                   }`}
                   onClick={() => {
-                    if (building) {
-                      alert(`Building: ${building.typeId} Lv.${building.level}`);
-                    }
+                    navigate(`/planet/${planet.id}`);
                   }}
                 >
                   {building ? (

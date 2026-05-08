@@ -31,7 +31,7 @@ The `dev/`, `docs/`, and `tasks/` folders contain non-runtime materials: dev-env
 - Logging: Pino instance from `lib/logger.ts`, switched to `pino-pretty` in development.
 - Request IDs: every incoming request gets a UUID via `middleware/request-id.ts` and the ID is exposed under the `requestId` log key.
 - Sentry: `lib/sentry.ts` is imported as the very first module to capture early-startup errors; it stays disabled when `SENTRY_DSN` is empty.
-- Routes: `/health` (`routes/health.ts`), `/webhook/telegram` (`routes/bot.ts`), `/auth/telegram` (`features/auth/routes.ts`), and `/me` (`features/me/routes.ts`).
+- Routes: `/health` (`routes/health.ts`), `/webhook/telegram` (`routes/bot.ts`), `/auth/telegram` (`features/auth/routes.ts`), `/me` (`features/me/routes.ts`), and `/buildings/*` (`features/buildings/routes.ts`).
 
 ### Telegram Bot
 
@@ -69,15 +69,19 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 - `lib/api.ts` — a unified fetch client that automatically sends the session token in the `Authorization` header and the Telegram `initDataRaw` in the `X-Telegram-Init-Data` header.
 - `hooks/useAuth.ts` — manages the auth flow and session token.
 - `hooks/useMe.ts` — uses TanStack Query to fetch and cache the current player state from `GET /me`.
-- `pages/Home.tsx` — main game screen with resource bar (real-time regen via `requestAnimationFrame`), planet view with buildings, build queue with countdown, and bottom tab bar.
+- `pages/Home.tsx` — main game screen with resource bar, tab bar, and navigation.
+- `pages/PlanetDetail.tsx` — detailed planet screen with infrastructure slots, building construction, and upgrade dialogs.
 - `components/ResourceBar.tsx` — displays planet resources with animated real-time regeneration.
-- `components/PlanetView.tsx` — shows the current focus planet with its buildings schema.
+- `components/PlanetView.tsx` — shows the current focus planet overview.
 - `components/BuildQueue.tsx` — displays the current build queue with countdown timers.
+- `components/BuildingSlot.tsx` — presentational component for an infrastructure slot.
+- `components/UpgradeDialog.tsx` & `components/BuildDialog.tsx` — dialogs for managing buildings.
 
 ### Shared types
 
 `shared/types/` is the cross-cutting contract folder for backend ↔ frontend payloads:
 - `user.ts` — `User` interface.
+- `buildings.ts` — building types and construction requests.
 - `auth.ts` — `AuthResponse` interface.
 
 ## Local environment

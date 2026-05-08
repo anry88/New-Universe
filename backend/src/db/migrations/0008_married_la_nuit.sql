@@ -1,0 +1,1 @@
+ALTER TABLE "buildings" ADD COLUMN "slot_index" integer NOT NULL;

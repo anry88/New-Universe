@@ -8,6 +8,7 @@ Cross-package contracts shared between the Fastify backend (`backend/`) and the 
     - **`user.ts`** — `User` interface including `homeSystem`.
     - **`auth.ts`** — `AuthResponse` for the login flow.
     - **`world.ts`** — `PlanetResource`, `Building`, `Planet`, `HomeSystem` interfaces for world/planet state.
+    - **`buildings.ts`** — `BuildingType` interface and request/response types for construction.
 
 
 ## Conventions

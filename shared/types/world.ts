@@ -24,6 +24,7 @@ export interface Planet {
   name: string;
   resources?: PlanetResource[];
   buildings?: Building[];
+  slotIndex?: number;
 }
 
 export interface HomeSystem {
