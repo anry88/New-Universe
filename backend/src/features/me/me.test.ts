@@ -63,6 +63,10 @@ describe('Me Routes', () => {
     expect(response.statusCode).toBe(200);
     const body = response.json();
     expect(body.user.tgId).toBe(tgId.toString());
+    expect(body.user.ships).toBeDefined();
+    expect(Array.isArray(body.user.ships)).toBe(true);
+    expect(body.user.expeditions).toBeDefined();
+    expect(Array.isArray(body.user.expeditions)).toBe(true);
   });
 
   it('should return 401 when unauthorized', async () => {

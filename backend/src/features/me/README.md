@@ -10,6 +10,8 @@ This feature handles the retrieval of the current player's state. It is the prim
   - On success, it returns the full player state:
     - `user`: the User object with `tgId` converted to string
     - `homeSystem`: the player's home system with planets, their resources (with lazy-computed current amounts), and buildings (with queue status)
+    - `ships`: list of player's ships.
+    - `expeditions`: list of active expeditions.
 - **`me.test.ts`** — Vitest coverage for the `me` feature. It tests both authorized (with token) and unauthorized (missing token) access paths.
 
 ## Adding to player state
