@@ -18,7 +18,7 @@ This is the backend application source. It is a Fastify v5 + TypeScript project 
   2. Builds a Fastify instance with the Pino `logger`, disables built-in request logging in production, sets the request ID generator from `middleware/request-id.ts`, and labels the ID as `requestId`.
   3. Adds a `preHandler` hook that creates a per-request child logger with `userId` once `request.user` has been attached by an auth middleware.
   4. Registers `@fastify/cors` and `@fastify/helmet` globally.
-  5. Registers `healthRoutes`, `botRoutes`, `authRoutes` (mounted at `/auth`), `meRoutes` (mounted at `/me`), and `buildingsRoutes` (mounted at `/buildings`).
+  5. Registers `healthRoutes`, `botRoutes`, `authRoutes` (mounted at `/auth`), `meRoutes` (mounted at `/me`), `buildingsRoutes` (mounted at `/buildings`), and `resourcesRoutes` (mounted at `/resources`).
   6. Calls `fastify.listen({ port: env.PORT, host: '0.0.0.0' })`. On failure, logs and exits with code `1`.
 - **`test-env.ts`** — Vitest environment shim that pre-populates the env vars Zod requires, so `lib/env.ts` does not abort the process when tests load it. Imported via `vitest-setup.ts`.
 - **`vitest-setup.ts`** — Vitest `setupFiles` entry. Runs once per worker before tests, currently delegates to `test-env.ts`.
