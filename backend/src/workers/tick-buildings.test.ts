@@ -150,7 +150,8 @@ describe('Tick Buildings Worker', () => {
       where: eq(notifications.userId, user.id),
     });
     expect(notifs.length).toBeGreaterThanOrEqual(1);
-    const notif = notifs.find((n) => n.type === 'building_complete');
+    const notif = notifs.find((n) => n.type === 'building_done');
+
     expect(notif).toBeDefined();
     expect(notif!.payload).toMatchObject({
       typeId: 'mine',

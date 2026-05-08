@@ -1,7 +1,9 @@
 import { Worker } from 'bullmq';
 import { db } from '../db/index.js';
-import { ships } from '../db/schema.js';
+import { ships, notifications } from '../db/schema.js';
+
 import { eq } from 'drizzle-orm';
+
 import { logger } from '../lib/logger.js';
 import { env } from '../lib/env.js';
 
@@ -24,10 +26,36 @@ export async function createShipsWorker(): Promise<Worker> {
         .set({ status: 'idle' })
         .where(eq(ships.id, shipId));
 
+      // Fetch user ID to send notification
+      const ship = await db.query.ships.findFirst({
+        where: eq(ships.id, shipId),
+        with: {
+          planet: {
+            with: {
+              system: true,
+            },
+          },
+        },
+      });
+
+      if (ship?.ownerId) {
+        await db.insert(notifications).values({
+          userId: ship.ownerId,
+          type: 'ship_done',
+          payload: {
+            shipId,
+            typeId: ship.typeId,
+            planetId,
+          },
+        });
+      }
+
       logger.info(
-        { shipId, planetId, newStatus: 'idle', type: 'ship_built' },
-        'Ship construction completed — notification stub',
+        { shipId, planetId, newStatus: 'idle', userId: ship?.ownerId },
+        'Ship construction completed',
       );
+
+
     },
     { connection },
   );

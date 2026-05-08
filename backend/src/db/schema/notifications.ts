@@ -8,4 +8,7 @@ export const notifications = pgTable('notifications', {
   payload: jsonb('payload').$type<Record<string, any>>().notNull().default({}),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   read: boolean('read').notNull().default(false),
+  pending: boolean('pending').notNull().default(true),
+  sentAt: timestamp('sent_at'),
 });
+

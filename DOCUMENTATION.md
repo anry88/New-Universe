@@ -42,6 +42,8 @@ The `dev/`, `docs/`, and `tasks/` folders contain non-runtime materials: dev-env
 - **`tick-buildings`**: Completes construction/upgrades and updates resource regen rates.
 - **`tick-expeditions`**: The most complex worker; it interpolates ship positions in 3D space during travel and performs real-time fog-of-war visibility checks.
 - **`tick-ships`**: Finalizes ship production.
+- **`notifications`**: Processes pending notifications from the database and sends them to Telegram via the Bot API every minute, respecting a 20 msgs/min per user rate limit.
+
 
 ### Telegram Bot
 
@@ -62,6 +64,8 @@ The bot entry point is `POST /webhook/telegram`. Incoming updates are dispatched
 - `ship_types`, `ships` — ship catalog and player-owned ship instances.
 - `discovered_planets`, `discovered_systems` — fog-of-war reveal records.
 - `expeditions` — scheduled expedition jobs with `eta` / `status` index.
+- `notifications` — push notification log with `pending` and `sentAt` tracking.
+
 
 Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Kit (`npm run db:generate`, `npm run db:migrate`). Static reference data is loaded by `backend/src/db/seed.ts`, which runs the four seeders in `backend/src/db/seed/` (`resources`, `research-branches`, `building-types`, `ship-types`).
 

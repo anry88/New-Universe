@@ -27,6 +27,8 @@ Each module owns one domain and exports the Drizzle table objects. `schema.ts` r
 - **`discovery.ts`** — `discovered_planets` and `discovered_systems`, both composite-PK `(userId, planetId|systemId)` with `discoveredAt`. Used to gate the fog-of-war reveal.
 - **`expeditions.ts`** — `expeditions` job log. Columns: `id`, `shipId`, `type`, `originPlanetId`, `targetX/Y/Z`, optional `targetPlanetId`, `status` (default `queued`), `eta`, optional `returnedAt`, `result` (JSONB). The `shipId` and `originPlanetId` foreign keys cascade on delete so test cleanup and planet/ship teardown do not leave orphaned expedition rows; `targetPlanetId` uses `SET NULL`. `expeditions_eta_status_idx` is a compound index on `(eta, status)` to support the worker's "what is due" query.
 - **`sectors.ts`** — `sectors` table. Composite PK `(x, y, z)`, `seed` (deterministic hash of coordinates), `generatedAt` (timestamp), `systemCount` (default 0). Represents the common pool of space sectors; used by jump and exploration features to lazily initialize world regions.
+- **`notifications.ts`** — `notifications` table. Columns: `id`, `userId`, `type` (`building_done`, `ship_done`, etc.), `payload` (JSONB), `createdAt`, `read`, `pending` (default `true`), `sentAt`. Used by the push notification system.
+
 
 ## Seed scripts (`seed/`)
 

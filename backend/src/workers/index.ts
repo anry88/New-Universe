@@ -12,7 +12,11 @@ async function main() {
   const { createExpeditionsWorker } = await import('./tick-expeditions.js');
   const expeditionsWorker = await createExpeditionsWorker();
 
+  const { createNotificationsWorker } = await import('./notifications.js');
+  const notificationsWorker = await createNotificationsWorker();
+
   logger.info('All workers started');
+
 
   const shutdown = async () => {
     logger.info('Shutting down workers...');
@@ -20,7 +24,9 @@ async function main() {
       buildingsWorker.close(),
       shipsWorker.close(),
       expeditionsWorker.close(),
+      notificationsWorker.close(),
     ]);
+
     logger.info('Workers shut down');
     process.exit(0);
   };
