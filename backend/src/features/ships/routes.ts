@@ -3,7 +3,6 @@ import jwt from 'jsonwebtoken';
 import { env } from '../../lib/env.js';
 import { buildShip } from './build.js';
 import { db } from '../../db/index.js';
-import { shipTypes } from '../../db/schema.js';
 
 export async function shipsRoutes(app: FastifyInstance) {
   app.get('/types', async () => {

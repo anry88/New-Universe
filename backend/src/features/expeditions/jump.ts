@@ -1,5 +1,5 @@
 import { db as defaultDb } from '../../db/index.js';
-import { ships, shipTypes, researchProgress, discoveredSystems, systems, planets, discoveredPlanets } from '../../db/schema.js';
+import { ships, researchProgress, discoveredSystems, planets, discoveredPlanets } from '../../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import { getOrCreateSector } from '../world/sectors.js';
 import { generateSystemsInSector } from '../world/sector-generator.js';
