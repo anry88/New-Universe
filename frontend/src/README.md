@@ -12,12 +12,14 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
   - **`Home.tsx`** — main game screen with resource bar, planet view, build queue, and bottom tab bar.
   - **`PlanetDetail.tsx`** — detailed planet view with building slots and upgrade options.
   - **`SystemMap.tsx`** — page component for the interactive home system map.
+  - **`Ships.tsx`** — fleet management and ship list.
 - `components/` — reusable presentational components.
   - `pixi/` — canvas-based rendering components using PixiJS.
     - **`SystemRenderer.tsx`** — top-down system map renderer. Handles orbits, planets, star, and ship markers with pan/zoom logic.
   - **`ResourceBar.tsx`** — displays planet resources with real-time regeneration animation via `requestAnimationFrame`.
   - **`PlanetView.tsx`** — shows the current focus planet with its buildings schema.
   - **`BuildQueue.tsx`** — displays the current build queue with countdown timers.
+  - **`ExpeditionDialog.tsx`** — mission launch configuration with coordinate selection and ETA.
 - `assets/` — static assets imported by Vite (currently empty).
 
 The folders above are reserved by `AGENTS.md` (`Engineering Rules` → "Keep frontend state and API calls in clear `lib/`, `pages/`, and `components/` boundaries"). Create them as soon as a feature needs them and document new files here.

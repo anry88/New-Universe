@@ -35,6 +35,7 @@ export function HomePage() {
                 onClick={() => {
                   if (tab.id === 'map') navigate('/map');
                   else if (tab.id === 'tech') navigate('/research');
+                  else if (tab.id === 'ships') navigate('/ships');
                   else alert(`Navigate to ${tab.label}`);
                 }}
               >
