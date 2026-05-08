@@ -82,9 +82,13 @@ Resource accrual, transactions, and conversion.
 
 Ship launch and travel scheduling. [Detailed documentation](./expeditions/README.md).
 
-- **`routes.ts`** — `expeditionsRoutes(app)` registers `POST /` (mounted at `/expeditions` from `index.ts`, so the public path is `POST /expeditions`). Requires a Bearer JWT in the `Authorization` header and accepts `{ shipId, targetX, targetY, targetZ, fuelLoaded, cargoLoaded }`.
+- **`routes.ts`** — `expeditionsRoutes(app)` registers:
+  - `POST /` — launches a standard expedition. Accepts `{ shipId, targetX, targetY, targetZ, fuelLoaded, cargoLoaded }`.
+  - `POST /jump` — performs an inter-sector jump using a Jump Ship. Accepts `{ shipId, targetSector: { x, y, z } }`.
 - **`launch.ts`** — `launchExpedition(userId, request)` validates ship ownership and idle state, checks the launch planet has enough cargo stock, spends `fuelLoaded`, creates an `expeditions` row with `status='in_flight'`, updates the ship to `moving`, computes `eta = distance × 60 / speed × engine_factor`, and enqueues the delayed BullMQ job.
+- **`jump.ts`** — `jumpShip(userId, request)` handles specialized Jump Ship teleportation. Checks for Jump Drive research lvl 1+, deducts 50 fuel from the ship's internal tank, lazily generates the target sector/system, and moves the ship to the first planet of the target system. Updates discovery records.
 - **`launch.test.ts`** — Vitest integration suite covering the happy path, non-idle ship rejection, insufficient fuel, and missing auth.
+- **`jump.test.ts`** — Vitest integration suite for the jump feature.
 
 ## `world/`
 

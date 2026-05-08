@@ -13,6 +13,7 @@ import {
   richness,
   buildings,
   notifications,
+  researchProgress,
 } from '../../db/schema.js';
 
 const TEST_SHIP_TYPE = 'test_scout';
@@ -109,6 +110,7 @@ describe('Visibility Check Service', () => {
     await db.delete(discoveredPlanets);
     await db.delete(discoveredSystems);
     await db.delete(planetResources);
+    await db.delete(researchProgress);
     await db.delete(ships);
     await db.delete(buildings);
     await db.delete(richness);
@@ -125,6 +127,7 @@ describe('Visibility Check Service', () => {
     await db.delete(discoveredPlanets);
     await db.delete(discoveredSystems);
     await db.delete(planetResources);
+    await db.delete(researchProgress);
     await db.delete(ships);
     await db.delete(buildings);
     await db.delete(richness);

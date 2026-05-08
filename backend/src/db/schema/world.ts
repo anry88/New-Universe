@@ -2,7 +2,7 @@ import { pgTable, uuid, text, integer, boolean, timestamp, numeric, primaryKey, 
 import { sql, relations } from 'drizzle-orm';
 import { users } from './users.js';
 import { resources } from './resources.js';
-import { buildings } from './buildings.js';
+import { buildings } from './buildings.ts';
 
 export const systems = pgTable('systems', {
   id: uuid('id').primaryKey().defaultRandom(),

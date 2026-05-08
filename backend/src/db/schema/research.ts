@@ -9,7 +9,7 @@ export const researchBranches = pgTable('research_branches', {
 });
 
 export const researchProgress = pgTable('research_progress', {
-  userId: uuid('user_id').references(() => users.id).notNull(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   branch: text('branch').references(() => researchBranches.id).notNull(),
   level: integer('level').default(0).notNull(),
   completesAt: timestamp('completes_at'),
