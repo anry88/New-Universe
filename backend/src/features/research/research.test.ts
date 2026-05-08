@@ -1,12 +1,9 @@
 import Fastify from 'fastify';
-import { describe, expect, it, beforeAll, afterAll } from 'vitest';
+import { describe, it } from 'vitest';
 import { researchRoutes } from './routes.js';
 import { authRoutes } from '../auth/routes.js';
 import crypto from 'crypto';
 import { env } from '../../lib/env.js';
-import { db } from '../../db/index.js';
-import { researchProgress, buildings } from '../../db/schema.js';
-import { eq } from 'drizzle-orm';
 
 describe('Research Routes', () => {
   const botToken = env.TELEGRAM_BOT_TOKEN;
@@ -33,18 +30,15 @@ describe('Research Routes', () => {
     const tgUser = { id: tgId, first_name: 'ResTest', username: 'restest' };
     const initData = createValidInitData(tgUser);
 
-    const loginRes = await app.inject({
+    await app.inject({
       method: 'POST',
       url: '/auth/telegram',
       headers: { 'x-telegram-init-data': initData },
     });
-    const { token, user } = loginRes.json();
 
     // Setup: Get planet and add research lab
-    const meRes = await app.inject({
-        method: 'GET',
-        url: '/me', // Need to register meRoutes for this to work, or just use DB
-    });
+    // For simplicity in unit test, I'll mock the requirements check or use DB directly
+
     // For simplicity in unit test, I'll mock the requirements check or use DB directly
     // but the route needs a real planetId.
     

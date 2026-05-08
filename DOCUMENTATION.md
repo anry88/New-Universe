@@ -9,6 +9,7 @@ This document explains how the New Universe backend, frontend, and supporting co
 - [Backend middleware (`backend/src/middleware`)](backend/src/middleware/README.md)
 - [Backend HTTP routes (`backend/src/routes`)](backend/src/routes/README.md)
 - [Backend workers (`backend/src/workers`)](backend/src/workers/README.md)
+- [Backend tests (`backend/tests`)](backend/tests/README.md)
 - [Frontend source root (`frontend/src`)](frontend/src/README.md)
 - [Shared cross-package types (`shared`)](shared/README.md)
 
@@ -16,7 +17,7 @@ This document explains how the New Universe backend, frontend, and supporting co
 
 New Universe is a Telegram Mini App space-strategy game. The implementation is split across three top-level code areas:
 
-- `backend/` — Fastify v5 + TypeScript (ESM) HTTP API. Entry point is `backend/src/index.ts`, which loads Sentry, builds the Fastify instance with Pino logging, registers global plugins (`@fastify/cors`, `@fastify/helmet`), wires the request ID generator, and mounts the route trees from `routes/health`, `routes/bot`, and `features/auth/routes`. The server listens on `env.PORT` (default `3000`) and binds to `0.0.0.0` so it works inside Docker.
+- `backend/` — Fastify v5 + TypeScript (ESM) HTTP API. Entry point is `backend/src/index.ts`. End-to-end integration tests in `backend/tests/e2e` validate core game loops (registration, construction, expeditions) via `npm run test:e2e`.
 - `frontend/` — Vite + React 18 Telegram Mini App client. Entry point is `frontend/src/main.tsx`, which initializes the Telegram Apps SDK (`init`, `miniApp.mount`, `themeParams.mount`, `viewport.mount`, `miniApp.ready`), boots Sentry, optionally mocks the Telegram environment for browser dev (`mockEnv.ts`), and renders `App.tsx` into `#root`.
 - `shared/` — cross-package contracts (currently `shared/types/`) consumed by both backend and frontend so HTTP payload shapes stay in sync.
 

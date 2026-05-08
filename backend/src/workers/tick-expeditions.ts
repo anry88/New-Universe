@@ -1,5 +1,6 @@
 import { Worker, Queue } from 'bullmq';
 import { db } from '../db/index.js';
+
 import {
   expeditions,
   ships,
@@ -25,9 +26,15 @@ export function calculateExpeditionPosition(
   now: Date,
 ) {
   const { targetX, targetY, targetZ, eta, result, status } = expedition;
+  if (!result || typeof result !== 'object') return { x: 0, y: 0, z: 0 };
+  
   const { distance, speed, engineFactor } = result as any;
+  if (distance === undefined || speed === undefined || engineFactor === undefined) {
+    return { x: 0, y: 0, z: 0 };
+  }
 
   const durationMs = (distance * 60 / speed) * engineFactor * 1000;
+
   const nowMs = now.getTime();
   const etaMs = eta.getTime();
 
@@ -116,9 +123,7 @@ async function handleArrivalAtHome(
   );
 
   // Send notification
-  const ship = await tx.query.ships.findFirst({
-    where: eq(ships.id, expedition.shipId),
-  });
+  const [ship] = await tx.select().from(ships).where(eq(ships.id, expedition.shipId)).limit(1);
   if (ship) {
     await tx.insert(notifications).values({
       userId: ship.ownerId,
@@ -135,13 +140,14 @@ async function handleArrivalAtHome(
 
 export async function processExpeditions(): Promise<void> {
   const now = new Date();
-
-  // Get all active expeditions
   const activeExpeditions = await db
     .select({
       expedition: expeditions,
-      ship: ships,
-      originSystem: systems,
+      shipId: ships.id,
+      shipOwnerId: ships.ownerId,
+      originSectorX: systems.sectorX,
+      originSectorY: systems.sectorY,
+      originSectorZ: systems.sectorZ,
     })
     .from(expeditions)
     .innerJoin(ships, eq(ships.id, expeditions.shipId))
@@ -156,23 +162,28 @@ export async function processExpeditions(): Promise<void> {
 
   if (activeExpeditions.length === 0) return;
 
-  for (const { expedition, ship, originSystem } of activeExpeditions) {
+  for (const row of activeExpeditions) {
+    const { expedition, shipId, originSectorX, originSectorY, originSectorZ } = row;
+    const originSystem = { sectorX: originSectorX, sectorY: originSectorY, sectorZ: originSectorZ };
+
     await db.transaction(async (tx) => {
       // 1. Interpolate current position
       const pos = calculateExpeditionPosition(expedition, originSystem, now);
 
       // 2. Perform visibility check (fog of war)
-      const discoveries = await checkVisibility(ship.id, tx, pos);
+      const discoveries = await checkVisibility(shipId, tx, pos);
+
       if (discoveries.length > 0) {
         logger.info(
           {
-            shipId: ship.id,
+            shipId,
             expeditionId: expedition.id,
             newEntities: discoveries.length,
           },
           'New discoveries made by expedition',
         );
       }
+
 
       // 3. Handle arrival
       if (now >= expedition.eta) {
