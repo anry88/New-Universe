@@ -21,6 +21,7 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
   - **`cosmic/resources.ts`** — resource id -> symbol/label dictionary used in cosmic UI; aligned with seeded resource ids (`iron`, `silicon`, `tritium`, etc.) for tech-tree cost rendering.
   - **`PlanetView.tsx`** — shows the current focus planet with its buildings schema.
   - **`cosmic/buildings.tsx`** — Cosmic Atlas building icons keyed by backend catalog ids; exports `resolveBuildingType(typeId)` (canonical ids plus legacy synonyms such as `laboratory` and alternate lab spellings matched via `/^research[_-]?lab$/i`).
+  - **`cosmic/buildings.test.ts`** — Vitest coverage for `resolveBuildingType` (known id resolution plus unknown-id fallback to the safe default icon).
   - **`BuildQueue.tsx`** — displays the current build queue with countdown timers.
   - **`ExpeditionDialog.tsx`** — mission launch configuration with coordinate selection and ETA.
 - `assets/` — static assets imported by Vite (currently empty).
