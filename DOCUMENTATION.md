@@ -73,7 +73,7 @@ The bot entry point is `POST /webhook/telegram`. Incoming updates are dispatched
 - `market_offers`, `market_orders`, `market_order_fills` — NPC/player market offer book, user orders, and fill history with explicit order lifecycle states and delivery references. Orders store `planet_id` (settlement for fulfillment) and `delivery_ready_at` (NPC buy ETA); fulfillment inserts matching `market_order_fills` rows.
 - `colonies` — player-owned colonies on discovered planets outside home systems.
 
-NPC broker pricing parameters live in `backend/src/config/market-prices.ts`; the deterministic quote algorithm is implemented in `backend/src/features/market/pricing.ts`.
+NPC broker pricing parameters live in `backend/src/config/market-prices.ts`; the deterministic quote algorithm is implemented in `backend/src/features/market/pricing.ts`. `market-prices.test.ts` keeps tier alignment with seeded resources and asserts there is no trivial NPC buy/sell arbitrage at neutral stock (epic **P2-EPIC-MARKET-NPC** gate).
 Phase 2 research definitions (levels 1-3 with typed effects) live in `backend/src/config/research-catalog.ts` and are reused by both seeding and runtime research/effects logic. Colonization tuning (colony caps vs logistics level, founding costs, cooldown, distance) lives in `backend/src/config/colonization-rules.ts` and is enforced in `features/colonies/colonization-rules.ts`. Progression gates that tie research completions to buildings, ships, colonization, logistics, and NPC trading are declared in `backend/src/config/research-unlocks.ts` and enforced in `backend/src/features/research/gates.ts`.
 
 
