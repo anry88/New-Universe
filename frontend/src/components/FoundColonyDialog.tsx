@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { apiFetch } from '../lib/api';
 import { ColonizationRequirements } from './ColonizationRequirements';
 import { Rocket, Loader2 } from 'lucide-react';
+import { Ship } from '@shared/types/ships';
 
 interface FoundColonyDialogProps {
   isOpen: boolean;
@@ -64,7 +65,7 @@ export const FoundColonyDialog: React.FC<FoundColonyDialogProps> = ({
       // In a real flow, the user might select a ship.
       // For now, we'll let the backend pick an available colonizer ship or we fetch ships first.
       
-      const me = await apiFetch<{ user: { ships: any[] } }>('/me');
+      const me = await apiFetch<{ user: { ships: Ship[] } }>('/me');
       const ships = me.user.ships;
       const colonizer = ships.find(s => s.locationPlanetId === planet.id && s.status === 'idle');
       
@@ -81,8 +82,8 @@ export const FoundColonyDialog: React.FC<FoundColonyDialogProps> = ({
       });
       onSuccess();
       onClose();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError((err as Error).message);
     } finally {
       setIsFounding(false);
     }
