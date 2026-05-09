@@ -13,7 +13,7 @@ The data layer defines the Drizzle ORM client, all Postgres tables, generated mi
 
 Each module owns one domain and exports the Drizzle table objects. `schema.ts` re-exports them so consumers can `import { systems, planets } from '../../db/schema.js'`.
 
-- **`users.ts`** — `users` table. Columns: `id` (UUID PK), `tgId` (`bigint`, unique, mapped via `mode: 'bigint'`), `tgUsername`, `tgFirstName`, `createdAt`, `premiumUntil`, `powerScore`. Telegram identity is the unique business key; do not add other unique constraints here without updating the auth flow.
+- **`users.ts`** — `users` table. Columns: `id` (UUID PK), `tgId` (`bigint`, unique, mapped via `mode: 'bigint'`), `tgUsername`, `tgFirstName`, `createdAt`, `premiumUntil`, `powerScore`, `tutorialStep`, `tutorialCompletedAt`. Telegram identity is the unique business key; tutorial fields are used to auto-start and complete onboarding.
 - **`resources.ts`** — `resources` reference catalog. Columns: `id` (text PK), `name` (`jsonb<{ ru, en }>`), `tier`, `symbol`, `baseRegenRate`, `defaultStorageCap`. Seeded by `seed/resources.ts` with 21 resources across tiers 1–4.
 - **`world.ts`** — `systems`, `planets`, `planet_resources`, `richness`. Notable details:
   - `systems.ownerId` is the home-system owner; `isHome` flags it as the player's starting system; `sectorX/Y/Z` are deterministic per-user sector coordinates produced by `home-system-generator.ts`; `x/y/z` are the system's position within the sector (numeric, precision 10 scale 2), used for distance calculations between systems in the same sector.

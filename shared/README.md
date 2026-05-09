@@ -5,7 +5,7 @@ Cross-package contracts shared between the Fastify backend (`backend/`) and the 
 ## Layout
 
 - `types/` — TypeScript interfaces and Zod schemas for HTTP payloads, WebSocket events, and other cross-cutting structures.
-    - **`user.ts`** — `User` interface including `homeSystem`.
+    - **`user.ts`** — `User` interface including `homeSystem` and onboarding fields (`tutorialStep`, `tutorialCompletedAt`).
     - **`auth.ts`** — `AuthResponse` for the login flow.
     - **`world.ts`** — `PlanetResource`, `Building`, `Planet`, `HomeSystem` interfaces for world/planet state.
     - **`buildings.ts`** — `BuildingType` interface and request/response types for construction.

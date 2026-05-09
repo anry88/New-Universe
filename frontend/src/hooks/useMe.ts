@@ -10,6 +10,7 @@ export function useMe() {
     queryKey: ['me'],
     queryFn: () => apiFetch<{ user: User }>('/me').then(res => res.user),
     enabled: !!token,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 10 * 1000,
+    refetchOnWindowFocus: true,
   });
 }

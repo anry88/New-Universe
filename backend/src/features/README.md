@@ -80,6 +80,15 @@ Resource accrual, transactions, and conversion.
   - `lastUpdateAt` synced with spend/gain.
 - **`transactions.test.ts`** — Vitest coverage asserting: successful spend, insufficient resource rollback, gain resources, sync `lastUpdateAt`, and multiple resource atomic handling.
 
+## `tutorial/`
+
+Onboarding progression sync for first-time users.
+
+- **`README.md`** — [Detailed tutorial documentation](./tutorial/README.md).
+- **`routes.ts`** — `tutorialRoutes(app)` registers `POST /tutorial/sync` (mounted at `/tutorial`) and returns persisted tutorial state for the current user.
+- **`service.ts`** — `syncTutorialProgress(userId)` maps game actions to steps (`mine`, `storage`, `scout`, first `expedition`), persists `users.tutorialStep`, and grants one-time completion reward (`+200 iron`, `+100 water`).
+- **`tutorial.test.ts`** — integration coverage for completion + one-time reward behavior.
+
 ## `expeditions/`
 
 Ship launch and travel scheduling. [Detailed documentation](./expeditions/README.md).

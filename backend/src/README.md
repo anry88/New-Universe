@@ -5,7 +5,7 @@ This is the backend application source. It is a Fastify v5 + TypeScript project 
 ## Layout
 
 - [`db/`](db/README.md) — Drizzle ORM client, schema (per-domain table modules), generated migrations, and seed scripts.
-- [`features/`](features/README.md) — feature modules (`auth`, `bot`, `me`, `world`, `buildings`, `resources`, `ships`, `expeditions`). Each feature owns its own route handlers, service logic, and tests.
+- [`features/`](features/README.md) — feature modules (`auth`, `bot`, `me`, `world`, `buildings`, `resources`, `ships`, `expeditions`, `tutorial`). Each feature owns its own route handlers, service logic, and tests.
 - [`lib/`](lib/README.md) — shared infrastructure: env validation, logger, Sentry, Telegram `initData` validation.
 - [`middleware/`](middleware/README.md) — Fastify hooks: request ID generator, Telegram auth `preHandler`.
 - [`routes/`](routes/README.md) — top-level routes that are not feature-scoped (`/health`, `/webhook/telegram`).
@@ -19,7 +19,7 @@ This is the backend application source. It is a Fastify v5 + TypeScript project 
   2. Builds a Fastify instance with the Pino `logger`, disables built-in request logging in production, sets the request ID generator from `middleware/request-id.ts`, and labels the ID as `requestId`.
   3. Adds a `preHandler` hook that creates a per-request child logger with `userId` once `request.user` has been attached by an auth middleware.
   4. Registers `@fastify/cors` and `@fastify/helmet` globally.
-  5. Registers `healthRoutes`, `botRoutes`, `authRoutes` (mounted at `/auth`), `meRoutes` (mounted at `/me`), `buildingsRoutes` (mounted at `/buildings`), `resourcesRoutes` (mounted at `/resources`), `shipsRoutes` (mounted at `/ships`), and `expeditionsRoutes` (mounted at `/expeditions`).
+  5. Registers `healthRoutes`, `botRoutes`, `authRoutes` (mounted at `/auth`), `meRoutes` (mounted at `/me`), `buildingsRoutes` (mounted at `/buildings`), `resourcesRoutes` (mounted at `/resources`), `shipsRoutes` (mounted at `/ships`), `expeditionsRoutes` (mounted at `/expeditions`), and `tutorialRoutes` (mounted at `/tutorial`).
   6. Calls `fastify.listen({ port: env.PORT, host: '0.0.0.0' })`. On failure, logs and exits with code `1`.
 - **`test-env.ts`** — Vitest environment shim that pre-populates the env vars Zod requires, so `lib/env.ts` does not abort the process when tests load it. Imported via `vitest-setup.ts`.
 - **`vitest-setup.ts`** — Vitest `setupFiles` entry. Runs once per worker before tests, currently delegates to `test-env.ts`.
