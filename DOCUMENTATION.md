@@ -45,6 +45,7 @@ The `dev/`, `docs/`, and `tasks/` folders contain non-runtime materials: dev-env
 - **`tick-expeditions`**: The most complex worker; it interpolates ship positions in 3D space during travel and performs real-time fog-of-war visibility checks.
 - **`tick-ships`**: Finalizes ship production.
 - **`notifications`**: Processes pending notifications from the database and sends them to Telegram via the Bot API every minute, respecting a 20 msgs/min per user rate limit.
+- **`cargo-routes`**: Completes interplanetary resource transfers triggered from the API; handles atomicity, idempotency, and resource delivery.
 
 
 ### Telegram Bot

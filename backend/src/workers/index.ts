@@ -15,6 +15,9 @@ async function main() {
   const { createNotificationsWorker } = await import('./notifications.js');
   const notificationsWorker = await createNotificationsWorker();
 
+  const { createCargoRoutesWorker } = await import('./cargo-routes.js');
+  const cargoRoutesWorker = await createCargoRoutesWorker();
+
   logger.info('All workers started');
 
 
@@ -25,6 +28,7 @@ async function main() {
       shipsWorker.close(),
       expeditionsWorker.close(),
       notificationsWorker.close(),
+      cargoRoutesWorker.close(),
     ]);
 
     logger.info('Workers shut down');
