@@ -4,7 +4,8 @@ This directory contains BullMQ workers for background processing and periodic ga
 
 ## Files
 
-- **`index.ts`** — worker entry point. It registers all workers (`createBuildingsWorker`, `createShipsWorker`, `createExpeditionsWorker`), manages their Redis connections, and handles graceful shutdown on SIGTERM/SIGINT.
+- **`index.ts`** — worker entry point. It registers all workers (`createBuildingsWorker`, `createShipsWorker`, `createExpeditionsWorker`, `createNotificationsWorker`, `createCargoRoutesWorker`), manages their Redis connections, and handles graceful shutdown.
+- **`cargo-routes.ts`** — handles `arrive_cargo` jobs in the `expeditions` queue. Completes cargo transfers by applying resources to the target planet and moving the ship to its new location.
 - **`tick-buildings.ts`** — processes completed construction and upgrade queue items. When a building completes, it updates the planet's resource regeneration rates and creates a notification for the user.
 - **`tick-expeditions.ts`** — handles active expeditions. Every 30 seconds, it iterates over all in-flight and returning expeditions, calculates their current position using linear interpolation, and performs a fog-of-war visibility check. It also handles transitions between journey segments (arrival at target, return home).
 - **`tick-ships.ts`** — processes ship construction queues. When a ship build completes, it increments the ship count for the planet or adds the ship to the player's fleet and creates a notification.
