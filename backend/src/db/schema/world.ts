@@ -55,4 +55,5 @@ export const planetsRelations = relations(planets, ({ one, many }) => ({
     references: [systems.id],
   }),
   buildings: many(buildings),
+  resources: many(planetResources),
 }));

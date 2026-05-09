@@ -4,6 +4,7 @@ export interface PlanetResource {
   amount: string;
   lastUpdateAt: string;
   regenRate: string;
+  storageCap: string;
 }
 
 export interface Building {

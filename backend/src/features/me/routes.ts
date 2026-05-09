@@ -92,6 +92,26 @@ export async function meRoutes(app: FastifyInstance) {
 
         const tutorialProgress = await syncTutorialProgress(user.id);
 
+        const { computeCurrentResources } = await import('../resources/accrual.js');
+
+        if (homeSystem && homeSystem.planets) {
+          homeSystem.planets = await Promise.all(
+            homeSystem.planets.map(async (planet: any) => {
+              const res = await computeCurrentResources(planet.id);
+              return {
+                ...planet,
+                resources: res.map(r => ({
+                  ...r,
+                  amount: r.amount.toString(),
+                  regenRate: r.regenRate.toString(),
+                  storageCap: r.storageCap.toString(),
+                  lastUpdateAt: r.lastUpdateAt.toISOString(),
+                })),
+              };
+            })
+          );
+        }
+
         const userObj = {
           ...user,
           tgId: user.tgId.toString(),

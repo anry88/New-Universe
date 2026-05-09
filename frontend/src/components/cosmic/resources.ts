@@ -45,3 +45,17 @@ export function getResourceSymbol(resourceId: string): string {
 export function getResourceLabel(resourceId: string): string {
   return RESOURCE_META[resourceId.toLowerCase()]?.full ?? resourceId;
 }
+
+/**
+ * Calculates fresh resource amount based on regen rate per hour.
+ * Acceptance criteria: regenRate is divided by 3600 for per-second increment.
+ */
+export function calculateRegen(
+  currentAmount: number,
+  regenRatePerHour: number,
+  deltaSeconds: number,
+  storageCap: number
+): number {
+  const regenRatePerSecond = regenRatePerHour / 3600;
+  return Math.min(currentAmount + regenRatePerSecond * deltaSeconds, storageCap);
+}
