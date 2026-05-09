@@ -9,6 +9,7 @@ Short reference for agents — keep in sync when editing YAML.
 - **`e2e.yml`** — Playwright Chromium against `frontend/tests/e2e`. Runs when:
   - **Workflow dispatch** (Actions → E2E → Run workflow).
   - **Pull request** to `main` **and** the PR has the explicit label **`run-e2e`** (add it when you want a full browser gate — e.g. epic wrap-up).  
+    The label must exist in the repository (create **`run-e2e`** once under *Issues → Labels* or via `gh label create run-e2e`); without it, GitHub cannot attach it to a PR and E2E will never satisfy the workflow `if:` guard.
     **Do not** match on `epic:…` labels: every imported task issue gets `epic:EPIC-…` from [`tasks/import_to_github_idempotent.sh`](../tasks/import_to_github_idempotent.sh), so that would trigger E2E on every issue close or mis-label every PR.
 
 Agents **must** add **`run-e2e`** on PRs that close epic rollup tasks (`*-EPIC-*` ids in `tasks/tasks.json`) — see [`AGENTS.md`](../AGENTS.md) (Epic closure).
