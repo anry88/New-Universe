@@ -36,6 +36,7 @@ Primary links:
 - `frontend/src/` — Vite + React 18 Telegram Mini App. `main.tsx` boots the SDK and renders `App.tsx`; `lib/sentry.ts` initializes Sentry; `mockEnv.ts` injects a fake Telegram environment for plain-browser dev.
 - `shared/types/` — cross-package TypeScript contracts shared between backend and frontend (currently empty; add new contracts here when features need them).
 - `tasks/` — task plan (`tasks.json`), GitHub Project automation scripts, and the imported microtasks docs.
+- `tools/balance-sim/` — offline deterministic economy simulator (see `tools/balance-sim/README.md`); writes comparison artifacts under `tools/balance-sim/artifacts/`.
 - `docs/` — GDD, addenda, infrastructure costs, architecture diagrams.
 - `dev/` — starter Docker/dev scaffolding from the planning bundle.
 - `docker-compose.yml` — local stack: Postgres 16, Redis 7, Backend (Fastify, hot reload), optional Worker/Frontend/devtools profiles.
@@ -56,9 +57,10 @@ Primary links:
    - [backend/src/routes/README.md](backend/src/routes/README.md)
    - [frontend/src/README.md](frontend/src/README.md)
    - [shared/README.md](shared/README.md)
-4. If the task touches the database schema, also read [backend/src/db/README.md](backend/src/db/README.md) end-to-end and the affected `schema/<file>.ts`.
-5. If the task touches a request/response contract used by the frontend, also read [shared/README.md](shared/README.md) and put the type in `shared/types/`.
-6. If the task touches Telegram auth or session handling, also read `backend/src/lib/telegram.ts` and `backend/src/middleware/telegram-auth.ts`.
+4. If the task touches the economy balance simulator or scenario fixtures, read [tools/balance-sim/README.md](tools/balance-sim/README.md) and update `tools/balance-sim/src/catalog.ts` when seeds/config drift.
+5. If the task touches the database schema, also read [backend/src/db/README.md](backend/src/db/README.md) end-to-end and the affected `schema/<file>.ts`.
+6. If the task touches a request/response contract used by the frontend, also read [shared/README.md](shared/README.md) and put the type in `shared/types/`.
+7. If the task touches Telegram auth or session handling, also read `backend/src/lib/telegram.ts` and `backend/src/middleware/telegram-auth.ts`.
 7. Skim the related test files (`*.test.ts` in the same folder) before changing behavior — they document the current contract precisely.
 
 ## Main Agent Prompt
@@ -349,6 +351,7 @@ Documentation lives next to the code it describes. The structure mirrors `RiverK
   - `frontend/src/README.md`
   - `shared/README.md`
   - [`scripts/README.md`](scripts/README.md) (repo-root automation helpers; keep aligned with `ci.yml` / `e2e.yml`)
+  - [`tools/balance-sim/README.md`](tools/balance-sim/README.md) (offline economy simulator; optional CI hook)
   - [`.github/workflows/README.md`](.github/workflows/README.md) (workflow intent and E2E triggers)
 
 Required behavior whenever you change the codebase:

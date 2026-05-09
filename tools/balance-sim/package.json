@@ -1,0 +1,19 @@
+{
+  "name": "@new-universe/balance-sim",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Deterministic first-week economy simulator (design tool; no DB/Redis).",
+  "scripts": {
+    "start": "tsx src/cli.ts",
+    "simulate": "tsx src/cli.ts",
+    "test": "vitest run",
+    "verify": "tsx src/cli.ts --verify"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^3.0.5"
+  }
+}

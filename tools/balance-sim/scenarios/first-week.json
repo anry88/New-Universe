@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "horizonSec": 604800,
+  "scenarios": [
+    {
+      "id": "beginner-first-week",
+      "label": "Casual building focus — delays labs/ships; measures early infrastructure timing.",
+      "initialResources": {
+        "iron": 1000,
+        "water": 1000,
+        "carbon": 1000,
+        "silicon": 1000,
+        "methane": 800,
+        "fuel": 120
+      },
+      "passiveRegenPerHour": {
+        "iron": 5,
+        "water": 6,
+        "carbon": 4,
+        "silicon": 3,
+        "methane": 4
+      },
+      "baseStorageCap": 5000,
+      "structurePlan": [
+        { "kind": "build", "buildingId": "solar_plant" },
+        { "kind": "build", "buildingId": "mine" },
+        { "kind": "build", "buildingId": "drill" },
+        { "kind": "build", "buildingId": "storage" },
+        { "kind": "upgrade", "buildingId": "command_center" },
+        { "kind": "upgrade", "buildingId": "command_center" },
+        { "kind": "build", "buildingId": "lab" },
+        { "kind": "upgrade", "buildingId": "mine" },
+        { "kind": "upgrade", "buildingId": "drill" }
+      ],
+      "researchPlan": [
+        { "branch": "mining", "tier": 1 },
+        { "branch": "engineering", "tier": 1 }
+      ],
+      "shipPlan": []
+    },
+    {
+      "id": "optimized-first-week",
+      "label": "Rush infra + engineering II; hull alloys stockpiled; NPC trades only cover silicon liquidity.",
+      "initialResources": {
+        "iron": 26000,
+        "water": 7500,
+        "carbon": 2400,
+        "silicon": 5200,
+        "steel": 2500,
+        "biomass": 400,
+        "methane": 800,
+        "fuel": 120
+      },
+      "passiveRegenPerHour": {
+        "iron": 12,
+        "water": 8,
+        "carbon": 4,
+        "silicon": 5,
+        "methane": 4
+      },
+      "baseStorageCap": 250000,
+      "structurePlan": [
+        { "kind": "build", "buildingId": "mine" },
+        { "kind": "build", "buildingId": "drill" },
+        { "kind": "build", "buildingId": "storage" },
+        { "kind": "upgrade", "buildingId": "command_center" },
+        { "kind": "upgrade", "buildingId": "command_center" },
+        { "kind": "build", "buildingId": "lab" },
+        { "kind": "upgrade", "buildingId": "lab" },
+        { "kind": "upgrade", "buildingId": "command_center" },
+        { "kind": "build", "buildingId": "spaceport" },
+        { "kind": "upgrade", "buildingId": "spaceport" },
+        { "kind": "build", "buildingId": "shipyard" }
+      ],
+      "researchPlan": [
+        { "branch": "mining", "tier": 1 },
+        { "branch": "engineering", "tier": 1 },
+        { "branch": "engineering", "tier": 2 },
+        { "branch": "logistics", "tier": 1 }
+      ],
+      "shipPlan": [{ "shipId": "colonizer" }],
+      "marketChunks": [
+        { "op": "repeatSell", "resourceId": "water", "chunkAmount": 350, "repeat": 22 },
+        { "op": "repeatSell", "resourceId": "methane", "chunkAmount": 200, "repeat": 6 },
+        { "op": "repeatBuy", "resourceId": "silicon", "chunkAmount": 80, "repeat": 3 }
+      ]
+    }
+  ]
+}

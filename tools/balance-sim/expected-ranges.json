@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "comment": "Inclusive second bounds for milestone timestamps (seconds). Adjust when seeds/catalog intentionally change.",
+  "scenarios": [
+    {
+      "id": "beginner-first-week",
+      "milestoneRanges": {
+        "firstStructureCompleteSec": [300, 7200],
+        "firstResearchCompleteSec": [2500, 20000]
+      }
+    },
+    {
+      "id": "optimized-first-week",
+      "milestoneRanges": {
+        "engineering2CompleteSec": [4000, 30000],
+        "shipyardReadySec": [7000, 50000],
+        "colonizerOrderedSec": [7000, 50000],
+        "colonizerCompleteSec": [15000, 120000]
+      }
+    }
+  ]
+}
