@@ -33,7 +33,7 @@ The `dev/`, `docs/`, and `tasks/` folders contain non-runtime materials: dev-env
 - Logging: Pino instance from `lib/logger.ts`, switched to `pino-pretty` in development.
 - Request IDs: every incoming request gets a UUID via `middleware/request-id.ts` and the ID is exposed under the `requestId` log key.
 - Sentry: `lib/sentry.ts` is imported as the very first module to capture early-startup errors; it stays disabled when `SENTRY_DSN` is empty.
-- Routes: `/health` (`routes/health.ts`), `/webhook/telegram` (`routes/bot.ts`), `/auth/telegram` (`features/auth/routes.ts`), `/me` (`features/me/routes.ts`), `/buildings/*` (`features/buildings/routes.ts`), `/resources/convert` (`features/resources/routes.ts`), `/ships/build` (`features/ships/routes.ts`), `/expeditions` (`features/expeditions/routes.ts`), `/expeditions/jump` (`features/expeditions/routes.ts`), and `/research/start` (`features/research/routes.ts`).
+- Routes: `/health` (`routes/health.ts`), `/webhook/telegram` (`routes/bot.ts`), `/auth/telegram` (`features/auth/routes.ts`), `/me` (`features/me/routes.ts`), `/buildings/*` (`features/buildings/routes.ts`), `/resources/convert` (`features/resources/routes.ts`), `/ships/build` (`features/ships/routes.ts`), `/expeditions` (`features/expeditions/routes.ts`), `/expeditions/jump` (`features/expeditions/routes.ts`), `/research/start` (`features/research/routes.ts`), and `/tutorial/sync` (`features/tutorial/routes.ts`).
 
 ### Workers
 
@@ -57,7 +57,7 @@ The bot entry point is `POST /webhook/telegram`. Incoming updates are dispatched
 
 `backend/src/db/index.ts` opens a `postgres-js` connection from `DATABASE_URL` and exposes a typed Drizzle client via `db`. The schema is split per domain under `backend/src/db/schema/` and re-exported from `backend/src/db/schema.ts`:
 
-- `users` — Telegram-linked player accounts.
+- `users` — Telegram-linked player accounts and onboarding progression (`tutorial_step`, `tutorial_completed_at`).
 - `resources`, `richness`, `planet_resources` — universe resource catalog and per-planet inventory.
 - `systems`, `planets` — generated star systems and their planets, including biome and slot count.
 - `building_types`, `buildings` — building catalog and per-planet build queue rows.
@@ -85,10 +85,12 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 - `hooks/useAuth.ts` — manages the auth flow and session token.
 - `hooks/useMe.ts` — uses TanStack Query to fetch and cache the current player state from `GET /me`.
 - `pages/Home.tsx` — main game screen with resource bar, tab bar, and navigation.
+- `pages/onboarding/Onboarding.tsx` — 5-step onboarding flow with skip-and-return behavior.
 - `pages/PlanetDetail.tsx` — detailed planet screen with infrastructure slots, building construction, and upgrade dialogs.
 - `components/ResourceBar.tsx` — displays planet resources with animated real-time regeneration.
 - `components/PlanetView.tsx` — shows the current focus planet overview.
 - `components/BuildQueue.tsx` — displays the current build queue with countdown timers.
+- `components/Tutorial.tsx` — full-screen onboarding overlay UI used by `Onboarding.tsx`.
 - `components/BuildingSlot.tsx` — presentational component for an infrastructure slot.
 - `components/UpgradeDialog.tsx` & `components/BuildDialog.tsx` — dialogs for managing buildings.
 

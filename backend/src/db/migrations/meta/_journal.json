@@ -99,6 +99,13 @@
       "when": 1778241011814,
       "tag": "0013_sparkling_slapstick",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1778278800000,
+      "tag": "0014_late_tutorial_sync",
+      "breakpoints": true
     }
   ]
 }

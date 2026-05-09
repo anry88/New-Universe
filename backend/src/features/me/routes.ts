@@ -4,6 +4,7 @@ import { env } from '../../lib/env.js';
 import { db } from '../../db/index.js';
 import { users, systems, discoveredPlanets, planets, ships, expeditions, researchProgress } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
+import { syncTutorialProgress } from '../tutorial/service.js';
 
 export async function meRoutes(app: FastifyInstance) {
   app.get(
@@ -89,9 +90,13 @@ export async function meRoutes(app: FastifyInstance) {
           where: eq(researchProgress.userId, user.id),
         });
 
+        const tutorialProgress = await syncTutorialProgress(user.id);
+
         const userObj = {
           ...user,
           tgId: user.tgId.toString(),
+          tutorialStep: tutorialProgress.tutorialStep,
+          tutorialCompletedAt: tutorialProgress.tutorialCompletedAt,
           homeSystem,
           ships: userShips,
           expeditions: activeExpeditions,

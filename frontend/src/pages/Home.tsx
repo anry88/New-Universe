@@ -13,11 +13,26 @@ import { useMe } from '../hooks/useMe';
  *  - Middle: focal planet with system rail and slot grid (PlanetView)
  *  - Bottom: queue strip + 5-tab nav
  */
-export function HomePage() {
+interface HomePageProps {
+  onOpenTutorial: () => void;
+}
+
+export function HomePage({ onOpenTutorial }: HomePageProps) {
   const { data: meData } = useMe();
   const focalPlanetId = meData?.homeSystem?.planets?.[0]?.id;
   return (
     <div className="cosmic-screen" style={{ '--accent': '#5BD7FF' } as React.CSSProperties}>
+      {!meData?.tutorialCompletedAt && (
+        <div className="absolute right-4 top-4 z-20">
+          <button
+            type="button"
+            onClick={onOpenTutorial}
+            className="rounded-md border border-cyan-400/60 bg-slate-900/80 px-3 py-1 text-xs text-cyan-200 hover:bg-slate-800"
+          >
+            Tutorial
+          </button>
+        </div>
+      )}
       <ResourceBar planetId={focalPlanetId} />
       <PlanetView />
       <BuildQueue />

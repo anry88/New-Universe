@@ -11,6 +11,8 @@ export interface User {
   createdAt: string;
   premiumUntil: string | null;
   powerScore: number;
+  tutorialStep: number;
+  tutorialCompletedAt: string | null;
   homeSystem?: HomeSystem;
   ships?: Ship[];
   expeditions?: Expedition[];
