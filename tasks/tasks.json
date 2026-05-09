@@ -61,6 +61,12 @@
       "title": "Phase 1 — Тесты и QA"
     },
     {
+      "id": "EPIC-P1.1-FIX",
+      "phase": 1.1,
+      "title": "Phase 1.1 — Post-design fixes & MVP gap-filling",
+      "description": "Корректирующий эпик по итогам аудита P0/P1 и внедрения нового дизайна Cosmic Atlas. Включает фиксы найденных багов согласования (research/buildings/resources), завершение задач, не покрытых acceptance-критериями (количество узлов tech-tree, onboarding, push-уведомления), а также подключение нового дизайна на оставшиеся экраны и компоненты."
+    },
+    {
       "id": "EPIC-P2-OUT",
       "phase": 2,
       "title": "Phase 2 — Outline (Expansion)"
@@ -2378,6 +2384,265 @@
       "verify": "Complete live-ops readiness review and link evidence in the issue",
       "notes": "This epic starts after launch readiness and remains the umbrella for ongoing live work.",
       "prompt": "[TASK P5-EPIC-LIVEOPS] [Эпик] Live operations readiness\n\nОПИСАНИЕ\nTop-level post-launch operations gate covering events, content packs, balance review, and support/admin runbooks.\n\nACCEPTANCE CRITERIA\n  1. Live event framework can be enabled and disabled safely\n  2. Content pack validation catches bad content before rollout\n  3. Balance review loop has simulator and telemetry inputs\n  4. Support/admin runbook is usable for incident and player-support scenarios\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - docs/liveops/\n  - docs/content/\n  - docs/support/\n  - tools/content-validate/\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P5-LIVE-001\n  - P5-CONT-001\n  - P5-BAL-001\n  - P5-SUP-001\n\nКАК ПРОВЕРИТЬ\n  Complete live-ops readiness review and link evidence in the issue\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  This epic starts after launch readiness and remains the umbrella for ongoing live work."
+    },
+    {
+      "id": "P1.1-300",
+      "epic": "EPIC-P1.1-FIX",
+      "size": "M",
+      "title": "Внедрить новый дизайн Cosmic Atlas (Planet System.html)",
+      "description": "Перевести фронтенд (Home, PlanetDetail, Research, Ships, SystemMap, BuildDialog, UpgradeDialog, BuildQueue, ResourceBar, BuildingSlot, PlanetView) на новый визуальный язык из design-bundle/project/New Universe - Planet System.html: токены (var(--bg-deep), var(--accent), фонты Space Grotesk / IBM Plex Mono / Manrope), биом-SVG для 7 классов планет, единый набор иконок 10 типов построек, top resource bar с %-баром, planet rail, queue strip, единый bottom-nav на всех экранах.",
+      "acceptance": [
+        "В index.css определены CSS-переменные дизайна; index.html подгружает шрифты",
+        "frontend/src/components/cosmic/* содержит общие атомы (CosmicTopBar, PlanetPortrait, PlanetRail, BuildSlot, QueueStrip, CosmicBottomNav, CosmicBackground)",
+        "Home, PlanetDetail, Research, Ships, SystemMap используют общий цветовой/типографический токен-сет и фон со звёздами",
+        "Все эмодзи-плейсхолдеры (🌍 ⛏️ ⚡ 🏭) заменены на SVG-компоненты",
+        "tsc --noEmit и eslint без новых ошибок"
+      ],
+      "files": [
+        "frontend/index.html",
+        "frontend/src/index.css",
+        "frontend/src/components/cosmic/atoms.tsx",
+        "frontend/src/components/cosmic/planets.tsx",
+        "frontend/src/components/cosmic/buildings.tsx",
+        "frontend/src/components/cosmic/resources.ts",
+        "frontend/src/components/{BuildDialog,UpgradeDialog,BuildQueue,BuildingSlot,PlanetView,ResourceBar}.tsx",
+        "frontend/src/pages/{Home,PlanetDetail,Research,Ships,SystemMap}.tsx"
+      ],
+      "deps": [
+        "P1-201",
+        "P1-202",
+        "P1-203",
+        "P1-204",
+        "P1-205"
+      ],
+      "verify": "cd frontend && npm run build (после npm install) — должен пройти без ошибок; визуальная проверка PlanetDetail/Home в Telegram dev frame.",
+      "notes": "Дизайн-бандл лежит в design-bundle/. Для оставшихся 2 направлений (Operator HUD, Stellar Cartograph) тема перенесена через CSS-переменные, переключение между темами — задача более позднего эпика.",
+      "prompt": "[TASK P1.1-300] Внедрить новый дизайн Cosmic Atlas (Planet System.html)\n\nОПИСАНИЕ\nПеревести фронтенд (Home, PlanetDetail, Research, Ships, SystemMap, BuildDialog, UpgradeDialog, BuildQueue, ResourceBar, BuildingSlot, PlanetView) на новый визуальный язык из design-bundle/project/New Universe - Planet System.html: токены (var(--bg-deep), var(--accent), фонты Space Grotesk / IBM Plex Mono / Manrope), биом-SVG для 7 классов планет, единый набор иконок 10 типов построек, top resource bar с %-баром, planet rail, queue strip, единый bottom-nav на всех экранах.\n\nACCEPTANCE CRITERIA\n  1. В index.css определены CSS-переменные дизайна; index.html подгружает шрифты\n  2. frontend/src/components/cosmic/* содержит общие атомы (CosmicTopBar, PlanetPortrait, PlanetRail, BuildSlot, QueueStrip, CosmicBottomNav, CosmicBackground)\n  3. Home, PlanetDetail, Research, Ships, SystemMap используют общий цветовой/типографический токен-сет и фон со звёздами\n  4. Все эмодзи-плейсхолдеры (🌍 ⛏️ ⚡ 🏭) заменены на SVG-компоненты\n  5. tsc --noEmit и eslint без новых ошибок\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - frontend/index.html\n  - frontend/src/index.css\n  - frontend/src/components/cosmic/atoms.tsx\n  - frontend/src/components/cosmic/planets.tsx\n  - frontend/src/components/cosmic/buildings.tsx\n  - frontend/src/components/cosmic/resources.ts\n  - frontend/src/components/{BuildDialog,UpgradeDialog,BuildQueue,BuildingSlot,PlanetView,ResourceBar}.tsx\n  - frontend/src/pages/{Home,PlanetDetail,Research,Ships,SystemMap}.tsx\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  P1-201, P1-202, P1-203, P1-204, P1-205\n\nКАК ПРОВЕРИТЬ\n  cd frontend && npm run build (после npm install) — должен пройти без ошибок; визуальная проверка PlanetDetail/Home в Telegram dev frame.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Дизайн-бандл лежит в design-bundle/. Для оставшихся 2 направлений (Operator HUD, Stellar Cartograph) тема перенесена через CSS-переменные, переключение между темами — задача более позднего эпика."
+    },
+    {
+      "id": "P1.1-301",
+      "epic": "EPIC-P1.1-FIX",
+      "size": "S",
+      "title": "Согласовать research_lab ↔ lab между фронтендом и бэкендом",
+      "description": "В backend/src/features/research/data.ts и routes.ts требования всех уровней tech-tree указывают typeId 'research_lab', но в каталоге зданий (backend/src/db/seed/building-types.ts) такого id нет — есть 'lab'. Из-за этого реальный игрок не сможет начать ни одно исследование, потому что labReq.find(...) всегда вернёт несуществующее здание. Привести оба слоя к единому id ('lab') и обновить тесты.",
+      "acceptance": [
+        "В backend/src/features/research/{data.ts,routes.ts} вместо 'research_lab' используется 'lab'",
+        "frontend/src/lib/tech-tree.ts использует 'lab' (или резолвер resolveBuildingType, который уже мапит legacy-id)",
+        "frontend/src/pages/Research.tsx читает уровень здания корректно и для legacy-документов",
+        "Тесты backend/src/features/research/research.test.ts проходят зелёным после правки и не используют research_lab",
+        "Никаких поисков по research_lab в репозитории кроме миграционных комментариев"
+      ],
+      "files": [
+        "backend/src/features/research/data.ts",
+        "backend/src/features/research/routes.ts",
+        "backend/src/features/research/research.test.ts",
+        "frontend/src/lib/tech-tree.ts",
+        "frontend/src/pages/Research.tsx"
+      ],
+      "deps": [
+        "P1-205"
+      ],
+      "verify": "rg -n 'research_lab' backend frontend → нет совпадений; backend tests на research зелёные.",
+      "notes": "На время миграции resolveBuildingType (frontend) уже обрабатывает alias 'research_lab' → 'lab' для безопасного рендера старых данных, но это не заменяет согласование на бэкенде.",
+      "prompt": "[TASK P1.1-301] Согласовать research_lab ↔ lab между фронтендом и бэкендом\n\nОПИСАНИЕ\nВ backend/src/features/research/data.ts и routes.ts требования всех уровней tech-tree указывают typeId 'research_lab', но в каталоге зданий (backend/src/db/seed/building-types.ts) такого id нет — есть 'lab'. Из-за этого реальный игрок не сможет начать ни одно исследование, потому что labReq.find(...) всегда вернёт несуществующее здание. Привести оба слоя к единому id ('lab') и обновить тесты.\n\nACCEPTANCE CRITERIA\n  1. В backend/src/features/research/{data.ts,routes.ts} вместо 'research_lab' используется 'lab'\n  2. frontend/src/lib/tech-tree.ts использует 'lab' (или резолвер resolveBuildingType, который уже мапит legacy-id)\n  3. frontend/src/pages/Research.tsx читает уровень здания корректно и для legacy-документов\n  4. Тесты backend/src/features/research/research.test.ts проходят зелёным после правки и не используют research_lab\n  5. Никаких поисков по research_lab в репозитории кроме миграционных комментариев\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/research/data.ts\n  - backend/src/features/research/routes.ts\n  - backend/src/features/research/research.test.ts\n  - frontend/src/lib/tech-tree.ts\n  - frontend/src/pages/Research.tsx\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  P1-205\n\nКАК ПРОВЕРИТЬ\n  rg -n 'research_lab' backend frontend → нет совпадений; backend tests на research зелёные.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  На время миграции resolveBuildingType (frontend) уже обрабатывает alias 'research_lab' → 'lab' для безопасного рендера старых данных, но это не заменяет согласование на бэкенде."
+    },
+    {
+      "id": "P1.1-302",
+      "epic": "EPIC-P1.1-FIX",
+      "size": "S",
+      "title": "Заменить power_plant на solar_plant во фронтенд-плейсхолдерах",
+      "description": "BuildingSlot.tsx и BuildDialog.tsx (legacy) показывали ⚡ для зданий с typeId 'power_plant'. Бэкенд таких зданий не имеет — есть только 'solar_plant'. Удалить упоминания 'power_plant' и любые другие плейсхолдер-id, не существующие в каталоге.",
+      "acceptance": [
+        "rg -n 'power_plant' frontend → нет совпадений",
+        "Иконки построек берутся из shared resolveBuildingType → BUILDING_BY_TYPE, без хардкоженых эмодзи",
+        "Юнит-тест на resolveBuildingType с unknown id возвращает дефолт"
+      ],
+      "files": [
+        "frontend/src/components/cosmic/buildings.tsx",
+        "frontend/src/components/BuildDialog.tsx",
+        "frontend/src/components/BuildingSlot.tsx"
+      ],
+      "deps": [
+        "P1-202"
+      ],
+      "verify": "grep -r power_plant frontend/src → пусто; ручная проверка экрана PlanetDetail с пустым/занятым слотом.",
+      "notes": "Уже выполнено в рамках P1.1-300, но оформлено отдельной задачей для прозрачности.",
+      "prompt": "[TASK P1.1-302] Заменить power_plant на solar_plant во фронтенд-плейсхолдерах\n\nОПИСАНИЕ\nBuildingSlot.tsx и BuildDialog.tsx (legacy) показывали ⚡ для зданий с typeId 'power_plant'. Бэкенд таких зданий не имеет — есть только 'solar_plant'. Удалить упоминания 'power_plant' и любые другие плейсхолдер-id, не существующие в каталоге.\n\nACCEPTANCE CRITERIA\n  1. rg -n 'power_plant' frontend → нет совпадений\n  2. Иконки построек берутся из shared resolveBuildingType → BUILDING_BY_TYPE, без хардкоженых эмодзи\n  3. Юнит-тест на resolveBuildingType с unknown id возвращает дефолт\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - frontend/src/components/cosmic/buildings.tsx\n  - frontend/src/components/BuildDialog.tsx\n  - frontend/src/components/BuildingSlot.tsx\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  P1-202\n\nКАК ПРОВЕРИТЬ\n  grep -r power_plant frontend/src → пусто; ручная проверка экрана PlanetDetail с пустым/занятым слотом.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Уже выполнено в рамках P1.1-300, но оформлено отдельной задачей для прозрачности."
+    },
+    {
+      "id": "P1.1-303",
+      "epic": "EPIC-P1.1-FIX",
+      "size": "M",
+      "title": "Согласовать ресурсы tech-tree с каталогом ресурсов (metal/crystal/deuterium)",
+      "description": "Стоимости в backend/src/features/research/data.ts (и копия в frontend/src/lib/tech-tree.ts) указаны в ресурсах metal, crystal, deuterium. Этих id нет в backend/src/db/seed/resources.ts (есть iron, silicon, water, methane, copper, aluminum, titanium, ice, sulfur, mercury, magnesium, lead, uranium, cobalt, silicon_carbide, tritium, antimatter, dark_matter, iridium, biomass). Из-за этого spend() при старте исследования ломается. Привести стоимости к актуальному каталогу (например iron вместо metal, silicon вместо crystal, tritium вместо deuterium) и обновить тесты.",
+      "acceptance": [
+        "Все ResearchDefinition.cost содержат только id из таблицы resources",
+        "В backend/src/features/research/research.test.ts корректно тестируется списание ресурсов",
+        "frontend/src/lib/tech-tree.ts синхронизирован с backend (или импортирует из shared)"
+      ],
+      "files": [
+        "backend/src/features/research/data.ts",
+        "backend/src/features/research/research.test.ts",
+        "frontend/src/lib/tech-tree.ts",
+        "shared/types/research.ts"
+      ],
+      "deps": [
+        "P1-205",
+        "P1.1-301"
+      ],
+      "verify": "rg -n 'metal|crystal|deuterium' backend/src frontend/src → только в комментариях/миграциях; backend тесты зелёные.",
+      "notes": "Уместно вынести единый источник правды tech-tree в shared/data/research.ts, чтобы в будущем не плодились копии.",
+      "prompt": "[TASK P1.1-303] Согласовать ресурсы tech-tree с каталогом ресурсов (metal/crystal/deuterium)\n\nОПИСАНИЕ\nСтоимости в backend/src/features/research/data.ts (и копия в frontend/src/lib/tech-tree.ts) указаны в ресурсах metal, crystal, deuterium. Этих id нет в backend/src/db/seed/resources.ts (есть iron, silicon, water, methane, copper, aluminum, titanium, ice, sulfur, mercury, magnesium, lead, uranium, cobalt, silicon_carbide, tritium, antimatter, dark_matter, iridium, biomass). Из-за этого spend() при старте исследования ломается. Привести стоимости к актуальному каталогу (например iron вместо metal, silicon вместо crystal, tritium вместо deuterium) и обновить тесты.\n\nACCEPTANCE CRITERIA\n  1. Все ResearchDefinition.cost содержат только id из таблицы resources\n  2. В backend/src/features/research/research.test.ts корректно тестируется списание ресурсов\n  3. frontend/src/lib/tech-tree.ts синхронизирован с backend (или импортирует из shared)\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/research/data.ts\n  - backend/src/features/research/research.test.ts\n  - frontend/src/lib/tech-tree.ts\n  - shared/types/research.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  P1-205, P1.1-301\n\nКАК ПРОВЕРИТЬ\n  rg -n 'metal|crystal|deuterium' backend/src frontend/src → только в комментариях/миграциях; backend тесты зелёные.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Уместно вынести единый источник правды tech-tree в shared/data/research.ts, чтобы в будущем не плодились копии."
+    },
+    {
+      "id": "P1.1-304",
+      "epic": "EPIC-P1.1-FIX",
+      "size": "M",
+      "title": "Заполнить tech-tree до 7×5 уровней (acceptance P1-205)",
+      "description": "Acceptance criteria P1-205 требуют 7 веток × 5 уровней = 35 определений. Сейчас в backend/src/features/research/data.ts всего 10 записей. Дополнить недостающими уровнями (mining 3-5, engineering 2-5, engines 2-5, weapons 2-5, sensors 2-5, logistics 2-5, jump_drive 2-5) с разумной кривой стоимости/времени.",
+      "acceptance": [
+        "Все 35 ResearchDefinition присутствуют в backend и совпадают с frontend",
+        "Стоимости и время растут монотонно по уровню",
+        "Каждая ветка level ≥ 2 имеет research-зависимость на свой предыдущий уровень",
+        "UI Research.tsx показывает все 7 строк и узлов"
+      ],
+      "files": [
+        "backend/src/features/research/data.ts",
+        "frontend/src/lib/tech-tree.ts",
+        "shared/types/research.ts"
+      ],
+      "deps": [
+        "P1.1-303"
+      ],
+      "verify": "Скрипт: загрузить data.ts и убедиться, что count by branch == 5 и общее число == 35. UI smoke-тест: нет пустых узлов.",
+      "notes": "Можно сгенерировать прогрессии формулой cost[L]=cost[1]*1.6^(L-1), time[L]=time[1]*2^(L-1).",
+      "prompt": "[TASK P1.1-304] Заполнить tech-tree до 7×5 уровней (acceptance P1-205)\n\nОПИСАНИЕ\nAcceptance criteria P1-205 требуют 7 веток × 5 уровней = 35 определений. Сейчас в backend/src/features/research/data.ts всего 10 записей. Дополнить недостающими уровнями (mining 3-5, engineering 2-5, engines 2-5, weapons 2-5, sensors 2-5, logistics 2-5, jump_drive 2-5) с разумной кривой стоимости/времени.\n\nACCEPTANCE CRITERIA\n  1. Все 35 ResearchDefinition присутствуют в backend и совпадают с frontend\n  2. Стоимости и время растут монотонно по уровню\n  3. Каждая ветка level ≥ 2 имеет research-зависимость на свой предыдущий уровень\n  4. UI Research.tsx показывает все 7 строк и узлов\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/research/data.ts\n  - frontend/src/lib/tech-tree.ts\n  - shared/types/research.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  P1.1-303\n\nКАК ПРОВЕРИТЬ\n  Скрипт: загрузить data.ts и убедиться, что count by branch == 5 и общее число == 35. UI smoke-тест: нет пустых узлов.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Можно сгенерировать прогрессии формулой cost[L]=cost[1]*1.6^(L-1), time[L]=time[1]*2^(L-1)."
+    },
+    {
+      "id": "P1.1-305",
+      "epic": "EPIC-P1.1-FIX",
+      "size": "S",
+      "title": "Исправить ResourceBar: regenRate в /h, реальная capacity",
+      "description": "Старая ResourceBar делала currentAmount + regenRate * deltaSeconds, но backend хранит regenRate в единицах /h. Это приводило к в 3600 раз более быстрому росту в UI. Кроме того, capacity (cap) была равна текущему amount — бар прогресса всегда показывал 100%. Подтянуть regenRate /h и реальный storageCap (либо из /me, либо из /planets/{id}/resources).",
+      "acceptance": [
+        "ResourceBar делит regenRate на 3600 при per-frame инкременте",
+        "В payload /me и /planets/{id}/resources есть поле storageCap, которое отображается в .rchip-bar",
+        "Юнит-тест: при regenRate=60/h за 1 сек amount растёт на ~0.0167",
+        "Бар-индикатор переходит в amber при ≥85% заполнения"
+      ],
+      "files": [
+        "backend/src/features/resources/routes.ts",
+        "backend/src/features/auth/me.ts",
+        "frontend/src/components/ResourceBar.tsx",
+        "shared/types/world.ts"
+      ],
+      "deps": [
+        "P1-150",
+        "P1-201"
+      ],
+      "verify": "Открыть PlanetDetail на 1 минуту: amount должен расти примерно на regenRate/60, не на regenRate*60.",
+      "notes": "В P1.1-300 уже реализовано деление /3600 во фронтенде; cap пока эвристический — этот таск завершает работу подтягиванием реального cap из API.",
+      "prompt": "[TASK P1.1-305] Исправить ResourceBar: regenRate в /h, реальная capacity\n\nОПИСАНИЕ\nСтарая ResourceBar делала currentAmount + regenRate * deltaSeconds, но backend хранит regenRate в единицах /h. Это приводило к в 3600 раз более быстрому росту в UI. Кроме того, capacity (cap) была равна текущему amount — бар прогресса всегда показывал 100%. Подтянуть regenRate /h и реальный storageCap (либо из /me, либо из /planets/{id}/resources).\n\nACCEPTANCE CRITERIA\n  1. ResourceBar делит regenRate на 3600 при per-frame инкременте\n  2. В payload /me и /planets/{id}/resources есть поле storageCap, которое отображается в .rchip-bar\n  3. Юнит-тест: при regenRate=60/h за 1 сек amount растёт на ~0.0167\n  4. Бар-индикатор переходит в amber при ≥85% заполнения\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/resources/routes.ts\n  - backend/src/features/auth/me.ts\n  - frontend/src/components/ResourceBar.tsx\n  - shared/types/world.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  P1-150, P1-201\n\nКАК ПРОВЕРИТЬ\n  Открыть PlanetDetail на 1 минуту: amount должен расти примерно на regenRate/60, не на regenRate*60.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  В P1.1-300 уже реализовано деление /3600 во фронтенде; cap пока эвристический — этот таск завершает работу подтягиванием реального cap из API."
+    },
+    {
+      "id": "P1.1-306",
+      "epic": "EPIC-P1.1-FIX",
+      "size": "S",
+      "title": "Сделать клик по зданию на Home → переход в PlanetDetail к этому зданию",
+      "description": "Acceptance P1-201: «Tap на здание → открывает деталь». Сейчас PlanetView.tsx переходит на /planet/:id, но не подсвечивает выбранный слот и не открывает UpgradeDialog. Передавать ?slot=N в роутере и автоматически открывать UpgradeDialog/BuildDialog в PlanetDetail.",
+      "acceptance": [
+        "Tap по filled-слоту на Home открывает PlanetDetail и сразу UpgradeDialog для этого здания",
+        "Tap по empty-слоту на Home открывает PlanetDetail и сразу BuildDialog для этого слота",
+        "URL содержит ?slot=N для возможности deep-link"
+      ],
+      "files": [
+        "frontend/src/components/PlanetView.tsx",
+        "frontend/src/pages/PlanetDetail.tsx"
+      ],
+      "deps": [
+        "P1-201",
+        "P1.1-300"
+      ],
+      "verify": "Manual: на Home tap по слоту с шахтой → открыт диалог апгрейда шахты.",
+      "notes": "Сейчас в коде PlanetView просто navigate(`/planet/${id}`) без slot.",
+      "prompt": "[TASK P1.1-306] Сделать клик по зданию на Home → переход в PlanetDetail к этому зданию\n\nОПИСАНИЕ\nAcceptance P1-201: «Tap на здание → открывает деталь». Сейчас PlanetView.tsx переходит на /planet/:id, но не подсвечивает выбранный слот и не открывает UpgradeDialog. Передавать ?slot=N в роутере и автоматически открывать UpgradeDialog/BuildDialog в PlanetDetail.\n\nACCEPTANCE CRITERIA\n  1. Tap по filled-слоту на Home открывает PlanetDetail и сразу UpgradeDialog для этого здания\n  2. Tap по empty-слоту на Home открывает PlanetDetail и сразу BuildDialog для этого слота\n  3. URL содержит ?slot=N для возможности deep-link\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - frontend/src/components/PlanetView.tsx\n  - frontend/src/pages/PlanetDetail.tsx\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  P1-201, P1.1-300\n\nКАК ПРОВЕРИТЬ\n  Manual: на Home tap по слоту с шахтой → открыт диалог апгрейда шахты.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Сейчас в коде PlanetView просто navigate(`/planet/${id}`) без slot."
+    },
+    {
+      "id": "P1.1-307",
+      "epic": "EPIC-P1.1-FIX",
+      "size": "M",
+      "title": "Onboarding tutorial (P1-206) — был не реализован",
+      "description": "Изначальный P1-206 (5-шаговый туториал Welcome → mine → storage → scout → expedition) не был реализован лёгкой моделью. После редизайна реализовать как overlay поверх Cosmic Atlas: список шагов слева, текущая подсказка как тост, награда 200 Fe + 100 H₂O при завершении. Skipable с возможностью вернуться позже из профиля.",
+      "acceptance": [
+        "Запускается на первом входе нового user (по флагу tutorialCompletedAt в users)",
+        "5 шагов: Welcome, Build first mine, Build storage, Build scout, Send first expedition",
+        "Кнопка Skip; после Skip туториал доступен из экрана Profile/You",
+        "При прохождении начисляется бонус 200 Fe + 100 H₂O атомарно (через resource-transaction)",
+        "Tutorial state хранится в БД (users.tutorialStepCompleted, users.tutorialCompletedAt)"
+      ],
+      "files": [
+        "backend/src/db/schema/users.ts",
+        "backend/src/features/auth/me.ts",
+        "backend/src/features/tutorial/routes.ts",
+        "frontend/src/pages/Onboarding.tsx",
+        "frontend/src/App.tsx"
+      ],
+      "deps": [
+        "P1-150",
+        "P1-160",
+        "P1-180"
+      ],
+      "verify": "E2E: новый пользователь, /me возвращает tutorialStep=0, после прохождения — completed + бонус, повторный вход не открывает туториал.",
+      "notes": "Это одна из двух явно отложенных задач, на которую ссылается заказчик.",
+      "prompt": "[TASK P1.1-307] Onboarding tutorial (P1-206) — был не реализован\n\nОПИСАНИЕ\nИзначальный P1-206 (5-шаговый туториал Welcome → mine → storage → scout → expedition) не был реализован лёгкой моделью. После редизайна реализовать как overlay поверх Cosmic Atlas: список шагов слева, текущая подсказка как тост, награда 200 Fe + 100 H₂O при завершении. Skipable с возможностью вернуться позже из профиля.\n\nACCEPTANCE CRITERIA\n  1. Запускается на первом входе нового user (по флагу tutorialCompletedAt в users)\n  2. 5 шагов: Welcome, Build first mine, Build storage, Build scout, Send first expedition\n  3. Кнопка Skip; после Skip туториал доступен из экрана Profile/You\n  4. При прохождении начисляется бонус 200 Fe + 100 H₂O атомарно (через resource-transaction)\n  5. Tutorial state хранится в БД (users.tutorialStepCompleted, users.tutorialCompletedAt)\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/schema/users.ts\n  - backend/src/features/auth/me.ts\n  - backend/src/features/tutorial/routes.ts\n  - frontend/src/pages/Onboarding.tsx\n  - frontend/src/App.tsx\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  P1-150, P1-160, P1-180\n\nКАК ПРОВЕРИТЬ\n  E2E: новый пользователь, /me возвращает tutorialStep=0, после прохождения — completed + бонус, повторный вход не открывает туториал.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Это одна из двух явно отложенных задач, на которую ссылается заказчик."
+    },
+    {
+      "id": "P1.1-308",
+      "epic": "EPIC-P1.1-FIX",
+      "size": "M",
+      "title": "Playwright E2E на новый дизайн (P1-241 финализация)",
+      "description": "P1-241 был отмечен как done с минимальным smoke-тестом. После редизайна Cosmic Atlas обновить E2E чтобы проверял: загрузку Home, переход на PlanetDetail, открытие BuildDialog, выбор шахты, появление в queue strip, переход на Research, Ships, SystemMap. Все ассерты на data-testid атрибуты, не на DOM-структуру.",
+      "acceptance": [
+        "Все ключевые экраны имеют data-testid: cosmic-topbar, planet-portrait, planet-rail, slot-{idx}, queue-strip, bnav-{id}",
+        "tests/e2e/first-day.spec.ts проходит зелёным end-to-end",
+        "CI запускает Playwright против собранного frontend (npm run build && npm run preview)"
+      ],
+      "files": [
+        "frontend/tests/e2e/*.spec.ts",
+        "frontend/playwright.config.ts",
+        "frontend/src/components/cosmic/atoms.tsx"
+      ],
+      "deps": [
+        "P1-241",
+        "P1.1-300"
+      ],
+      "verify": "npm run test:e2e — pass.",
+      "notes": "Вторая из двух явно отложенных задач.",
+      "prompt": "[TASK P1.1-308] Playwright E2E на новый дизайн (P1-241 финализация)\n\nОПИСАНИЕ\nP1-241 был отмечен как done с минимальным smoke-тестом. После редизайна Cosmic Atlas обновить E2E чтобы проверял: загрузку Home, переход на PlanetDetail, открытие BuildDialog, выбор шахты, появление в queue strip, переход на Research, Ships, SystemMap. Все ассерты на data-testid атрибуты, не на DOM-структуру.\n\nACCEPTANCE CRITERIA\n  1. Все ключевые экраны имеют data-testid: cosmic-topbar, planet-portrait, planet-rail, slot-{idx}, queue-strip, bnav-{id}\n  2. tests/e2e/first-day.spec.ts проходит зелёным end-to-end\n  3. CI запускает Playwright против собранного frontend (npm run build && npm run preview)\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - frontend/tests/e2e/*.spec.ts\n  - frontend/playwright.config.ts\n  - frontend/src/components/cosmic/atoms.tsx\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  P1-241, P1.1-300\n\nКАК ПРОВЕРИТЬ\n  npm run test:e2e — pass.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Вторая из двух явно отложенных задач."
+    },
+    {
+      "id": "P1.1-309",
+      "epic": "EPIC-P1.1-FIX",
+      "size": "S",
+      "title": "Profile-таб и dummy /profile роут",
+      "description": "Bottom-nav имеет 5 пунктов, последний — You/Profile. Сейчас /profile роута нет; навигация ведёт в 404 (BrowserRouter без catch-all). Добавить минимальный экран Profile (Telegram-аватар, ник, sectorX:Y:Z, статистика, ссылка на туториал) и зарегистрировать в App.tsx.",
+      "acceptance": [
+        "Маршрут /profile рендерит ProfilePage в Cosmic Atlas стиле",
+        "Bottom-nav 'You' → /profile",
+        "При отсутствии данных показывается заглушка вместо краша"
+      ],
+      "files": [
+        "frontend/src/pages/Profile.tsx",
+        "frontend/src/App.tsx",
+        "frontend/src/components/cosmic/atoms.tsx"
+      ],
+      "deps": [
+        "P1-200",
+        "P1.1-300"
+      ],
+      "verify": "Tap на 'You' → Profile открывается, не 404.",
+      "notes": "Лёгкий первый шаг — расширение в P2.",
+      "prompt": "[TASK P1.1-309] Profile-таб и dummy /profile роут\n\nОПИСАНИЕ\nBottom-nav имеет 5 пунктов, последний — You/Profile. Сейчас /profile роута нет; навигация ведёт в 404 (BrowserRouter без catch-all). Добавить минимальный экран Profile (Telegram-аватар, ник, sectorX:Y:Z, статистика, ссылка на туториал) и зарегистрировать в App.tsx.\n\nACCEPTANCE CRITERIA\n  1. Маршрут /profile рендерит ProfilePage в Cosmic Atlas стиле\n  2. Bottom-nav 'You' → /profile\n  3. При отсутствии данных показывается заглушка вместо краша\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - frontend/src/pages/Profile.tsx\n  - frontend/src/App.tsx\n  - frontend/src/components/cosmic/atoms.tsx\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  P1-200, P1.1-300\n\nКАК ПРОВЕРИТЬ\n  Tap на 'You' → Profile открывается, не 404.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Лёгкий первый шаг — расширение в P2."
     }
   ]
 }
