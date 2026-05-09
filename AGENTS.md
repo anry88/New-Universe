@@ -39,6 +39,8 @@ Primary links:
 - `docs/` — GDD, addenda, infrastructure costs, architecture diagrams.
 - `dev/` — starter Docker/dev scaffolding from the planning bundle.
 - `docker-compose.yml` — local stack: Postgres 16, Redis 7, Backend (Fastify, hot reload), optional Worker/Frontend/devtools profiles.
+- `.github/workflows/ci.yml` — canonical lint/type-check/migrate/seed/unit/E2E pipeline for GitHub Actions; automation agents treat this file as the source of truth for verification.
+- `scripts/ci-verify.sh` — host-side mirror of `ci.yml` for agents running full parity locally (Docker + Node).
 
 ## First Pass For Any Agent
 
@@ -113,10 +115,13 @@ Your goal is not just to edit files. Your goal is to complete the task end to en
    - When adding or changing behavior, write or update focused unit tests in the same change before reporting the task as complete.
 
 6. Verify.
-   - Run the command listed in the task `verify` field when possible.
-   - Also run the nearest relevant tests/build/type-check for changed code.
+   - Follow **[Verification contract (agents & CI)](#verification-contract-agents--ci)**: stay aligned with [`.github/workflows/ci.yml`](.github/workflows/ci.yml); PR/task verification text must reference CI steps or document deliberate deviations.
+   - Before claiming repository-wide **Local pass** when Docker is available, run `./scripts/ci-verify.sh` from the repo root (or confirm an equivalent green CI run on the PR).
+   - Run the command listed in the task `verify` field when possible (must remain compatible with or strictly narrower than `ci.yml`).
+   - Also run the nearest relevant tests/build/type-check for changed code during iteration.
    - Check the code you wrote immediately after implementation: run the smallest relevant unit tests first, then broader build/type-check/lint commands as appropriate.
-   - If verification cannot run because dependencies, secrets, Docker, or local services are missing, state exactly what blocked it and what command should be run after the blocker is fixed.
+   - If verification cannot run because Docker disk/images, Playwright browsers, or other infra are missing, state exactly what blocked it and why CI/GitHub would still be authoritative once merged — never substitute improvised flows when documenting parity.
+
 
 7. Finish the task record.
    - Summarize implementation and verification in the final response.
@@ -173,6 +178,14 @@ Status policy:
 - When blocked, set `Status=Blocked` and `Verification=Blocked`, then comment on the issue with exact user actions needed to unblock it.
 - When a PR is merged, the `Project Status` GitHub Action moves linked task IDs to `Done`, sets `Verification=Accepted`, and promotes newly unblocked tasks from `Backlog` to `Ready`.
 - If GitHub automation cannot access the Project, check that repository secret `PROJECT_TOKEN` is a classic PAT with `repo`, `project`, and `read:org` scopes. Then run the local Project status script manually if needed. If that fails too, comment on the issue and report the blocker.
+
+## Verification contract (agents & CI)
+
+- **Canonical automation** is [`.github/workflows/ci.yml`](.github/workflows/ci.yml). Extend CI whenever product-required checks become repeatable (lint/build/unit/integration/E2E); agents updating verification flows edit both `ci.yml` and [`scripts/ci-verify.sh`](scripts/ci-verify.sh) together when sequences diverge.
+- **Full local parity** — `./scripts/ci-verify.sh` (requires Docker Compose with `up --wait`, Node 20 on `PATH`). Ends with `docker compose down -v`, matching CI cleanup.
+- **Backend/db migrations & seeds** must succeed via `docker compose run --rm backend npm run db:migrate` and `docker compose run --rm backend npm run db:seed` (Compose-provided `DATABASE_URL`). Reports that skip migrations/seeds after schema changes are invalid unless CI exemption is documented on the task/PR.
+- **Frontend Playwright** — CI runs `cd frontend && npm ci`, then `npx playwright install --with-deps chromium`, then `npm run test:e2e` using mocked Telegram/API (see `frontend/playwright.config.ts`). Tasks touching onboarding/routing/cosmic shell navigation patterns maintain stable selectors/fixtures so CI stays green.
+- **GitHub reporting** — set Project `Verification=CI pass` only after the PR workflow succeeds on GitHub; rely on local `./scripts/ci-verify.sh` only where Actions cannot run (e.g., sandbox lacking Docker).
 
 ## Useful Commands
 
@@ -245,21 +258,30 @@ git pull --ff-only
 git switch -c task/P1-141-home-system
 ```
 
-Run common checks:
+Mirror CI locally (preferred verification gate):
 
 ```bash
-docker compose exec backend npm test
-docker compose exec frontend npm test
-docker compose exec backend npm run build
-docker compose exec frontend npm run build
+./scripts/ci-verify.sh
 ```
 
-Database commands:
+Incremental Compose-backed checks without wiping volumes manually:
 
 ```bash
-docker compose exec backend npm run db:generate
-docker compose exec backend npm run db:migrate
-docker compose exec backend npm run db:seed
+docker compose up -d --wait postgres redis
+docker compose run --rm backend npm run lint
+docker compose run --rm backend npm run build
+docker compose run --rm backend npm run db:migrate
+docker compose run --rm backend npm run db:seed
+docker compose run --rm backend npm test
+docker compose --profile frontend run --rm frontend npm test
+```
+
+Schema edits plus Drizzle artifacts:
+
+```bash
+docker compose run --rm backend npm run db:generate
+docker compose run --rm backend npm run db:migrate
+docker compose run --rm backend npm run db:seed
 ```
 
 ## Current Planned Stack
@@ -309,6 +331,7 @@ Documentation lives next to the code it describes. The structure mirrors `RiverK
   - `backend/src/routes/README.md`
   - `frontend/src/README.md`
   - `shared/README.md`
+  - [`scripts/README.md`](scripts/README.md) (repo-root automation helpers mirrored against CI)
 
 Required behavior whenever you change the codebase:
 

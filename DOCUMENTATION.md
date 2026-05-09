@@ -114,6 +114,10 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 
 `docker-compose.yml` at the repo root composes the local dev stack: `postgres` (with `pgdata` volume), `redis`, `backend` (`Dockerfile` target `dev`, mounts `backend/src` and `shared` for hot reload), an optional `worker` profile, an optional `frontend` profile, and the optional `devtools` profile (`adminer`, `redis-commander`). All variables are read from `.env` (template in `.env.example`).
 
+## CI and automation parity
+
+GitHub Actions workflow `.github/workflows/ci.yml` runs Docker-backed Postgres/Redis, backend lint/build/Drizzle migrate/seed/unit tests, frontend lint/build/unit tests, and Playwright Chromium E2E (`frontend/tests/e2e`). Agents mirror that pipeline locally via [`scripts/ci-verify.sh`](scripts/README.md); `AGENTS.md` defines the verification contract.
+
 ## How to navigate this codebase
 
 To understand how a specific piece of code works, open the README for the relevant package and follow the links to the detailed files. Start at [`backend/src/README.md`](backend/src/README.md) for backend code and [`frontend/src/README.md`](frontend/src/README.md) for frontend code. Each package README lists every file in that directory with a short description of its responsibilities and the key exports/functions that other packages call into.

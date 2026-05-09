@@ -5,6 +5,12 @@ node_modules/
 
 # Testing
 coverage/
+frontend/test-results/
+playwright-report/
+blob-report/
+
+# Agent/local git worktree checkout folders (do not commit nested clones)
+worktrees/
 
 # Production
 dist/

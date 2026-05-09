@@ -3,6 +3,13 @@ name: CI
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check:
@@ -21,7 +28,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Start infrastructure
-        run: docker compose up -d postgres redis
+        run: docker compose up -d --wait postgres redis
 
       - name: Build backend
         run: docker compose build backend
@@ -52,6 +59,24 @@ jobs:
 
       - name: Frontend Test
         run: docker compose --profile frontend run --rm frontend npm test
+
+      - name: Frontend E2E — npm ci
+        working-directory: frontend
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('frontend/package-lock.json') }}
+
+      - name: Install Playwright Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Frontend E2E (Playwright)
+        working-directory: frontend
+        run: npm run test:e2e
 
       - name: Cleanup
         if: always()

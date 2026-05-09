@@ -4,7 +4,7 @@ The data layer defines the Drizzle ORM client, all Postgres tables, generated mi
 
 ## Files
 
-- **`index.ts`** — opens the Postgres connection from `process.env.DATABASE_URL` using `postgres-js`, then wraps it with `drizzle(client, { schema })`. The exported `db` is the only entry point services should use; passing `db.transaction(...)` is required when multiple inserts must succeed atomically (see `features/auth/service.ts` and `features/world/home-system-generator.ts`).
+- **`index.ts`** — loads `.env` from the repository root and from `backend/` (if those files exist; existing `process.env` wins), then opens Postgres from `process.env.DATABASE_URL` using `postgres-js`, then wraps it with `drizzle(client, { schema })`. The exported `db` is the only entry point services should use; passing `db.transaction(...)` is required when multiple inserts must succeed atomically (see `features/auth/service.ts` and `features/world/home-system-generator.ts`).
 - **`schema.ts`** — barrel that `export *`s from every domain module under `schema/`. Drizzle relies on this single export to build the relations and types passed into `drizzle({ schema })`. Whenever you add a new file under `schema/`, add an `export * from './schema/<file>.js';` line here.
 - **`seed.ts`** — entry point invoked by `npm run db:seed`. Calls `seedResources`, `seedResearchCatalog`, `seedBuildingTypes`, `seedShipTypes` in order, then exits the process. New seeders must be registered here.
 - **`migrations/`** — auto-generated SQL produced by `drizzle-kit generate`. Numbered `0000_*.sql` … `0007_*.sql` files plus the Drizzle `meta/` snapshots. Do not edit migrations by hand; regenerate them after schema changes.
