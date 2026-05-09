@@ -7,6 +7,7 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
 - `lib/` — shared infrastructure (API client, store, Sentry init, helpers). Today contains `sentry.ts`; future API clients (`api.ts`), stores (`store.ts`), and React Query helpers go here.
 - `hooks/` — custom React hooks.
   - **`useAuth.ts`** — manages JWT session state in memory via Zustand.
+  - **`useMarket.ts`** — market offers query, create-order mutation, pending-order cache, and error normalization for market-specific UI states.
   - **`useMe.ts`** — React Query hook for fetching current player data from `GET /me`.
 - `pages/` — page-level components routed by `react-router-dom`.
   - **`Home.tsx`** — main game screen with resource bar, planet view, build queue, and bottom tab bar.
@@ -16,6 +17,7 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
   - **`PlanetDetail.tsx`** — detailed planet view with building slots and upgrade options.
   - **`SystemMap.tsx`** — page component for the interactive home system map.
   - **`Ships.tsx`** — fleet management and ship list.
+  - **`Market.tsx`** — utility economy market screen with buy/sell price browsing, order submission, and pending-order ETA tracking.
   - **`Research.tsx`** — tech-tree screen (Cosmic Atlas); uses `TECH_TREE_DATA` from `lib/tech-tree.ts`, resolves lab level via `resolveBuildingType`, starts research through `useStartResearch`.
 - `components/` — reusable presentational components.
   - `pixi/` — canvas-based rendering components using PixiJS.
@@ -27,6 +29,7 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
   - **`cosmic/buildings.test.ts`** — Vitest coverage for `resolveBuildingType` (known id resolution plus unknown-id fallback to the safe default icon).
   - **`BuildQueue.tsx`** — displays the current build queue with countdown timers.
   - **`ExpeditionDialog.tsx`** — mission launch configuration with coordinate selection and ETA.
+  - **`MarketOrderDialog.tsx`** — modal form for creating buy/sell NPC market orders with resource selection, quantity, and clear validation error states.
   - **`Tutorial.tsx`** — reusable full-screen onboarding overlay with step list, current-objective hint, and action buttons.
 - `assets/` — static assets imported by Vite (currently empty).
 
