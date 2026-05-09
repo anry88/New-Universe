@@ -9,7 +9,7 @@ Cross-package contracts shared between the Fastify backend (`backend/`) and the 
     - **`auth.ts`** — `AuthResponse` for the login flow.
     - **`world.ts`** — `PlanetResource`, `Building`, `Planet`, `HomeSystem` interfaces for world/planet state.
     - **`buildings.ts`** — `BuildingType` interface and request/response types for construction.
-    - **`research.ts`** — `ResearchBranch`, `ResearchProgress`, `ResearchDefinition`, `ResearchRequirementRef`, `RESEARCH_BRANCH_LABELS_EN`, and `ResourceId` union used by the tech tree and unlock messaging on backend/frontend.
+    - **`research.ts`** — `ResearchBranch`, `ResearchProgress`, `ResearchDefinition`, `ResearchRequirementRef`, `RESEARCH_BRANCH_LABELS_EN`, and `ResourceId` union (includes gameplay resources such as `fuel`, `steel`, `electronics`, and tiered minerals) used by the tech tree and unlock messaging on backend/frontend.
     - **`ships.ts`** — `Ship` and `ShipType` interfaces.
     - **`expeditions.ts`** — `Expedition` interface.
     - **`market.ts`** — `MarketOffer`, market-order request/response payloads, and side/status primitives shared by market frontend hooks and backend routes.

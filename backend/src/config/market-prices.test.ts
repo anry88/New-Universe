@@ -21,6 +21,8 @@ const RESOURCE_TIER_BY_ID: Record<string, number> = {
   titanium: 2,
   ice: 2,
   sulfur: 2,
+  steel: 2,
+  electronics: 2,
   mercury: 3,
   magnesium: 3,
   lead: 3,
