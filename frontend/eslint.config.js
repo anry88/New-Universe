@@ -6,7 +6,12 @@ import globals from 'globals';
 export default [
   js.configs.recommended,
   {
-    files: ['src/**/*.{ts,tsx}', 'shared/**/*.{ts,tsx}', '../shared/**/*.{ts,tsx}'],
+    files: [
+      'src/**/*.{ts,tsx}',
+      'tests/**/*.{ts,tsx}',
+      'shared/**/*.{ts,tsx}',
+      '../shared/**/*.{ts,tsx}',
+    ],
     languageOptions: {
       parser: tsParser,
       globals: {
