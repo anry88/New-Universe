@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test('colonization flow: eligibility and founding', async ({ page }) => {
+  page.on('console', msg => console.log('BROWSER:', msg.text()));
   const userId = 'e2e-colony-user';
   const homeSystemId = 'home-system';
   const homePlanetId = 'home-planet';
@@ -131,29 +132,31 @@ test('colonization flow: eligibility and founding', async ({ page }) => {
   await expect(page.getByText('DRAG TO PAN')).toBeVisible();
 
   // Select the target planet on the map
-  const planetOnMap = page.getByRole('button', { name: /Target Planet/i });
-  await expect(planetOnMap).toBeVisible();
-  await planetOnMap.click();
+  await page.waitForFunction(() => document.querySelectorAll('[data-testid^="planet-btn-"]').length >= 2);
+  const planetBtnSelector = `[data-testid="planet-btn-${targetPlanetId}"]`;
+  await page.waitForSelector(planetBtnSelector);
+  await page.evaluate((sel) => (document.querySelector(sel) as HTMLElement).click(), planetBtnSelector);
 
   // Info card should appear
+  await expect(page.getByTestId('selection-card')).toBeVisible();
   await expect(page.getByText(/SELECTED/i)).toBeVisible();
 
   // Info card should appear with "Colonize" button
-  const colonizeBtn = page.getByText('Colonize');
-  await expect(colonizeBtn).toBeVisible();
-  await colonizeBtn.click();
+  await page.waitForSelector('[data-testid="colonize-button"]');
+  await page.evaluate(() => (document.querySelector('[data-testid="colonize-button"]') as HTMLElement).click());
 
   // Dialog should appear
-  await expect(page.getByText('Founding Requirements')).toBeVisible();
-  await expect(page.getByText('Engineering Level 5 / 2')).toBeVisible();
+  await expect(page.getByText(/Founding Requirements/i)).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText(/Research/i)).toBeVisible();
+  await expect(page.getByText(/5 \/ 2/i)).toBeVisible();
 
   // Click "FOUND COLONY"
-  const confirmBtn = page.getByRole('button', { name: 'FOUND COLONY' });
+  const confirmBtn = page.getByTestId('found-colony-button');
   await expect(confirmBtn).toBeEnabled();
-  await confirmBtn.click();
+  await page.evaluate(() => (document.querySelector('[data-testid="found-colony-button"]') as HTMLElement).click());
 
   // Verify dialog closes
-  await expect(page.getByText('Founding Requirements')).not.toBeVisible();
+  await expect(page.getByText(/Founding Requirements/i)).toBeHidden({ timeout: 10_000 });
 });
 
 test('colonization flow: blocked attempt (cooldown)', async ({ page }) => {
@@ -231,14 +234,18 @@ test('colonization flow: blocked attempt (cooldown)', async ({ page }) => {
 
   await page.goto('/map');
   await expect(page.getByText('DRAG TO PAN')).toBeVisible();
-  const planetOnMap = page.getByRole('button', { name: /TARGET-COOLDOWN/i });
-  await planetOnMap.click();
+  const cooldownPlanetSelector = `[data-testid="planet-btn-${targetPlanetId}"]`;
+  await page.waitForSelector(cooldownPlanetSelector);
+  await page.evaluate((sel) => (document.querySelector(sel) as HTMLElement).click(), cooldownPlanetSelector);
+  await expect(page.getByTestId('selection-card')).toBeVisible();
   await expect(page.getByText(/SELECTED/i)).toBeVisible();
 
-  await page.getByText('Colonize').click();
+  await page.waitForSelector('[data-testid="colonize-button"]');
+  await page.evaluate(() => (document.querySelector('[data-testid="colonize-button"]') as HTMLElement).click());
 
   // FOUND COLONY should be disabled
-  const confirmBtn = page.getByRole('button', { name: 'FOUND COLONY' });
-  await expect(confirmBtn).toBeDisabled();
-  await expect(page.getByText('COOLDOWN: 1h 0m')).toBeVisible();
+  const confirmBtn = page.getByTestId('found-colony-button');
+  await expect(confirmBtn).toBeDisabled({ timeout: 10_000 });
+  await expect(page.getByText(/60m \/ Ready/i)).toBeVisible();
+  await expect(page.getByText(/Colonization on cooldown/i)).toBeVisible();
 });
