@@ -74,7 +74,7 @@ The bot entry point is `POST /webhook/telegram`. Incoming updates are dispatched
 - `colonies` — player-owned colonies on discovered planets outside home systems.
 
 NPC broker pricing parameters live in `backend/src/config/market-prices.ts`; the deterministic quote algorithm is implemented in `backend/src/features/market/pricing.ts`.
-Phase 2 research definitions (levels 1-3 with typed effects) live in `backend/src/config/research-catalog.ts` and are reused by both seeding and runtime research/effects logic. Progression gates that tie research completions to buildings, ships, colonization, logistics, and NPC trading are declared in `backend/src/config/research-unlocks.ts` and enforced in `backend/src/features/research/gates.ts`.
+Phase 2 research definitions (levels 1-3 with typed effects) live in `backend/src/config/research-catalog.ts` and are reused by both seeding and runtime research/effects logic. Colonization tuning (colony caps vs logistics level, founding costs, cooldown, distance) lives in `backend/src/config/colonization-rules.ts` and is enforced in `features/colonies/colonization-rules.ts`. Progression gates that tie research completions to buildings, ships, colonization, logistics, and NPC trading are declared in `backend/src/config/research-unlocks.ts` and enforced in `backend/src/features/research/gates.ts`.
 
 
 Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Kit (`npm run db:generate`, `npm run db:migrate`). Static reference data is loaded by `backend/src/db/seed.ts`, which runs the four seeders in `backend/src/db/seed/` (`resources`, `research-branches`, `building-types`, `ship-types`).
