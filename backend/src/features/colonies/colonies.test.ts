@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeAll } from 'vitest';
 import { db } from '../../db/index.js';
 import { colonyService } from './colonies.js';
-import { users, planets, systems, discoveredPlanets, colonies } from '../../db/schema.js';
+import { users, planets, systems, discoveredPlanets } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 
 describe('ColonyService', () => {

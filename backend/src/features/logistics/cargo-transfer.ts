@@ -156,7 +156,7 @@ export async function launchCargoTransfer(
       await expeditionQueue.add('arrive_cargo', { expeditionId: expedition.id, shipId: ship.id }, { delay: etaSeconds * 1000 });
       await expeditionQueue.close();
       await redis.quit();
-    } catch (err) {}
+    } catch (_err) { void _err; }
 
     return { success: true, expedition };
   });
