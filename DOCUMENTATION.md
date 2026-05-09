@@ -13,6 +13,7 @@ This document explains how the New Universe backend, frontend, and supporting co
 - [Backend tests (`backend/tests`)](backend/tests/README.md)
 - [Frontend source root (`frontend/src`)](frontend/src/README.md)
 - [Shared cross-package types (`shared`)](shared/README.md)
+- [Economy balance simulator (`tools/balance-sim`)](tools/balance-sim/README.md)
 
 ## Overview
 
@@ -23,6 +24,8 @@ New Universe is a Telegram Mini App space-strategy game. The implementation is s
 - `shared/` — cross-package contracts (currently `shared/types/`) consumed by both backend and frontend so HTTP payload shapes stay in sync.
 
 The `dev/`, `docs/`, and `tasks/` folders contain non-runtime materials: dev-environment scaffolding, the GDD/roadmap PDFs, and the task plan / GitHub Project automation scripts. They do not ship as application code.
+
+The `tools/` folder hosts offline agents (not bundled into Docker images). Today `tools/balance-sim` mirrors seeded costs/timers for deterministic first-week progression runs that write JSON artifacts for balance comparisons.
 
 ## Runtime composition
 
