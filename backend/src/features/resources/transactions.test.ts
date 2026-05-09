@@ -10,6 +10,9 @@ describe('Resource Transactions', () => {
       sectorX: 998,
       sectorY: 998,
       sectorZ: 998,
+      x: '0.00',
+      y: '0.00',
+      z: '0.00',
       name: 'Test System',
       seed: 12345,
     }).returning();

@@ -43,6 +43,9 @@ describe('tutorial sync', () => {
         sectorX: 1,
         sectorY: 1,
         sectorZ: 1,
+        x: '0.00',
+        y: '0.00',
+        z: '0.00',
         name: 'Home',
         seed: 123,
       })

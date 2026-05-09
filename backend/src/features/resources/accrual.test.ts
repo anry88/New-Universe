@@ -21,6 +21,9 @@ describe('computeCurrentResources', () => {
       sectorX: 999,
       sectorY: 999,
       sectorZ: 999,
+      x: '0.00',
+      y: '0.00',
+      z: '0.00',
       name: 'Test System',
       seed: 12345,
     }).returning();

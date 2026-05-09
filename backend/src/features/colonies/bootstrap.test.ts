@@ -15,6 +15,9 @@ describe('bootstrapColony', () => {
       sectorX: Math.floor(Math.random() * 1000),
       sectorY: Math.floor(Math.random() * 1000),
       sectorZ: Math.floor(Math.random() * 1000),
+      x: '0.00',
+      y: '0.00',
+      z: '0.00',
       name: 'Bootstrap Test System',
       seed: 999,
     }).returning();

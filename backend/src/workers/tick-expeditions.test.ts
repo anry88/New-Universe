@@ -55,6 +55,9 @@ describe('Tick Expeditions Worker', () => {
       sectorX: 0,
       sectorY: 0,
       sectorZ: 0,
+      x: '0.00',
+      y: '0.00',
+      z: '0.00',
       seed: 123,
       ownerId: user.id,
       isHome: true,
@@ -196,6 +199,9 @@ describe('Tick Expeditions Worker', () => {
       sectorX: 50,
       sectorY: 0,
       sectorZ: 0,
+      x: '50.00',
+      y: '0.00',
+      z: '0.00',
       seed: 789,
     }).returning();
     

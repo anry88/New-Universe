@@ -24,6 +24,9 @@ describe('ColonyService', () => {
       sectorX: Math.floor(Math.random() * 100),
       sectorY: Math.floor(Math.random() * 100),
       sectorZ: Math.floor(Math.random() * 100),
+      x: '0.00',
+      y: '0.00',
+      z: '0.00',
       name: 'Home',
       seed: 123,
     }).returning();
@@ -43,6 +46,9 @@ describe('ColonyService', () => {
       sectorX: Math.floor(Math.random() * 100),
       sectorY: Math.floor(Math.random() * 100),
       sectorZ: Math.floor(Math.random() * 100),
+      x: '100.00',
+      y: '100.00',
+      z: '100.00',
       name: 'Other' + Math.random(),
       seed: 456,
     }).returning();
