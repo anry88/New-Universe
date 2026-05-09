@@ -114,6 +114,12 @@ async function ensureMarketOrderTable() {
       closed_at timestamp
     );
   `);
+  await db.execute(sql`
+    ALTER TABLE market_orders ADD COLUMN IF NOT EXISTS planet_id uuid;
+  `);
+  await db.execute(sql`
+    ALTER TABLE market_orders ADD COLUMN IF NOT EXISTS delivery_ready_at timestamp;
+  `);
   marketTableReady = true;
 }
 

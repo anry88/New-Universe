@@ -1,5 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { db } from '../../db/index.js';
+import { env } from '../../lib/env.js';
 import { marketOrders, planetResources, planets, resources, systems } from '../../db/schema.js';
 import { spendResources, gainResources } from '../resources/transactions.js';
 import { calculateNpcMarketQuote } from './pricing.js';
@@ -147,6 +148,11 @@ export async function createNpcOrder(input: CreateNpcOrderInput) {
     if (!spend.success) throw new Error(spend.error || 'Failed to reserve buy payment');
   }
 
+  const deliveryReadyAt =
+    side === 'buy'
+      ? new Date(Date.now() + env.MARKET_NPC_DELIVERY_SECONDS * 1000)
+      : new Date();
+
   const [order] = await db
     .insert(marketOrders)
     .values({
@@ -160,6 +166,8 @@ export async function createNpcOrder(input: CreateNpcOrderInput) {
       filledQty: '0',
       avgExecutedPrice: actualUnitPrice.toFixed(4),
       totalValue: totalValue.toFixed(4),
+      planetId,
+      deliveryReadyAt,
     })
     .returning();
 
