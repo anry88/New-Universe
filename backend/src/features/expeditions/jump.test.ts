@@ -98,7 +98,7 @@ describe('Jump Ship Feature', () => {
     });
 
     expect(result.success).toBe(false);
-    expect(result.error).toContain('Jump Drive research');
+    expect(result.error).toMatch(/jump_drive research level 1 required/i);
   });
 
   it('should fail if not a Jump Ship', async () => {

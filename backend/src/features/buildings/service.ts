@@ -4,6 +4,8 @@ import { eq, and, sql } from 'drizzle-orm';
 import { BuildingType, ConstructionStatus } from '@shared/types/buildings.js';
 import { spendResources } from '../resources/transactions.js';
 import { applyBuildTimeSeconds, getResearchEffectsForUser } from '../research/effects.js';
+import { BUILDING_RESEARCH_GATES } from '../../config/research-unlocks.js';
+import { assertResearchRequirement, loadUserResearchLevels } from '../research/gates.js';
 
 export class BuildingService {
   async getBuildingTypes(): Promise<BuildingType[]> {
@@ -39,6 +41,12 @@ export class BuildingService {
 
     if (!typeInfo) {
       throw new Error('Building type not found');
+    }
+
+    const researchGate = BUILDING_RESEARCH_GATES[typeId];
+    if (researchGate) {
+      const levels = await loadUserResearchLevels(userId, db);
+      assertResearchRequirement(levels, researchGate, `Build ${typeId}`);
     }
 
     const queuedBuildings = await db

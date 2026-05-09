@@ -2,6 +2,8 @@ import { db as defaultDb } from '../../db/index.js';
 import { ships, shipTypes, buildings, planets, systems } from '../../db/schema.js';
 import { eq, and, sql } from 'drizzle-orm';
 import { spendResources } from '../resources/transactions.js';
+import { SHIP_RESEARCH_GATES } from '../../config/research-unlocks.js';
+import { assertResearchRequirement, loadUserResearchLevels } from '../research/gates.js';
 
 export interface BuildShipRequest {
   planetId: string;
@@ -57,6 +59,16 @@ export async function buildShip(
   });
   if (!type) {
     return { success: false, status: 404, error: `Unknown ship type: ${typeSlug}` };
+  }
+
+  const shipGate = SHIP_RESEARCH_GATES[typeSlug];
+  if (shipGate) {
+    try {
+      const levels = await loadUserResearchLevels(userId, db);
+      assertResearchRequirement(levels, shipGate, `Build ship ${typeSlug}`);
+    } catch (e: any) {
+      return { success: false, status: 400, error: e.message ?? String(e) };
+    }
   }
 
   const requiredBldgs = type.requiredBuildings as { typeId: string; level: number }[];

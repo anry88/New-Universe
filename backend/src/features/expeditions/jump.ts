@@ -1,8 +1,10 @@
 import { db as defaultDb } from '../../db/index.js';
-import { ships, researchProgress, discoveredSystems, planets, discoveredPlanets } from '../../db/schema.js';
+import { ships, discoveredSystems, planets, discoveredPlanets } from '../../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import { getOrCreateSector } from '../world/sectors.js';
 import { generateSystemsInSector } from '../world/sector-generator.js';
+import { JUMP_DRIVE_RESEARCH_GATE } from '../../config/research-unlocks.js';
+import { assertResearchRequirement, loadUserResearchLevels } from '../research/gates.js';
 
 export interface JumpRequest {
   shipId: string;
@@ -45,15 +47,11 @@ export async function jumpShip(userId: string, req: JumpRequest): Promise<JumpRe
   }
 
   // 2. Check Research (Jump Drive level 1+)
-  const research = await db.query.researchProgress.findFirst({
-    where: and(
-      eq(researchProgress.userId, userId),
-      eq(researchProgress.branch, 'jump_drive')
-    ),
-  });
-
-  if (!research || research.level < 1) {
-    return { success: false, status: 400, error: 'Jump Drive research level 1 required' };
+  try {
+    const levels = await loadUserResearchLevels(userId, db);
+    assertResearchRequirement(levels, JUMP_DRIVE_RESEARCH_GATE, 'Jump');
+  } catch (e: any) {
+    return { success: false, status: 400, error: e.message ?? 'Jump Drive research level 1 required' };
   }
 
   // 3. Check Jump Fuel in tank

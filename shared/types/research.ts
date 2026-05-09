@@ -15,6 +15,23 @@ export interface StartResearchRequest {
   branch: string;
 }
 
+/** Serializable reference for UI copy when an action is blocked by research */
+export interface ResearchRequirementRef {
+  branch: string;
+  level: number;
+}
+
+/** Short English labels for tech-tree branches (keep aligned with `backend/src/config/research-catalog.ts`). */
+export const RESEARCH_BRANCH_LABELS_EN: Record<string, string> = {
+  mining: 'Resource Mining',
+  engineering: 'Engineering',
+  engines: 'Engines',
+  weapons: 'Weapons',
+  sensors: 'Sensors',
+  logistics: 'Logistics',
+  jump_drive: 'Jump Drive',
+};
+
 export interface ResearchDefinition {
   branch: string;
   level: number;

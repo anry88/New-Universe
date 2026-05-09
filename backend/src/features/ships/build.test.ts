@@ -224,6 +224,36 @@ describe('Ship Building - POST /ships/build', () => {
     expect(body.error).toContain('Unknown ship type');
   });
 
+  it('should return 400 when research gate blocks gated hull types', async () => {
+    const { app, token, userId } = await createTestUser();
+    const planetId = await getHomePlanetId(userId);
+
+    await db.insert(buildings).values({
+      planetId,
+      typeId: 'shipyard',
+      slotIndex: 0,
+      level: 1,
+    });
+
+    await ensureResource(planetId, 'steel', 10000);
+    await ensureResource(planetId, 'silicon', 10000);
+    await ensureResource(planetId, 'biomass', 10000);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/ships/build',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        planetId,
+        typeSlug: 'colonizer',
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    const body = response.json();
+    expect(body.error).toMatch(/engineering/i);
+  });
+
   it('should return 400 when not enough resources', async () => {
     const { app, token, userId } = await createTestUser();
     const planetId = await getHomePlanetId(userId);

@@ -151,10 +151,12 @@ Procedural world generation primitives and visibility checks. Contains the home-
 Tech tree definitions and starting research on a planet.
 
 - **`data.ts`** — exports `TECH_TREE` and `getResearchDef(branch, level)`; building prerequisites use catalog id `lab`, and all research costs use seeded resource ids (`iron`, `silicon`, `tritium`, ...).
+- **`gates.ts`** — progression gates: `loadUserResearchLevels(userId, db)`, `meetsResearchRequirement`, and `assertResearchRequirement` enforce unlock rules from `config/research-unlocks.ts` for buildings, ships, colonization, cargo routes, and NPC market orders.
 - **`effects.ts`** — typed research-effects engine with deterministic stacking. Exports `getResearchEffectsForUser(userId)` plus apply helpers for production, storage, ship speed, sensor range, and build time.
 - **`effects.test.ts`** — unit tests for deterministic composition and stacked resource/ship/sensor/build-time effects.
 - **`routes.ts`** — registers `POST /start` (mounted at `/research` from `index.ts`). Validates planet ownership, prerequisite research rows, lab building level (`buildings.typeId === 'lab'`), spends resources, and upserts `research_progress`.
 - **`research.test.ts`** — integration test for `POST /research/start`; creates a user and lab, starts mining research, and asserts `iron`/`silicon` are atomically deducted from `planet_resources`.
+- **`gates.test.ts`** — unit coverage for research level maps, requirement checks, and unlock assertions.
 
 ## `colonies/`
 

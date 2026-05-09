@@ -4,6 +4,8 @@ import { marketOrders, planetResources, planets, resources, systems } from '../.
 import { spendResources, gainResources } from '../resources/transactions.js';
 import { calculateNpcMarketQuote } from './pricing.js';
 import { canTransitionMarketOrderStatus } from './types.js';
+import { NPC_MARKET_TRADING_GATE } from '../../config/research-unlocks.js';
+import { assertResearchRequirement, loadUserResearchLevels } from '../research/gates.js';
 
 export interface MarketOfferView {
   resourceId: string;
@@ -103,6 +105,9 @@ export async function createNpcOrder(input: CreateNpcOrderInput) {
     throw new Error('expectedUnitPrice must be greater than 0');
   }
 
+  const levels = await loadUserResearchLevels(userId, db);
+  assertResearchRequirement(levels, NPC_MARKET_TRADING_GATE, 'NPC market trading');
+
   await assertPlanetOwnership(userId, planetId);
 
   const resource = await db.query.resources.findFirst({
@@ -173,6 +178,9 @@ export async function createNpcOrder(input: CreateNpcOrderInput) {
 
 export async function cancelNpcOrder(input: CancelNpcOrderInput) {
   const { userId, orderId, planetId } = input;
+
+  const levels = await loadUserResearchLevels(userId, db);
+  assertResearchRequirement(levels, NPC_MARKET_TRADING_GATE, 'NPC market trading');
 
   await assertPlanetOwnership(userId, planetId);
   const order = await db.query.marketOrders.findFirst({

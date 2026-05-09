@@ -10,6 +10,8 @@ import {
 import { eq, and } from 'drizzle-orm';
 import { spendResources } from '../resources/transactions.js';
 import { applyShipSpeed, getResearchEffectsForUser } from '../research/effects.js';
+import { CARGO_TRANSFER_RESEARCH_GATE } from '../../config/research-unlocks.js';
+import { assertResearchRequirement, loadUserResearchLevels } from '../research/gates.js';
 
 export interface CargoTransferRequest {
   shipId: string;
@@ -27,6 +29,9 @@ export async function launchCargoTransfer(
   if (!request) throw new Error('Request body is missing');
   const { shipId, targetPlanetId, resources } = request;
   if (!resources) throw new Error('Resources are missing');
+
+  const levels = await loadUserResearchLevels(userId, defaultDb);
+  assertResearchRequirement(levels, CARGO_TRANSFER_RESEARCH_GATE, 'Cargo transfer');
 
   return await defaultDb.transaction(async (tx) => {
     // 1. Validate ship ownership and state
