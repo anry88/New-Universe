@@ -7,6 +7,7 @@ import { SystemMapPage } from './pages/SystemMap';
 import { ResearchPage } from './pages/Research';
 import { ShipsPage } from './pages/Ships';
 import { ProfilePage } from './pages/Profile';
+import { MarketPage } from './pages/Market';
 import { OnboardingPage } from './pages/onboarding/Onboarding';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
@@ -69,6 +70,7 @@ function AppContent() {
       <Route path="/map" element={<SystemMapPage />} />
       <Route path="/research" element={<ResearchPage />} />
       <Route path="/ships" element={<ShipsPage />} />
+      <Route path="/market" element={<MarketPage />} />
       <Route path="/profile" element={<ProfilePage />} />
     </Routes>
   );

@@ -90,6 +90,7 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 - `hooks/useAuth.ts` — manages the auth flow and session token.
 - `hooks/useMe.ts` — uses TanStack Query to fetch and cache the current player state from `GET /me`.
 - `pages/Home.tsx` — main game screen with resource bar, tab bar, and navigation.
+- `pages/Market.tsx` — market UI for browsing buy/sell quotes, submitting NPC market orders, and tracking pending order ETA.
 - `pages/onboarding/Onboarding.tsx` — 5-step onboarding flow with skip-and-return behavior and current-objective toast.
 - `pages/PlanetDetail.tsx` — detailed planet screen with infrastructure slots, building construction, and upgrade dialogs.
 - `components/ResourceBar.tsx` — displays planet resources with animated real-time regeneration.
@@ -106,6 +107,7 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 - `buildings.ts` — building types and construction requests.
 - `auth.ts` — `AuthResponse` interface.
 - `research.ts` — research DTOs plus `ResourceId` union used by tech-tree costs on both backend and frontend.
+- `market.ts` — market offer and order contracts shared between frontend market hooks and backend market routes.
 
 ## Local environment
 
