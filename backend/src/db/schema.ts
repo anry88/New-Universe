@@ -9,3 +9,4 @@ export * from './schema/discovery.js';
 export * from './schema/expeditions.js';
 export * from './schema/notifications.js';
 export * from './schema/market.js';
+export * from './schema/colonies.js';
