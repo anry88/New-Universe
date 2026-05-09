@@ -161,7 +161,9 @@ Tech tree definitions and starting research on a planet.
 Player colonies outside the home system.
 
 - **`colonies.ts`** — `ColonyService` singleton. Implements colonization rules: checks for discovery, protects home systems, enforces per-player limits (default 5), and inserts into the `colonies` table.
+- **`found-colony.ts`** — `foundColony(userId, shipId, planetId)` action module. Performs role validation, consumes the colonizer ship, establishes the colony, and builds the initial Command Center.
 - **`colonies.test.ts`** — integration tests for colonization rules.
+- **`found-colony.test.ts`** — integration tests for the founding flow.
 
 ## Adding a new feature module
 
