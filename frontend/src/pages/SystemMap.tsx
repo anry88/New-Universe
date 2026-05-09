@@ -46,7 +46,6 @@ export function SystemMapPage() {
   const ownedPlanetIds = useMemo(() => {
     return new Set(meData?.planets?.map(p => p.id) ?? []);
   }, [meData?.planets]);
-
   return (
     <div className="cosmic-screen" style={{ '--accent': '#5BD7FF', position: 'relative' } as React.CSSProperties}>
       {/* Header overlay */}

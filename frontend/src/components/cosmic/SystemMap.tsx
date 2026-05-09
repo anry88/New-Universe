@@ -292,6 +292,7 @@ export function CosmicSystemRenderer({
               <button
                 key={l.planet.id}
                 type="button"
+                data-testid={`planet-btn-${l.planet.id}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   if (selectedId === l.planet.id) {
@@ -494,6 +495,7 @@ export function CosmicSystemRenderer({
           borderRadius: 6,
           backdropFilter: 'blur(8px)',
           zIndex: 5,
+          pointerEvents: 'auto',
         }}
       >
         RESET · {transform.scale.toFixed(2)}×
@@ -502,6 +504,8 @@ export function CosmicSystemRenderer({
       {/* Selected planet info card */}
       {selected && (
         <div
+          className="cosmic-selection-card animate-in slide-in-from-bottom-4 duration-300"
+          data-testid="selection-card"
           style={{
             position: 'absolute',
             left: '50%',
@@ -516,6 +520,7 @@ export function CosmicSystemRenderer({
             backdropFilter: 'blur(10px)',
             color: 'var(--text)',
             zIndex: 5,
+            pointerEvents: 'auto',
           }}
         >
           <div
@@ -579,6 +584,7 @@ export function CosmicSystemRenderer({
               }
             }}
             className="cosmic-cta"
+            data-testid="colonize-button"
             style={{ width: '100%', marginTop: 10, padding: '10px 14px' }}
           >
             {ownedPlanetIds.has(selected.planet.id) ? 'Open planet' : 'Colonize'}

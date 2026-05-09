@@ -9,6 +9,10 @@ This directory contains end-to-end tests that validate full game loops.
   - Tests building construction and upgrades.
   - Simulates ship production and expedition launching.
   - Validates fog-of-war discovery mechanics and resource constraints.
+- **`colonization.test.ts`** — implements the "Colonization Lifecycle" scenario (task P2-COL-008).
+  - Verifies colonization prerequisites and research gates.
+  - Tests colonization cooldown and capacity limits.
+  - Validates successful colony founding and initial cargo transfers.
 
 ## Conventions
 

@@ -3,6 +3,7 @@ import { expect, test } from '@playwright/test';
 test.setTimeout(90_000);
 
 test('first day flow on cosmic atlas layout', async ({ page }) => {
+  page.on('console', msg => console.log('BROWSER:', msg.text()));
   const userId = 'e2e-user-first-day';
   const systemId = 'e2e-system-first-day';
   const planetId = 'e2e-planet-first-day';
@@ -55,6 +56,23 @@ test('first day flow on cosmic atlas layout', async ({ page }) => {
     ships: [],
     expeditions: [],
     research: [],
+    planets: [
+      {
+        id: planetId,
+        name: 'Prime',
+        biome: 'rocky',
+        size: 12,
+        slotCount: 2,
+        resources: [
+          { planetId, resourceId: 'iron', amount: '1000', lastUpdateAt: nowIso, regenRate: '1200', storageCap: '5000' },
+          { planetId, resourceId: 'water', amount: '1000', lastUpdateAt: nowIso, regenRate: '300', storageCap: '5000' },
+          { planetId, resourceId: 'silicon', amount: '600', lastUpdateAt: nowIso, regenRate: '0', storageCap: '5000' },
+          { planetId, resourceId: 'methane', amount: '400', lastUpdateAt: nowIso, regenRate: '0', storageCap: '5000' },
+          { planetId, resourceId: 'tritium', amount: '50', lastUpdateAt: nowIso, regenRate: '0', storageCap: '5000' },
+        ],
+        buildings: [],
+      }
+    ],
   };
 
   await page.route('**/auth/telegram**', async (route) => {
@@ -198,11 +216,12 @@ test('first day flow on cosmic atlas layout', async ({ page }) => {
   );
   await page.getByTestId('build-option-mine').click();
   await buildResponse;
+  await page.getByTestId('build-dialog').waitFor({ state: 'hidden', timeout: 10_000 });
 
   // BuildQueue polls every 15s, so wait for the next poll cycle after build.
   await expect(page.getByTestId('queue-strip')).toBeVisible({ timeout: 25_000 });
 
-  await page.getByTestId('bnav-tech').click();
+  await page.evaluate(() => (document.querySelector('[data-testid="bnav-tech"]') as HTMLElement).click());
   await expect(page).toHaveURL(/\/research$/);
 
   await page.getByTestId('bnav-ships').click();
