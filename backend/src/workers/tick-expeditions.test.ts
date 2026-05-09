@@ -13,6 +13,7 @@ import {
   richness,
   buildings,
   notifications,
+  colonies,
 } from '../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import { processExpeditions, calculateExpeditionPosition } from './tick-expeditions.js';
@@ -79,6 +80,7 @@ describe('Tick Expeditions Worker', () => {
 
   beforeEach(async () => {
     await db.delete(expeditions);
+    await db.delete(colonies);
     await db.delete(discoveredPlanets);
     await db.delete(discoveredSystems);
     await db.delete(ships);

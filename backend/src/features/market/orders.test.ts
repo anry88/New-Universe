@@ -5,7 +5,7 @@ import { env } from '../../lib/env.js';
 import { authRoutes } from '../auth/routes.js';
 import { marketRoutes } from '../../routes/market.js';
 import { db } from '../../db/index.js';
-import { planetResources, planets, resources, systems } from '../../db/schema.js';
+import { planetResources, planets, resources, systems, researchProgress } from '../../db/schema.js';
 import { and, eq, sql } from 'drizzle-orm';
 import { calculateNpcMarketQuote } from './pricing.js';
 
@@ -49,6 +49,14 @@ async function createTestUser() {
   const planet = await db.query.planets.findFirst({
     where: eq(planets.systemId, system!.id),
   });
+
+  await db
+    .insert(researchProgress)
+    .values({ userId: user.id, branch: 'logistics', level: 1 })
+    .onConflictDoUpdate({
+      target: [researchProgress.userId, researchProgress.branch],
+      set: { level: 1 },
+    });
 
   return { app, token, userId: user.id as string, planetId: planet!.id };
 }

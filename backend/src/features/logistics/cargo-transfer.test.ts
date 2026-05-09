@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeAll } from 'vitest';
 import { db } from '../../db/index.js';
 import { launchCargoTransfer } from './cargo-transfer.js';
-import { users, planets, systems, ships, planetResources, colonies } from '../../db/schema.js';
+import { users, planets, systems, ships, planetResources, colonies, researchProgress } from '../../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 
 describe('cargoTransfer', () => {
@@ -17,6 +17,14 @@ describe('cargoTransfer', () => {
       tgUsername: 'CargoTest' + Math.random(),
     }).returning();
     userId = user.id;
+
+    await db
+      .insert(researchProgress)
+      .values({ userId, branch: 'logistics', level: 1 })
+      .onConflictDoUpdate({
+        target: [researchProgress.userId, researchProgress.branch],
+        set: { level: 1 },
+      });
 
     // Setup origin system and planet
     const [originSystem] = await db.insert(systems).values({

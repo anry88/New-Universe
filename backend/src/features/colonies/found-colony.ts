@@ -5,6 +5,8 @@ import { buildings } from '../../db/schema/buildings.js';
 import { eq, and } from 'drizzle-orm';
 import { colonyService } from './colonies.js';
 import { bootstrapColony } from './bootstrap.js';
+import { COLONIZATION_RESEARCH_GATE } from '../../config/research-unlocks.js';
+import { assertResearchRequirement, loadUserResearchLevels } from '../research/gates.js';
 
 /**
  * Service to found a new colony using a colonizer ship.
@@ -15,6 +17,9 @@ import { bootstrapColony } from './bootstrap.js';
  * 4. Founding creates a colony and a level 1 command center.
  */
 export async function foundColony(userId: string, shipId: string, planetId: string) {
+  const levels = await loadUserResearchLevels(userId, db);
+  assertResearchRequirement(levels, COLONIZATION_RESEARCH_GATE, 'Colonization');
+
   return await db.transaction(async (tx) => {
     // 1. Validate ship
     const [ship] = await tx
