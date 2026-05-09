@@ -55,10 +55,10 @@ export async function researchRoutes(app: FastifyInstance) {
     }
 
     // Check requirements: Research Lab
-    const labReq = def.requirements.buildings?.find((b: { typeId: string; level: number }) => b.typeId === 'research_lab');
+    const labReq = def.requirements.buildings?.find((b: { typeId: string; level: number }) => b.typeId === 'lab');
     if (labReq) {
       const lab = await db.query.buildings.findFirst({
-        where: and(eq(buildings.planetId, planetId), eq(buildings.typeId, 'research_lab')),
+        where: and(eq(buildings.planetId, planetId), eq(buildings.typeId, 'lab')),
       });
       if (!lab || lab.level < labReq.level) {
         return reply.status(400).send({ error: `Research Lab level ${labReq.level} required` });

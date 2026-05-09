@@ -4,9 +4,9 @@
  * thin 1.5px strokes, two-tone fills tinted by `tone`.
  *
  * The set covers the 10 building types defined in the backend catalog
- * (`backend/src/db/seed/building-types.ts`). Aliases are provided for the
- * legacy frontend ids (`research_lab`, `power_plant`) so screens that still
- * reference the old names keep rendering until they are migrated.
+ * (`backend/src/db/seed/building-types.ts`). Aliases map older payload spellings
+ * (e.g. hyphenated lab ids, `laboratory`, legacy energy plant names) so mixed
+ * API versions still resolve to catalog entries.
  */
 import React from 'react';
 
@@ -201,9 +201,8 @@ export const BUILDING_BY_TYPE: Record<BuildingTypeId, BuildingDef> = {
 export function resolveBuildingType(typeId: string | undefined | null): BuildingDef {
   const v = (typeId || '').toLowerCase();
   if (v in BUILDING_BY_TYPE) return BUILDING_BY_TYPE[v as BuildingTypeId];
-  // Aliases for legacy / synonym ids in the codebase.
-  if (v === 'research_lab' || v === 'laboratory') return BUILDING_BY_TYPE.lab;
-  if (v === 'power_plant' || v === 'energy_plant' || v === 'solar') return BUILDING_BY_TYPE.solar_plant;
+  // Aliases for legacy / synonym ids (hyphenated/underscore-combined lab spellings and `laboratory`).
+  if (/^research[_-]?lab$/i.test(v) || v === 'laboratory') return BUILDING_BY_TYPE.lab;
   if (v === 'depot' || v === 'warehouse') return BUILDING_BY_TYPE.storage;
   if (v === 'factory') return BUILDING_BY_TYPE.smelter;
   return BUILDING_BY_TYPE.mine;

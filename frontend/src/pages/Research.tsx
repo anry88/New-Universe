@@ -42,7 +42,7 @@ export function ResearchPage() {
 
   const homePlanetId = meData?.homeSystem?.planets?.[0]?.id;
 
-  // Use the resolved Lab building (handles legacy `research_lab` alias too).
+  // Canonical lab id is `lab`; `resolveBuildingType` still maps older payload spellings to the lab icon/catalog entry.
   const labBuilding = meData?.homeSystem?.planets?.[0]?.buildings?.find((b) => {
     const def = resolveBuildingType(b.typeId);
     return def === resolveBuildingType('lab');

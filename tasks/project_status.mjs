@@ -43,6 +43,7 @@ function usage() {
   node tasks/project_status.mjs task <TASK_ID> [--status <Status>] [--verification <Verification>] [--comment <text>]
   node tasks/project_status.mjs start <TASK_ID> [--branch <branch-name>]
   node tasks/project_status.mjs sync-ready
+  node tasks/project_status.mjs issue --number <ISSUE_NUMBER> --action <closed>
   node tasks/project_status.mjs pr --number <PR_NUMBER> --action <opened|reopened|ready_for_review|converted_to_draft|closed|synchronize> [--merged true|false]`);
   process.exit(2);
 }
@@ -212,6 +213,36 @@ function syncReady() {
   console.log(`Promoted to Ready: ${promoted}`);
 }
 
+function updateFromIssue(flags) {
+  const number = flags.number;
+  const action = flags.action;
+  if (!number || !action) usage();
+
+  if (action !== 'closed') {
+    console.log(`Issue #${number}: action ${action} ignored`);
+    return;
+  }
+
+  const output = gh(['issue', 'view', String(number), '--repo', REPO, '--json', 'title,body,url']);
+  const issue = JSON.parse(output);
+  const ids = extractTaskIds(issue.title, issue.body);
+
+  if (ids.length === 0) {
+    console.log(`Issue #${number}: no task ids found`);
+    return;
+  }
+
+  for (const taskId of ids) {
+    updateTask(taskId, {
+      status: 'Done',
+      verification: 'Accepted',
+      comment: `Issue closed: ${issue.url}`,
+    });
+  }
+
+  syncReady();
+}
+
 function extractTaskIds(...parts) {
   const found = new Set();
   const re = /\bP[0-9](?:-[A-Z0-9]+)+\b/g;
@@ -293,6 +324,8 @@ try {
     startTask(maybeTaskId, parseFlags(rest));
   } else if (command === 'sync-ready') {
     syncReady();
+  } else if (command === 'issue') {
+    updateFromIssue(parseFlags([maybeTaskId, ...rest].filter(Boolean)));
   } else if (command === 'pr') {
     updateFromPr(parseFlags([maybeTaskId, ...rest].filter(Boolean)));
   } else {
