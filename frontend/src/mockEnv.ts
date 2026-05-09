@@ -1,6 +1,8 @@
 import { mockTelegramEnv, parseInitData, retrieveLaunchParams } from '@telegram-apps/sdk-react';
 
-if (import.meta.env.DEV) {
+const shouldAttemptMock = import.meta.env.DEV || import.meta.env.VITE_E2E_MOCK_TELEGRAM === '1';
+
+if (shouldAttemptMock) {
   let shouldMock: boolean;
   try {
     retrieveLaunchParams();
