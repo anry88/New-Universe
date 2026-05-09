@@ -90,12 +90,15 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 - `lib/api.ts` — a unified fetch client that automatically sends the session token in the `Authorization` header and the Telegram `initDataRaw` in the `X-Telegram-Init-Data` header.
 - `hooks/useAuth.ts` — manages the auth flow and session token.
 - `hooks/useMe.ts` — uses TanStack Query to fetch and cache the current player state from `GET /me`.
+- `hooks/useColonies.ts` — manages the collection of player-owned planets and tracks the focal planet across the UI via a dedicated Zustand store.
 - `pages/Home.tsx` — main game screen with resource bar, tab bar, and navigation.
+- `pages/Colonies.tsx` — lists all owned planets with their resources and status, allowing focal planet switching and initiating cargo transfers.
 - `pages/onboarding/Onboarding.tsx` — 5-step onboarding flow with skip-and-return behavior and current-objective toast.
 - `pages/PlanetDetail.tsx` — detailed planet screen with infrastructure slots, building construction, and upgrade dialogs.
 - `components/ResourceBar.tsx` — displays planet resources with animated real-time regeneration.
 - `components/PlanetView.tsx` — shows the current focus planet overview.
 - `components/BuildQueue.tsx` — displays the current build queue with countdown timers.
+- `components/CargoTransferDialog.tsx` — interplanetary logistics interface for moving resources between colonies.
 - `components/Tutorial.tsx` — full-screen onboarding overlay UI used by `Onboarding.tsx`.
 - `components/BuildingSlot.tsx` — presentational component for an infrastructure slot.
 - `components/UpgradeDialog.tsx` & `components/BuildDialog.tsx` — dialogs for managing buildings.

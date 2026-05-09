@@ -8,10 +8,12 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
 - `hooks/` — custom React hooks.
   - **`useAuth.ts`** — manages JWT session state in memory via Zustand.
   - **`useMe.ts`** — React Query hook for fetching current player data from `GET /me`.
+  - **`useColonies.ts`** — manages the collection of player-owned planets and tracks the focal planet across the UI via a dedicated Zustand store.
 - `pages/` — page-level components routed by `react-router-dom`.
   - **`Home.tsx`** — main game screen with resource bar, planet view, build queue, and bottom tab bar.
+  - **`Colonies.tsx`** — lists all owned planets with their resources and status, allowing focal planet switching and initiating cargo transfers.
   - **`Profile.tsx`** — player profile card with sector/system details and a `RESUME TUTORIAL` action when onboarding is not completed yet.
-  - **`onboarding/`** — first-session onboarding tutorial pages. See [`pages/onboarding/README.md`](./pages/onboarding/README.md).
+  - `onboarding/` — first-session onboarding tutorial pages. See [`pages/onboarding/README.md`](./pages/onboarding/README.md).
     - **`Onboarding.tsx`** — 5-step tutorial overlay (welcome → mine → storage → scout → expedition), with skip/return-later flow and current-objective toast.
   - **`PlanetDetail.tsx`** — detailed planet view with building slots and upgrade options.
   - **`SystemMap.tsx`** — page component for the interactive home system map.
@@ -26,6 +28,7 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
   - **`cosmic/buildings.tsx`** — Cosmic Atlas building icons keyed by backend catalog ids; exports `resolveBuildingType(typeId)` (canonical ids plus legacy synonyms such as `laboratory` and alternate lab spellings matched via `/^research[_-]?lab$/i`).
   - **`cosmic/buildings.test.ts`** — Vitest coverage for `resolveBuildingType` (known id resolution plus unknown-id fallback to the safe default icon).
   - **`BuildQueue.tsx`** — displays the current build queue with countdown timers.
+  - **`CargoTransferDialog.tsx`** — interplanetary logistics interface for moving resources between colonies.
   - **`ExpeditionDialog.tsx`** — mission launch configuration with coordinate selection and ETA.
   - **`Tutorial.tsx`** — reusable full-screen onboarding overlay with step list, current-objective hint, and action buttons.
 - `assets/` — static assets imported by Vite (currently empty).

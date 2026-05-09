@@ -41,7 +41,7 @@ export function PlanetDetailPage() {
   }, []);
 
   const allPlanets = useMemo<Planet[]>(
-    () => meData?.homeSystem?.planets ?? [],
+    () => meData?.planets ?? [],
     [meData]
   );
 
@@ -106,7 +106,7 @@ export function PlanetDetailPage() {
 
     if (meData && typeInfo) {
       const optimisticMe = structuredClone(meData);
-      const p = optimisticMe.homeSystem?.planets?.find((pl) => pl.id === planet.id);
+      const p = optimisticMe.planets?.find((pl) => pl.id === planet.id);
       if (p) {
         p.buildings = p.buildings || [];
         p.buildings.push({
@@ -148,7 +148,7 @@ export function PlanetDetailPage() {
 
     if (meData) {
       const optimisticMe = structuredClone(meData);
-      const p = optimisticMe.homeSystem?.planets?.find((pl) => pl.id === planet.id);
+      const p = optimisticMe.planets?.find((pl) => pl.id === planet.id);
       if (p) {
         const b = p.buildings?.find((bld) => bld.id === buildingId);
         if (b) {

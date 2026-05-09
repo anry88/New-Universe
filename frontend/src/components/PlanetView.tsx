@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMe } from '../hooks/useMe';
 import {
@@ -9,7 +8,6 @@ import {
   resolveBiome,
 } from './cosmic/atoms';
 import { BuildingSlot } from './BuildingSlot';
-import type { Planet } from '@shared/types/world';
 
 /**
  * The "current planet" snapshot rendered on the home screen.
@@ -18,16 +16,19 @@ import type { Planet } from '@shared/types/world';
  * shows the same portrait + rail + slot grid as the dedicated PlanetDetail
  * page, and routes any slot tap into the full editor.
  */
+import { useColonies } from '../hooks/useColonies';
+
+/**
+ * The "current planet" snapshot rendered on the home screen.
+ *
+ * Uses useColonies to get the currently focused planet,
+ * shows the same portrait + rail + slot grid as the dedicated PlanetDetail
+ * page, and routes any slot tap into the full editor.
+ */
 export function PlanetView() {
   const { data: meData } = useMe();
+  const { focalPlanet: planet, planets: allPlanets } = useColonies();
   const navigate = useNavigate();
-
-  const allPlanets = useMemo<Planet[]>(
-    () => meData?.homeSystem?.planets ?? [],
-    [meData]
-  );
-
-  const planet = allPlanets[0] ?? null;
 
   if (!planet) {
     return (

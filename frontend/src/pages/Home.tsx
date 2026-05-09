@@ -3,6 +3,7 @@ import { ResourceBar } from '../components/ResourceBar';
 import { PlanetView } from '../components/PlanetView';
 import { BuildQueue } from '../components/BuildQueue';
 import { CosmicBottomNav } from '../components/cosmic/atoms';
+import { useColonies } from '../hooks/useColonies';
 import { useMe } from '../hooks/useMe';
 
 /**
@@ -19,7 +20,7 @@ interface HomePageProps {
 
 export function HomePage({ onOpenTutorial }: HomePageProps) {
   const { data: meData } = useMe();
-  const focalPlanetId = meData?.homeSystem?.planets?.[0]?.id;
+  const { focalPlanetId } = useColonies();
   return (
     <div className="cosmic-screen" style={{ '--accent': '#5BD7FF' } as React.CSSProperties}>
       {!meData?.tutorialCompletedAt && (
@@ -33,7 +34,7 @@ export function HomePage({ onOpenTutorial }: HomePageProps) {
           </button>
         </div>
       )}
-      <ResourceBar planetId={focalPlanetId} />
+      <ResourceBar planetId={focalPlanetId || undefined} />
       <PlanetView />
       <BuildQueue />
       <CosmicBottomNav active="planets" />
