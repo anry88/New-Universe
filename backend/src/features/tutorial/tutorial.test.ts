@@ -1,23 +1,28 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { db } from '../../db/index.js';
-import { buildings, colonies, discoveredPlanets, discoveredSystems, expeditions, notifications, planetResources, planets, richness, ships, systems, users } from '../../db/schema.js';
-import { and, eq } from 'drizzle-orm';
+import { buildings, expeditions, planetResources, planets, ships, systems, users } from '../../db/schema.js';
+import { and, eq, sql } from 'drizzle-orm';
 import { syncTutorialProgress } from './service.js';
 
 describe('tutorial sync', () => {
   beforeEach(async () => {
-    await db.delete(expeditions);
-    await db.delete(colonies);
-    await db.delete(ships);
-    await db.delete(buildings);
-    await db.delete(discoveredPlanets);
-    await db.delete(discoveredSystems);
-    await db.delete(richness);
-    await db.delete(notifications);
-    await db.delete(planetResources);
-    await db.delete(planets);
-    await db.delete(systems);
-    await db.delete(users);
+    await db.execute(sql`
+      TRUNCATE TABLE
+        expeditions,
+        colonies,
+        ships,
+        buildings,
+        discovered_planets,
+        discovered_systems,
+        richness,
+        notifications,
+        planet_resources,
+        planets,
+        systems,
+        users
+      RESTART IDENTITY
+      CASCADE
+    `);
   });
 
   it('completes tutorial and applies reward once', async () => {
@@ -94,7 +99,7 @@ describe('tutorial sync', () => {
     });
 
     const firstSync = await syncTutorialProgress(user.id);
-    expect(firstSync.tutorialStep).toBe(4);
+    expect(firstSync.tutorialStepCompleted).toBe(4);
     expect(firstSync.tutorialCompletedAt).not.toBeNull();
 
     const [ironAfterFirst] = await db

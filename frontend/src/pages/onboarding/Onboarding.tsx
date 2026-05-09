@@ -25,6 +25,9 @@ export function OnboardingPage({ onSkip }: OnboardingPageProps) {
     ],
     [tutorialStep]
   );
+  const currentHint = completed
+    ? 'Tutorial completed. Reward delivered: +200 Fe and +100 H2O.'
+    : `Current objective: ${steps.find((step) => !step.done)?.title ?? 'Welcome'}`;
 
   const closeTutorial = () => {
     navigate('/');
@@ -45,6 +48,7 @@ export function OnboardingPage({ onSkip }: OnboardingPageProps) {
     <Tutorial
       steps={steps}
       completed={completed}
+      currentHint={currentHint}
       onSkip={() => {
         onSkip();
         navigate('/');

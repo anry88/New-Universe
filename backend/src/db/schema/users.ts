@@ -8,6 +8,6 @@ export const users = pgTable('users', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   premiumUntil: timestamp('premium_until'),
   powerScore: integer('power_score').default(0).notNull(),
-  tutorialStep: integer('tutorial_step').default(0).notNull(),
+  tutorialStepCompleted: integer('tutorial_step').default(0).notNull(),
   tutorialCompletedAt: timestamp('tutorial_completed_at'),
 });

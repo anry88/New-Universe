@@ -115,7 +115,7 @@ export async function meRoutes(app: FastifyInstance) {
         const userObj = {
           ...user,
           tgId: user.tgId.toString(),
-          tutorialStep: tutorialProgress.tutorialStep,
+          tutorialStep: tutorialProgress.tutorialStepCompleted,
           tutorialCompletedAt: tutorialProgress.tutorialCompletedAt,
           homeSystem,
           ships: userShips,

@@ -1,11 +1,12 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from '../../db/index.js';
-import { buildings, expeditions, planetResources, planets, ships, systems, users } from '../../db/schema.js';
+import { buildings, expeditions, planets, ships, systems, users } from '../../db/schema.js';
+import { gainResources } from '../resources/transactions.js';
 
 const TUTORIAL_FINAL_STEP = 4;
 
 export interface TutorialProgress {
-  tutorialStep: number;
+  tutorialStepCompleted: number;
   tutorialCompletedAt: Date | null;
 }
 
@@ -21,7 +22,7 @@ export async function syncTutorialProgress(userId: string): Promise<TutorialProg
 
     if (user.tutorialCompletedAt) {
       return {
-        tutorialStep: user.tutorialStep,
+        tutorialStepCompleted: user.tutorialStepCompleted,
         tutorialCompletedAt: user.tutorialCompletedAt,
       };
     }
@@ -71,38 +72,35 @@ export async function syncTutorialProgress(userId: string): Promise<TutorialProg
 
       const rewardPlanetId = homeSystem?.planets?.[0]?.id;
       if (rewardPlanetId) {
-        await tx
-          .update(planetResources)
-          .set({
-            amount: sql`${planetResources.amount} + 200`,
-            lastUpdateAt: new Date(),
-          })
-          .where(and(eq(planetResources.planetId, rewardPlanetId), eq(planetResources.resourceId, 'iron')));
+        const rewardResult = await gainResources(
+          rewardPlanetId,
+          [
+            { resourceId: 'iron', amount: 200 },
+            { resourceId: 'water', amount: 100 },
+          ],
+          tx
+        );
 
-        await tx
-          .update(planetResources)
-          .set({
-            amount: sql`${planetResources.amount} + 100`,
-            lastUpdateAt: new Date(),
-          })
-          .where(and(eq(planetResources.planetId, rewardPlanetId), eq(planetResources.resourceId, 'water')));
+        if (!rewardResult.success) {
+          throw new Error(rewardResult.error ?? 'Failed to apply tutorial completion reward');
+        }
       }
 
       tutorialCompletedAt = new Date();
     }
 
-    if (nextStep !== user.tutorialStep || tutorialCompletedAt !== user.tutorialCompletedAt) {
+    if (nextStep !== user.tutorialStepCompleted || tutorialCompletedAt !== user.tutorialCompletedAt) {
       await tx
         .update(users)
         .set({
-          tutorialStep: nextStep,
+          tutorialStepCompleted: nextStep,
           tutorialCompletedAt,
         })
         .where(eq(users.id, userId));
     }
 
     return {
-      tutorialStep: nextStep,
+      tutorialStepCompleted: nextStep,
       tutorialCompletedAt,
     };
   });

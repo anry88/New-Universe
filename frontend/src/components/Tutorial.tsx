@@ -9,12 +9,16 @@ interface TutorialProps {
   onSkip: () => void;
   onClose: () => void;
   completed: boolean;
+  currentHint: string;
 }
 
-export function Tutorial({ steps, onSkip, onClose, completed }: TutorialProps) {
+export function Tutorial({ steps, onSkip, onClose, completed, currentHint }: TutorialProps) {
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/90 text-white">
       <div className="mx-auto flex h-full max-w-2xl flex-col gap-4 p-6">
+        <div className="self-start rounded-lg border border-cyan-400/50 bg-slate-900/90 px-4 py-2 text-sm text-cyan-100 shadow-[0_0_20px_rgba(56,189,248,0.2)]">
+          {currentHint}
+        </div>
         <div className="rounded-xl border border-cyan-500/40 bg-slate-900/80 p-4">
           <h1 className="text-xl font-bold">Onboarding tutorial</h1>
           <p className="mt-2 text-sm text-slate-300">

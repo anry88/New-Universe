@@ -23,7 +23,7 @@ export async function tutorialRoutes(app: FastifyInstance) {
 
     const progress = await syncTutorialProgress(payload.userId);
     return reply.send({
-      tutorialStep: progress.tutorialStep,
+      tutorialStep: progress.tutorialStepCompleted,
       tutorialCompletedAt: progress.tutorialCompletedAt,
     });
   });

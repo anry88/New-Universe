@@ -10,8 +10,9 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
   - **`useMe.ts`** — React Query hook for fetching current player data from `GET /me`.
 - `pages/` — page-level components routed by `react-router-dom`.
   - **`Home.tsx`** — main game screen with resource bar, planet view, build queue, and bottom tab bar.
+  - **`Profile.tsx`** — player profile card with sector/system details and a `RESUME TUTORIAL` action when onboarding is not completed yet.
   - **`onboarding/`** — first-session onboarding tutorial pages. See [`pages/onboarding/README.md`](./pages/onboarding/README.md).
-    - **`Onboarding.tsx`** — 5-step tutorial overlay (welcome → mine → storage → scout → expedition), with skip and return-later flow.
+    - **`Onboarding.tsx`** — 5-step tutorial overlay (welcome → mine → storage → scout → expedition), with skip/return-later flow and current-objective toast.
   - **`PlanetDetail.tsx`** — detailed planet view with building slots and upgrade options.
   - **`SystemMap.tsx`** — page component for the interactive home system map.
   - **`Ships.tsx`** — fleet management and ship list.
@@ -26,7 +27,7 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
   - **`cosmic/buildings.test.ts`** — Vitest coverage for `resolveBuildingType` (known id resolution plus unknown-id fallback to the safe default icon).
   - **`BuildQueue.tsx`** — displays the current build queue with countdown timers.
   - **`ExpeditionDialog.tsx`** — mission launch configuration with coordinate selection and ETA.
-  - **`Tutorial.tsx`** — reusable full-screen onboarding overlay with step list and action buttons.
+  - **`Tutorial.tsx`** — reusable full-screen onboarding overlay with step list, current-objective hint, and action buttons.
 - `assets/` — static assets imported by Vite (currently empty).
 
 The folders above are reserved by `AGENTS.md` (`Engineering Rules` → "Keep frontend state and API calls in clear `lib/`, `pages/`, and `components/` boundaries"). Create them as soon as a feature needs them and document new files here.

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useMe } from '../hooks/useMe';
 import { CosmicBackground, CosmicBottomNav } from '../components/cosmic/atoms';
 
@@ -8,6 +9,7 @@ import { CosmicBackground, CosmicBottomNav } from '../components/cosmic/atoms';
  */
 export function ProfilePage() {
   const { data: user } = useMe();
+  const navigate = useNavigate();
 
   const homeSystem = user?.homeSystem;
   const sectorTag = homeSystem
@@ -90,10 +92,32 @@ export function ProfilePage() {
               fontWeight: 500,
               cursor: 'pointer'
             }}
-            onClick={() => window.location.href = '/'}
+            onClick={() => navigate('/')}
           >
             RETURN TO COMMAND
           </button>
+
+          {!user?.tutorialCompletedAt && (
+            <button
+              type="button"
+              className="cosmic-button"
+              style={{
+                marginTop: '12px',
+                width: '100%',
+                background: 'rgba(91, 215, 255, 0.12)',
+                border: '1px solid rgba(91, 215, 255, 0.45)',
+                color: 'var(--accent)',
+                padding: '12px',
+                borderRadius: '8px',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+              onClick={() => navigate('/onboarding')}
+            >
+              RESUME TUTORIAL
+            </button>
+          )}
         </div>
 
         <div style={{ flex: 1 }} />
