@@ -122,7 +122,7 @@ node tasks/project_status.mjs task P0-004 --status "Blocked" --verification "Blo
 node tasks/project_status.mjs sync-ready
 ```
 
-GitHub Action `.github/workflows/project-status.yml` двигает связанные задачи в `Review` при открытии PR и в `Done` после merge. Для user-owned Project v2 нужен repository secret `PROJECT_TOKEN`: classic personal access token пользователя, который видит Project, со scopes `repo`, `project` и `read:org`. Не используй `GITHUB_TOKEN` или fine-grained token для этой автоматизации: они часто не имеют доступа к user-owned Project v2.
+GitHub Action `.github/workflows/project-status.yml` двигает связанные задачи в `Review` при открытии PR, в `Done` после merge и прогоняет `sync-ready` после закрытия issue, чтобы зависимые задачи автоматически переходили в `Ready`. Для user-owned Project v2 нужен repository secret `PROJECT_TOKEN`: classic personal access token пользователя, который видит Project, со scopes `repo`, `project` и `read:org`. Не используй `GITHUB_TOKEN` или fine-grained token для этой автоматизации: они часто не имеют доступа к user-owned Project v2.
 
 Если workflow падает на `gh project view 3 --owner anry88 --format json` с `unknown owner type`, `Could not resolve to a ProjectV2`, `Resource not accessible` или похожей ошибкой, почти всегда проблема в `PROJECT_TOKEN`: секрет отсутствует, токен создан не как classic PAT, не хватает scopes `repo`/`project`/`read:org`, токен истёк или создан пользователем без доступа к Project.
 - **Дубликаты issue** — скрипт идемпотентным НЕ написан (для простоты). Если нужно перезапустить — закрой все ранее созданные через:
