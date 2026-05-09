@@ -152,6 +152,13 @@ Tech tree definitions and starting research on a planet.
 - **`routes.ts`** — registers `POST /start` (mounted at `/research` from `index.ts`). Validates planet ownership, prerequisite research rows, lab building level (`buildings.typeId === 'lab'`), spends resources, and upserts `research_progress`.
 - **`research.test.ts`** — integration test for `POST /research/start`; creates a user and lab, starts mining research, and asserts `iron`/`silicon` are atomically deducted from `planet_resources`.
 
+## `colonies/`
+
+Player colonies outside the home system.
+
+- **`colonies.ts`** — `ColonyService` singleton. Implements colonization rules: checks for discovery, protects home systems, enforces per-player limits (default 5), and inserts into the `colonies` table.
+- **`colonies.test.ts`** — integration tests for colonization rules.
+
 ## Adding a new feature module
 
 1. Pick a kebab-case folder name that matches the bounded context (`buildings`, `expeditions`, `research`, …).

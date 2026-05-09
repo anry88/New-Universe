@@ -67,6 +67,7 @@ The bot entry point is `POST /webhook/telegram`. Incoming updates are dispatched
 - `expeditions` — scheduled expedition jobs with `eta` / `status` index.
 - `notifications` — push notification log with `pending` and `sentAt` tracking.
 - `market_offers`, `market_orders`, `market_order_fills` — NPC/player market offer book, user orders, and fill history with explicit order lifecycle states and delivery references.
+- `colonies` — player-owned colonies on discovered planets outside home systems.
 
 
 Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Kit (`npm run db:generate`, `npm run db:migrate`). Static reference data is loaded by `backend/src/db/seed.ts`, which runs the four seeders in `backend/src/db/seed/` (`resources`, `research-branches`, `building-types`, `ship-types`).

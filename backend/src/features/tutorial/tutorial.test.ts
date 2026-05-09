@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { db } from '../../db/index.js';
-import { buildings, discoveredPlanets, discoveredSystems, expeditions, notifications, planetResources, planets, richness, ships, systems, users } from '../../db/schema.js';
+import { buildings, colonies, discoveredPlanets, discoveredSystems, expeditions, notifications, planetResources, planets, richness, ships, systems, users } from '../../db/schema.js';
 import { and, eq } from 'drizzle-orm';
 import { syncTutorialProgress } from './service.js';
 
 describe('tutorial sync', () => {
   beforeEach(async () => {
     await db.delete(expeditions);
+    await db.delete(colonies);
     await db.delete(ships);
     await db.delete(buildings);
     await db.delete(discoveredPlanets);

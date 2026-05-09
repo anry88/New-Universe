@@ -113,6 +113,20 @@
       "when": 1778317200000,
       "tag": "0015_quiet_market_day",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1778309940846,
+      "tag": "0016_nifty_electro",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1778310680191,
+      "tag": "0017_blushing_diamondback",
+      "breakpoints": true
     }
   ]
 }

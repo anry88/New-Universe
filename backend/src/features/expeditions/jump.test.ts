@@ -13,6 +13,7 @@ import {
   richness,
   buildings,
   notifications,
+  colonies,
 } from '../../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import { jumpShip } from './jump.js';
@@ -80,6 +81,7 @@ describe('Jump Ship Feature', () => {
     await db.delete(discoveredSystems);
     await db.delete(ships);
     await db.delete(buildings);
+    await db.delete(colonies);
     await db.delete(notifications);
     await db.delete(planetResources);
     await db.delete(richness);
