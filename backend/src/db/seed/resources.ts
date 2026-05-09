@@ -7,6 +7,7 @@ const resourceData = [
   { id: 'carbon', symbol: 'C', tier: 1, name: { ru: 'Углерод', en: 'Carbon' }, baseRegenRate: 40, defaultStorageCap: 5000 },
   { id: 'silicon', symbol: 'Si', tier: 1, name: { ru: 'Кремний', en: 'Silicon' }, baseRegenRate: 30, defaultStorageCap: 5000 },
   { id: 'methane', symbol: 'CH₄', tier: 1, name: { ru: 'Метан', en: 'Methane' }, baseRegenRate: 40, defaultStorageCap: 5000 },
+  { id: 'fuel', symbol: 'Fuel', tier: 1, name: { ru: 'Топливо', en: 'Fuel' }, baseRegenRate: 0, defaultStorageCap: 1000 },
 
   { id: 'copper', symbol: 'Cu', tier: 2, name: { ru: 'Медь', en: 'Copper' }, baseRegenRate: 20, defaultStorageCap: 2500 },
   { id: 'aluminum', symbol: 'Al', tier: 2, name: { ru: 'Алюминий', en: 'Aluminum' }, baseRegenRate: 15, defaultStorageCap: 2500 },

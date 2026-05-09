@@ -2,6 +2,8 @@ import { FastifyInstance } from 'fastify';
 import jwt from 'jsonwebtoken';
 import { env } from '../lib/env.js';
 import { foundColony } from '../features/colonies/found-colony.js';
+import { checkColonizationGates } from '../features/colonies/colonization-rules.js';
+import { COLONIZATION_RULES } from '../config/colonization-rules.js';
 
 /**
  * Colonies routes.
@@ -49,6 +51,28 @@ export async function coloniesRoutes(app: FastifyInstance) {
     try {
       const colony = await foundColony(userId, shipId, planetId);
       return reply.send({ success: true, colony });
+    } catch (err: any) {
+      return reply.status(400).send({
+        error: 'Bad Request',
+        message: err.message,
+      });
+    }
+  });
+
+  /**
+   * GET /colonies/eligibility/:planetId
+   * Check if the user satisfies all colonization requirements for a target planet.
+   */
+  app.get('/eligibility/:planetId', async (request, reply) => {
+    const userId = (request as any).userId;
+    const { planetId } = request.params as { planetId: string };
+
+    try {
+      const eligibility = await checkColonizationGates(userId, planetId);
+      return reply.send({ 
+        eligibility,
+        rules: COLONIZATION_RULES
+      });
     } catch (err: any) {
       return reply.status(400).send({
         error: 'Bad Request',

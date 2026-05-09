@@ -15,7 +15,7 @@ interface ExpeditionDialogProps {
 export function ExpeditionDialog({ ship, shipType, originX, originY, originZ, onClose }: ExpeditionDialogProps) {
   const [target, setTarget] = useState({ x: originX + 10, y: originY + 10, z: originZ });
   const [fuel, setFuel] = useState(10);
-  const [cargo, setCargo] = useState(0);
+  const [cargo] = useState(0);
   const launch = useLaunchExpedition();
 
   const distance = useMemo(() => {
@@ -49,7 +49,6 @@ export function ExpeditionDialog({ ship, shipType, originX, originY, originZ, on
   };
 
   const gridRange = 50;
-  const gridCells = 10;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">

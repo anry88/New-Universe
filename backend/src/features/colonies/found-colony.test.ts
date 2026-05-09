@@ -20,18 +20,59 @@ describe('foundColony', () => {
 
     await db
       .insert(researchProgress)
-      .values({ userId, branch: 'engineering', level: 2 })
+      .values([
+        { userId, branch: 'engineering', level: 5 },
+        { userId, branch: 'logistics', level: 5 }
+      ])
       .onConflictDoUpdate({
         target: [researchProgress.userId, researchProgress.branch],
-        set: { level: 2 },
+        set: { level: 5 },
       });
 
-    // Setup system and planet
+    // Setup home system for the user (needed for distance and billing)
+    const [homeSystem] = await db.insert(systems).values({
+      ownerId: userId,
+      isHome: true,
+      sectorX: 0,
+      sectorY: 0,
+      sectorZ: 0,
+      x: '0.00',
+      y: '0.00',
+      z: '0.00',
+      name: 'Home System',
+      seed: 123,
+    }).returning();
+
+    const [homePlanet] = await db.insert(planets).values({
+      systemId: homeSystem.id,
+      biome: 'green',
+      size: 20,
+      slotCount: 16,
+      name: 'Home Planet',
+    }).returning();
+
+    // Seed resources on home planet
+    const { resources: resourcesMeta } = await import('../../db/schema/resources.js');
+    const allResources = await db.select().from(resourcesMeta);
+    for (const res of allResources) {
+      const { planetResources } = await import('../../db/schema/world.js');
+      await db.insert(planetResources).values({
+        planetId: homePlanet.id,
+        resourceId: res.id,
+        amount: '100000', // Plenty for testing
+        regenRate: '10',
+      });
+    }
+
+    // Setup target system and planet (close to home)
     const [system] = await db.insert(systems).values({
       isHome: false,
-      sectorX: Math.floor(Math.random() * 1000),
-      sectorY: Math.floor(Math.random() * 1000),
-      sectorZ: Math.floor(Math.random() * 1000),
+      sectorX: 0,
+      sectorY: 0,
+      sectorZ: 0,
+      x: '100.00',
+      y: '100.00',
+      z: '100.00',
       name: 'Test System',
       seed: 789,
     }).returning();

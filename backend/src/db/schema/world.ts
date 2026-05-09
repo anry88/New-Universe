@@ -11,6 +11,9 @@ export const systems = pgTable('systems', {
   sectorX: integer('sector_x').notNull(),
   sectorY: integer('sector_y').notNull(),
   sectorZ: integer('sector_z').notNull(),
+  x: numeric('x', { precision: 10, scale: 2 }).notNull(),
+  y: numeric('y', { precision: 10, scale: 2 }).notNull(),
+  z: numeric('z', { precision: 10, scale: 2 }).notNull(),
   name: text('name').notNull(),
   seed: integer('seed').notNull(),
 });
