@@ -167,6 +167,13 @@ Player colonies outside the home system.
 - **`found-colony.test.ts`** — integration tests for the founding flow.
 - **`bootstrap.test.ts`** — integration tests for economy initialization.
 
+## `logistics/`
+
+Interplanetary cargo transfers. [Detailed documentation](./logistics/README.md).
+
+- **`cargo-transfer.ts`** — `launchCargoTransfer(userId, request)` action module. Validates ownership, capacity, and planet state; reserves resources atomically; creates an `expeditions` record with type `cargo_transfer`; enqueues a BullMQ `arrive_cargo` job.
+- **`cargo-transfer.test.ts`** — integration tests for the cargo transfer flow.
+
 ## Adding a new feature module
 
 1. Pick a kebab-case folder name that matches the bounded context (`buildings`, `expeditions`, `research`, …).
