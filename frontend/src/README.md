@@ -7,6 +7,7 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
 - `lib/` — shared infrastructure (API client, store, Sentry init, helpers). Today contains `sentry.ts`; future API clients (`api.ts`), stores (`store.ts`), and React Query helpers go here.
 - `hooks/` — custom React hooks.
   - **`useAuth.ts`** — manages JWT session state in memory via Zustand.
+  - **`useMarket.ts`** — market offers query, create-order mutation, pending-order cache, and error normalization for market-specific UI states.
   - **`useMe.ts`** — React Query hook for fetching current player data from `GET /me`.
   - **`useColonies.ts`** — manages the collection of player-owned planets and tracks the focal planet across the UI via a dedicated Zustand store.
 - `pages/` — page-level components routed by `react-router-dom`.
@@ -18,6 +19,7 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
   - **`PlanetDetail.tsx`** — detailed planet view with building slots and upgrade options.
   - **`SystemMap.tsx`** — page component for the interactive home system map.
   - **`Ships.tsx`** — fleet management and ship list.
+  - **`Market.tsx`** — utility economy market screen with buy/sell price browsing, order submission, and pending-order ETA tracking.
   - **`Research.tsx`** — tech-tree screen (Cosmic Atlas); uses `TECH_TREE_DATA` from `lib/tech-tree.ts`, resolves lab level via `resolveBuildingType`, starts research through `useStartResearch`.
 - `components/` — reusable presentational components.
   - `pixi/` — canvas-based rendering components using PixiJS.
@@ -30,6 +32,7 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
   - **`BuildQueue.tsx`** — displays the current build queue with countdown timers.
   - **`CargoTransferDialog.tsx`** — interplanetary logistics interface for moving resources between colonies.
   - **`ExpeditionDialog.tsx`** — mission launch configuration with coordinate selection and ETA.
+  - **`MarketOrderDialog.tsx`** — modal form for creating buy/sell NPC market orders with resource selection, quantity, and clear validation error states.
   - **`Tutorial.tsx`** — reusable full-screen onboarding overlay with step list, current-objective hint, and action buttons.
 - `assets/` — static assets imported by Vite (currently empty).
 
@@ -46,10 +49,11 @@ The folders above are reserved by `AGENTS.md` (`Engineering Rules` → "Keep fro
   6. Calls `miniApp.ready()` to tell the Telegram client that the Mini App finished loading.
   7. Renders `<App />` into `#root` inside `React.StrictMode`.
 - **`App.tsx`** — current placeholder UI. Reads launch params with `useLaunchParams`, theme params with `useSignal(themeParams.state)`, and dark-mode flag with `useSignal(themeParams.isDark)`. Renders a Tailwind welcome card with the player's Telegram username (or `firstName`, falling back to `'DevUser'`), platform string, and theme label, plus a placeholder "Enter the Game" button. Replace this component when implementing real navigation.
-- **`mockEnv.ts`** — only runs when `import.meta.env.DEV` is true. Calls `retrieveLaunchParams()`; if it throws (i.e. we are running in a plain browser without Telegram), it constructs a deterministic fake `initDataRaw` and theme via `mockTelegramEnv` so the SDK behaves as if it were inside Telegram. The mocked user (`Andrew Rogue`, `id: 99281932`) is a stable fixture; do not commit additional users without coordinating with the auth-test fixtures.
+- **`mockEnv.ts`** — runs in local `DEV` and in E2E preview mode (`VITE_E2E_MOCK_TELEGRAM=1`). Calls `retrieveLaunchParams()`; if it throws (i.e. we are running in a plain browser without Telegram), it constructs a deterministic fake `initDataRaw` and theme via `mockTelegramEnv` so the SDK behaves as if it were inside Telegram. The mocked user (`Andrew Rogue`, `id: 99281932`) is a stable fixture; do not commit additional users without coordinating with the auth-test fixtures.
 - **`index.css`** — Tailwind base/components/utilities entry imported by `main.tsx`.
 - **`dummy.test.ts`** — a Vitest sanity test that asserts a trivial expression. Replace with real tests as features land.
 - **`../tests/e2e/onboarding.spec.ts`** — Playwright E2E for the onboarding flow (open TMA mock env, complete/skip tutorial, build first mine, assert resource tick-up in UI).
+- **`../tests/e2e/first-day.spec.ts`** — Playwright E2E for the Cosmic Atlas first-day flow using stable `data-testid` selectors (`cosmic-topbar`, `planet-portrait`, `planet-rail`, `slot-{idx}`, `queue-strip`, `bnav-{id}`) across Home → PlanetDetail → BuildDialog → QueueStrip → Tech/Fleet/Galaxy navigation.
 
 ## `lib/`
 

@@ -50,6 +50,7 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
         role="dialog"
         aria-modal="true"
         aria-label="Construct building"
+        data-testid="build-dialog"
         onClick={(e) => e.stopPropagation()}
         style={{ '--accent': accent } as React.CSSProperties}
       >
@@ -75,6 +76,7 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
                 className="bopt"
                 onClick={() => onAction(type.id)}
                 disabled={isProcessing}
+                data-testid={`build-option-${type.id}`}
               >
                 <div className="bopt-icon">
                   <def.Icon size={32} tone={accent} />
