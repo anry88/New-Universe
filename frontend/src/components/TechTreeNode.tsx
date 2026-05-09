@@ -1,81 +1,106 @@
-import { ResearchProgress, ResearchDefinition } from '@shared/types/research';
-import { Beaker, Lock, CheckCircle2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import type { ResearchDefinition } from '@shared/types/research';
 
-interface TechTreeNodeProps {
-  branchId: string;
+export type TechTreeNodeVisualState = 'completed' | 'active' | 'pending' | 'locked';
+
+export interface TechTreeNodeProps {
   level: number;
-  definition?: ResearchDefinition;
-  progress?: ResearchProgress;
-  isUnlocked: boolean;
-  onClick: () => void;
+  accent: string;
+  visual: TechTreeNodeVisualState;
+  tierDefinition?: ResearchDefinition;
+  /** When visual === active — ISO date string */
+  completesAt?: string | null;
+  /** Total scheduled duration for this tier (seconds), for progress fill */
+  durationSec?: number;
 }
 
-export function TechTreeNode({ branchId, level, definition, progress, isUnlocked, onClick }: TechTreeNodeProps) {
-  const [timeLeft, setTimeLeft] = useState<number>(0);
-  
-  const currentLevel = progress?.level || 0;
-  const isCompleted = currentLevel >= level;
-  const isResearching = progress?.completesAt && new Date(progress.completesAt) > new Date() && currentLevel === level - 1;
+/**
+ * Single tier chip inside a branch row (Cosmic Atlas `tech-node` styles).
+ */
+export function TechTreeNode({
+  level,
+  accent,
+  visual,
+  tierDefinition,
+  completesAt,
+  durationSec,
+}: TechTreeNodeProps) {
+  const [remainingMs, setRemainingMs] = useState(0);
 
   useEffect(() => {
-    if (!isResearching || !progress?.completesAt) return;
+    if (visual !== 'active' || !completesAt) return;
 
-    const updateTimer = () => {
-      const remaining = Math.max(0, new Date(progress.completesAt!).getTime() - Date.now());
-      setTimeLeft(remaining);
+    const tick = () => {
+      const end = new Date(completesAt).getTime();
+      setRemainingMs(Math.max(0, end - Date.now()));
     };
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [visual, completesAt]);
 
-    updateTimer();
-    const interval = setInterval(updateTimer, 1000);
-    return () => clearInterval(interval);
-  }, [isResearching, progress?.completesAt]);
+  const progressPct =
+    visual === 'active' && completesAt && durationSec
+      ? Math.min(100, Math.max(0, 100 - (remainingMs / (durationSec * 1000)) * 100))
+      : 0;
 
-  const progressPercent = isResearching && definition 
-    ? Math.min(100, (1 - timeLeft / (definition.timeSec * 1000)) * 100) 
-    : 0;
+  const cls =
+    'tech-node' +
+    (visual === 'completed' ? ' done' : '') +
+    (visual === 'active' ? ' active' : '') +
+    (visual === 'locked' ? ' locked' : '');
+
+  const style: React.CSSProperties =
+    visual === 'completed'
+      ? { background: accent, color: '#02101a', borderColor: accent }
+      : visual === 'locked'
+        ? { opacity: 0.35 }
+        : {};
+
+  const title =
+    tierDefinition?.description?.en ??
+    (visual === 'locked' ? 'Requirements not met' : `Tier ${level}`);
 
   return (
-    <button
-      onClick={onClick}
-      disabled={!isUnlocked && !isCompleted}
-      className={`relative p-3 rounded-2xl border-2 transition-all hover:scale-105 w-full aspect-square flex flex-col items-center justify-center gap-1 shadow-lg ${
-        isCompleted
-          ? 'bg-emerald-600/20 border-emerald-500/50 text-emerald-100'
-          : isResearching
-          ? 'bg-blue-600/20 border-blue-500 text-blue-100 ring-2 ring-blue-500/20'
-          : isUnlocked
-          ? 'bg-slate-800 border-slate-700 text-slate-200 hover:border-slate-500'
-          : 'bg-slate-900/50 border-slate-800 text-slate-600 grayscale'
-      }`}
+    <div
+      className={cls}
+      style={style}
+      title={title}
+      role="img"
+      aria-label={`Tier ${level} ${visual}`}
     >
-      {!isUnlocked && !isCompleted && <Lock className="w-3 h-3 absolute top-2 right-2 text-slate-700" />}
-      {isCompleted && <CheckCircle2 className="w-4 h-4 absolute top-2 right-2 text-emerald-500" />}
-      
-      <div className={`p-2 rounded-xl ${isUnlocked ? 'bg-slate-700/50' : 'bg-slate-900/30'}`}>
-        <Beaker className={`w-6 h-6 ${isUnlocked || isCompleted ? 'text-blue-400' : 'text-slate-700'}`} />
-      </div>
-
-      <div className="text-center mt-1">
-        <p className="text-[9px] font-bold uppercase tracking-tight truncate w-20">
-          {definition?.name?.en || branchId}
-        </p>
-        <p className="text-[10px] opacity-60 font-medium">Level {level}</p>
-      </div>
-      
-      {isResearching && (
-        <>
-          <p className="text-[9px] font-mono mt-1 text-blue-300">
-            {Math.floor(timeLeft / 1000)}s
-          </p>
-          <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-slate-900/50 rounded-b-2xl overflow-hidden">
-            <div 
-              className="h-full bg-blue-500 transition-all duration-1000 ease-linear" 
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
-        </>
+      <span style={{ position: 'relative', zIndex: 1 }}>{level}</span>
+      {visual === 'active' && remainingMs > 0 && (
+        <span
+          style={{
+            position: 'absolute',
+            bottom: 2,
+            left: 4,
+            right: 4,
+            fontSize: 8,
+            fontFamily: 'var(--font-mono)',
+            color: 'var(--text-dim)',
+            textAlign: 'center',
+            zIndex: 1,
+          }}
+        >
+          {Math.ceil(remainingMs / 1000)}s
+        </span>
       )}
-    </button>
+      {visual === 'active' && durationSec ? (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            height: 3,
+            width: `${progressPct}%`,
+            background: accent,
+            borderRadius: '0 0 4px 4px',
+            opacity: 0.85,
+          }}
+        />
+      ) : null}
+    </div>
   );
 }

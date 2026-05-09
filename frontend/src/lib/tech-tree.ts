@@ -1,49 +1,91 @@
-import { ResearchDefinition } from '@shared/types/research';
+import type { ResearchDefinition } from '@shared/types/research';
 
-export const TECH_TREE_DATA: ResearchDefinition[] = [
-  { branch: 'mining', level: 1, name: { ru: 'Добыча I', en: 'Mining I' }, description: { ru: 'Технологии добычи ресурсов уровень 1', en: 'Resource mining tech level 1' }, cost: { iron: 100, silicon: 50 }, timeSec: 60, requirements: { buildings: [{ typeId: 'lab', level: 1 }] } },
-  { branch: 'mining', level: 2, name: { ru: 'Добыча II', en: 'Mining II' }, description: { ru: 'Технологии добычи ресурсов уровень 2', en: 'Resource mining tech level 2' }, cost: { iron: 500, silicon: 250 }, timeSec: 300, requirements: { buildings: [{ typeId: 'lab', level: 2 }], research: [{ branch: 'mining', level: 1 }] } },
-  { branch: 'mining', level: 3, name: { ru: 'Добыча III', en: 'Mining III' }, description: { ru: 'Технологии добычи ресурсов уровень 3', en: 'Resource mining tech level 3' }, cost: { iron: 800, silicon: 400 }, timeSec: 600, requirements: { buildings: [{ typeId: 'lab', level: 3 }], research: [{ branch: 'mining', level: 2 }] } },
-  { branch: 'mining', level: 4, name: { ru: 'Добыча IV', en: 'Mining IV' }, description: { ru: 'Технологии добычи ресурсов уровень 4', en: 'Resource mining tech level 4' }, cost: { iron: 1280, silicon: 640 }, timeSec: 1200, requirements: { buildings: [{ typeId: 'lab', level: 4 }], research: [{ branch: 'mining', level: 3 }] } },
-  { branch: 'mining', level: 5, name: { ru: 'Добыча V', en: 'Mining V' }, description: { ru: 'Технологии добычи ресурсов уровень 5', en: 'Resource mining tech level 5' }, cost: { iron: 2050, silicon: 1020 }, timeSec: 2400, requirements: { buildings: [{ typeId: 'lab', level: 5 }], research: [{ branch: 'mining', level: 4 }] } },
-  { branch: 'engineering', level: 1, name: { ru: 'Инженерия I', en: 'Engineering I' }, description: { ru: 'Конструкционные технологии уровень 1', en: 'Construction tech level 1' }, cost: { iron: 150, silicon: 50 }, timeSec: 90, requirements: { buildings: [{ typeId: 'lab', level: 1 }] } },
-  { branch: 'engineering', level: 2, name: { ru: 'Инженерия II', en: 'Engineering II' }, description: { ru: 'Конструкционные технологии уровень 2', en: 'Construction tech level 2' }, cost: { iron: 240, silicon: 80 }, timeSec: 180, requirements: { buildings: [{ typeId: 'lab', level: 2 }], research: [{ branch: 'engineering', level: 1 }] } },
-  { branch: 'engineering', level: 3, name: { ru: 'Инженерия III', en: 'Engineering III' }, description: { ru: 'Конструкционные технологии уровень 3', en: 'Construction tech level 3' }, cost: { iron: 380, silicon: 130 }, timeSec: 360, requirements: { buildings: [{ typeId: 'lab', level: 3 }], research: [{ branch: 'engineering', level: 2 }] } },
-  { branch: 'engineering', level: 4, name: { ru: 'Инженерия IV', en: 'Engineering IV' }, description: { ru: 'Конструкционные технологии уровень 4', en: 'Construction tech level 4' }, cost: { iron: 610, silicon: 210 }, timeSec: 720, requirements: { buildings: [{ typeId: 'lab', level: 4 }], research: [{ branch: 'engineering', level: 3 }] } },
-  { branch: 'engineering', level: 5, name: { ru: 'Инженерия V', en: 'Engineering V' }, description: { ru: 'Конструкционные технологии уровень 5', en: 'Construction tech level 5' }, cost: { iron: 980, silicon: 340 }, timeSec: 1440, requirements: { buildings: [{ typeId: 'lab', level: 5 }], research: [{ branch: 'engineering', level: 4 }] } },
-  { branch: 'engines', level: 1, name: { ru: 'Двигатели I', en: 'Engines I' }, description: { ru: 'Двигательные установки уровень 1', en: 'Propulsion systems level 1' }, cost: { iron: 200, silicon: 100 }, timeSec: 120, requirements: { buildings: [{ typeId: 'lab', level: 2 }] } },
-  { branch: 'engines', level: 2, name: { ru: 'Двигатели II', en: 'Engines II' }, description: { ru: 'Двигательные установки уровень 2', en: 'Propulsion systems level 2' }, cost: { iron: 320, silicon: 160 }, timeSec: 240, requirements: { buildings: [{ typeId: 'lab', level: 3 }], research: [{ branch: 'engines', level: 1 }] } },
-  { branch: 'engines', level: 3, name: { ru: 'Двигатели III', en: 'Engines III' }, description: { ru: 'Двигательные установки уровень 3', en: 'Propulsion systems level 3' }, cost: { iron: 510, silicon: 260 }, timeSec: 480, requirements: { buildings: [{ typeId: 'lab', level: 4 }], research: [{ branch: 'engines', level: 2 }] } },
-  { branch: 'engines', level: 4, name: { ru: 'Двигатели IV', en: 'Engines IV' }, description: { ru: 'Двигательные установки уровень 4', en: 'Propulsion systems level 4' }, cost: { iron: 820, silicon: 420 }, timeSec: 960, requirements: { buildings: [{ typeId: 'lab', level: 5 }], research: [{ branch: 'engines', level: 3 }] } },
-  { branch: 'engines', level: 5, name: { ru: 'Двигатели V', en: 'Engines V' }, description: { ru: 'Двигательные установки уровень 5', en: 'Propulsion systems level 5' }, cost: { iron: 1310, silicon: 670 }, timeSec: 1920, requirements: { buildings: [{ typeId: 'lab', level: 6 }], research: [{ branch: 'engines', level: 4 }] } },
-  { branch: 'weapons', level: 1, name: { ru: 'Вооружение I', en: 'Weapons I' }, description: { ru: 'Системы вооружения уровень 1', en: 'Weapon systems level 1' }, cost: { iron: 300, silicon: 150 }, timeSec: 180, requirements: { buildings: [{ typeId: 'lab', level: 3 }] } },
-  { branch: 'weapons', level: 2, name: { ru: 'Вооружение II', en: 'Weapons II' }, description: { ru: 'Системы вооружения уровень 2', en: 'Weapon systems level 2' }, cost: { iron: 480, silicon: 240 }, timeSec: 360, requirements: { buildings: [{ typeId: 'lab', level: 4 }], research: [{ branch: 'weapons', level: 1 }] } },
-  { branch: 'weapons', level: 3, name: { ru: 'Вооружение III', en: 'Weapons III' }, description: { ru: 'Системы вооружения уровень 3', en: 'Weapon systems level 3' }, cost: { iron: 770, silicon: 380 }, timeSec: 720, requirements: { buildings: [{ typeId: 'lab', level: 5 }], research: [{ branch: 'weapons', level: 2 }] } },
-  { branch: 'weapons', level: 4, name: { ru: 'Вооружение IV', en: 'Weapons IV' }, description: { ru: 'Системы вооружения уровень 4', en: 'Weapon systems level 4' }, cost: { iron: 1230, silicon: 610 }, timeSec: 1440, requirements: { buildings: [{ typeId: 'lab', level: 6 }], research: [{ branch: 'weapons', level: 3 }] } },
-  { branch: 'weapons', level: 5, name: { ru: 'Вооружение V', en: 'Weapons V' }, description: { ru: 'Системы вооружения уровень 5', en: 'Weapon systems level 5' }, cost: { iron: 1970, silicon: 980 }, timeSec: 2880, requirements: { buildings: [{ typeId: 'lab', level: 7 }], research: [{ branch: 'weapons', level: 4 }] } },
-  { branch: 'sensors', level: 1, name: { ru: 'Сенсоры I', en: 'Sensors I' }, description: { ru: 'Системы обнаружения уровень 1', en: 'Detection systems level 1' }, cost: { iron: 100, silicon: 200 }, timeSec: 150, requirements: { buildings: [{ typeId: 'lab', level: 2 }] } },
-  { branch: 'sensors', level: 2, name: { ru: 'Сенсоры II', en: 'Sensors II' }, description: { ru: 'Системы обнаружения уровень 2', en: 'Detection systems level 2' }, cost: { iron: 160, silicon: 320 }, timeSec: 300, requirements: { buildings: [{ typeId: 'lab', level: 3 }], research: [{ branch: 'sensors', level: 1 }] } },
-  { branch: 'sensors', level: 3, name: { ru: 'Сенсоры III', en: 'Sensors III' }, description: { ru: 'Системы обнаружения уровень 3', en: 'Detection systems level 3' }, cost: { iron: 260, silicon: 510 }, timeSec: 600, requirements: { buildings: [{ typeId: 'lab', level: 4 }], research: [{ branch: 'sensors', level: 2 }] } },
-  { branch: 'sensors', level: 4, name: { ru: 'Сенсоры IV', en: 'Sensors IV' }, description: { ru: 'Системы обнаружения уровень 4', en: 'Detection systems level 4' }, cost: { iron: 420, silicon: 820 }, timeSec: 1200, requirements: { buildings: [{ typeId: 'lab', level: 5 }], research: [{ branch: 'sensors', level: 3 }] } },
-  { branch: 'sensors', level: 5, name: { ru: 'Сенсоры V', en: 'Sensors V' }, description: { ru: 'Системы обнаружения уровень 5', en: 'Detection systems level 5' }, cost: { iron: 670, silicon: 1310 }, timeSec: 2400, requirements: { buildings: [{ typeId: 'lab', level: 6 }], research: [{ branch: 'sensors', level: 4 }] } },
-  { branch: 'logistics', level: 1, name: { ru: 'Логистика I', en: 'Logistics I' }, description: { ru: 'Управление ресурсами уровень 1', en: 'Resource management level 1' }, cost: { iron: 200, silicon: 200 }, timeSec: 240, requirements: { buildings: [{ typeId: 'lab', level: 2 }] } },
-  { branch: 'logistics', level: 2, name: { ru: 'Логистика II', en: 'Logistics II' }, description: { ru: 'Управление ресурсами уровень 2', en: 'Resource management level 2' }, cost: { iron: 320, silicon: 320 }, timeSec: 480, requirements: { buildings: [{ typeId: 'lab', level: 3 }], research: [{ branch: 'logistics', level: 1 }] } },
-  { branch: 'logistics', level: 3, name: { ru: 'Логистика III', en: 'Logistics III' }, description: { ru: 'Управление ресурсами уровень 3', en: 'Resource management level 3' }, cost: { iron: 510, silicon: 510 }, timeSec: 960, requirements: { buildings: [{ typeId: 'lab', level: 4 }], research: [{ branch: 'logistics', level: 2 }] } },
-  { branch: 'logistics', level: 4, name: { ru: 'Логистика IV', en: 'Logistics IV' }, description: { ru: 'Управление ресурсами уровень 4', en: 'Resource management level 4' }, cost: { iron: 820, silicon: 820 }, timeSec: 1920, requirements: { buildings: [{ typeId: 'lab', level: 5 }], research: [{ branch: 'logistics', level: 3 }] } },
-  { branch: 'logistics', level: 5, name: { ru: 'Логистика V', en: 'Logistics V' }, description: { ru: 'Управление ресурсами уровень 5', en: 'Resource management level 5' }, cost: { iron: 1310, silicon: 1310 }, timeSec: 3840, requirements: { buildings: [{ typeId: 'lab', level: 6 }], research: [{ branch: 'logistics', level: 4 }] } },
-  { branch: 'jump_drive', level: 1, name: { ru: 'Прыжок I', en: 'Jump Drive I' }, description: { ru: 'Сверхсветовые перемещения уровень 1', en: 'Faster-than-light travel level 1' }, cost: { iron: 1000, silicon: 1000, tritium: 500 }, timeSec: 600, requirements: { buildings: [{ typeId: 'lab', level: 5 }], research: [{ branch: 'engines', level: 3 }] } },
-  { branch: 'jump_drive', level: 2, name: { ru: 'Прыжок II', en: 'Jump Drive II' }, description: { ru: 'Сверхсветовые перемещения уровень 2', en: 'Faster-than-light travel level 2' }, cost: { iron: 1600, silicon: 1600, tritium: 800 }, timeSec: 1200, requirements: { buildings: [{ typeId: 'lab', level: 6 }], research: [{ branch: 'jump_drive', level: 1 }] } },
-  { branch: 'jump_drive', level: 3, name: { ru: 'Прыжок III', en: 'Jump Drive III' }, description: { ru: 'Сверхсветовые перемещения уровень 3', en: 'Faster-than-light travel level 3' }, cost: { iron: 2560, silicon: 2560, tritium: 1280 }, timeSec: 2400, requirements: { buildings: [{ typeId: 'lab', level: 7 }], research: [{ branch: 'jump_drive', level: 2 }] } },
-  { branch: 'jump_drive', level: 4, name: { ru: 'Прыжок IV', en: 'Jump Drive IV' }, description: { ru: 'Сверхсветовые перемещения уровень 4', en: 'Faster-than-light travel level 4' }, cost: { iron: 4100, silicon: 4100, tritium: 2050 }, timeSec: 4800, requirements: { buildings: [{ typeId: 'lab', level: 8 }], research: [{ branch: 'jump_drive', level: 3 }] } },
-  { branch: 'jump_drive', level: 5, name: { ru: 'Прыжок V', en: 'Jump Drive V' }, description: { ru: 'Сверхсветовые перемещения уровень 5', en: 'Faster-than-light travel level 5' }, cost: { iron: 6560, silicon: 6560, tritium: 3280 }, timeSec: 9600, requirements: { buildings: [{ typeId: 'lab', level: 9 }], research: [{ branch: 'jump_drive', level: 4 }] } },
+/** Mirrors `backend/src/config/research-catalog.ts` (levels 1–3 per branch). */
+export type ResearchEffectTarget =
+  | 'resourceProduction'
+  | 'resourceStorage'
+  | 'shipSpeed'
+  | 'sensorRange'
+  | 'buildTime';
+
+export interface TechTreeEntry extends ResearchDefinition {
+  effects: Array<{ target: ResearchEffectTarget; multiplier: number }>;
+}
+
+export const RESEARCH_MAX_LEVEL = 3;
+
+function mk(
+  branch: string,
+  level: 1 | 2 | 3,
+  name: { ru: string; en: string },
+  description: { ru: string; en: string },
+  cost: TechTreeEntry['cost'],
+  timeSec: number,
+  effects: TechTreeEntry['effects'],
+): TechTreeEntry {
+  return {
+    branch,
+    level,
+    name,
+    description,
+    cost,
+    timeSec,
+    requirements: {
+      buildings: [{ typeId: 'lab', level }],
+      research: level === 1 ? undefined : [{ branch, level: level - 1 }],
+    },
+    effects,
+  };
+}
+
+export const TECH_TREE_DATA: TechTreeEntry[] = [
+  mk('mining', 1, { ru: 'Добыча I', en: 'Mining I' }, { ru: '+5% к добыче ресурсов', en: '+5% resource production' }, { iron: 120, silicon: 60 }, 90, [
+    { target: 'resourceProduction', multiplier: 1.05 },
+  ]),
+  mk('mining', 2, { ru: 'Добыча II', en: 'Mining II' }, { ru: '+10% к добыче ресурсов', en: '+10% resource production' }, { iron: 280, silicon: 140 }, 210, [
+    { target: 'resourceProduction', multiplier: 1.1 },
+  ]),
+  mk('mining', 3, { ru: 'Добыча III', en: 'Mining III' }, { ru: '+15% к добыче ресурсов', en: '+15% resource production' }, { iron: 520, silicon: 260 }, 420, [
+    { target: 'resourceProduction', multiplier: 1.15 },
+  ]),
+
+  mk('engineering', 1, { ru: 'Инженерия I', en: 'Engineering I' }, { ru: '-3% ко времени строительства', en: '-3% build time' }, { iron: 150, silicon: 70 }, 120, [
+    { target: 'buildTime', multiplier: 0.97 },
+  ]),
+  mk('engineering', 2, { ru: 'Инженерия II', en: 'Engineering II' }, { ru: '-6% ко времени строительства', en: '-6% build time' }, { iron: 340, silicon: 160 }, 270, [
+    { target: 'buildTime', multiplier: 0.94 },
+  ]),
+  mk('engineering', 3, { ru: 'Инженерия III', en: 'Engineering III' }, { ru: '-9% ко времени строительства', en: '-9% build time' }, { iron: 620, silicon: 300 }, 540, [
+    { target: 'buildTime', multiplier: 0.91 },
+  ]),
+
+  mk('engines', 1, { ru: 'Двигатели I', en: 'Engines I' }, { ru: '+5% к скорости кораблей', en: '+5% ship speed' }, { iron: 220, silicon: 110 }, 150, [{ target: 'shipSpeed', multiplier: 1.05 }]),
+  mk('engines', 2, { ru: 'Двигатели II', en: 'Engines II' }, { ru: '+10% к скорости кораблей', en: '+10% ship speed' }, { iron: 460, silicon: 230 }, 330, [{ target: 'shipSpeed', multiplier: 1.1 }]),
+  mk('engines', 3, { ru: 'Двигатели III', en: 'Engines III' }, { ru: '+15% к скорости кораблей', en: '+15% ship speed' }, { iron: 820, silicon: 410 }, 660, [{ target: 'shipSpeed', multiplier: 1.15 }]),
+
+  mk('weapons', 1, { ru: 'Вооружение I', en: 'Weapons I' }, { ru: 'Базовая подготовка вооружений', en: 'Base weapon systems training' }, { iron: 260, silicon: 130 }, 180, []),
+  mk('weapons', 2, { ru: 'Вооружение II', en: 'Weapons II' }, { ru: 'Средний уровень вооружений', en: 'Intermediate weapon systems' }, { iron: 520, silicon: 260 }, 390, []),
+  mk('weapons', 3, { ru: 'Вооружение III', en: 'Weapons III' }, { ru: 'Продвинутый уровень вооружений', en: 'Advanced weapon systems' }, { iron: 920, silicon: 460 }, 780, []),
+
+  mk('sensors', 1, { ru: 'Сенсоры I', en: 'Sensors I' }, { ru: '+6% к радиусу сенсоров', en: '+6% sensor range' }, { iron: 120, silicon: 220 }, 150, [{ target: 'sensorRange', multiplier: 1.06 }]),
+  mk('sensors', 2, { ru: 'Сенсоры II', en: 'Sensors II' }, { ru: '+12% к радиусу сенсоров', en: '+12% sensor range' }, { iron: 260, silicon: 460 }, 330, [{ target: 'sensorRange', multiplier: 1.12 }]),
+  mk('sensors', 3, { ru: 'Сенсоры III', en: 'Sensors III' }, { ru: '+18% к радиусу сенсоров', en: '+18% sensor range' }, { iron: 470, silicon: 820 }, 660, [{ target: 'sensorRange', multiplier: 1.18 }]),
+
+  mk('logistics', 1, { ru: 'Логистика I', en: 'Logistics I' }, { ru: '+8% к вместимости', en: '+8% storage capacity' }, { iron: 200, silicon: 180 }, 210, [{ target: 'resourceStorage', multiplier: 1.08 }]),
+  mk('logistics', 2, { ru: 'Логистика II', en: 'Logistics II' }, { ru: '+16% к вместимости', en: '+16% storage capacity' }, { iron: 430, silicon: 380 }, 450, [{ target: 'resourceStorage', multiplier: 1.16 }]),
+  mk('logistics', 3, { ru: 'Логистика III', en: 'Logistics III' }, { ru: '+24% к вместимости', en: '+24% storage capacity' }, { iron: 760, silicon: 700 }, 900, [{ target: 'resourceStorage', multiplier: 1.24 }]),
+
+  mk('jump_drive', 1, { ru: 'Прыжок I', en: 'Jump Drive I' }, { ru: '+2% к скорости кораблей', en: '+2% ship speed' }, { iron: 900, silicon: 900, tritium: 400 }, 720, [{ target: 'shipSpeed', multiplier: 1.02 }]),
+  mk('jump_drive', 2, { ru: 'Прыжок II', en: 'Jump Drive II' }, { ru: '+4% к скорости кораблей', en: '+4% ship speed' }, { iron: 1500, silicon: 1500, tritium: 700 }, 1500, [{ target: 'shipSpeed', multiplier: 1.04 }]),
+  mk('jump_drive', 3, { ru: 'Прыжок III', en: 'Jump Drive III' }, { ru: '+6% к скорости кораблей', en: '+6% ship speed' }, { iron: 2400, silicon: 2400, tritium: 1100 }, 3000, [{ target: 'shipSpeed', multiplier: 1.06 }]),
 ];
 
 export const BRANCHES = [
-  { id: 'mining', name: { ru: 'Добыча', en: 'Mining' } },
-  { id: 'engineering', name: { ru: 'Инженерия', en: 'Engineering' } },
-  { id: 'engines', name: { ru: 'Двигатели', en: 'Engines' } },
-  { id: 'weapons', name: { ru: 'Оружие', en: 'Weapons' } },
-  { id: 'sensors', name: { ru: 'Сенсоры', en: 'Sensors' } },
-  { id: 'logistics', name: { ru: 'Логистика', en: 'Logistics' } },
-  { id: 'jump_drive', name: { ru: 'Прыжок', en: 'Jump Drive' } },
+  { id: 'mining', name: { ru: 'Добыча ресурсов', en: 'Resource Mining' }, description: { ru: 'Повышение эффективности добычи.', en: 'Improves extraction throughput.' } },
+  { id: 'engineering', name: { ru: 'Инженерия', en: 'Engineering' }, description: { ru: 'Оптимизация строительных процессов.', en: 'Optimizes construction workflows.' } },
+  { id: 'engines', name: { ru: 'Двигатели', en: 'Engines' }, description: { ru: 'Улучшение тяги и скорости кораблей.', en: 'Improves thrust and ship speed.' } },
+  { id: 'weapons', name: { ru: 'Вооружение', en: 'Weapons' }, description: { ru: 'Подготовка ветки боевых технологий.', en: 'Prepares combat technology progression.' } },
+  { id: 'sensors', name: { ru: 'Сенсоры', en: 'Sensors' }, description: { ru: 'Расширение радиуса обнаружения.', en: 'Extends exploration sensor range.' } },
+  { id: 'logistics', name: { ru: 'Логистика', en: 'Logistics' }, description: { ru: 'Повышение вместимости складов.', en: 'Improves storage and handling throughput.' } },
+  { id: 'jump_drive', name: { ru: 'Прыжковый двигатель', en: 'Jump Drive' }, description: { ru: 'Технологии межсекторного перемещения.', en: 'Inter-sector mobility technology.' } },
 ];

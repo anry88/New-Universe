@@ -96,6 +96,7 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 - `pages/Home.tsx` — main game screen with resource bar, tab bar, and navigation.
 - `pages/Colonies.tsx` — lists all owned planets with their resources and status, allowing focal planet switching and initiating cargo transfers.
 - `pages/Market.tsx` — market UI for browsing buy/sell quotes, submitting NPC market orders, and tracking pending order ETA.
+- `pages/Research.tsx` — Cosmic Atlas tech tree (levels 1–3 per branch, synced with `frontend/src/lib/tech-tree.ts` / backend catalog); lab/prerequisite gating, optimistic research starts, live countdown chips.
 - `pages/onboarding/Onboarding.tsx` — 5-step onboarding flow with skip-and-return behavior and current-objective toast.
 - `pages/PlanetDetail.tsx` — detailed planet screen with infrastructure slots, building construction, and upgrade dialogs.
 - `components/ResourceBar.tsx` — displays planet resources with animated real-time regeneration.

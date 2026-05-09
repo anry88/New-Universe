@@ -899,7 +899,7 @@ body {
 }
 .tech-node {
   flex: 1;
-  height: 24px;
+  height: 28px;
   border-radius: 6px;
   border: 1px solid var(--line-strong);
   display: grid;
@@ -908,6 +908,49 @@ body {
   font-size: 10px;
   color: var(--text-faint);
   background: rgba(255, 255, 255, 0.02);
+  position: relative;
+  overflow: hidden;
+}
+.tech-node.locked {
+  border-style: dashed;
+}
+.tech-branch-desc {
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text-faint);
+  margin: 0 0 8px;
+  text-align: left;
+}
+.tech-effect-line {
+  font-size: 10px;
+  margin-top: 8px;
+  color: var(--text-dim);
+  text-align: left;
+  line-height: 1.35;
+}
+.tech-effect-block,
+.tech-lock-block {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.02);
+}
+.tech-effect-label {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+  margin-bottom: 6px;
+}
+.tech-effect-body {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+.tech-lock-line {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin: 0 0 8px;
 }
 .tech-node.done {
   color: #02101a;

@@ -1,15 +1,15 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useMe } from '../hooks/useMe';
 import { useStartResearch } from '../hooks/useResearch';
-import { TECH_TREE_DATA, BRANCHES } from '../lib/tech-tree';
+import { TECH_TREE_DATA, BRANCHES, RESEARCH_MAX_LEVEL, type TechTreeEntry } from '../lib/tech-tree';
+import { evaluateResearchEligibility } from '../lib/research-eligibility';
 import { ResourceBar } from '../components/ResourceBar';
-import {
-  CosmicBackground,
-  CosmicBottomNav,
-} from '../components/cosmic/atoms';
+import { RequirementList } from '../components/RequirementList';
+import { TechTreeNode, type TechTreeNodeVisualState } from '../components/TechTreeNode';
+import { CosmicBackground, CosmicBottomNav } from '../components/cosmic/atoms';
 import { ChevronLeft, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { ResearchDefinition } from '@shared/types/research';
 import { getResourceSymbol } from '../components/cosmic/resources';
 import { resolveBuildingType } from '../components/cosmic/buildings';
 
@@ -23,43 +23,87 @@ const BRANCH_COLORS: Record<string, string> = {
   jump_drive: '#F4B84A',
 };
 
-/**
- * Research / Tech-Tree screen — Cosmic Atlas redesign.
- *
- * Each branch is rendered as a horizontal "tech-row" card showing:
- *   - branch dot + name + current level / max
- *   - 5 node squares (one per level), each marked done / active / pending
- *   - bottom progress bar reflecting current level
- *
- * Tapping a row opens a bottom-sheet detail pane (when a definition exists
- * for the next level) so the user can start research.
- */
+type DetailPanel =
+  | null
+  | { kind: 'tier'; def: TechTreeEntry }
+  | { kind: 'complete'; branchId: string };
+
+function tierVisual(
+  level: number,
+  completedLevel: number,
+  completesAt: string | null | undefined,
+): TechTreeNodeVisualState {
+  const now = Date.now();
+  const timerActive = Boolean(completesAt && new Date(completesAt).getTime() > now);
+  if (completedLevel >= level) return 'completed';
+  if (timerActive && completedLevel === level - 1) return 'active';
+  if (!timerActive && completedLevel === level - 1) return 'pending';
+  return 'locked';
+}
+
+function formatEffectLines(effects: TechTreeEntry['effects']): string {
+  if (!effects.length) return 'Passive branch progression';
+  return effects
+    .map((e) => {
+      const label = e.target;
+      if (e.multiplier < 1) {
+        return `${label}: ×${e.multiplier.toFixed(2)} (reduction)`;
+      }
+      const pct = Math.round((e.multiplier - 1) * 100);
+      return `${label}: +${pct}%`;
+    })
+    .join(' · ');
+}
+
 export function ResearchPage() {
   const { data: meData } = useMe();
   const startResearch = useStartResearch();
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [selectedTech, setSelectedTech] = useState<ResearchDefinition | null>(null);
+  const [panel, setPanel] = useState<DetailPanel>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const homePlanetId = meData?.homeSystem?.planets?.[0]?.id;
 
-  // Canonical lab id is `lab`; `resolveBuildingType` still maps older payload spellings to the lab icon/catalog entry.
   const labBuilding = meData?.homeSystem?.planets?.[0]?.buildings?.find((b) => {
     const def = resolveBuildingType(b.typeId);
     return def === resolveBuildingType('lab');
   });
   const labLevel = labBuilding?.level ?? 0;
 
-  const handleStart = async () => {
-    if (!selectedTech || !homePlanetId) return;
+  const activeResearch = useMemo(
+    () =>
+      meData?.research?.find((r) => r.completesAt && new Date(r.completesAt) > new Date()) ?? null,
+    [meData?.research],
+  );
+
+  useEffect(() => {
+    if (!activeResearch?.completesAt) return;
+    const ms = new Date(activeResearch.completesAt).getTime() - Date.now();
+    if (ms <= 0) return;
+    const t = window.setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: ['me'] });
+    }, ms + 800);
+    return () => window.clearTimeout(t);
+  }, [activeResearch?.completesAt, queryClient]);
+
+  const handleStart = async (def: TechTreeEntry) => {
+    if (!homePlanetId) return;
+    setActionError(null);
     try {
-      await startResearch.mutateAsync({ branch: selectedTech.branch, planetId: homePlanetId });
-      setSelectedTech(null);
-    } catch (err) {
-      console.error(err);
+      await startResearch.mutateAsync({
+        branch: def.branch,
+        planetId: homePlanetId,
+        estimatedDurationSec: def.timeSec,
+      });
+      setPanel(null);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Could not start research';
+      setActionError(msg);
     }
   };
 
-  const levels = [1, 2, 3, 4, 5];
+  const levels = [1, 2, 3] as const;
 
   return (
     <div className="cosmic-screen" style={{ '--accent': '#5BD7FF' } as React.CSSProperties}>
@@ -83,8 +127,8 @@ export function ResearchPage() {
           </div>
         </div>
         <div className="page-stat">
-          <div className="ps-v">{meData?.research?.length ?? 0}</div>
-          <div className="ps-l">BRANCHES</div>
+          <div className="ps-v">{meData?.research?.filter((r) => (r.level ?? 0) > 0).length ?? 0}</div>
+          <div className="ps-l">ACTIVE</div>
         </div>
       </div>
 
@@ -92,16 +136,19 @@ export function ResearchPage() {
         <div className="tech-list">
           {BRANCHES.map((branch) => {
             const progress = meData?.research?.find((p) => p.branch === branch.id);
-            const currentLevel = progress?.level || 0;
+            const completedLevel = progress?.level ?? 0;
             const accent = BRANCH_COLORS[branch.id] ?? '#5BD7FF';
 
-            // Pick the next-level definition the player can start.
             const nextDef = TECH_TREE_DATA.find(
-              (t) => t.branch === branch.id && t.level === currentLevel + 1
+              (t) => t.branch === branch.id && t.level === completedLevel + 1,
             );
 
-            const onClick = () => {
-              if (nextDef) setSelectedTech(nextDef);
+            const openPanel = () => {
+              if (completedLevel >= RESEARCH_MAX_LEVEL) {
+                setPanel({ kind: 'complete', branchId: branch.id });
+                return;
+              }
+              if (nextDef) setPanel({ kind: 'tier', def: nextDef });
             };
 
             return (
@@ -109,7 +156,7 @@ export function ResearchPage() {
                 key={branch.id}
                 type="button"
                 className="tech-row"
-                onClick={onClick}
+                onClick={openPanel}
                 style={{ '--accent': accent } as React.CSSProperties}
               >
                 <div className="tech-row-head">
@@ -118,22 +165,26 @@ export function ResearchPage() {
                     {branch.name.en}
                   </div>
                   <div className="tech-lvl">
-                    {currentLevel}
-                    <span className="tech-max"> / 5</span>
+                    {Math.min(completedLevel, RESEARCH_MAX_LEVEL)}
+                    <span className="tech-max"> / {RESEARCH_MAX_LEVEL}</span>
                   </div>
                 </div>
+                <div className="tech-branch-desc">{branch.description.en}</div>
                 <div className="tech-nodes">
                   {levels.map((level) => {
-                    const done = level <= currentLevel;
-                    const active = level === currentLevel + 1 && Boolean(nextDef);
+                    const tierDef = TECH_TREE_DATA.find((t) => t.branch === branch.id && t.level === level);
+                    const vis = tierVisual(level, completedLevel, progress?.completesAt ?? null);
+                    const dur = tierDef?.timeSec;
                     return (
-                      <div
+                      <TechTreeNode
                         key={level}
-                        className={'tech-node ' + (done ? 'done' : active ? 'active' : '')}
-                        style={done ? { background: accent, color: '#02101a' } : undefined}
-                      >
-                        {level}
-                      </div>
+                        level={level}
+                        accent={accent}
+                        visual={vis}
+                        tierDefinition={tierDef}
+                        completesAt={progress?.completesAt}
+                        durationSec={vis === 'active' && tierDef ? dur : undefined}
+                      />
                     );
                   })}
                 </div>
@@ -141,12 +192,17 @@ export function ResearchPage() {
                   <div
                     className="qstrip-fill"
                     style={{
-                      width: (currentLevel / 5) * 100 + '%',
+                      width: `${(Math.min(completedLevel, RESEARCH_MAX_LEVEL) / RESEARCH_MAX_LEVEL) * 100}%`,
                       background: accent,
                       boxShadow: `0 0 6px ${accent}`,
                     }}
                   />
                 </div>
+                {completedLevel > 0 && tierDefForCompleted(branch.id, completedLevel) && (
+                  <div className="tech-effect-line">
+                    Applied: {formatEffectLines(tierDefForCompleted(branch.id, completedLevel)!.effects)}
+                  </div>
+                )}
               </button>
             );
           })}
@@ -156,60 +212,32 @@ export function ResearchPage() {
 
       <CosmicBottomNav active="tech" />
 
-      {selectedTech && (
-        <div className="bd-backdrop" onClick={() => setSelectedTech(null)}>
+      {panel?.kind === 'tier' && (
+        <TierDetailSheet
+          def={panel.def}
+          labLevel={labLevel}
+          research={meData?.research}
+          startResearch={startResearch}
+          error={actionError}
+          onClose={() => setPanel(null)}
+          onStart={() => handleStart(panel.def)}
+        />
+      )}
+
+      {panel?.kind === 'complete' && (
+        <div className="bd-backdrop" onClick={() => setPanel(null)}>
           <div className="bd-sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
             <div className="bd-handle" />
-            <div className="bd-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div className="bd-head" style={{ display: 'flex', justifyContent: 'space-between' }}>
               <div>
-                <div className="bd-tag">START RESEARCH</div>
-                <div className="bd-title">{selectedTech.name.en}</div>
-                <div className="bd-sub">Level {selectedTech.level} · {selectedTech.branch}</div>
+                <div className="bd-tag">BRANCH COMPLETE</div>
+                <div className="bd-title">
+                  {BRANCHES.find((b) => b.id === panel.branchId)?.name.en ?? panel.branchId}
+                </div>
+                <div className="bd-sub">All {RESEARCH_MAX_LEVEL} tiers researched.</div>
               </div>
-              <button
-                type="button"
-                aria-label="Close"
-                onClick={() => setSelectedTech(null)}
-                style={{ color: 'var(--text-faint)' }}
-              >
+              <button type="button" aria-label="Close" onClick={() => setPanel(null)} style={{ color: 'var(--text-faint)' }}>
                 <X size={18} />
-              </button>
-            </div>
-            <div className="bd-list">
-              <p style={{ color: 'var(--text-dim)', fontSize: 13, lineHeight: 1.5, margin: 0 }}>
-                {selectedTech.description.en}
-              </p>
-              <div className="bopt" style={{ cursor: 'default' }}>
-                <div className="bopt-icon">
-                  <svg width="32" height="32" viewBox="0 0 64 64" fill="none" stroke="var(--accent)" strokeWidth="1.6">
-                    <path d="M26 10 L38 10" />
-                    <path d="M28 10 L28 26 L18 48 Q14 56 22 56 L42 56 Q50 56 46 48 L36 26 L36 10" />
-                  </svg>
-                </div>
-                <div>
-                  <div className="bopt-row">
-                    <span className="bopt-name">Cost</span>
-                    <span className="bopt-locked">L{selectedTech.level}</span>
-                  </div>
-                  <div className="bopt-meta">
-                    <span className="bopt-cost">
-                      {Object.entries(selectedTech.cost)
-                        .map(([res, amount]) => `${getResourceSymbol(res)} ${amount}`)
-                        .join('  ·  ')}
-                    </span>
-                    <span className="bopt-time">{selectedTech.timeSec}s</span>
-                  </div>
-                </div>
-                <span aria-hidden="true" />
-              </div>
-              <button
-                type="button"
-                onClick={handleStart}
-                disabled={startResearch.isPending}
-                className="cosmic-cta"
-                style={{ width: '100%', padding: '14px', marginTop: 8 }}
-              >
-                {startResearch.isPending ? 'Starting…' : 'Initiate Research'}
               </button>
             </div>
           </div>
@@ -219,6 +247,100 @@ export function ResearchPage() {
   );
 }
 
-// Keep TechTreeNode export to avoid breaking any other usage. The new page
-// renders a row layout, so the old tile component is unused but preserved.
+function tierDefForCompleted(branchId: string, completedLevel: number): TechTreeEntry | undefined {
+  return TECH_TREE_DATA.find((t) => t.branch === branchId && t.level === completedLevel);
+}
+
+interface TierDetailSheetProps {
+  def: TechTreeEntry;
+  labLevel: number;
+  research: import('@shared/types/user').User['research'];
+  startResearch: ReturnType<typeof useStartResearch>;
+  error: string | null;
+  onClose: () => void;
+  onStart: () => void;
+}
+
+function TierDetailSheet({ def, labLevel, research, startResearch, error, onClose, onStart }: TierDetailSheetProps) {
+  const eligibility = evaluateResearchEligibility(def, labLevel, research);
+
+  return (
+    <div className="bd-backdrop" onClick={onClose}>
+      <div className="bd-sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+        <div className="bd-handle" />
+        <div className="bd-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <div className="bd-tag">RESEARCH</div>
+            <div className="bd-title">{def.name.en}</div>
+            <div className="bd-sub">
+              Level {def.level} · {def.branch}
+            </div>
+          </div>
+          <button type="button" aria-label="Close" onClick={onClose} style={{ color: 'var(--text-faint)' }}>
+            <X size={18} />
+          </button>
+        </div>
+        <div className="bd-list">
+          <p style={{ color: 'var(--text-dim)', fontSize: 13, lineHeight: 1.5, margin: 0 }}>{def.description.en}</p>
+
+          <div className="tech-effect-block">
+            <div className="tech-effect-label">Effects on completion</div>
+            <div className="tech-effect-body">{formatEffectLines(def.effects)}</div>
+          </div>
+
+          {!eligibility.ok && (
+            <div className="tech-lock-block">
+              <div className="tech-effect-label">Requirements</div>
+              {eligibility.labMessage && <p className="tech-lock-line">{eligibility.labMessage}</p>}
+              {eligibility.missingResearch.length > 0 && (
+                <RequirementList title="Research prerequisites" missing={eligibility.missingResearch} locale="en" />
+              )}
+            </div>
+          )}
+
+          <div className="bopt" style={{ cursor: 'default' }}>
+            <div className="bopt-icon">
+              <svg width="32" height="32" viewBox="0 0 64 64" fill="none" stroke="var(--accent)" strokeWidth="1.6">
+                <path d="M26 10 L38 10" />
+                <path d="M28 10 L28 26 L18 48 Q14 56 22 56 L42 56 Q50 56 46 48 L36 26 L36 10" />
+              </svg>
+            </div>
+            <div>
+              <div className="bopt-row">
+                <span className="bopt-name">Cost</span>
+                <span className="bopt-locked">L{def.level}</span>
+              </div>
+              <div className="bopt-meta">
+                <span className="bopt-cost">
+                  {Object.entries(def.cost)
+                    .map(([res, amount]) => `${getResourceSymbol(res)} ${amount}`)
+                    .join('  ·  ')}
+                </span>
+                <span className="bopt-time">{def.timeSec}s</span>
+              </div>
+            </div>
+            <span aria-hidden="true" />
+          </div>
+
+          {error && (
+            <p style={{ color: '#ff8a8a', fontSize: 13, margin: 0 }} role="alert">
+              {error}
+            </p>
+          )}
+
+          <button
+            type="button"
+            onClick={onStart}
+            disabled={startResearch.isPending || !eligibility.ok}
+            className="cosmic-cta"
+            style={{ width: '100%', padding: '14px', marginTop: 8 }}
+          >
+            {startResearch.isPending ? 'Starting…' : eligibility.ok ? 'Initiate Research' : 'Locked'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export { TechTreeNode } from '../components/TechTreeNode';

@@ -8,6 +8,7 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
 - `hooks/` — custom React hooks.
   - **`useAuth.ts`** — manages JWT session state in memory via Zustand.
   - **`useMarket.ts`** — market offers query, create-order mutation, pending-order cache, and error normalization for market-specific UI states.
+  - **`useResearch.ts`** — `useStartResearch()` wraps `POST /research/start` with optimistic `me` cache updates (`completesAt` + in-flight branch), rollback on error, and invalidation on settle.
   - **`useMe.ts`** — React Query hook for fetching current player data from `GET /me`.
   - **`useColonies.ts`** — manages the collection of player-owned planets and tracks the focal planet across the UI via a dedicated Zustand store.
 - `pages/` — page-level components routed by `react-router-dom`.
@@ -20,7 +21,7 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
   - **`SystemMap.tsx`** — page component for the interactive home system map.
   - **`Ships.tsx`** — fleet management and ship list.
   - **`Market.tsx`** — utility economy market screen with buy/sell price browsing, order submission, and pending-order ETA tracking.
-  - **`Research.tsx`** — tech-tree screen (Cosmic Atlas); uses `TECH_TREE_DATA` from `lib/tech-tree.ts`, resolves lab level via `resolveBuildingType`, starts research through `useStartResearch`.
+  - **`Research.tsx`** — tech-tree screen (Cosmic Atlas): seven branches × three tiers aligned with `backend/src/config/research-catalog.ts`, branch blurbs, per-tier `TechTreeNode` states (completed / in-progress timer / next pending / locked), applied-effects summary, detail sheet with costs and `RequirementList` when gated, optimistic start via `useStartResearch`, refetch when lab timers complete.
 - `components/` — reusable presentational components.
   - `pixi/` — canvas-based rendering components using PixiJS.
     - **`SystemRenderer.tsx`** — top-down system map renderer. Handles orbits, planets, star, and ship markers with pan/zoom logic.
@@ -34,6 +35,7 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
   - **`ExpeditionDialog.tsx`** — mission launch configuration with coordinate selection and ETA.
   - **`MarketOrderDialog.tsx`** — modal form for creating buy/sell NPC market orders with resource selection, quantity, and clear validation error states.
   - **`RequirementList.tsx`** — compact list of missing `{ branch, level }` research prerequisites for gated UI actions; uses `RESEARCH_BRANCH_LABELS_EN` from `@shared/types/research`.
+  - **`TechTreeNode.tsx`** — single-tier chip for Cosmic `tech-node` styles: completed/active countdown/pending/locked visuals without heavy Tailwind (mobile-friendly).
   - **`Tutorial.tsx`** — reusable full-screen onboarding overlay with step list, current-objective hint, and action buttons.
 - `assets/` — static assets imported by Vite (currently empty).
 
@@ -58,7 +60,8 @@ The folders above are reserved by `AGENTS.md` (`Engineering Rules` → "Keep fro
 
 ## `lib/`
 
-- **`tech-tree.ts`** — static `TECH_TREE_DATA` / `BRANCHES` mirror of backend research definitions (building prerequisites use `lab`; costs use seeded resource ids such as `iron`, `silicon`, `tritium`).
+- **`tech-tree.ts`** — `TECH_TREE_DATA` (levels 1–3 per branch, costs/times/descriptions/effects) and `BRANCHES` metadata copied from `backend/src/config/research-catalog.ts`.
+- **`research-eligibility.ts`** — `evaluateResearchEligibility` mirrors `/research/start` lab + prerequisite checks for UI lock copy.
 - **`api.ts`** — Unified fetch client. Automatically injects `X-Telegram-Init-Data` from the SDK and `Authorization: Bearer <token>` when a session is active.
 - **`sentry.ts`** — initializes `@sentry/react` only when `import.meta.env.VITE_SENTRY_DSN` is present.
  Uses `browserTracingIntegration` and `replayIntegration` with `replaysSessionSampleRate: 0.1` and `replaysOnErrorSampleRate: 1.0`, sets `tracesSampleRate: 1.0`, and reports `import.meta.env.MODE` as the environment. The module exports the `Sentry` namespace so error-boundary or `Sentry.captureException` calls can import directly from here.
