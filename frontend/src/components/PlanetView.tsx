@@ -82,7 +82,7 @@ export function PlanetView() {
                   key={i}
                   index={i}
                   building={building}
-                  onClick={() => navigate(`/planet/${planet.id}`)}
+                  onClick={() => navigate(`/planet/${planet.id}?slot=${i}`)}
                   biomeAccent={accent}
                 />
               );
