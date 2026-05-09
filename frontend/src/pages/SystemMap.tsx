@@ -107,8 +107,21 @@ export function SystemMapPage() {
         <div style={{ width: 40 }} />
       </div>
 
-      {/* SVG/HTML system renderer — uses real biome sprites and a sun. */}
-      <div style={{ flex: 1, position: 'relative', minHeight: 0 }}>
+      {/* SVG/HTML system renderer — uses real biome sprites and a sun.
+          The wrapper has explicit positioning so the renderer (which uses
+          `position: absolute; inset: 0`) gets a deterministic frame even
+          when the parent flex container measures awkwardly. */}
+      <div
+        style={{
+          flex: '1 1 auto',
+          position: 'relative',
+          minHeight: 0,
+          width: '100%',
+          // Reserve space for the bottom nav (~64px) so the renderer doesn't
+          // hide behind it on short viewports.
+          height: 'calc(100vh - 64px)',
+        }}
+      >
         <CosmicSystemRenderer
           system={meData.homeSystem}
           ships={meData.ships || []}
