@@ -28,12 +28,14 @@ import type { Ship } from '@shared/types/ships';
 import type { Expedition } from '@shared/types/expeditions';
 import { BIOME_META, PlanetSvg, resolveBiome } from './planets';
 import { SunSvg } from './sun';
+import { FoundColonyDialog } from '../FoundColonyDialog';
 
 interface CosmicSystemRendererProps {
   system: HomeSystem;
   ships: Ship[];
   expeditions: Expedition[];
   onPlanetClick: (planet: Planet) => void;
+  ownedPlanetIds: Set<string>;
 }
 
 interface PlanetLayout {
@@ -65,11 +67,13 @@ export function CosmicSystemRenderer({
   ships,
   expeditions,
   onPlanetClick,
+  ownedPlanetIds,
 }: CosmicSystemRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pointerCount, setPointerCount] = useState(0);
+  const [isColonyDialogOpen, setIsColonyDialogOpen] = useState(false);
 
   // ----- Layout ----------------------------------------------------------
 
@@ -567,13 +571,30 @@ export function CosmicSystemRenderer({
           </div>
           <button
             type="button"
-            onClick={() => onPlanetClick(selected.planet)}
+            onClick={() => {
+              if (ownedPlanetIds.has(selected.planet.id)) {
+                onPlanetClick(selected.planet);
+              } else {
+                setIsColonyDialogOpen(true);
+              }
+            }}
             className="cosmic-cta"
             style={{ width: '100%', marginTop: 10, padding: '10px 14px' }}
           >
-            Open planet
+            {ownedPlanetIds.has(selected.planet.id) ? 'Open planet' : 'Colonize'}
           </button>
         </div>
+      )}
+
+      {selected && (
+        <FoundColonyDialog
+          isOpen={isColonyDialogOpen}
+          onClose={() => setIsColonyDialogOpen(false)}
+          planet={selected.planet}
+          onSuccess={() => {
+            // Success handler
+          }}
+        />
       )}
     </div>
   );
