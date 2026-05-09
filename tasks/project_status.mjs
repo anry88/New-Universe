@@ -245,7 +245,7 @@ function updateFromIssue(flags) {
 
 function extractTaskIds(...parts) {
   const found = new Set();
-  const re = /\bP[0-9](?:-[A-Z0-9]+)+\b/g;
+  const re = /\bP[0-9]+(?:\.[0-9]+)?(?:-[A-Z0-9]+)+\b/g;
   for (const part of parts.filter(Boolean)) {
     for (const match of part.matchAll(re)) found.add(match[0]);
   }
