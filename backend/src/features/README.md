@@ -89,6 +89,14 @@ Onboarding progression sync for first-time users.
 - **`service.ts`** — `syncTutorialProgress(userId)` maps game actions to steps (`mine`, `storage`, `scout`, first `expedition`), persists `users.tutorialStep`, and grants one-time completion reward (`+200 iron`, `+100 water`).
 - **`tutorial.test.ts`** — integration coverage for completion + one-time reward behavior.
 
+## `market/`
+
+Market contracts and explicit order-state lifecycle rules.
+
+- **`README.md`** — [Detailed market documentation](./market/README.md).
+- **`types.ts`** — typed market DTOs and explicit status transition map used by upcoming market services/routes.
+- **`types.test.ts`** — Vitest coverage for allowed/forbidden market order transitions.
+
 ## `expeditions/`
 
 Ship launch and travel scheduling. [Detailed documentation](./expeditions/README.md).

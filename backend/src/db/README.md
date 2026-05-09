@@ -28,6 +28,10 @@ Each module owns one domain and exports the Drizzle table objects. `schema.ts` r
 - **`expeditions.ts`** — `expeditions` job log. Columns: `id`, `shipId`, `type`, `originPlanetId`, `targetX/Y/Z`, optional `targetPlanetId`, `status` (default `queued`), `eta`, optional `returnedAt`, `result` (JSONB). The `shipId` and `originPlanetId` foreign keys cascade on delete so test cleanup and planet/ship teardown do not leave orphaned expedition rows; `targetPlanetId` uses `SET NULL`. `expeditions_eta_status_idx` is a compound index on `(eta, status)` to support the worker's "what is due" query.
 - **`sectors.ts`** — `sectors` table. Composite PK `(x, y, z)`, `seed` (deterministic hash of coordinates), `generatedAt` (timestamp), `systemCount` (default 0). Represents the common pool of space sectors; used by jump and exploration features to lazily initialize world regions.
 - **`notifications.ts`** — `notifications` table. Columns: `id`, `userId`, `type` (`building_done`, `ship_done`, etc.), `payload` (JSONB), `createdAt`, `read`, `pending` (default `true`), `sentAt`. Used by the push notification system.
+- **`market.ts`** — NPC/player market persistence primitives:
+  - `market_offers` — offer book rows keyed by scope (`npc`/`player`), side (`buy`/`sell`), resource, status, price, qty, fees, and expiry.
+  - `market_orders` — per-user order lifecycle rows (`open`, `partially_filled`, `filled`, `cancelled`, `expired`, `failed`, `settled`) with fill totals, fees, and optional delivery/offer references.
+  - `market_order_fills` — immutable fill records tied to orders/offers, with execution price/qty, fees, and optional delivery expedition reference.
 
 
 ## Seed scripts (`seed/`)
