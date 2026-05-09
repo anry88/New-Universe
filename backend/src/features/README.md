@@ -98,6 +98,8 @@ Market contracts and explicit order-state lifecycle rules.
 - **`types.test.ts`** — Vitest coverage for allowed/forbidden market order transitions.
 - **`pricing.ts`** — deterministic NPC broker pricing model (baseline + spread + stock-pressure + anti-abuse checks).
 - **`pricing.test.ts`** — unit tests for stable prices, tier weighting, and no instant buy/sell profit loop.
+- **`orders.ts`** — market order domain service used by `routes/market.ts` for listing offers, creating NPC orders, validating reserves, and cancellation rollback.
+- **`orders.test.ts`** — integration tests covering offers list, successful create, insufficient reserve rejection, and cancel resource return.
 
 ## `expeditions/`
 

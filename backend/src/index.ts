@@ -13,6 +13,7 @@ import { shipsRoutes } from './features/ships/routes.js';
 import { expeditionsRoutes } from './features/expeditions/routes.js';
 import { researchRoutes } from './features/research/routes.js';
 import { tutorialRoutes } from './features/tutorial/routes.js';
+import { marketRoutes } from './routes/market.js';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 
@@ -42,6 +43,7 @@ await fastify.register(shipsRoutes, { prefix: '/ships' });
 await fastify.register(expeditionsRoutes, { prefix: '/expeditions' });
 await fastify.register(researchRoutes, { prefix: '/research' });
 await fastify.register(tutorialRoutes, { prefix: '/tutorial' });
+await fastify.register(marketRoutes);
 
 const start = async () => {
   try {
