@@ -9,6 +9,7 @@ import {
   systems,
 } from '../../db/schema.js';
 import { spendResources } from '../resources/transactions.js';
+import { applyShipSpeed, getResearchEffectsForUser } from '../research/effects.js';
 
 export interface LaunchExpeditionRequest {
   shipId: string;
@@ -171,8 +172,8 @@ export async function launchExpedition(
       Math.pow(targetY - Number(shipRow.originY), 2) +
       Math.pow(targetZ - Number(shipRow.originZ), 2),
   );
-  const speed = Number(shipRow.shipSpeed);
-  // No dedicated engine stat exists yet, so launch speed is currently neutral.
+  const researchEffects = await getResearchEffectsForUser(userId, defaultDb);
+  const speed = applyShipSpeed(Number(shipRow.shipSpeed), researchEffects);
   const engineFactor = 1;
   const etaSeconds = Math.max(0, Math.ceil((distance * 60 / speed) * engineFactor));
   const eta = new Date(Date.now() + etaSeconds * 1000);
