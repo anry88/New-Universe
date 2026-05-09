@@ -48,7 +48,7 @@ export const ResourceChip: React.FC<{ data: ResourceChipData }> = ({ data }) => 
 // --- Top bar ---------------------------------------------------------------
 
 export const CosmicTopBar: React.FC<{ resources: ResourceChipData[] }> = ({ resources }) => (
-  <div className="cosmic-topbar">
+  <div className="cosmic-topbar" data-testid="cosmic-topbar">
     <div className="cosmic-topbar-grid">
       {resources.slice(0, 5).map((r) => (
         <ResourceChip key={r.resourceId} data={r} />
@@ -78,7 +78,7 @@ export const PlanetPortrait: React.FC<PlanetPortraitProps> = ({
   const meta = BIOME_META[b];
   const cls = b === 'gas_giant' ? 'III' : b === 'anomaly' ? 'X' : 'II';
   return (
-    <div className="ph">
+    <div className="ph" data-testid="planet-portrait">
       <div className="ph-orbit">
         <div
           className="ph-glow"
@@ -138,7 +138,7 @@ export interface BuildSlotProps {
 export const BuildSlot: React.FC<BuildSlotProps> = ({ slot, biomeAccent, onClick }) => {
   if (!slot.typeId) {
     return (
-      <button type="button" className="slot empty" onClick={onClick}>
+      <button type="button" className="slot empty" onClick={onClick} data-testid={`slot-${slot.idx}`}>
         <div className="slot-plus">+</div>
         <div className="slot-empty-label">EMPTY</div>
       </button>
@@ -150,6 +150,7 @@ export const BuildSlot: React.FC<BuildSlotProps> = ({ slot, biomeAccent, onClick
       type="button"
       className={'slot filled ' + (slot.building ? 'queued' : '')}
       onClick={onClick}
+      data-testid={`slot-${slot.idx}`}
     >
       <div className="slot-icon">
         <def.Icon size={32} tone={biomeAccent} />
@@ -189,7 +190,7 @@ export interface PlanetRailProps {
 }
 
 export const PlanetRail: React.FC<PlanetRailProps> = ({ planets, current, onSelect }) => (
-  <div className="rail">
+  <div className="rail" data-testid="planet-rail">
     {planets.map((p) => {
       const b = resolveBiome(p.biome);
       const active = p.id === current;
@@ -223,7 +224,7 @@ export interface QueueStripProps {
 export const QueueStrip: React.FC<QueueStripProps> = ({ title, etaSec, progressPct, hidden }) => {
   if (hidden) return null;
   return (
-    <div className="qstrip">
+    <div className="qstrip" data-testid="queue-strip">
       <div className="qstrip-icon">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{ color: 'var(--accent)' }}>
           <circle cx="12" cy="12" r="9" />
@@ -331,6 +332,7 @@ export const CosmicBottomNav: React.FC<{ active?: CosmicNavId }> = ({ active }) 
           type="button"
           className={'bnav-item ' + (n.id === detected ? 'active' : '')}
           onClick={() => navigate(n.route)}
+          data-testid={`bnav-${n.id}`}
         >
           <NavIcon kind={n.icon} active={n.id === detected} />
           <span className="bnav-label">{n.label}</span>
