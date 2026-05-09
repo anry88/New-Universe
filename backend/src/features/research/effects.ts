@@ -108,6 +108,12 @@ export async function getResearchEffectsForUser(userId: string, database: any = 
   return computeResearchEffects(progressRows);
 }
 
+/**
+ * Hook for clearing memoized research snapshots after tier completions (`completion.ts`).
+ * Server-side effects are computed from `research_progress` on demand today; call stays a no-op until caching is added.
+ */
+export function invalidateResearchEffectsCache(_userId: string): void {}
+
 export function applyProductionRate(baseRegenRate: number, effects: ResearchEffects): number {
   return baseRegenRate * effects.resourceProductionMultiplier;
 }

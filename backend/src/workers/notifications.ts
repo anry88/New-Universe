@@ -22,7 +22,7 @@ function formatNotificationMessage(type: string, payload: any): string | null {
     case 'expedition_returned':
       return `🛰️ <b>Expedition Returned!</b>\n\nYour ship has returned from mission.`;
     case 'research_done':
-      return `🧬 <b>Research Complete!</b>\n\nYour new technology is ready.`;
+      return `🧬 <b>Research Complete!</b>\n\nBranch <b>${payload.branch ?? '?'}</b> is now at level <b>${payload.level ?? '?'}</b>.`;
     default:
       return null;
   }

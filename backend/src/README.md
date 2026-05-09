@@ -10,7 +10,7 @@ This is the backend application source. It is a Fastify v5 + TypeScript project 
 - [`lib/`](lib/README.md) — shared infrastructure: env validation, logger, Sentry, Telegram `initData` validation.
 - [`middleware/`](middleware/README.md) — Fastify hooks: request ID generator, Telegram auth `preHandler`.
 - [`routes/`](routes/README.md) — top-level routes that are not feature-scoped (`/health`, `/webhook/telegram`, `/market/*`).
-- [`workers/`](workers/README.md) — BullMQ workers for periodic ticks (expeditions, buildings, ships).
+- [`workers/`](workers/README.md) — BullMQ workers for periodic ticks (expeditions, buildings, ships, research, notifications, cargo).
 - `types/` — global TypeScript module augmentations.
 
 ## Top-level files
