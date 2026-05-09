@@ -8,6 +8,7 @@ This document is a checkpoint for future planning reviews. It separates implemen
 |---|---:|---:|---|
 | P0 | 10 | 0 | Project setup and local development foundation |
 | P1 | 37 | 0 | First playable solo MVP loop |
+| P1.1 | 10 | 10 | Cosmic Atlas redesign + post-audit fixes for P0/P1 (see `ROADMAP_P1_1_FIXES.md`) |
 | P2 | 25 | 22 | Solo expansion and balance validation |
 | P3 | 9 | 6 | Multiplayer/social/economy foundations |
 | P4 | 9 | 9 | Production launch readiness |
@@ -17,7 +18,7 @@ This document is a checkpoint for future planning reviews. It separates implemen
 
 | Gate | Required evidence |
 |---|---|
-| MVP playable | P0/P1 issues closed, first-day E2E passes, Telegram auth works, resource/building/ship/expedition loop works |
+| MVP playable | P0/P1 issues closed, **P1.1 fix-epic closed (research/resources/onboarding bugs resolved)**, first-day E2E passes, Telegram auth works, resource/building/ship/expedition loop works |
 | Phase 2 complete | Colonization E2E passes, market flow passes, research levels 1-3 work, balance simulator and P2 regression suite pass |
 | Phase 3 ready | Two-player visibility model is proven, alliance membership works, player market settlement is safe |
 | Launch ready | Staging deploy/rollback succeeds, backups restore, monitoring alerts fire, security checklist passes |

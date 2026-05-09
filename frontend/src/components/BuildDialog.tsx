@@ -1,6 +1,7 @@
 import React from 'react';
 import type { BuildingType } from '@shared/types/buildings';
-import { X } from 'lucide-react';
+import { resolveBuildingType } from './cosmic/buildings';
+import { getResourceSymbol } from './cosmic/resources';
 
 interface BuildDialogProps {
   types: BuildingType[];
@@ -8,57 +9,98 @@ interface BuildDialogProps {
   onClose: () => void;
   onAction: (typeId: string) => void;
   isProcessing: boolean;
+  /**
+   * Optional accent override — typically the active planet's biome accent.
+   * Defaults to the cyan Atlas accent.
+   */
+  accent?: string;
+  /** Optional planet biome label, surfaced in the sheet subtitle. */
+  planetLabel?: string;
 }
 
+/**
+ * Bottom-sheet build dialog matching the Cosmic Atlas design.
+ *
+ * Behavioral notes:
+ *  - The sheet is rendered as a portal-less fixed overlay so it can host the
+ *    full list of building types with native scroll.
+ *  - When `accent` is provided, the option icons are tinted with the biome
+ *    color so the dialog reads as part of the current planet.
+ */
 export const BuildDialog: React.FC<BuildDialogProps> = ({
   types,
   isOpen,
   onClose,
   onAction,
   isProcessing,
+  accent = '#5BD7FF',
+  planetLabel,
 }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-md bg-slate-800 rounded-t-2xl sm:rounded-2xl border border-slate-700 shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300">
-        <div className="flex items-center justify-between p-4 border-b border-slate-700">
-          <h3 className="text-lg font-bold text-white">Construct Building</h3>
-          <button 
-            onClick={onClose}
-            className="p-1 rounded-full hover:bg-slate-700 text-slate-400"
-          >
-            <X size={20} />
-          </button>
+    <div
+      className="bd-backdrop"
+      role="presentation"
+      onClick={onClose}
+      style={{ '--accent': accent } as React.CSSProperties}
+    >
+      <div
+        className="bd-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Construct building"
+        onClick={(e) => e.stopPropagation()}
+        style={{ '--accent': accent } as React.CSSProperties}
+      >
+        <div className="bd-handle" />
+        <div className="bd-head">
+          <div className="bd-tag">SELECT INSTALLATION</div>
+          <div className="bd-title">Build on this slot</div>
+          <div className="bd-sub">
+            {planetLabel ? `${planetLabel} · tap an option to start construction` : 'Tap an option to start construction'}
+          </div>
         </div>
 
-        <div className="max-h-[60vh] overflow-y-auto p-4 space-y-3">
-          {types.map(type => (
-            <button
-              key={type.id}
-              onClick={() => onAction(type.id)}
-              disabled={isProcessing}
-              className="w-full flex items-center gap-4 p-4 bg-slate-700/50 hover:bg-slate-700 rounded-xl border border-slate-600 transition-colors text-left disabled:opacity-50"
-            >
-              <div className="w-12 h-12 rounded-lg bg-slate-800 flex items-center justify-center text-2xl">
-                {type.id === 'mine' ? '⛏️' : type.id === 'power_plant' ? '⚡' : '🏭'}
-              </div>
-              <div className="flex-1">
-                <p className="font-bold text-white">{type.name.en}</p>
-                <p className="text-xs text-slate-400 mb-2">{type.category}</p>
-                <div className="flex flex-wrap gap-2">
-                  {Object.entries(type.baseCost).map(([resId, amount]) => (
-                    <span key={resId} className="text-[10px] bg-slate-900 px-1.5 py-0.5 rounded text-slate-300 uppercase font-mono">
-                      {resId[0]}:{amount}
-                    </span>
-                  ))}
-                  <span className="text-[10px] bg-blue-900/30 px-1.5 py-0.5 rounded text-blue-300 uppercase font-mono">
-                    Time:{type.baseTimeSec}s
-                  </span>
+        <div className="bd-list">
+          {types.map((type) => {
+            const def = resolveBuildingType(type.id);
+            const costs = Object.entries(type.baseCost);
+            const minutes = Math.floor(type.baseTimeSec / 60);
+            const seconds = type.baseTimeSec % 60;
+            return (
+              <button
+                key={type.id}
+                type="button"
+                className="bopt"
+                onClick={() => onAction(type.id)}
+                disabled={isProcessing}
+              >
+                <div className="bopt-icon">
+                  <def.Icon size={32} tone={accent} />
                 </div>
-              </div>
-            </button>
-          ))}
+                <div>
+                  <div className="bopt-row">
+                    <span className="bopt-name">{type.name.en}</span>
+                    <span className="bopt-locked">{type.category.toUpperCase()}</span>
+                  </div>
+                  <div className="bopt-meta">
+                    <span className="bopt-cost">
+                      {costs.length === 0
+                        ? '—'
+                        : costs
+                            .map(([resId, amount]) => `${getResourceSymbol(resId)} ${amount}`)
+                            .join('  ·  ')}
+                    </span>
+                    <span className="bopt-time">
+                      {minutes > 0 ? `${minutes}m ${seconds.toString().padStart(2, '0')}s` : `${seconds}s`}
+                    </span>
+                  </div>
+                </div>
+                <span aria-hidden="true" style={{ color: 'var(--text-faint)' }}>›</span>
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>

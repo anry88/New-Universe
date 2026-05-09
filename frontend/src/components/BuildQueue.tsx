@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { apiFetch } from '../lib/api';
+import { resolveBuildingType } from './cosmic/buildings';
+import { QueueStrip } from './cosmic/atoms';
 
 interface BuildQueueItem {
   id: string;
@@ -7,8 +9,19 @@ interface BuildQueueItem {
   level: number;
   queueAction: 'build' | 'upgrade' | 'destroy';
   queueCompletesAt: string;
+  queueStartedAt?: string;
 }
 
+/**
+ * Bottom strip showing the next item in the build queue. The strip auto-hides
+ * when the queue is empty so the bottom navigation can sit flush against the
+ * scroll area.
+ *
+ * Stylistically it matches the Cosmic Atlas QueueStrip: a single rounded card
+ * with a clock icon, title, progress bar and live ETA. Multiple queue items
+ * are not stacked here — only the head is rendered, which mirrors the design
+ * intent (one focal task at a time).
+ */
 export function BuildQueue() {
   const [queue, setQueue] = useState<BuildQueueItem[]>([]);
   const [now, setNow] = useState(Date.now());
@@ -34,39 +47,19 @@ export function BuildQueue() {
   }, []);
 
   if (!queue.length) return null;
+  const head = queue[0];
+  const completesAt = new Date(head.queueCompletesAt).getTime();
+  const startedAt = head.queueStartedAt
+    ? new Date(head.queueStartedAt).getTime()
+    : completesAt - 60_000; // best-effort fallback if backend omits start
+  const total = Math.max(1, completesAt - startedAt);
+  const remaining = Math.max(0, completesAt - now);
+  const progress = Math.min(100, Math.max(0, Math.round((1 - remaining / total) * 100)));
+  const remainingSec = Math.ceil(remaining / 1000);
 
-  return (
-    <div className="px-4 py-3 bg-slate-800/95 backdrop-blur-sm border-t border-slate-700">
-      <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-        Build Queue
-      </h3>
-      <div className="space-y-2">
-        {queue.map(item => {
-          const completesAt = new Date(item.queueCompletesAt).getTime();
-          const remaining = Math.max(0, completesAt - now);
-          const minutes = Math.floor(remaining / 60000);
-          const seconds = Math.floor((remaining % 60000) / 1000);
+  const def = resolveBuildingType(head.buildingTypeId);
+  const verb = head.queueAction === 'build' ? 'Building' : 'Upgrading';
+  const title = `${def.label} · ${verb} L${head.level}`;
 
-          return (
-            <div key={item.id} className="flex items-center gap-3 bg-slate-900/50 rounded-lg p-3">
-              <span className="text-2xl">🏭</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white truncate">
-                  {item.queueAction === 'build' ? 'Building' : 'Upgrading'} {item.buildingTypeId}
-                </p>
-                <p className="text-xs text-slate-400">
-                  Level {item.level} • {minutes}m {seconds}s remaining
-                </p>
-              </div>
-              <div className="w-12 h-12 rounded-full border-2 border-blue-500 flex items-center justify-center">
-                <span className="text-xs text-blue-400 font-mono">
-                  {minutes}:{seconds.toString().padStart(2, '0')}
-                </span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
+  return <QueueStrip title={title} etaSec={remainingSec} progressPct={progress} />;
 }

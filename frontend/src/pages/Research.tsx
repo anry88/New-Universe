@@ -1,13 +1,39 @@
-import { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { useMe } from '../hooks/useMe';
 import { useStartResearch } from '../hooks/useResearch';
-import { TechTreeNode } from '../components/TechTreeNode';
 import { TECH_TREE_DATA, BRANCHES } from '../lib/tech-tree';
 import { ResourceBar } from '../components/ResourceBar';
-import { ChevronLeft, X, Beaker, Zap, Timer } from 'lucide-react';
+import {
+  CosmicBackground,
+  CosmicBottomNav,
+} from '../components/cosmic/atoms';
+import { ChevronLeft, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ResearchDefinition } from '@shared/types/research';
+import { getResourceSymbol } from '../components/cosmic/resources';
+import { resolveBuildingType } from '../components/cosmic/buildings';
 
+const BRANCH_COLORS: Record<string, string> = {
+  mining: '#C7A582',
+  engineering: '#5BD7FF',
+  engines: '#9FE0B5',
+  weapons: '#FF5A6E',
+  sensors: '#E0B0FF',
+  logistics: '#7DD8E8',
+  jump_drive: '#F4B84A',
+};
+
+/**
+ * Research / Tech-Tree screen — Cosmic Atlas redesign.
+ *
+ * Each branch is rendered as a horizontal "tech-row" card showing:
+ *   - branch dot + name + current level / max
+ *   - 5 node squares (one per level), each marked done / active / pending
+ *   - bottom progress bar reflecting current level
+ *
+ * Tapping a row opens a bottom-sheet detail pane (when a definition exists
+ * for the next level) so the user can start research.
+ */
 export function ResearchPage() {
   const { data: meData } = useMe();
   const startResearch = useStartResearch();
@@ -15,7 +41,13 @@ export function ResearchPage() {
   const [selectedTech, setSelectedTech] = useState<ResearchDefinition | null>(null);
 
   const homePlanetId = meData?.homeSystem?.planets?.[0]?.id;
-  const labLevel = meData?.homeSystem?.planets?.[0]?.buildings?.find(b => b.typeId === 'research_lab')?.level || 0;
+
+  // Use the resolved Lab building (handles legacy `research_lab` alias too).
+  const labBuilding = meData?.homeSystem?.planets?.[0]?.buildings?.find((b) => {
+    const def = resolveBuildingType(b.typeId);
+    return def === resolveBuildingType('lab');
+  });
+  const labLevel = labBuilding?.level ?? 0;
 
   const handleStart = async () => {
     if (!selectedTech || !homePlanetId) return;
@@ -30,101 +62,154 @@ export function ResearchPage() {
   const levels = [1, 2, 3, 4, 5];
 
   return (
-    <div className="h-screen bg-slate-900 text-white flex flex-col overflow-hidden">
-      <ResourceBar />
+    <div className="cosmic-screen" style={{ '--accent': '#5BD7FF' } as React.CSSProperties}>
+      <CosmicBackground accent="#5BD7FF" starSeed={42} />
 
-      <header className="p-4 flex items-center gap-4 bg-slate-800/50 backdrop-blur-md border-b border-white/5">
-        <button onClick={() => navigate('/')} className="p-2 hover:bg-white/10 rounded-full transition-colors">
-          <ChevronLeft className="w-6 h-6" />
-        </button>
-        <div>
-          <h1 className="text-xl font-bold">Research Laboratory</h1>
-          <p className="text-xs text-slate-400 uppercase tracking-widest">Level {labLevel} Technology Lab</p>
+      <ResourceBar planetId={homePlanetId} />
+
+      <div className="page-head" style={{ position: 'relative', zIndex: 2 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            type="button"
+            aria-label="Back"
+            onClick={() => navigate('/')}
+            style={{ padding: 4, borderRadius: 999, color: 'var(--text-dim)' }}
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <div>
+            <div className="page-tag">RESEARCH LAB · L{labLevel}</div>
+            <div className="page-title">Tech Tree</div>
+          </div>
         </div>
-      </header>
-
-      <main className="flex-1 overflow-x-auto overflow-y-auto p-6">
-        <div className="min-w-max grid grid-cols-7 gap-8 mx-auto">
-          {BRANCHES.map(branch => (
-            <div key={branch.id} className="flex flex-col gap-6 items-center">
-              <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">{branch.name.en}</h2>
-              {levels.map(level => {
-                const def = TECH_TREE_DATA.find(t => t.branch === branch.id && t.level === level);
-                const progress = meData?.research?.find(p => p.branch === branch.id);
-                const currentLevel = progress?.level || 0;
-                
-                // Simplified unlock logic: level 1 is always unlocked if previous level in branch is done
-                const isUnlocked = currentLevel >= level - 1;
-
-                return (
-                  <TechTreeNode
-                    key={`${branch.id}-${level}`}
-                    branchId={branch.id}
-                    level={level}
-                    definition={def}
-                    progress={progress}
-                    isUnlocked={isUnlocked}
-                    onClick={() => def && setSelectedTech(def)}
-                  />
-                );
-              })}
-            </div>
-          ))}
+        <div className="page-stat">
+          <div className="ps-v">{meData?.research?.length ?? 0}</div>
+          <div className="ps-l">BRANCHES</div>
         </div>
-      </main>
+      </div>
 
-      {/* Detail Dialog */}
-      {selectedTech && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-slate-800 border border-white/10 w-full max-w-md rounded-3xl overflow-hidden shadow-2xl animate-in slide-in-from-bottom-8 duration-300">
-            <div className="p-6">
-              <div className="flex justify-between items-start mb-6">
-                <div className="flex gap-4">
-                  <div className="p-3 bg-blue-500/20 rounded-2xl">
-                    <Beaker className="w-8 h-8 text-blue-400" />
+      <div className="cosmic-scroll">
+        <div className="tech-list">
+          {BRANCHES.map((branch) => {
+            const progress = meData?.research?.find((p) => p.branch === branch.id);
+            const currentLevel = progress?.level || 0;
+            const accent = BRANCH_COLORS[branch.id] ?? '#5BD7FF';
+
+            // Pick the next-level definition the player can start.
+            const nextDef = TECH_TREE_DATA.find(
+              (t) => t.branch === branch.id && t.level === currentLevel + 1
+            );
+
+            const onClick = () => {
+              if (nextDef) setSelectedTech(nextDef);
+            };
+
+            return (
+              <button
+                key={branch.id}
+                type="button"
+                className="tech-row"
+                onClick={onClick}
+                style={{ '--accent': accent } as React.CSSProperties}
+              >
+                <div className="tech-row-head">
+                  <div className="tech-name" style={{ color: 'var(--text)' }}>
+                    <span className="tech-dot" style={{ background: accent, color: accent }} />
+                    {branch.name.en}
                   </div>
-                  <div>
-                    <h3 className="text-xl font-bold">{selectedTech.name.en}</h3>
-                    <p className="text-sm text-slate-400">Level {selectedTech.level}</p>
+                  <div className="tech-lvl">
+                    {currentLevel}
+                    <span className="tech-max"> / 5</span>
                   </div>
                 </div>
-                <button onClick={() => setSelectedTech(null)} className="p-2 hover:bg-white/10 rounded-full">
-                  <X className="w-5 h-5 text-slate-500" />
-                </button>
-              </div>
+                <div className="tech-nodes">
+                  {levels.map((level) => {
+                    const done = level <= currentLevel;
+                    const active = level === currentLevel + 1 && Boolean(nextDef);
+                    return (
+                      <div
+                        key={level}
+                        className={'tech-node ' + (done ? 'done' : active ? 'active' : '')}
+                        style={done ? { background: accent, color: '#02101a' } : undefined}
+                      >
+                        {level}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="qstrip-bar">
+                  <div
+                    className="qstrip-fill"
+                    style={{
+                      width: (currentLevel / 5) * 100 + '%',
+                      background: accent,
+                      boxShadow: `0 0 6px ${accent}`,
+                    }}
+                  />
+                </div>
+              </button>
+            );
+          })}
+          <div style={{ height: 80 }} />
+        </div>
+      </div>
 
-              <p className="text-slate-300 text-sm mb-6 leading-relaxed">
+      <CosmicBottomNav active="tech" />
+
+      {selectedTech && (
+        <div className="bd-backdrop" onClick={() => setSelectedTech(null)}>
+          <div className="bd-sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+            <div className="bd-handle" />
+            <div className="bd-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <div className="bd-tag">START RESEARCH</div>
+                <div className="bd-title">{selectedTech.name.en}</div>
+                <div className="bd-sub">Level {selectedTech.level} · {selectedTech.branch}</div>
+              </div>
+              <button
+                type="button"
+                aria-label="Close"
+                onClick={() => setSelectedTech(null)}
+                style={{ color: 'var(--text-faint)' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="bd-list">
+              <p style={{ color: 'var(--text-dim)', fontSize: 13, lineHeight: 1.5, margin: 0 }}>
                 {selectedTech.description.en}
               </p>
-
-              <div className="grid grid-cols-2 gap-4 mb-8">
-                <div className="bg-slate-900/50 p-4 rounded-2xl border border-white/5">
-                  <p className="text-[10px] text-slate-500 uppercase font-bold mb-2 flex items-center gap-1">
-                    <Zap className="w-3 h-3" /> Cost
-                  </p>
-                  <div className="space-y-1">
-                    {Object.entries(selectedTech.cost).map(([res, amount]) => (
-                      <div key={res} className="flex justify-between text-xs font-mono">
-                        <span className="capitalize text-slate-400">{res}</span>
-                        <span className="text-white">{amount.toLocaleString()}</span>
-                      </div>
-                    ))}
+              <div className="bopt" style={{ cursor: 'default' }}>
+                <div className="bopt-icon">
+                  <svg width="32" height="32" viewBox="0 0 64 64" fill="none" stroke="var(--accent)" strokeWidth="1.6">
+                    <path d="M26 10 L38 10" />
+                    <path d="M28 10 L28 26 L18 48 Q14 56 22 56 L42 56 Q50 56 46 48 L36 26 L36 10" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="bopt-row">
+                    <span className="bopt-name">Cost</span>
+                    <span className="bopt-locked">L{selectedTech.level}</span>
+                  </div>
+                  <div className="bopt-meta">
+                    <span className="bopt-cost">
+                      {Object.entries(selectedTech.cost)
+                        .map(([res, amount]) => `${getResourceSymbol(res)} ${amount}`)
+                        .join('  ·  ')}
+                    </span>
+                    <span className="bopt-time">{selectedTech.timeSec}s</span>
                   </div>
                 </div>
-                <div className="bg-slate-900/50 p-4 rounded-2xl border border-white/5 flex flex-col justify-center">
-                  <p className="text-[10px] text-slate-500 uppercase font-bold mb-1 flex items-center gap-1">
-                    <Timer className="w-3 h-3" /> Time
-                  </p>
-                  <p className="text-xl font-mono text-white">{selectedTech.timeSec}s</p>
-                </div>
+                <span aria-hidden="true" />
               </div>
-
               <button
+                type="button"
                 onClick={handleStart}
                 disabled={startResearch.isPending}
-                className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white font-bold rounded-2xl transition-all shadow-lg shadow-blue-900/20 active:scale-95"
+                className="cosmic-cta"
+                style={{ width: '100%', padding: '14px', marginTop: 8 }}
               >
-                {startResearch.isPending ? 'Starting...' : 'Initiate Research'}
+                {startResearch.isPending ? 'Starting…' : 'Initiate Research'}
               </button>
             </div>
           </div>
@@ -133,3 +218,7 @@ export function ResearchPage() {
     </div>
   );
 }
+
+// Keep TechTreeNode export to avoid breaking any other usage. The new page
+// renders a row layout, so the old tile component is unused but preserved.
+export { TechTreeNode } from '../components/TechTreeNode';
