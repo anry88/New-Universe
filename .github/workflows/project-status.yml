@@ -9,6 +9,9 @@ on:
       - converted_to_draft
       - synchronize
       - closed
+  issues:
+    types:
+      - closed
 
 permissions:
   contents: read
@@ -50,3 +53,9 @@ jobs:
             --number "${{ github.event.pull_request.number }}" \
             --action "${{ github.event.action }}" \
             --merged "${{ github.event.pull_request.merged }}"
+      - name: Sync closed issue status
+        if: github.event_name == 'issues' && github.event.action == 'closed'
+        run: |
+          node tasks/project_status.mjs issue \
+            --number "${{ github.event.issue.number }}" \
+            --action "${{ github.event.action }}"
