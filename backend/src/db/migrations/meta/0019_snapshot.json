@@ -1,6 +1,6 @@
 {
-  "id": "d4907956-1c5a-46f0-85ad-0daa92b7e520",
-  "prevId": "0446a7ff-db83-46b0-a259-725d9841ba51",
+  "id": "d2e8b15d-6ae6-489a-97d8-9dcc6e2a7a7d",
+  "prevId": "d4907956-1c5a-46f0-85ad-0daa92b7e520",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -978,6 +978,18 @@
           "primaryKey": false,
           "notNull": false
         },
+        "planet_id": {
+          "name": "planet_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "delivery_ready_at": {
+          "name": "delivery_ready_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -1068,6 +1080,33 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "market_orders_fulfillment_tick_idx": {
+          "name": "market_orders_fulfillment_tick_idx",
+          "columns": [
+            {
+              "expression": "scope",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "delivery_ready_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -1116,6 +1155,19 @@
           "tableTo": "expeditions",
           "columnsFrom": [
             "delivery_expedition_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "market_orders_planet_id_planets_id_fk": {
+          "name": "market_orders_planet_id_planets_id_fk",
+          "tableFrom": "market_orders",
+          "tableTo": "planets",
+          "columnsFrom": [
+            "planet_id"
           ],
           "columnsTo": [
             "id"

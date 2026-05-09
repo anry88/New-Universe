@@ -34,6 +34,9 @@ describe('Cargo Route Worker', () => {
       sectorX: Math.floor(Math.random() * 100),
       sectorY: Math.floor(Math.random() * 100),
       sectorZ: Math.floor(Math.random() * 100),
+      x: '0.00',
+      y: '0.00',
+      z: '0.00',
       name: 'Origin System',
       seed: 123,
     }).returning();

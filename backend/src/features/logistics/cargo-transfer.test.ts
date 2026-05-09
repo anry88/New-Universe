@@ -33,6 +33,9 @@ describe('cargoTransfer', () => {
       sectorX: 0,
       sectorY: 0,
       sectorZ: 0,
+      x: '0.00',
+      y: '0.00',
+      z: '0.00',
       name: 'Origin System',
       seed: 111,
     }).returning();
@@ -58,6 +61,9 @@ describe('cargoTransfer', () => {
       sectorX: 1,
       sectorY: 1,
       sectorZ: 1,
+      x: '100.00',
+      y: '100.00',
+      z: '100.00',
       name: 'Target System',
       seed: 222,
     }).returning();

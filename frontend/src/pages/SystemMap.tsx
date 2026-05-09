@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMe } from '../hooks/useMe';
 import { CosmicSystemRenderer } from '../components/cosmic/SystemMap';
@@ -42,6 +42,10 @@ export function SystemMapPage() {
       </div>
     );
   }
+
+  const ownedPlanetIds = useMemo(() => {
+    return new Set(meData?.planets?.map(p => p.id) ?? []);
+  }, [meData?.planets]);
 
   return (
     <div className="cosmic-screen" style={{ '--accent': '#5BD7FF', position: 'relative' } as React.CSSProperties}>
@@ -127,6 +131,7 @@ export function SystemMapPage() {
           ships={meData.ships || []}
           expeditions={meData.expeditions || []}
           onPlanetClick={(planet) => navigate(`/planet/${planet.id}`)}
+          ownedPlanetIds={ownedPlanetIds}
         />
       </div>
 
