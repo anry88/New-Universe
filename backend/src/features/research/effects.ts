@@ -2,6 +2,7 @@ import { db as defaultDb } from '../../db/index.js';
 import { researchProgress } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 import type { ResearchProgress } from '@shared/types/research.js';
+import { RESEARCH_TECH_TREE } from '../../config/research-catalog.js';
 
 type EffectTarget =
   | 'resourceProduction'
@@ -32,21 +33,9 @@ const DEFAULT_EFFECTS: ResearchEffects = {
   buildTimeMultiplier: 1,
 };
 
-const BRANCH_EFFECTS: Record<string, (level: number) => ResearchEffectModifier[]> = {
-  mining: (level) => [
-    { source: 'mining', target: 'resourceProduction', multiplier: 1 + level * 0.05 },
-  ],
-  logistics: (level) => [
-    { source: 'logistics', target: 'resourceStorage', multiplier: 1 + level * 0.1 },
-  ],
-  engines: (level) => [{ source: 'engines', target: 'shipSpeed', multiplier: 1 + level * 0.07 }],
-  jump_drive: (level) => [{ source: 'jump_drive', target: 'shipSpeed', multiplier: 1 + level * 0.03 }],
-  sensors: (level) => [{ source: 'sensors', target: 'sensorRange', multiplier: 1 + level * 0.08 }],
-  engineering: (level) => [
-    // Build time decreases with level; clamp to avoid zero/negative multipliers.
-    { source: 'engineering', target: 'buildTime', multiplier: Math.max(0.2, 1 - level * 0.04) },
-  ],
-};
+const TECH_EFFECTS_LOOKUP = new Map(
+  RESEARCH_TECH_TREE.map((entry) => [`${entry.branch}:${entry.level}`, entry.effects] as const)
+);
 
 function clampMultiplier(value: number): number {
   if (!Number.isFinite(value) || value <= 0) return 1;
@@ -60,9 +49,15 @@ export function buildResearchEffectModifiers(
 
   for (const progress of progressRows) {
     if (!progress?.branch || !progress.level || progress.level <= 0) continue;
-    const factory = BRANCH_EFFECTS[progress.branch];
-    if (!factory) continue;
-    modifiers.push(...factory(progress.level));
+    const effects = TECH_EFFECTS_LOOKUP.get(`${progress.branch}:${progress.level}`);
+    if (!effects) continue;
+    modifiers.push(
+      ...effects.map((effect) => ({
+        source: `${progress.branch}@${progress.level}`,
+        target: effect.target,
+        multiplier: effect.multiplier,
+      }))
+    );
   }
 
   // Stable deterministic order regardless of source row order.

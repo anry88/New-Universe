@@ -7,6 +7,7 @@ import { buildings, planetResources, planets, researchProgress, systems } from '
 import { and, eq } from 'drizzle-orm';
 import crypto from 'crypto';
 import { env } from '../../lib/env.js';
+import { getResearchDef } from './data.js';
 
 describe('Research Routes', () => {
   const botToken = env.TELEGRAM_BOT_TOKEN;
@@ -90,10 +91,15 @@ describe('Research Routes', () => {
     expect(response.statusCode).toBe(200);
     expect(response.json().success).toBe(true);
 
+    const miningL1 = getResearchDef('mining', 1);
+    expect(miningL1).toBeTruthy();
+    const ironCost = miningL1!.cost.iron ?? 0;
+    const siliconCost = miningL1!.cost.silicon ?? 0;
+
     const ironAfter = await getResourceAmount(planetId, 'iron');
     const siliconAfter = await getResourceAmount(planetId, 'silicon');
-    expect(ironAfter).toBe(ironBefore - 100);
-    expect(siliconAfter).toBe(siliconBefore - 50);
+    expect(ironAfter).toBe(ironBefore - ironCost);
+    expect(siliconAfter).toBe(siliconBefore - siliconCost);
 
     const progress = await db.query.researchProgress.findFirst({
       where: and(eq(researchProgress.userId, userId), eq(researchProgress.branch, 'mining')),

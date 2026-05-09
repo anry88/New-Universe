@@ -1,12 +1,12 @@
 import { seedResources } from './seed/resources.js';
-import { seedResearchBranches } from './seed/research-branches.js';
+import { seedResearchCatalog } from './seed/research.js';
 import { seedBuildingTypes } from './seed/building-types.js';
 import { seedShipTypes } from './seed/ship-types.js';
 
 async function main() {
   try {
     await seedResources();
-    await seedResearchBranches();
+    await seedResearchCatalog();
     await seedBuildingTypes();
     await seedShipTypes();
     console.log('Seeding completed successfully');

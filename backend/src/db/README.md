@@ -4,9 +4,9 @@ The data layer defines the Drizzle ORM client, all Postgres tables, generated mi
 
 ## Files
 
-- **`index.ts`** — opens the Postgres connection from `process.env.DATABASE_URL` using `postgres-js`, then wraps it with `drizzle(client, { schema })`. The exported `db` is the only entry point services should use; passing `db.transaction(...)` is required when multiple inserts must succeed atomically (see `features/auth/service.ts` and `features/world/home-system-generator.ts`).
+- **`index.ts`** — loads `.env` from the repository root and from `backend/` (if those files exist; existing `process.env` wins), then opens Postgres from `process.env.DATABASE_URL` using `postgres-js`, then wraps it with `drizzle(client, { schema })`. The exported `db` is the only entry point services should use; passing `db.transaction(...)` is required when multiple inserts must succeed atomically (see `features/auth/service.ts` and `features/world/home-system-generator.ts`).
 - **`schema.ts`** — barrel that `export *`s from every domain module under `schema/`. Drizzle relies on this single export to build the relations and types passed into `drizzle({ schema })`. Whenever you add a new file under `schema/`, add an `export * from './schema/<file>.js';` line here.
-- **`seed.ts`** — entry point invoked by `npm run db:seed`. Calls `seedResources`, `seedResearchBranches`, `seedBuildingTypes`, `seedShipTypes` in order, then exits the process. New seeders must be registered here.
+- **`seed.ts`** — entry point invoked by `npm run db:seed`. Calls `seedResources`, `seedResearchCatalog`, `seedBuildingTypes`, `seedShipTypes` in order, then exits the process. New seeders must be registered here.
 - **`migrations/`** — auto-generated SQL produced by `drizzle-kit generate`. Numbered `0000_*.sql` … `0007_*.sql` files plus the Drizzle `meta/` snapshots. Do not edit migrations by hand; regenerate them after schema changes.
 
 ## Schema modules (`schema/`)
@@ -40,7 +40,7 @@ Each module owns one domain and exports the Drizzle table objects. `schema.ts` r
 Each seed module exports an idempotent `async function seedXxx()` that calls `db.insert(table).values(row).onConflictDoUpdate({ target: table.id, set: row })`. They are safe to re-run.
 
 - **`resources.ts`** — populates the 21-resource catalog (`water`, `iron`, `carbon`, `silicon`, `methane`, `copper`, `aluminum`, `titanium`, `ice`, `sulfur`, `mercury`, `magnesium`, `lead`, `uranium`, `cobalt`, `silicon_carbide`, `tritium`, `antimatter`, `dark_matter`, `iridium`, `biomass`) with bilingual names, tier, symbol, base regen, and default storage cap.
-- **`research-branches.ts`** — seven research branches: `mining`, `engineering`, `engines`, `weapons`, `sensors`, `logistics`, `jump_drive`.
+- **`research.ts`** — idempotent seeder for `research_branches` from `config/research-catalog.ts`. Keeps branch name/description in sync with the phase-2 catalog source of truth.
 - **`building-types.ts`** — building catalog: `command_center`, `mine`, `drill`, `storage`, `smelter`, `spaceport`, `shipyard`, `lab`, `cryo_factory`, `solar_plant`. Includes dependency chains (`spaceport ⇒ command_center L4`, `shipyard ⇒ spaceport L2`, `cryo_factory ⇒ spaceport L2 + smelter L3`, etc.).
 - **`ship-types.ts`** — five starter ship types: `scout`, `cargo_light`, `colonizer`, `recon_probe`, `jump_ship`. Each row encodes role, stats, fuel use, build time, build cost, required buildings, and sensor range.
 

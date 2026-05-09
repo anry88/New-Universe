@@ -72,6 +72,7 @@ The bot entry point is `POST /webhook/telegram`. Incoming updates are dispatched
 - `colonies` — player-owned colonies on discovered planets outside home systems.
 
 NPC broker pricing parameters live in `backend/src/config/market-prices.ts`; the deterministic quote algorithm is implemented in `backend/src/features/market/pricing.ts`.
+Phase 2 research definitions (levels 1-3 with typed effects) live in `backend/src/config/research-catalog.ts` and are reused by both seeding and runtime research/effects logic.
 
 
 Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Kit (`npm run db:generate`, `npm run db:migrate`). Static reference data is loaded by `backend/src/db/seed.ts`, which runs the four seeders in `backend/src/db/seed/` (`resources`, `research-branches`, `building-types`, `ship-types`).
@@ -113,6 +114,10 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 ## Local environment
 
 `docker-compose.yml` at the repo root composes the local dev stack: `postgres` (with `pgdata` volume), `redis`, `backend` (`Dockerfile` target `dev`, mounts `backend/src` and `shared` for hot reload), an optional `worker` profile, an optional `frontend` profile, and the optional `devtools` profile (`adminer`, `redis-commander`). All variables are read from `.env` (template in `.env.example`).
+
+## CI and automation parity
+
+GitHub Actions workflow `.github/workflows/ci.yml` runs Docker-backed Postgres/Redis, backend lint/build/Drizzle migrate/seed/unit tests, frontend lint/build/unit tests, and Playwright Chromium E2E (`frontend/tests/e2e`). Agents mirror that pipeline locally via [`scripts/ci-verify.sh`](scripts/README.md); `AGENTS.md` defines the verification contract.
 
 ## How to navigate this codebase
 
