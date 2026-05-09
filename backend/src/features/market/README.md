@@ -8,7 +8,9 @@ Market domain contracts used by the NPC market and future player market.
 - **`types.test.ts`** — Vitest coverage validating legal and illegal order-state transitions so status flow remains explicit and deterministic.
 - **`pricing.ts`** — deterministic NPC broker quote model with resource/tier baselines, spread, stock-pressure adjustment, and anti-arbitrage helper.
 - **`pricing.test.ts`** — Vitest coverage for deterministic baselines, tier effects, stock-pressure edges, and buy/sell no-arbitrage guarantees.
+- **`orders.ts`** — market-order application layer for `P2-MKT-003`: lists deterministic NPC offers, validates ownership/price/capacity, reserves resources atomically when creating orders, and supports cancel with reservation rollback.
+- **`orders.test.ts`** — integration tests for `GET /market/offers`, order creation, insufficient-funds rejection, and cancel refund behavior.
 
 ## Notes
 
-This package is intentionally route-less for now. `P2-MKT-001` focuses on schema + shared backend market contracts; API handlers will be added in follow-up market tasks.
+HTTP handlers are mounted from `backend/src/routes/market.ts`; this package contains the market business logic used by those routes.

@@ -6,6 +6,7 @@ Generic top-level routes that are not specific to a single feature module. Anyth
 
 - **`health.ts`** — `healthRoutes(fastify)` registers `GET /health`. Returns `{ status: 'ok', ts: ISO timestamp, uptime: process.uptime() }`. The endpoint is intentionally unauthenticated and serves Docker / Compose / load-balancer health checks. Do not add side effects here.
 - **`bot.ts`** — `botRoutes(fastify)` registers `POST /webhook/telegram`. The handler delegates update processing to `botService.processUpdate` from `features/bot`. Telegram requires a 200-class response within ~30 seconds, so processing is triggered asynchronously while the handler returns `{ ok: true }` immediately.
+- **`market.ts`** — `marketRoutes(fastify)` registers NPC market API endpoints: `GET /market/offers` (deterministic broker quotes + depth), `POST /market/orders` (creates an NPC buy/sell order with ownership, price, capacity, and reserve checks), and `POST /market/orders/:orderId/cancel` (cancels eligible order states and returns reserved resources).
 - **`health.test.ts`** — Vitest coverage that boots a Fastify instance with `healthRoutes` registered and asserts the response shape and 200 status.
 
 ## Adding a top-level route
