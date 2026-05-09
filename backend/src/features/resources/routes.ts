@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify';
 import jwt from 'jsonwebtoken';
 import { env } from '../../lib/env.js';
 import { convertResources } from './convert.js';
+import { computeCurrentResources } from './accrual.js';
 
 export async function resourcesRoutes(app: FastifyInstance) {
   app.post('/convert', async (request, reply) => {
@@ -51,5 +52,16 @@ export async function resourcesRoutes(app: FastifyInstance) {
     }
 
     return reply.send(result.data);
+  });
+
+  app.get('/planets/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    try {
+      const resources = await computeCurrentResources(id);
+      return reply.send({ resources });
+    } catch (err) {
+      request.log.error(err, 'Error fetching planet resources');
+      return reply.status(500).send({ error: 'Failed to fetch resources' });
+    }
   });
 }

@@ -3,6 +3,7 @@ import { useMe } from '../hooks/useMe';
 import { apiFetch } from '../lib/api';
 import type { PlanetResource } from '@shared/types/world';
 import { CosmicTopBar, type ResourceChipData } from './cosmic/atoms';
+import { calculateRegen } from './cosmic/resources';
 
 interface ResourceBarProps {
   planetId?: string;
@@ -74,12 +75,12 @@ export function ResourceBar({ planetId }: ResourceBarProps) {
 
       setResources((prev) =>
         prev.map((r) => {
-          const regenRate = parseFloat(r.regenRate.toString()) / 3600; // /h → /s
-          const newAmount = r.currentAmount + regenRate * deltaSeconds;
-          const target = parseFloat(r.targetAmount.toString());
+          const regenRate = parseFloat(r.regenRate.toString());
+          const storageCap = parseFloat(r.storageCap.toString());
+          const newAmount = calculateRegen(r.currentAmount, regenRate, deltaSeconds, storageCap);
           return {
             ...r,
-            currentAmount: Math.min(newAmount, target * 10), // cap is best-effort
+            currentAmount: newAmount,
           };
         })
       );
@@ -96,14 +97,10 @@ export function ResourceBar({ planetId }: ResourceBarProps) {
   }, []);
 
   const data: ResourceChipData[] = resources.slice(0, 5).map((r) => {
-    const target = parseFloat(r.targetAmount.toString());
     return {
       resourceId: r.resourceId,
       amount: r.currentAmount,
-      // /me payload doesn't include capacity yet; estimate from current amount
-      // so the bar still has something to render. When the backend exposes a
-      // canonical cap, swap this for the real value.
-      cap: Math.max(target * 1.2, 1000),
+      cap: parseFloat(r.storageCap.toString()),
       rate: Math.round(parseFloat(r.regenRate.toString())),
     };
   });
