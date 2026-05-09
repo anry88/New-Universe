@@ -62,7 +62,7 @@ function parseFlags(args) {
   return flags;
 }
 
-const PROJECT_QUERY = `
+const PROJECT_FIELDS_QUERY = `
 query($owner: String!, $number: Int!) {
   repositoryOwner(login: $owner) {
     ... on User { projectV2(number: $number) { ...ProjectFields } }
@@ -77,22 +77,63 @@ fragment ProjectFields on ProjectV2 {
       ... on ProjectV2SingleSelectField { id name options { id name } }
     }
   }
-  items(first: 100) {
-    nodes {
-      id
-      content { ... on Issue { title number } ... on PullRequest { title number } }
-      fieldValues(first: 20) {
-        nodes {
-          ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2FieldCommon { name } } }
-        }
+}`;
+
+const PROJECT_ITEMS_QUERY = `
+query($owner: String!, $number: Int!, $after: String) {
+  repositoryOwner(login: $owner) {
+    ... on User { projectV2(number: $number) { items(first: 100, after: $after) { ...ProjectItems } } }
+    ... on Organization { projectV2(number: $number) { items(first: 100, after: $after) { ...ProjectItems } } }
+  }
+}
+
+fragment ProjectItems on ProjectV2ItemConnection {
+  nodes {
+    id
+    content { ... on Issue { title number } ... on PullRequest { title number } }
+    fieldValues(first: 20) {
+      nodes {
+        ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2FieldCommon { name } } }
       }
     }
   }
+  pageInfo {
+    hasNextPage
+    endCursor
+  }
 }`;
+
+function mapProjectItem(item) {
+  const statusValue = (item.fieldValues?.nodes || []).find((v) => v.field?.name === 'Status');
+  const verificationValue = (item.fieldValues?.nodes || []).find((v) => v.field?.name === 'Verification');
+  return {
+    id: item.id,
+    title: item.content?.title || '',
+    number: item.content?.number,
+    status: statusValue?.name,
+    verification: verificationValue?.name,
+  };
+}
+
+function loadAllProjectItems() {
+  const items = [];
+  let after = null;
+  while (true) {
+    const data = ghApi(PROJECT_ITEMS_QUERY, { owner: OWNER, number: PROJECT_NUMBER, after });
+    const connection = data.data?.repositoryOwner?.projectV2?.items;
+    if (!connection) break;
+    for (const item of connection.nodes || []) {
+      items.push(mapProjectItem(item));
+    }
+    if (!connection.pageInfo?.hasNextPage) break;
+    after = connection.pageInfo?.endCursor || null;
+  }
+  return items;
+}
 
 function loadProject() {
   try {
-    const data = ghApi(PROJECT_QUERY, { owner: OWNER, number: PROJECT_NUMBER });
+    const data = ghApi(PROJECT_FIELDS_QUERY, { owner: OWNER, number: PROJECT_NUMBER });
     const project = data.data?.repositoryOwner?.projectV2;
     
     if (!project) {
@@ -100,17 +141,7 @@ function loadProject() {
     }
 
     const fields = project.fields.nodes.filter(f => f.id);
-    const items = project.items.nodes.map(item => {
-      const statusValue = (item.fieldValues?.nodes || []).find(v => v.field?.name === 'Status');
-      const verificationValue = (item.fieldValues?.nodes || []).find(v => v.field?.name === 'Verification');
-      return {
-        id: item.id,
-        title: item.content?.title || '',
-        number: item.content?.number,
-        status: statusValue?.name,
-        verification: verificationValue?.name,
-      };
-    });
+    const items = loadAllProjectItems();
 
     return { projectId: project.id, fields, items };
   } catch (error) {
