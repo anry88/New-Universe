@@ -4,6 +4,7 @@ This document explains how the New Universe backend, frontend, and supporting co
 
 - [Backend source root (`backend/src`)](backend/src/README.md)
 - [Backend database layer (`backend/src/db`)](backend/src/db/README.md)
+- [Backend config constants (`backend/src/config`)](backend/src/config/README.md)
 - [Backend feature modules (`backend/src/features`)](backend/src/features/README.md)
 - [Backend shared libraries (`backend/src/lib`)](backend/src/lib/README.md)
 - [Backend middleware (`backend/src/middleware`)](backend/src/middleware/README.md)
@@ -68,6 +69,8 @@ The bot entry point is `POST /webhook/telegram`. Incoming updates are dispatched
 - `notifications` — push notification log with `pending` and `sentAt` tracking.
 - `market_offers`, `market_orders`, `market_order_fills` — NPC/player market offer book, user orders, and fill history with explicit order lifecycle states and delivery references.
 - `colonies` — player-owned colonies on discovered planets outside home systems.
+
+NPC broker pricing parameters live in `backend/src/config/market-prices.ts`; the deterministic quote algorithm is implemented in `backend/src/features/market/pricing.ts`.
 
 
 Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Kit (`npm run db:generate`, `npm run db:migrate`). Static reference data is loaded by `backend/src/db/seed.ts`, which runs the four seeders in `backend/src/db/seed/` (`resources`, `research-branches`, `building-types`, `ship-types`).

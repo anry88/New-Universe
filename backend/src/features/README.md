@@ -96,6 +96,8 @@ Market contracts and explicit order-state lifecycle rules.
 - **`README.md`** — [Detailed market documentation](./market/README.md).
 - **`types.ts`** — typed market DTOs and explicit status transition map used by upcoming market services/routes.
 - **`types.test.ts`** — Vitest coverage for allowed/forbidden market order transitions.
+- **`pricing.ts`** — deterministic NPC broker pricing model (baseline + spread + stock-pressure + anti-abuse checks).
+- **`pricing.test.ts`** — unit tests for stable prices, tier weighting, and no instant buy/sell profit loop.
 
 ## `expeditions/`
 
