@@ -8,8 +8,8 @@ Short reference for agents — keep in sync when editing YAML.
 
 - **`e2e.yml`** — Playwright Chromium against `frontend/tests/e2e`. Runs when:
   - **Workflow dispatch** (Actions → E2E → Run workflow).
-  - **Pull request** to `main` **and** the PR has label `run-e2e` **or** any label containing `epic:` (for example `epic:EPIC-42` per repo conventions).
-  - **Issue closed** **and** the issue has a label containing `epic:` (typical epic closure after merge).
+  - **Pull request** to `main` **and** the PR has the explicit label **`run-e2e`** (add it when you want a full browser gate — e.g. epic wrap-up).  
+    **Do not** match on `epic:…` labels: every imported task issue gets `epic:EPIC-…` from [`tasks/import_to_github_idempotent.sh`](../tasks/import_to_github_idempotent.sh), so that would trigger E2E on every issue close or mis-label every PR.
 
 Required status checks in branch protection should include the **`ci.yml`** job (`check`) only if you want small PRs to stay fast; add the **`e2e.yml`** job only when you require browser E2E on every merge (not recommended with this layout).
 

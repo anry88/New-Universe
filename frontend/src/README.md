@@ -79,4 +79,4 @@ The folders above are reserved by `AGENTS.md` (`Engineering Rules` → "Keep fro
 - `npm run preview` — Vite preview of the production build.
 - `npm run lint` — ESLint over `*.ts,*.tsx`.
 - `npm test` — Vitest run.
-- `npm run test:e2e` — Playwright end-to-end run (`frontend/playwright.config.ts`, tests under `frontend/tests/e2e/`). On GitHub, Playwright runs from `.github/workflows/e2e.yml` (labeled epic PRs, epic issue closure, or manual dispatch), not from the default PR `ci.yml`; locally use `RUN_PLAYWRIGHT_E2E=1 ./scripts/ci-verify.sh` for the same combined gate.
+- `npm run test:e2e` — Playwright end-to-end run (`frontend/playwright.config.ts`, tests under `frontend/tests/e2e/`). On GitHub, Playwright runs from `.github/workflows/e2e.yml` only after manual dispatch or when the PR has label **`run-e2e`**, not from the default `ci.yml`; locally use `RUN_PLAYWRIGHT_E2E=1 ./scripts/ci-verify.sh` for the same combined gate.

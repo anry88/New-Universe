@@ -1,5 +1,6 @@
 # Browser E2E (Playwright) — not part of the default PR CI path.
-# Triggers: manual run, PR labeled for epic / explicit E2E, or closing an epic issue (label epic:*).
+# Task issues all carry labels like `epic:EPIC-…` from tasks/import_to_github_idempotent.sh,
+# so we must NOT match on `epic:` — only an explicit PR label `run-e2e` or manual dispatch.
 name: E2E
 
 on:
@@ -7,30 +8,21 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
     branches: [main]
-  issues:
-    types: [closed]
 
 concurrency:
-  group: e2e-${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number || github.run_id }}
+  group: e2e-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 jobs:
   playwright:
     if: |
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && (
-        contains(join(github.event.pull_request.labels.*.name, ','), 'run-e2e') ||
-        contains(join(github.event.pull_request.labels.*.name, ','), 'epic:')
-      )) ||
-      (github.event_name == 'issues' &&
-        contains(join(github.event.issue.labels.*.name, ','), 'epic:'))
+      (github.event_name == 'pull_request' &&
+        contains(join(github.event.pull_request.labels.*.name, ','), 'run-e2e'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-        with:
-          # Issues events have no PR SHA — run browser E2E against the repo default branch (expected after epic merge).
-          ref: ${{ github.event_name == 'issues' && github.event.repository.default_branch || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

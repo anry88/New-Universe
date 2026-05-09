@@ -121,7 +121,7 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 ## CI and automation
 
 - **`.github/workflows/ci.yml`** — on each PR / push to `main`: Docker Postgres/Redis, backend lint/build/migrate/seed/unit tests, frontend lint/build/unit tests (fast path). No Playwright.
-- **`.github/workflows/e2e.yml`** — Playwright Chromium on `frontend/tests/e2e` when triggered by workflow dispatch, by PR labels (`run-e2e` or `epic:*`), or by closing an issue labeled `epic:*`.
+- **`.github/workflows/e2e.yml`** — Playwright Chromium on `frontend/tests/e2e` when triggered by workflow dispatch or by PR label **`run-e2e`** (not `epic:*` — every task issue already has an `epic:EPIC-…` label from import).
 - **`scripts/ci-verify.sh`** — local mirror of `ci.yml`; set `RUN_PLAYWRIGHT_E2E=1` to include Playwright like `e2e.yml`.
 
 See [.github/workflows/README.md](.github/workflows/README.md) and [`AGENTS.md`](AGENTS.md) (verification contract and CI / Playwright sections).
