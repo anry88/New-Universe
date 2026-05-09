@@ -93,31 +93,46 @@ export async function meRoutes(app: FastifyInstance) {
         const tutorialProgress = await syncTutorialProgress(user.id);
 
         const { computeCurrentResources } = await import('../resources/accrual.js');
+        const { colonies } = await import('../../db/schema.js');
 
-        if (homeSystem && homeSystem.planets) {
-          homeSystem.planets = await Promise.all(
-            homeSystem.planets.map(async (planet: any) => {
-              const res = await computeCurrentResources(planet.id);
-              return {
-                ...planet,
-                resources: res.map(r => ({
-                  ...r,
-                  amount: r.amount.toString(),
-                  regenRate: r.regenRate.toString(),
-                  storageCap: r.storageCap.toString(),
-                  lastUpdateAt: r.lastUpdateAt.toISOString(),
-                })),
-              };
-            })
-          );
-        }
+        const userColonies = await db.query.colonies.findMany({
+          where: eq(colonies.ownerId, user.id),
+          with: {
+            planet: {
+              with: {
+                buildings: true,
+              },
+            },
+          },
+        });
+
+        const homePlanets = homeSystem?.planets || [];
+        const colonyPlanets = userColonies.map(c => c.planet);
+        const allPlanets = [...homePlanets, ...colonyPlanets];
+
+        const enrichedPlanets = await Promise.all(
+          allPlanets.map(async (planet: any) => {
+            const res = await computeCurrentResources(planet.id);
+            return {
+              ...planet,
+              resources: res.map(r => ({
+                ...r,
+                amount: r.amount.toString(),
+                regenRate: r.regenRate.toString(),
+                storageCap: r.storageCap.toString(),
+                lastUpdateAt: r.lastUpdateAt.toISOString(),
+              })),
+            };
+          })
+        );
 
         const userObj = {
           ...user,
           tgId: user.tgId.toString(),
           tutorialStep: tutorialProgress.tutorialStepCompleted,
           tutorialCompletedAt: tutorialProgress.tutorialCompletedAt,
-          homeSystem,
+          homeSystem: homeSystem ? { ...homeSystem, planets: enrichedPlanets.filter(p => p.systemId === homeSystem?.id) } : undefined,
+          planets: enrichedPlanets,
           ships: userShips,
           expeditions: activeExpeditions,
           research: userResearch,

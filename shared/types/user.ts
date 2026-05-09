@@ -1,4 +1,4 @@
-import type { HomeSystem } from './world.js';
+import type { HomeSystem, Planet } from './world.js';
 import type { Ship } from './ships.js';
 import type { Expedition } from './expeditions.js';
 import type { ResearchProgress } from './research.js';
@@ -14,6 +14,7 @@ export interface User {
   tutorialStep: number;
   tutorialCompletedAt: string | null;
   homeSystem?: HomeSystem;
+  planets?: Planet[];
   ships?: Ship[];
   expeditions?: Expedition[];
   research?: ResearchProgress[];

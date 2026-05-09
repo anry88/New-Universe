@@ -246,8 +246,9 @@ export const QueueStrip: React.FC<QueueStripProps> = ({ title, etaSec, progressP
 
 export type CosmicNavId = 'planets' | 'ships' | 'map' | 'tech' | 'market' | 'profile';
 
-const NAV_ITEMS: { id: CosmicNavId; label: string; route: string; icon: 'planet' | 'ship' | 'map' | 'tech' | 'market' | 'user' }[] = [
-  { id: 'planets', label: 'Planets', route: '/', icon: 'planet' },
+const NAV_ITEMS: { id: CosmicNavId | 'home'; label: string; route: string; icon: 'planet' | 'ship' | 'map' | 'tech' | 'market' | 'user' | 'home' }[] = [
+  { id: 'home', label: 'Home', route: '/', icon: 'home' },
+  { id: 'planets', label: 'Colonies', route: '/colonies', icon: 'planet' },
   { id: 'ships', label: 'Fleet', route: '/ships', icon: 'ship' },
   { id: 'map', label: 'Galaxy', route: '/map', icon: 'map' },
   { id: 'tech', label: 'Tech', route: '/research', icon: 'tech' },
@@ -255,7 +256,7 @@ const NAV_ITEMS: { id: CosmicNavId; label: string; route: string; icon: 'planet'
   { id: 'profile', label: 'You', route: '/profile', icon: 'user' },
 ];
 
-const NavIcon: React.FC<{ kind: 'planet' | 'ship' | 'map' | 'tech' | 'market' | 'user'; active: boolean }> = ({
+const NavIcon: React.FC<{ kind: 'planet' | 'ship' | 'map' | 'tech' | 'market' | 'user' | 'home'; active: boolean }> = ({
   kind,
   active,
 }) => {
@@ -306,6 +307,12 @@ const NavIcon: React.FC<{ kind: 'planet' | 'ship' | 'map' | 'tech' | 'market' | 
           <path d="M5 21 Q5 14 12 14 Q19 14 19 21" />
         </svg>
       );
+    case 'home':
+      return (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.6">
+          <path d="M3 10 L12 3 L21 10 V20 H15 V14 H9 V20 H3 Z" />
+        </svg>
+      );
     case 'market':
       return (
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.6">
@@ -317,11 +324,11 @@ const NavIcon: React.FC<{ kind: 'planet' | 'ship' | 'map' | 'tech' | 'market' | 
   }
 };
 
-export const CosmicBottomNav: React.FC<{ active?: CosmicNavId }> = ({ active }) => {
+export const CosmicBottomNav: React.FC<{ active?: CosmicNavId | 'home' }> = ({ active }) => {
   const navigate = useNavigate();
   const location = useLocation();
   // Auto-detect active tab from current route if not provided.
-  const detected: CosmicNavId =
+  const detected: CosmicNavId | 'home' =
     active ??
     (location.pathname.startsWith('/ships')
       ? 'ships'
@@ -333,7 +340,9 @@ export const CosmicBottomNav: React.FC<{ active?: CosmicNavId }> = ({ active }) 
           ? 'tech'
           : location.pathname.startsWith('/profile')
             ? 'profile'
-            : 'planets');
+            : location.pathname.startsWith('/colonies')
+              ? 'planets'
+              : 'home');
 
   return (
     <nav className="bnav">
