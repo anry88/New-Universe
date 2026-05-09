@@ -13,6 +13,10 @@ const sharedPath = fs.existsSync(path.resolve(__dirname, '../shared'))
 
 export default defineConfig({
   plugins: [react()],
+  test: {
+    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    exclude: ['tests/e2e/**'],
+  },
   resolve: {
     alias: {
       '@shared': sharedPath,
