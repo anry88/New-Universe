@@ -13,11 +13,13 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
   - **`PlanetDetail.tsx`** — detailed planet view with building slots and upgrade options.
   - **`SystemMap.tsx`** — page component for the interactive home system map.
   - **`Ships.tsx`** — fleet management and ship list.
+  - **`Research.tsx`** — tech-tree screen (Cosmic Atlas); uses `TECH_TREE_DATA` from `lib/tech-tree.ts`, resolves lab level via `resolveBuildingType`, starts research through `useStartResearch`.
 - `components/` — reusable presentational components.
   - `pixi/` — canvas-based rendering components using PixiJS.
     - **`SystemRenderer.tsx`** — top-down system map renderer. Handles orbits, planets, star, and ship markers with pan/zoom logic.
   - **`ResourceBar.tsx`** — displays planet resources with real-time regeneration animation via `requestAnimationFrame`.
   - **`PlanetView.tsx`** — shows the current focus planet with its buildings schema.
+  - **`cosmic/buildings.tsx`** — Cosmic Atlas building icons keyed by backend catalog ids; exports `resolveBuildingType(typeId)` (canonical ids plus legacy synonyms such as `laboratory` and alternate lab spellings matched via `/^research[_-]?lab$/i`).
   - **`BuildQueue.tsx`** — displays the current build queue with countdown timers.
   - **`ExpeditionDialog.tsx`** — mission launch configuration with coordinate selection and ETA.
 - `assets/` — static assets imported by Vite (currently empty).
@@ -41,6 +43,7 @@ The folders above are reserved by `AGENTS.md` (`Engineering Rules` → "Keep fro
 
 ## `lib/`
 
+- **`tech-tree.ts`** — static `TECH_TREE_DATA` / `BRANCHES` mirror of backend research definitions (building prerequisites use catalog id `lab`).
 - **`api.ts`** — Unified fetch client. Automatically injects `X-Telegram-Init-Data` from the SDK and `Authorization: Bearer <token>` when a session is active.
 - **`sentry.ts`** — initializes `@sentry/react` only when `import.meta.env.VITE_SENTRY_DSN` is present.
  Uses `browserTracingIntegration` and `replayIntegration` with `replaysSessionSampleRate: 0.1` and `replaysOnErrorSampleRate: 1.0`, sets `tracesSampleRate: 1.0`, and reports `import.meta.env.MODE` as the environment. The module exports the `Sentry` namespace so error-boundary or `Sentry.captureException` calls can import directly from here.

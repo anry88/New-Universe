@@ -125,6 +125,14 @@ Procedural world generation primitives and visibility checks. Contains the home-
     - Returns the new `system.id`.
 - **`home-system-generator.test.ts`** — Vitest coverage that asserts deterministic seeding (same `userId` → same sector + planet count), idempotency (re-running for the same user returns the same system id), tier restrictions (no tier-3/tier-4 deposits), and the planet-0 contract (command center + discovered planet entry).
 
+## `research/`
+
+Tech tree definitions and starting research on a planet.
+
+- **`data.ts`** — exports `RESEARCH_DEFINITIONS` and `getResearchDef(branch, level)`; building prerequisites use catalog id `lab` (research lab), aligned with `backend/src/db/seed/building-types.ts`.
+- **`routes.ts`** — registers `POST /start` (mounted at `/research` from `index.ts`). Validates planet ownership, prerequisite research rows, lab building level (`buildings.typeId === 'lab'`), spends resources, and upserts `research_progress`.
+- **`research.test.ts`** — Vitest scaffold for research routes (structure / future integration coverage).
+
 ## Adding a new feature module
 
 1. Pick a kebab-case folder name that matches the bounded context (`buildings`, `expeditions`, `research`, …).
