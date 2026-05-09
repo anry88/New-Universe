@@ -46,6 +46,7 @@ The `dev/`, `docs/`, and `tasks/` folders contain non-runtime materials: dev-env
 - **`tick-ships`**: Finalizes ship production.
 - **`notifications`**: Processes pending notifications from the database and sends them to Telegram via the Bot API every minute, respecting a 20 msgs/min per user rate limit.
 - **`cargo-routes`**: Completes interplanetary resource transfers triggered from the API; handles atomicity, idempotency, and resource delivery.
+- **`research`**: Applies finished lab timers (`research_progress.completes_at`), bumps completed tier levels once, triggers effect-cache invalidation hooks, and queues `research_done` notifications.
 
 
 ### Telegram Bot
