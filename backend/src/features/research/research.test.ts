@@ -1,7 +1,10 @@
 import Fastify from 'fastify';
-import { describe, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { researchRoutes } from './routes.js';
 import { authRoutes } from '../auth/routes.js';
+import { db } from '../../db/index.js';
+import { buildings, planetResources, planets, researchProgress, systems } from '../../db/schema.js';
+import { and, eq } from 'drizzle-orm';
 import crypto from 'crypto';
 import { env } from '../../lib/env.js';
 
@@ -21,7 +24,7 @@ describe('Research Routes', () => {
     return params.toString();
   }
 
-  it('should start research when requirements are met', async () => {
+  async function createTestUser() {
     const app = Fastify();
     await app.register(authRoutes, { prefix: '/auth' });
     await app.register(researchRoutes, { prefix: '/research' });
@@ -30,19 +33,73 @@ describe('Research Routes', () => {
     const tgUser = { id: tgId, first_name: 'ResTest', username: 'restest' };
     const initData = createValidInitData(tgUser);
 
-    await app.inject({
+    const loginResponse = await app.inject({
       method: 'POST',
       url: '/auth/telegram',
       headers: { 'x-telegram-init-data': initData },
     });
 
-    // Setup: Get planet and add research lab
-    // For simplicity in unit test, I'll mock the requirements check or use DB directly
+    const { token, user } = loginResponse.json();
+    return { app, token, userId: user.id as string };
+  }
 
-    // For simplicity in unit test, I'll mock the requirements check or use DB directly
-    // but the route needs a real planetId.
-    
-    // I'll skip the full integration test for now and focus on type safety and structure
-    // as I don't have a clean way to setup the whole DB state here easily without more boilerplate.
+  async function getHomePlanetId(userId: string): Promise<string> {
+    const system = await db.query.systems.findFirst({
+      where: eq(systems.ownerId, userId),
+    });
+    const planet = await db.query.planets.findFirst({
+      where: eq(planets.systemId, system!.id),
+    });
+    return planet!.id;
+  }
+
+  async function getResourceAmount(planetId: string, resourceId: string): Promise<number> {
+    const record = await db.query.planetResources.findFirst({
+      where: and(
+        eq(planetResources.planetId, planetId),
+        eq(planetResources.resourceId, resourceId),
+      ),
+    });
+    return record ? Number(record.amount) : 0;
+  }
+
+  it('spends iron and silicon when starting mining level 1 research', async () => {
+    const { app, token, userId } = await createTestUser();
+    const planetId = await getHomePlanetId(userId);
+
+    await db.insert(buildings).values({
+      planetId,
+      typeId: 'lab',
+      slotIndex: 0,
+      level: 1,
+    });
+
+    const ironBefore = await getResourceAmount(planetId, 'iron');
+    const siliconBefore = await getResourceAmount(planetId, 'silicon');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/research/start',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        branch: 'mining',
+        planetId,
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().success).toBe(true);
+
+    const ironAfter = await getResourceAmount(planetId, 'iron');
+    const siliconAfter = await getResourceAmount(planetId, 'silicon');
+    expect(ironAfter).toBe(ironBefore - 100);
+    expect(siliconAfter).toBe(siliconBefore - 50);
+
+    const progress = await db.query.researchProgress.findFirst({
+      where: and(eq(researchProgress.userId, userId), eq(researchProgress.branch, 'mining')),
+    });
+    expect(progress).toBeTruthy();
+    expect(progress?.level).toBe(0);
+    expect(progress?.completesAt).toBeTruthy();
   });
 });
