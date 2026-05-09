@@ -9,6 +9,7 @@ Generic top-level routes that are not specific to a single feature module. Anyth
 - **`market.ts`** — `marketRoutes(fastify)` registers NPC market API endpoints: `GET /market/offers` (deterministic broker quotes + depth), `POST /market/orders` (creates an NPC buy/sell order with ownership, price, capacity, and reserve checks), and `POST /market/orders/:orderId/cancel` (cancels eligible order states and returns reserved resources).
 - **`colonies.ts`** — `coloniesRoutes(fastify)` registers `POST /colonies/found`. Requires JWT auth. Delegates to `foundColony` feature to establish a new player colony outside the home system.
 - **`cargo.ts`** — `cargoRoutes(fastify)` registers `POST /cargo/transfer`. Requires JWT auth. Delegates to `launchCargoTransfer` to send resources between two player-owned planets via a cargo ship.
+- **`multiplayer.ts`** — `multiplayerRoutes(fastify)` registers `GET /multiplayer/sectors/:sx/:sy/:sz/presence`. Requires JWT auth. Returns anonymized sector markers for neutral systems, the viewer's assets, and visible foreign colonies/ships (`features/multiplayer/presence.ts`).
 - **`health.test.ts`** — Vitest coverage that boots a Fastify instance with `healthRoutes` registered and asserts the response shape and 200 status.
 
 ## Adding a top-level route

@@ -18,13 +18,15 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
   - `onboarding/` — first-session onboarding tutorial pages. See [`pages/onboarding/README.md`](./pages/onboarding/README.md).
     - **`Onboarding.tsx`** — 5-step tutorial overlay (welcome → mine → storage → scout → expedition), with skip/return-later flow and current-objective toast.
   - **`PlanetDetail.tsx`** — detailed planet view with building slots and upgrade options.
-  - **`SystemMap.tsx`** — page component for the interactive home system map.
+  - **`SystemMap.tsx`** — page component for the interactive home system map; links into the sector radar for the same sector cube.
+  - **`SectorMap.tsx`** — Phase 3 sector map: queries `GET /multiplayer/sectors/:sx/:sy/:sz/presence`, supports manual sector coordinates (global search within numeric sector grid), renders Pixi markers via `SectorRenderer`.
   - **`Ships.tsx`** — fleet management and ship list.
   - **`Market.tsx`** — utility economy market screen with buy/sell price browsing, order submission, and pending-order ETA tracking.
   - **`Research.tsx`** — tech-tree screen (Cosmic Atlas): seven branches × three tiers aligned with `backend/src/config/research-catalog.ts`, branch blurbs, per-tier `TechTreeNode` states (completed / in-progress timer / next pending / locked), applied-effects summary, detail sheet with costs and `RequirementList` when gated, optimistic start via `useStartResearch`, refetch when lab timers complete.
 - `components/` — reusable presentational components.
   - `pixi/` — canvas-based rendering components using PixiJS.
     - **`SystemRenderer.tsx`** — top-down system map renderer. Handles orbits, planets, star, and ship markers with pan/zoom logic.
+    - **`SectorRenderer.tsx`** — compact Pixi scatter plot for multiplayer sector markers (`PresenceEntityKind` colors); receives `SectorPresenceEntity[]` from the presence API.
   - **`ResourceBar.tsx`** — displays planet resources with real-time regeneration animation via `requestAnimationFrame`.
   - **`cosmic/resources.ts`** — resource id -> symbol/label dictionary used in cosmic UI; aligned with seeded resource ids (`iron`, `silicon`, `tritium`, etc.) for tech-tree cost rendering.
   - **`PlanetView.tsx`** — shows the current focus planet with its buildings schema.
