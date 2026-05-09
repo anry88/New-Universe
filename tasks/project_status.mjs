@@ -188,6 +188,10 @@ function loadTasks() {
   return JSON.parse(fs.readFileSync(TASKS_JSON, 'utf8')).tasks || [];
 }
 
+function loadTaskIdSet() {
+  return new Set(loadTasks().map((task) => task.id));
+}
+
 function syncReady() {
   const project = loadProject();
   const tasks = loadTasks();
@@ -225,7 +229,8 @@ function updateFromIssue(flags) {
 
   const output = gh(['issue', 'view', String(number), '--repo', REPO, '--json', 'title,body,url']);
   const issue = JSON.parse(output);
-  const ids = extractTaskIds(issue.title, issue.body);
+  const knownTaskIds = loadTaskIdSet();
+  const ids = extractTaskIds(issue.title, issue.body).filter((id) => knownTaskIds.has(id));
 
   if (ids.length === 0) {
     console.log(`Issue #${number}: no task ids found`);
@@ -280,9 +285,10 @@ function updateFromPr(flags) {
   const output = gh(['pr', 'view', String(number), '--repo', REPO, '--json', 'title,body,headRefName,url,isDraft,mergedAt,state,closingIssuesReferences']);
   const pr = JSON.parse(output);
 
+  const knownTaskIds = loadTaskIdSet();
   const closingTitles = (pr.closingIssuesReferences || []).map((issue) => issue.title).join('\n');
   const linkedIssueTitles = issueTitles(referencedIssueNumbers(pr.body)).join('\n');
-  const ids = extractTaskIds(pr.title, pr.headRefName, closingTitles, linkedIssueTitles);
+  const ids = extractTaskIds(pr.title, pr.headRefName, closingTitles, linkedIssueTitles).filter((id) => knownTaskIds.has(id));
   
   if (ids.length === 0) {
     console.log(`PR #${number}: no task ids found`);
