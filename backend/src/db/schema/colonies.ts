@@ -5,8 +5,8 @@ import { planets } from './world.js';
 
 export const colonies = pgTable('colonies', {
   id: uuid('id').primaryKey().defaultRandom(),
-  ownerId: uuid('owner_id').references(() => users.id).notNull(),
-  planetId: uuid('planet_id').references(() => planets.id).notNull(),
+  ownerId: uuid('owner_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  planetId: uuid('planet_id').references(() => planets.id, { onDelete: 'cascade' }).notNull(),
   foundedAt: timestamp('founded_at').defaultNow().notNull(),
   status: text('status').notNull().default('active'),
 }, (table) => ({

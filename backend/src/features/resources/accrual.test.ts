@@ -1,12 +1,13 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { computeCurrentResources } from './accrual.js';
 import { db } from '../../db/index.js';
-import { planetResources, resources, planets, systems, ships, richness, buildings, discoveredPlanets, discoveredSystems } from '../../db/schema.js';
+import { planetResources, resources, planets, systems, ships, richness, buildings, discoveredPlanets, discoveredSystems, colonies } from '../../db/schema.js';
 
 describe('computeCurrentResources', () => {
   beforeEach(async () => {
     await db.delete(ships);
     await db.delete(buildings);
+    await db.delete(colonies);
     await db.delete(discoveredPlanets);
     await db.delete(discoveredSystems);
     await db.delete(richness);

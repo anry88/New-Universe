@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { generateSystemsInSector } from './sector-generator.js';
 import { db } from '../../db/index.js';
-import { sectors, systems, planets, planetResources, richness, buildings, discoveredPlanets, ships } from '../../db/schema.js';
+import { sectors, systems, planets, planetResources, richness, buildings, discoveredPlanets, ships, colonies } from '../../db/schema.js';
 
 describe('generateSystemsInSector', () => {
   beforeEach(async () => {
     await db.delete(ships);
+    await db.delete(colonies);
     await db.delete(buildings);
     await db.delete(discoveredPlanets);
     await db.delete(planetResources);
