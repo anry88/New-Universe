@@ -6,8 +6,6 @@ CREATE TABLE IF NOT EXISTS "colonies" (
 	"status" text DEFAULT 'active' NOT NULL
 );
 --> statement-breakpoint
-ALTER TABLE "users" ADD COLUMN "tutorial_step" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
-ALTER TABLE "users" ADD COLUMN "tutorial_completed_at" timestamp;--> statement-breakpoint
 DO $$ BEGIN
  ALTER TABLE "colonies" ADD CONSTRAINT "colonies_owner_id_users_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;
 EXCEPTION
