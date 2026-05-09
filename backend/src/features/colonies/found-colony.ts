@@ -4,6 +4,7 @@ import { ships, shipTypes } from '../../db/schema/ships.js';
 import { buildings } from '../../db/schema/buildings.js';
 import { eq, and } from 'drizzle-orm';
 import { colonyService } from './colonies.js';
+import { bootstrapColony } from './bootstrap.js';
 
 /**
  * Service to found a new colony using a colonizer ship.
@@ -72,6 +73,9 @@ export async function foundColony(userId: string, shipId: string, planetId: stri
       level: 1,
       slotIndex: 0, // Always starts at first slot
     });
+
+    // 6. Bootstrap economy (resources, storage, regen)
+    await bootstrapColony(planetId, tx);
 
     return newColony;
   });

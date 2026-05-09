@@ -11,8 +11,13 @@ Player colonies management outside the home system.
   - Consumes the ship.
   - Inserts the `colonies` row.
   - Constructs the initial `command_center` (Level 1).
+  - Triggers the colony bootstrap flow.
+- **`bootstrap.ts`** — `bootstrapColony(planetId, tx?)` action module. Initializes the colony's economy:
+  - Grants initial resource stock from `config/colony-bootstrap.ts`.
+  - Maps procedural planet richness to starting `regenRate` values.
 - **`colonies.test.ts`** — Integration tests for generic colonization rules and limits.
 - **`found-colony.test.ts`** — Integration tests for the founding flow and ship consumption.
+- **`bootstrap.test.ts`** — Integration tests for economy initialization.
 
 ## Colonization Rules
 
@@ -21,3 +26,4 @@ Player colonies management outside the home system.
 3. **Limit**: Players have a default limit of 5 colonies (configurable via service).
 4. **Ship**: founding a colony requires a `colonizer` ship, which is consumed in the process.
 5. **Infrastructure**: Every new colony starts with a Command Center at level 1 on slot 0.
+6. **Economy**: New colonies receive a one-time grant of basic resources (iron, silicon, etc.) to enable early development without home-world shipments.
