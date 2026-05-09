@@ -61,6 +61,7 @@ The folders above are reserved by `AGENTS.md` (`Engineering Rules` → "Keep fro
 ## `lib/`
 
 - **`tech-tree.ts`** — `TECH_TREE_DATA` (levels 1–3 per branch, costs/times/descriptions/effects) and `BRANCHES` metadata copied from `backend/src/config/research-catalog.ts`.
+- **`tech-tree.test.ts`** — asserts seven branches × three tiers stay aligned with `RESEARCH_MAX_LEVEL` for epic **P2-EPIC-RESEARCH** UI coverage.
 - **`research-eligibility.ts`** — `evaluateResearchEligibility` mirrors `/research/start` lab + prerequisite checks for UI lock copy.
 - **`api.ts`** — Unified fetch client. Automatically injects `X-Telegram-Init-Data` from the SDK and `Authorization: Bearer <token>` when a session is active.
 - **`sentry.ts`** — initializes `@sentry/react` only when `import.meta.env.VITE_SENTRY_DSN` is present.
