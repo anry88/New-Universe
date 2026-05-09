@@ -45,6 +45,7 @@ The folders above are reserved by `AGENTS.md` (`Engineering Rules` → "Keep fro
 - **`mockEnv.ts`** — only runs when `import.meta.env.DEV` is true. Calls `retrieveLaunchParams()`; if it throws (i.e. we are running in a plain browser without Telegram), it constructs a deterministic fake `initDataRaw` and theme via `mockTelegramEnv` so the SDK behaves as if it were inside Telegram. The mocked user (`Andrew Rogue`, `id: 99281932`) is a stable fixture; do not commit additional users without coordinating with the auth-test fixtures.
 - **`index.css`** — Tailwind base/components/utilities entry imported by `main.tsx`.
 - **`dummy.test.ts`** — a Vitest sanity test that asserts a trivial expression. Replace with real tests as features land.
+- **`../tests/e2e/onboarding.spec.ts`** — Playwright E2E for the onboarding flow (open TMA mock env, complete/skip tutorial, build first mine, assert resource tick-up in UI).
 
 ## `lib/`
 
@@ -70,3 +71,4 @@ The folders above are reserved by `AGENTS.md` (`Engineering Rules` → "Keep fro
 - `npm run preview` — Vite preview of the production build.
 - `npm run lint` — ESLint over `*.ts,*.tsx`.
 - `npm test` — Vitest run.
+- `npm run test:e2e` — Playwright end-to-end run (`frontend/playwright.config.ts`, tests under `frontend/tests/e2e/`).
