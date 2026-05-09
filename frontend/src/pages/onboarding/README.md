@@ -4,7 +4,7 @@ Onboarding tutorial pages shown to first-time players.
 
 ## Files
 
-- **`Onboarding.tsx`** — page-level wrapper around `Tutorial`. Builds the five tutorial steps from `/me` state, supports skip, and routes users back to the home screen.
+- **`Onboarding.tsx`** — page-level wrapper around `Tutorial`. Builds the five tutorial steps from `/me` state, shows the active objective as a toast-like hint, supports skip, and routes users back to the home screen (or resume from Profile).
 
 ## Adding a new onboarding step
 

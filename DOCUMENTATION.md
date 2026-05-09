@@ -58,7 +58,7 @@ The bot entry point is `POST /webhook/telegram`. Incoming updates are dispatched
 
 `backend/src/db/index.ts` opens a `postgres-js` connection from `DATABASE_URL` and exposes a typed Drizzle client via `db`. The schema is split per domain under `backend/src/db/schema/` and re-exported from `backend/src/db/schema.ts`:
 
-- `users` — Telegram-linked player accounts and onboarding progression (`tutorial_step`, `tutorial_completed_at`).
+- `users` — Telegram-linked player accounts and onboarding progression (`tutorial_step` exposed in code as `tutorialStepCompleted`, `tutorial_completed_at`).
 - `resources`, `richness`, `planet_resources` — universe resource catalog and per-planet inventory.
 - `systems`, `planets` — generated star systems and their planets, including biome and slot count.
 - `building_types`, `buildings` — building catalog and per-planet build queue rows.
@@ -90,7 +90,7 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 - `hooks/useAuth.ts` — manages the auth flow and session token.
 - `hooks/useMe.ts` — uses TanStack Query to fetch and cache the current player state from `GET /me`.
 - `pages/Home.tsx` — main game screen with resource bar, tab bar, and navigation.
-- `pages/onboarding/Onboarding.tsx` — 5-step onboarding flow with skip-and-return behavior.
+- `pages/onboarding/Onboarding.tsx` — 5-step onboarding flow with skip-and-return behavior and current-objective toast.
 - `pages/PlanetDetail.tsx` — detailed planet screen with infrastructure slots, building construction, and upgrade dialogs.
 - `components/ResourceBar.tsx` — displays planet resources with animated real-time regeneration.
 - `components/PlanetView.tsx` — shows the current focus planet overview.
