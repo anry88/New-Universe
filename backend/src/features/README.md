@@ -40,6 +40,14 @@ Telegram Bot logic and webhook handling.
 - **`push.ts`** — `sendPush(userId, type, payload)` service to queue push notifications in the database.
 
 
+## `multiplayer/`
+
+Sector map visibility for Phase 3.
+
+- **`README.md`** — [multiplayer/presence documentation](./multiplayer/README.md).
+- **`presence.ts`** — `getSectorPresence(viewerId, sectorX, sectorY, sectorZ)` builds `SectorPresencePayload` for `GET /multiplayer/sectors/:sx/:sy/:sz/presence`.
+- **`presence.test.ts`** — asserts foreign homeworlds never appear and foreign colonies are masked.
+
 ## `me/`
 
 Player state retrieval.

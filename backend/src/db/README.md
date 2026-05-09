@@ -33,6 +33,7 @@ Each module owns one domain and exports the Drizzle table objects. `schema.ts` r
   - `market_orders` — per-user order lifecycle rows (`open`, `partially_filled`, `filled`, `cancelled`, `expired`, `failed`, `settled`) with fill totals, fees, optional delivery/offer references, nullable `planet_id` (FK → `planets`, `ON DELETE set null`) for settlement routing, and optional `delivery_ready_at` for NPC buy ETA indexing (`market_orders_fulfillment_tick_idx`).
   - `market_order_fills` — immutable fill records tied to orders/offers, with execution price/qty, fees, and optional delivery expedition reference.
 - **`colonies.ts`** — `colonies` table. Columns: `id` (UUID PK), `ownerId` (references `users.id`), `planetId` (references `planets.id`), `foundedAt`, `status`. A planet can only have one colony total across all players (`colonies_planet_id_idx`).
+- **`multiplayer.ts`** — documents that Phase 3 sector presence composes `systems`, `planets`, `colonies`, `ships`, and `users`; no extra tables in this slice (see `features/multiplayer/presence.ts`).
 
 
 ## Seed scripts (`seed/`)

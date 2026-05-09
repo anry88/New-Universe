@@ -4,6 +4,7 @@ import { useMe } from './hooks/useMe';
 import { HomePage } from './pages/Home';
 import { PlanetDetailPage } from './pages/PlanetDetail';
 import { SystemMapPage } from './pages/SystemMap';
+import { SectorMapPage } from './pages/SectorMap';
 import { ResearchPage } from './pages/Research';
 import { ShipsPage } from './pages/Ships';
 import { ProfilePage } from './pages/Profile';
@@ -69,6 +70,7 @@ function AppContent() {
       <Route path="/onboarding" element={<OnboardingPage onSkip={() => setTutorialHidden(true)} />} />
       <Route path="/planet/:planetId" element={<PlanetDetailPage />} />
       <Route path="/map" element={<SystemMapPage />} />
+      <Route path="/sector-map" element={<SectorMapPage />} />
       <Route path="/research" element={<ResearchPage />} />
       <Route path="/ships" element={<ShipsPage />} />
       <Route path="/market" element={<MarketPage />} />

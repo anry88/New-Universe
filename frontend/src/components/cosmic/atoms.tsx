@@ -332,7 +332,7 @@ export const CosmicBottomNav: React.FC<{ active?: CosmicNavId | 'home' }> = ({ a
     active ??
     (location.pathname.startsWith('/ships')
       ? 'ships'
-      : location.pathname.startsWith('/map')
+      : location.pathname.startsWith('/sector-map') || location.pathname.startsWith('/map')
         ? 'map'
         : location.pathname.startsWith('/market')
           ? 'market'

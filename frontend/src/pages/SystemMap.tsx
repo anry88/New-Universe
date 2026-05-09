@@ -43,6 +43,8 @@ export function SystemMapPage() {
     );
   }
 
+  const home = meData.homeSystem;
+
   const ownedPlanetIds = useMemo(() => {
     return new Set(meData?.planets?.map(p => p.id) ?? []);
   }, [meData?.planets]);
@@ -92,7 +94,7 @@ export function SystemMapPage() {
           }}
         >
           <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 13, color: 'var(--text)' }}>
-            {meData.homeSystem.name}
+            {home.name}
           </div>
           <div
             style={{
@@ -103,11 +105,31 @@ export function SystemMapPage() {
               marginTop: 2,
             }}
           >
-            SECTOR {meData.homeSystem.sectorX}:{meData.homeSystem.sectorY}:{meData.homeSystem.sectorZ}
+            SECTOR {home.sectorX}:{home.sectorY}:{home.sectorZ}
           </div>
         </div>
 
-        <div style={{ width: 40 }} />
+        <button
+          type="button"
+          onClick={() =>
+            navigate(
+              `/sector-map?sx=${home.sectorX}&sy=${home.sectorY}&sz=${home.sectorZ}`,
+            )
+          }
+          style={{
+            pointerEvents: 'auto',
+            borderRadius: 10,
+            border: '1px solid var(--line)',
+            background: 'rgba(14,20,36,0.85)',
+            color: 'var(--accent)',
+            fontSize: 11,
+            fontFamily: 'var(--font-mono)',
+            padding: '8px 10px',
+            backdropFilter: 'blur(8px)',
+          }}
+        >
+          Sector
+        </button>
       </div>
 
       {/* SVG/HTML system renderer — uses real biome sprites and a sun.
@@ -126,7 +148,7 @@ export function SystemMapPage() {
         }}
       >
         <CosmicSystemRenderer
-          system={meData.homeSystem}
+          system={home}
           ships={meData.ships || []}
           expeditions={meData.expeditions || []}
           onPlanetClick={(planet) => navigate(`/planet/${planet.id}`)}

@@ -13,6 +13,7 @@ Cross-package contracts shared between the Fastify backend (`backend/`) and the 
     - **`ships.ts`** — `Ship` and `ShipType` interfaces.
     - **`expeditions.ts`** — `Expedition` interface.
     - **`market.ts`** — `MarketOffer`, market-order request/response payloads, and side/status primitives shared by market frontend hooks and backend routes.
+    - **`multiplayer.ts`** — `PresenceEntityKind`, `SectorPresenceEntity`, and `SectorPresencePayload` for the sector-map presence API (`GET /multiplayer/sectors/:sx/:sy/:sz/presence`).
 
 
 ## Conventions
