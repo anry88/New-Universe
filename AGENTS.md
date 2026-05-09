@@ -39,8 +39,9 @@ Primary links:
 - `docs/` — GDD, addenda, infrastructure costs, architecture diagrams.
 - `dev/` — starter Docker/dev scaffolding from the planning bundle.
 - `docker-compose.yml` — local stack: Postgres 16, Redis 7, Backend (Fastify, hot reload), optional Worker/Frontend/devtools profiles.
-- `.github/workflows/ci.yml` — canonical lint/type-check/migrate/seed/unit/E2E pipeline for GitHub Actions; automation agents treat this file as the source of truth for verification.
-- `scripts/ci-verify.sh` — host-side mirror of `ci.yml` for agents running full parity locally (Docker + Node).
+- `.github/workflows/ci.yml` — default PR CI: lint, type-check, migrate, seed, unit tests (backend + frontend). **No Playwright.**
+- `.github/workflows/e2e.yml` — Playwright E2E (see [.github/workflows/README.md](.github/workflows/README.md)): manual dispatch, PR labeled `run-e2e` or `epic:*`, or **closing** an issue labeled `epic:*`.
+- `scripts/ci-verify.sh` — local automation mirror of `ci.yml`; set `RUN_PLAYWRIGHT_E2E=1` to include the same Playwright step as `e2e.yml`.
 
 ## First Pass For Any Agent
 
@@ -115,9 +116,10 @@ Your goal is not just to edit files. Your goal is to complete the task end to en
    - When adding or changing behavior, write or update focused unit tests in the same change before reporting the task as complete.
 
 6. Verify.
-   - Follow **[Verification contract (agents & CI)](#verification-contract-agents--ci)**: stay aligned with [`.github/workflows/ci.yml`](.github/workflows/ci.yml); PR/task verification text must reference CI steps or document deliberate deviations.
-   - Before claiming repository-wide **Local pass** when Docker is available, run `./scripts/ci-verify.sh` from the repo root (or confirm an equivalent green CI run on the PR).
-   - Run the command listed in the task `verify` field when possible (must remain compatible with or strictly narrower than `ci.yml`).
+   - Follow **[Verification contract (agents & CI)](#verification-contract-agents--ci)** and align PR/task verification text with CI steps or document deliberate deviations.
+   - Default merge gate on GitHub is [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (`check`). Playwright runs only from [`.github/workflows/e2e.yml`](.github/workflows/e2e.yml) (labeled epic PR, closed `epic:*` issue, or workflow dispatch) — do not expect browser E2E on every small PR.
+   - Before claiming repository-wide **Local pass** when Docker is available, run `./scripts/ci-verify.sh` from the repo root (matches default CI). Use `RUN_PLAYWRIGHT_E2E=1 ./scripts/ci-verify.sh` when you must reproduce `e2e.yml`, or confirm a green **`ci.yml`** run on the PR.
+   - Run the command listed in the task `verify` field when possible (must stay compatible with default CI unless the task explicitly requires E2E).
    - Also run the nearest relevant tests/build/type-check for changed code during iteration.
    - Check the code you wrote immediately after implementation: run the smallest relevant unit tests first, then broader build/type-check/lint commands as appropriate.
    - If verification cannot run because Docker disk/images, Playwright browsers, or other infra are missing, state exactly what blocked it and why CI/GitHub would still be authoritative once merged — never substitute improvised flows when documenting parity.
@@ -181,11 +183,17 @@ Status policy:
 
 ## Verification contract (agents & CI)
 
-- **Canonical automation** is [`.github/workflows/ci.yml`](.github/workflows/ci.yml). Extend CI whenever product-required checks become repeatable (lint/build/unit/integration/E2E); agents updating verification flows edit both `ci.yml` and [`scripts/ci-verify.sh`](scripts/ci-verify.sh) together when sequences diverge.
-- **Full local parity** — `./scripts/ci-verify.sh` (requires Docker Compose with `up --wait`, Node 20 on `PATH`). Ends with `docker compose down -v`, matching CI cleanup.
-- **Backend/db migrations & seeds** must succeed via `docker compose run --rm backend npm run db:migrate` and `docker compose run --rm backend npm run db:seed` (Compose-provided `DATABASE_URL`). Reports that skip migrations/seeds after schema changes are invalid unless CI exemption is documented on the task/PR.
-- **Frontend Playwright** — CI runs `cd frontend && npm ci`, then `npx playwright install --with-deps chromium`, then `npm run test:e2e` using mocked Telegram/API (see `frontend/playwright.config.ts`). Tasks touching onboarding/routing/cosmic shell navigation patterns maintain stable selectors/fixtures so CI stays green.
-- **GitHub reporting** — set Project `Verification=CI pass` only after the PR workflow succeeds on GitHub; rely on local `./scripts/ci-verify.sh` only where Actions cannot run (e.g., sandbox lacking Docker).
+- **Default PR pipeline** — [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (`check` job): lint, build, Drizzle migrate/seed, backend + frontend unit tests. When adding or reordering these steps, update [`scripts/ci-verify.sh`](scripts/ci-verify.sh) in the same change. **Do not** add Playwright here — use `e2e.yml`.
+- **Playwright E2E** — [`.github/workflows/e2e.yml`](.github/workflows/e2e.yml). Runs on workflow dispatch, on PRs labeled `run-e2e` or `epic:*`, or when an issue labeled `epic:*` is closed (see [.github/workflows/README.md](.github/workflows/README.md)). Keeps routine PRs fast; epic/UI-integration work uses labels or manual dispatch.
+- **Local** — `./scripts/ci-verify.sh` mirrors `ci.yml` (Docker Compose with `up --wait`; ends with `docker compose down -v`). `RUN_PLAYWRIGHT_E2E=1 ./scripts/ci-verify.sh` adds the Playwright install/run block used in `e2e.yml`.
+- **Backend/db** — migrations and seeds must succeed via `docker compose run --rm backend npm run db:migrate` and `docker compose run --rm backend npm run db:seed`. Skipping them after schema edits is invalid unless the task/PR documents why.
+- **GitHub reporting** — set Project `Verification=CI pass` after **`ci.yml`** succeeds on the PR. Note a green **`e2e.yml`** run when the task required full browser verification.
+
+## CI and Playwright E2E (GitHub)
+
+- **Small PRs** — require only the `check` job from `ci.yml` in branch protection so browser installs do not block every review.
+- **Epic / full UI smoke** — add **`run-e2e`** or **`epic:…`** on the PR, close an **`epic:…`** issue (workflow checks out default branch — run after epic code is on `main`), or **Actions → E2E → Run workflow**.
+- **Optional blocking** — add the `playwright` job from `e2e.yml` as a required check only if you want Playwright to gate every merge (usually omit).
 
 ## Useful Commands
 
@@ -262,6 +270,8 @@ Mirror CI locally (preferred verification gate):
 
 ```bash
 ./scripts/ci-verify.sh
+# Optional — same stack plus Playwright as e2e.yml:
+# RUN_PLAYWRIGHT_E2E=1 ./scripts/ci-verify.sh
 ```
 
 Incremental Compose-backed checks without wiping volumes manually:
@@ -331,7 +341,8 @@ Documentation lives next to the code it describes. The structure mirrors `RiverK
   - `backend/src/routes/README.md`
   - `frontend/src/README.md`
   - `shared/README.md`
-  - [`scripts/README.md`](scripts/README.md) (repo-root automation helpers mirrored against CI)
+  - [`scripts/README.md`](scripts/README.md) (repo-root automation helpers; keep aligned with `ci.yml` / `e2e.yml`)
+  - [`.github/workflows/README.md`](.github/workflows/README.md) (workflow intent and E2E triggers)
 
 Required behavior whenever you change the codebase:
 

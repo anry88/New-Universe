@@ -118,9 +118,13 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 
 `docker-compose.yml` at the repo root composes the local dev stack: `postgres` (with `pgdata` volume), `redis`, `backend` (`Dockerfile` target `dev`, mounts `backend/src` and `shared` for hot reload), an optional `worker` profile, an optional `frontend` profile, and the optional `devtools` profile (`adminer`, `redis-commander`). All variables are read from `.env` (template in `.env.example`).
 
-## CI and automation parity
+## CI and automation
 
-GitHub Actions workflow `.github/workflows/ci.yml` runs Docker-backed Postgres/Redis, backend lint/build/Drizzle migrate/seed/unit tests, frontend lint/build/unit tests, and Playwright Chromium E2E (`frontend/tests/e2e`). Agents mirror that pipeline locally via [`scripts/ci-verify.sh`](scripts/README.md); `AGENTS.md` defines the verification contract.
+- **`.github/workflows/ci.yml`** — on each PR / push to `main`: Docker Postgres/Redis, backend lint/build/migrate/seed/unit tests, frontend lint/build/unit tests (fast path). No Playwright.
+- **`.github/workflows/e2e.yml`** — Playwright Chromium on `frontend/tests/e2e` when triggered by workflow dispatch, by PR labels (`run-e2e` or `epic:*`), or by closing an issue labeled `epic:*`.
+- **`scripts/ci-verify.sh`** — local mirror of `ci.yml`; set `RUN_PLAYWRIGHT_E2E=1` to include Playwright like `e2e.yml`.
+
+See [.github/workflows/README.md](.github/workflows/README.md) and [`AGENTS.md`](AGENTS.md) (verification contract and CI / Playwright sections).
 
 ## How to navigate this codebase
 

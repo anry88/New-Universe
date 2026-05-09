@@ -9,7 +9,7 @@ frontend/test-results/
 playwright-report/
 blob-report/
 
-# Agent/local git worktree checkout folders (do not commit nested clones)
+# Local git worktrees / nested checkouts (never commit)
 worktrees/
 
 # Production

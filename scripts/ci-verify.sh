@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
-# Mirrors `.github/workflows/ci.yml` for local agents and automation.
-# Requires: Docker Compose v2 with `up --wait`, Node 20 on PATH for Playwright.
+# Local mirror of `.github/workflows/ci.yml`, optional Playwright mirror of `.github/workflows/e2e.yml`.
+# Requires: Docker Compose v2 with `up --wait`, Node 20 on PATH when RUN_PLAYWRIGHT_E2E=1.
+# Usage:
+#   ./scripts/ci-verify.sh              # CI only (default; matches PR CI)
+#   RUN_PLAYWRIGHT_E2E=1 ./scripts/ci-verify.sh   # also run Playwright (epic / pre-merge gate)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -23,8 +26,10 @@ docker compose --profile frontend run --rm frontend npm run lint
 docker compose --profile frontend run --rm frontend npm run build
 docker compose --profile frontend run --rm frontend npm test
 
-pushd frontend >/dev/null
-npm ci
-npx playwright install --with-deps chromium
-npm run test:e2e
-popd >/dev/null
+if [ "${RUN_PLAYWRIGHT_E2E:-}" = 1 ]; then
+  pushd frontend >/dev/null
+  npm ci
+  npx playwright install --with-deps chromium
+  npm run test:e2e
+  popd >/dev/null
+fi

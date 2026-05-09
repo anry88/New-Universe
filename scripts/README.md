@@ -1,12 +1,13 @@
 # `scripts` directory
 
-Automation entry points used by AI agents and CI parity checks — not imported by application runtime code.
+Automation helpers for agents — not imported by application runtime code.
 
 ## Files
 
-- **`ci-verify.sh`** — runs the same sequence as [.github/workflows/ci.yml](../.github/workflows/ci.yml): Docker Postgres/Redis, backend lint/build/migrate/seed/test via `docker compose run`, frontend lint/build/unit tests via the `frontend` Compose profile, then host-side `npm ci` + Playwright Chromium install + `npm run test:e2e` in `frontend/`. Always ends with `docker compose down -v` (via `trap`) so volumes match a clean CI runner.
+- **`ci-verify.sh`** — Runs the same Docker-backed sequence as [.github/workflows/ci.yml](../.github/workflows/ci.yml). Playwright is **off by default** (matches default PR CI). Set `RUN_PLAYWRIGHT_E2E=1` to also run `frontend` Playwright as in [.github/workflows/e2e.yml](../.github/workflows/e2e.yml). Ends with `docker compose down -v`.
 
 ## Conventions
 
-- Keep this script aligned with `ci.yml`: when adding or reordering CI steps, update both in one change.
-- Agents must not report repository-wide “verification passed” without either green GitHub Actions on the PR or a successful `./scripts/ci-verify.sh` run when Docker is available.
+- When CI steps change, update `ci-verify.sh` and [.github/workflows/ci.yml](../.github/workflows/ci.yml) together.
+- When Playwright install/run commands change, update [.github/workflows/e2e.yml](../.github/workflows/e2e.yml) and the `RUN_PLAYWRIGHT_E2E` block in `ci-verify.sh` together.
+- Do not report repository-wide “verification passed” without a green **`ci.yml`** run on the PR or a successful `./scripts/ci-verify.sh` when Docker is available.
