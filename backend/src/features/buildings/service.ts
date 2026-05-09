@@ -3,6 +3,7 @@ import { buildings, buildingTypes, planets } from '../../db/schema.js';
 import { eq, and, sql } from 'drizzle-orm';
 import { BuildingType, ConstructionStatus } from '@shared/types/buildings.js';
 import { spendResources } from '../resources/transactions.js';
+import { applyBuildTimeSeconds, getResearchEffectsForUser } from '../research/effects.js';
 
 export class BuildingService {
   async getBuildingTypes(): Promise<BuildingType[]> {
@@ -70,6 +71,8 @@ export class BuildingService {
       amount,
     }));
 
+    const researchEffects = await getResearchEffectsForUser(userId, db);
+
     return db.transaction(async (tx) => {
       if (resourceCosts.length > 0) {
         const spendResult = await spendResources(planetId, resourceCosts, tx);
@@ -78,7 +81,8 @@ export class BuildingService {
         }
       }
 
-      const completesAt = new Date(Date.now() + typeInfo.baseTimeSec * 1000);
+      const buildTimeSec = applyBuildTimeSeconds(typeInfo.baseTimeSec, researchEffects);
+      const completesAt = new Date(Date.now() + buildTimeSec * 1000);
       const [newBuilding] = await tx.insert(buildings).values({
         planetId,
         typeId,
@@ -99,7 +103,7 @@ export class BuildingService {
         await buildQueue.add(
           'complete-build',
           { buildingId: newBuilding.id, planetId },
-          { delay: typeInfo.baseTimeSec * 1000 },
+          { delay: buildTimeSec * 1000 },
         );
         await buildQueue.close();
         await redis.quit();
@@ -171,6 +175,8 @@ export class BuildingService {
       amount: Math.floor(amount * multiplier),
     }));
 
+    const researchEffects = await getResearchEffectsForUser(userId, db);
+
     return db.transaction(async (tx) => {
       if (resourceCosts.length > 0) {
         const spendResult = await spendResources(building.planetId, resourceCosts, tx);
@@ -179,7 +185,8 @@ export class BuildingService {
         }
       }
 
-      const buildTime = Math.floor(typeInfo.baseTimeSec * multiplier);
+      const baseUpgradeTime = Math.floor(typeInfo.baseTimeSec * multiplier);
+      const buildTime = applyBuildTimeSeconds(baseUpgradeTime, researchEffects);
       const completesAt = new Date(Date.now() + buildTime * 1000);
 
       await tx.update(buildings)

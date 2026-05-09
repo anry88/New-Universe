@@ -69,7 +69,7 @@ Resource accrual, transactions, and conversion.
 - **`routes.ts`** — `resourcesRoutes(app)` registers `POST /convert` (mounted at `/resources` from `index.ts`, so the public path is `POST /resources/convert`). Requires a valid JWT in the `Authorization: Bearer <token>` header. Accepts `{ planetId, from, to, amount }` in the request body.
 - **`convert.ts`** — `convertResources(userId, { planetId, from, to, amount })` converts ice ↔ water on a player-owned planet. Validates planet ownership, checks for a `cryo_factory` building (level ≥ 1), verifies energy availability (solar_plant production ≥ building consumption), then atomically spends the source resource and gains the target resource. Ice→water converts at 1:1; water→ice incurs a 5% loss (100 → 95).
 - **`convert.test.ts`** — Vitest integration suite covering: missing cryo_factory (400), ice→water success, water→ice with 5% loss, missing auth (401), non-existent planet (404), invalid resource type (400), and insufficient source resource (400).
-- **`accrual.ts`** — exports `computeCurrentResources(planetId, tx?)` which lazily computes current resource amounts without writing to the database. For each resource: `amount += regenRate × (now - lastUpdateAt)`. Respects `defaultStorageCap` from the `resources` table. Returns array of `{ resourceId, amount, regenRate, lastUpdateAt, storageCap }`.
+- **`accrual.ts`** — exports `computeCurrentResources(planetId, tx?)` which lazily computes current resource amounts without writing to the database. For each resource: `amount += regenRate × (now - lastUpdateAt)`. Respects `defaultStorageCap` from the `resources` table and applies research production/storage multipliers via `features/research/effects.ts`. Returns array of `{ resourceId, amount, regenRate, lastUpdateAt, storageCap }`.
   - Does NOT write to the database - this is a read-only computation for lazy updates.
   - Caps each resource amount at its `storageCap`.
   - Used by planet view and production features to show current state without constant DB writes.
@@ -96,7 +96,7 @@ Ship launch and travel scheduling. [Detailed documentation](./expeditions/README
 - **`routes.ts`** — `expeditionsRoutes(app)` registers:
   - `POST /` — launches a standard expedition. Accepts `{ shipId, targetX, targetY, targetZ, fuelLoaded, cargoLoaded }`.
   - `POST /jump` — performs an inter-sector jump using a Jump Ship. Accepts `{ shipId, targetSector: { x, y, z } }`.
-- **`launch.ts`** — `launchExpedition(userId, request)` validates ship ownership and idle state, checks the launch planet has enough cargo stock, spends `fuelLoaded`, creates an `expeditions` row with `status='in_flight'`, updates the ship to `moving`, computes `eta = distance × 60 / speed × engine_factor`, and enqueues the delayed BullMQ job.
+- **`launch.ts`** — `launchExpedition(userId, request)` validates ship ownership and idle state, checks the launch planet has enough cargo stock, spends `fuelLoaded`, creates an `expeditions` row with `status='in_flight'`, updates the ship to `moving`, computes `eta = distance × 60 / speed × engine_factor`, and enqueues the delayed BullMQ job. Effective speed is resolved through `features/research/effects.ts`.
 - **`jump.ts`** — `jumpShip(userId, request)` handles specialized Jump Ship teleportation. Checks for Jump Drive research lvl 1+, deducts 50 fuel from the ship's internal tank, lazily generates the target sector/system, and moves the ship to the first planet of the target system. Updates discovery records.
 - **`launch.test.ts`** — Vitest integration suite covering the happy path, non-idle ship rejection, insufficient fuel, and missing auth.
 - **`jump.test.ts`** — Vitest integration suite for the jump feature.
@@ -139,6 +139,8 @@ Procedural world generation primitives and visibility checks. Contains the home-
 Tech tree definitions and starting research on a planet.
 
 - **`data.ts`** — exports `TECH_TREE` and `getResearchDef(branch, level)`; building prerequisites use catalog id `lab`, and all research costs use seeded resource ids (`iron`, `silicon`, `tritium`, ...).
+- **`effects.ts`** — typed research-effects engine with deterministic stacking. Exports `getResearchEffectsForUser(userId)` plus apply helpers for production, storage, ship speed, sensor range, and build time.
+- **`effects.test.ts`** — unit tests for deterministic composition and stacked resource/ship/sensor/build-time effects.
 - **`routes.ts`** — registers `POST /start` (mounted at `/research` from `index.ts`). Validates planet ownership, prerequisite research rows, lab building level (`buildings.typeId === 'lab'`), spends resources, and upserts `research_progress`.
 - **`research.test.ts`** — integration test for `POST /research/start`; creates a user and lab, starts mining research, and asserts `iron`/`silicon` are atomically deducted from `planet_resources`.
 

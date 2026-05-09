@@ -1,6 +1,7 @@
 import { db as defaultDb } from '../../db/index.js';
 import { systems, planets, discoveredPlanets, discoveredSystems, ships, shipTypes } from '../../db/schema.js';
 import { eq, and, inArray, sql } from 'drizzle-orm';
+import { applySensorRange, getResearchEffectsForUser } from '../research/effects.js';
 
 export interface Discovery {
   type: 'planet' | 'system';
@@ -73,7 +74,8 @@ export async function checkVisibility(
   }
 
   const { ownerId } = ship;
-  const range = Number(ship.sensorRange);
+  const researchEffects = await getResearchEffectsForUser(ownerId, database);
+  const range = applySensorRange(Number(ship.sensorRange), researchEffects);
 
   let shipSectorX = ship.shipSectorX;
   let shipSectorY = ship.shipSectorY;

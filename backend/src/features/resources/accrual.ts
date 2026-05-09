@@ -1,6 +1,11 @@
 import { db as defaultDb } from '../../db/index.js';
-import { planetResources, resources } from '../../db/schema.js';
+import { planetResources, planets, resources } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
+import {
+  applyProductionRate,
+  applyStorageCap,
+  getResearchEffectsForUser,
+} from '../research/effects.js';
 
 interface DBRecord {
   resourceId: string;
@@ -20,6 +25,19 @@ interface ComputedResource {
 
 export async function computeCurrentResources(planetId: string, tx?: any) {
   const database = tx || defaultDb;
+  const planetRow = await database.query.planets.findFirst({
+    where: eq(planets.id, planetId),
+    columns: { id: true },
+    with: {
+      system: {
+        columns: { ownerId: true },
+      },
+    },
+  });
+  const ownerId = planetRow?.system?.ownerId || null;
+  const researchEffects = ownerId
+    ? await getResearchEffectsForUser(ownerId, database)
+    : null;
 
   const records = await database
     .select({
@@ -37,8 +55,10 @@ export async function computeCurrentResources(planetId: string, tx?: any) {
 
   return records.map((record: DBRecord) => {
     const amount = Number(record.amount);
-    const regenRate = Number(record.regenRate);
-    const storageCap = Number(record.storageCap);
+    const baseRegenRate = Number(record.regenRate);
+    const baseStorageCap = Number(record.storageCap);
+    const regenRate = researchEffects ? applyProductionRate(baseRegenRate, researchEffects) : baseRegenRate;
+    const storageCap = researchEffects ? applyStorageCap(baseStorageCap, researchEffects) : baseStorageCap;
     const lastUpdateAt = new Date(record.lastUpdateAt);
 
     const timeDiffMs = now.getTime() - lastUpdateAt.getTime();
