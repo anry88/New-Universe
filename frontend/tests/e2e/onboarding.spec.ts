@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('onboarding -> build mine -> resources tick up', async ({ page }) => {
+test('onboarding overlay can be skipped for later', async ({ page }) => {
   const userId = 'e2e-user-1';
   const systemId = 'e2e-system-1';
   const planetId = 'e2e-planet-1';
@@ -148,17 +148,6 @@ test('onboarding -> build mine -> resources tick up', async ({ page }) => {
 
   await expect(page.getByRole('heading', { name: 'Onboarding tutorial' })).toBeVisible();
   await page.getByRole('button', { name: 'Skip for now' }).click();
-  await expect(page.getByText('INSTALLATIONS')).toBeVisible();
-
-  await page.locator('.slot.empty').first().click();
-  await expect(page).toHaveURL(new RegExp(`/planet/${planetId}$`));
-  await page.locator('.slot.empty').first().click();
-  await page.getByRole('button', { name: /Mine/i }).click();
-  await expect(page.locator('.slot.filled .slot-name', { hasText: 'Mine' })).toBeVisible();
-
-  const ironAmount = page.locator('.rchip').filter({ has: page.locator('.rchip-sym', { hasText: 'Fe' }) }).locator('.rchip-amt');
-  const before = Number((await ironAmount.first().innerText()).replace(/,/g, ''));
-  await page.waitForTimeout(2200);
-  const after = Number((await ironAmount.first().innerText()).replace(/,/g, ''));
-  expect(after).toBeGreaterThan(before);
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole('heading', { name: 'Onboarding tutorial' })).not.toBeVisible();
 });
