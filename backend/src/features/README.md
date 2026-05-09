@@ -129,9 +129,9 @@ Procedural world generation primitives and visibility checks. Contains the home-
 
 Tech tree definitions and starting research on a planet.
 
-- **`data.ts`** — exports `RESEARCH_DEFINITIONS` and `getResearchDef(branch, level)`; building prerequisites use catalog id `lab` (research lab), aligned with `backend/src/db/seed/building-types.ts`.
+- **`data.ts`** — exports `TECH_TREE` and `getResearchDef(branch, level)`; building prerequisites use catalog id `lab`, and all research costs use seeded resource ids (`iron`, `silicon`, `tritium`, ...).
 - **`routes.ts`** — registers `POST /start` (mounted at `/research` from `index.ts`). Validates planet ownership, prerequisite research rows, lab building level (`buildings.typeId === 'lab'`), spends resources, and upserts `research_progress`.
-- **`research.test.ts`** — Vitest scaffold for research routes (structure / future integration coverage).
+- **`research.test.ts`** — integration test for `POST /research/start`; creates a user and lab, starts mining research, and asserts `iron`/`silicon` are atomically deducted from `planet_resources`.
 
 ## Adding a new feature module
 

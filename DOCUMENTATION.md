@@ -98,6 +98,7 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 - `user.ts` — `User` interface.
 - `buildings.ts` — building types and construction requests.
 - `auth.ts` — `AuthResponse` interface.
+- `research.ts` — research DTOs plus `ResourceId` union used by tech-tree costs on both backend and frontend.
 
 ## Local environment
 
