@@ -5,40 +5,78 @@ import { apiFetch } from '../lib/api';
 import { BuildingSlot } from '../components/BuildingSlot';
 import { UpgradeDialog } from '../components/UpgradeDialog';
 import { BuildDialog } from '../components/BuildDialog';
-import type { Building } from '@shared/types/world';
+import { ResourceBar } from '../components/ResourceBar';
+import { BuildQueue } from '../components/BuildQueue';
+import {
+  BIOME_META,
+  CosmicBackground,
+  CosmicBottomNav,
+  PlanetPortrait,
+  PlanetRail,
+  resolveBiome,
+} from '../components/cosmic/atoms';
+import type { Building, Planet } from '@shared/types/world';
 import type { BuildingType, ConstructionStatus } from '@shared/types/buildings';
-import { ArrowLeft } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 
+/**
+ * PlanetDetail — Cosmic Atlas (P1.1 redesign).
+ *
+ * Layout (top → bottom):
+ *  1. Resource bar (live regen) — shared across all screens.
+ *  2. Planet portrait (biome SVG, name, class, slots used).
+ *  3. Planet rail — horizontally scrollable list of all planets in the
+ *     home system, with the active one highlighted. Tapping switches the
+ *     view to that planet.
+ *  4. Installations grid — the slot grid bound to the active planet.
+ *  5. Queue strip + bottom nav (sticky at the bottom).
+ *
+ * Behavior preserved from the legacy page: optimistic UI on build/upgrade,
+ * rollback on error, building-type catalog fetched on mount, dialog state
+ * for both BuildDialog and UpgradeDialog.
+ */
 export function PlanetDetailPage() {
   const { planetId } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: meData } = useMe();
-  
+
   const [buildingTypes, setBuildingTypes] = useState<BuildingType[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [selectedBuilding, setSelectedBuilding] = useState<Building | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
-    apiFetch<BuildingType[]>('/buildings/types')
-      .then(setBuildingTypes)
-      .catch(console.error);
+    apiFetch<BuildingType[]>('/buildings/types').then(setBuildingTypes).catch(console.error);
   }, []);
 
-  const planet = useMemo(() => {
-    if (!planetId || !meData?.homeSystem?.planets) return null;
-    return meData.homeSystem.planets.find(p => p.id === planetId);
-  }, [meData, planetId]);
+  const allPlanets = useMemo<Planet[]>(
+    () => meData?.homeSystem?.planets ?? [],
+    [meData]
+  );
+
+  const planet = useMemo<Planet | null>(() => {
+    if (!planetId || !allPlanets.length) return null;
+    return allPlanets.find((p) => p.id === planetId) ?? null;
+  }, [allPlanets, planetId]);
+
+  const biome = resolveBiome(planet?.biome);
+  const accent = BIOME_META[biome].accent;
 
   if (!planet) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-slate-900">
-        <p className="text-slate-400">Planet not found...</p>
+      <div
+        className="cosmic-screen"
+        style={{ '--accent': '#5BD7FF', alignItems: 'center', justifyContent: 'center' } as React.CSSProperties}
+      >
+        <p style={{ color: 'var(--text-dim)' }}>Planet not found…</p>
       </div>
     );
   }
+
+  const usedSlots = planet.buildings?.length ?? 0;
+  const slotCount = planet.slotCount ?? 0;
 
   const handleSlotClick = (index: number, building?: Building) => {
     if (building) {
@@ -52,13 +90,13 @@ export function PlanetDetailPage() {
   const handleBuild = async (typeId: string) => {
     if (selectedSlot === null) return;
     setIsProcessing(true);
-    
+
     const previousMeData = queryClient.getQueryData(['me']);
-    const typeInfo = buildingTypes.find(t => t.id === typeId);
-    
+    const typeInfo = buildingTypes.find((t) => t.id === typeId);
+
     if (meData && typeInfo) {
       const optimisticMe = structuredClone(meData);
-      const p = optimisticMe.homeSystem?.planets?.find((planetItem) => planetItem.id === planet.id);
+      const p = optimisticMe.homeSystem?.planets?.find((pl) => pl.id === planet.id);
       if (p) {
         p.buildings = p.buildings || [];
         p.buildings.push({
@@ -95,14 +133,14 @@ export function PlanetDetailPage() {
 
   const handleUpgrade = async (buildingId: string) => {
     setIsProcessing(true);
-    
+
     const previousMeData = queryClient.getQueryData(['me']);
-    
+
     if (meData) {
       const optimisticMe = structuredClone(meData);
-      const p = optimisticMe.homeSystem?.planets?.find((planetItem) => planetItem.id === planet.id);
+      const p = optimisticMe.homeSystem?.planets?.find((pl) => pl.id === planet.id);
       if (p) {
-        const b = p.buildings?.find((buildingItem) => buildingItem.id === buildingId);
+        const b = p.buildings?.find((bld) => bld.id === buildingId);
         if (b) {
           b.queueAction = 'upgrade';
         }
@@ -126,61 +164,94 @@ export function PlanetDetailPage() {
     }
   };
 
-  const selectedBuildingType = selectedBuilding 
-    ? buildingTypes.find(t => t.id === selectedBuilding.typeId)
+  const selectedBuildingType = selectedBuilding
+    ? buildingTypes.find((t) => t.id === selectedBuilding.typeId)
     : undefined;
 
-  return (
-    <div className="flex flex-col h-screen bg-slate-900 text-white overflow-hidden">
-      <div className="flex items-center gap-4 px-4 py-4 border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm sticky top-0 z-10">
-        <button onClick={() => navigate(-1)} className="p-2 -ml-2 rounded-full hover:bg-slate-800 transition-colors">
-          <ArrowLeft size={24} />
-        </button>
-        <div>
-          <h2 className="text-xl font-bold">{planet.name}</h2>
-          <p className="text-xs text-slate-400 capitalize">{planet.biome} • Size {planet.size}</p>
-        </div>
-      </div>
+  const systemName = meData?.homeSystem?.name ?? 'Home System';
+  const sectorTag = meData?.homeSystem
+    ? `${meData.homeSystem.sectorX ?? 0}:${meData.homeSystem.sectorY ?? 0}:${meData.homeSystem.sectorZ ?? 0}`
+    : '';
 
-      <div className="flex-1 overflow-y-auto px-4 py-6 pb-24">
-        <div className="max-w-2xl mx-auto">
-          <div className="mb-8 p-6 bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl border border-slate-700 shadow-xl relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/10 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-blue-600/20 transition-colors"></div>
-            <div className="relative flex items-center gap-6">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-4xl shadow-lg shadow-blue-900/40">
-                🌍
-              </div>
-              <div className="flex-1">
-                <p className="text-slate-400 text-sm font-medium mb-1">Planet Status</p>
-                <div className="flex gap-4">
-                  <div>
-                    <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">Slots</p>
-                    <p className="text-lg font-mono text-white">{planet.buildings?.length || 0} / {planet.slotCount}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">Type</p>
-                    <p className="text-lg font-mono text-white capitalize">{planet.biome}</p>
-                  </div>
-                </div>
+  return (
+    <div className="cosmic-screen" style={{ '--accent': accent } as React.CSSProperties}>
+      <CosmicBackground accent={accent} starSeed={planet.id.charCodeAt(0) || 7} />
+
+      <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+        <ResourceBar planetId={planet.id} />
+
+        {/* Compact back button row above the portrait */}
+        <div
+          style={{
+            position: 'relative',
+            zIndex: 2,
+            display: 'flex',
+            alignItems: 'center',
+            padding: '8px 12px 0',
+          }}
+        >
+          <button
+            type="button"
+            aria-label="Back"
+            onClick={() => navigate(-1)}
+            style={{
+              padding: 6,
+              borderRadius: 999,
+              color: 'var(--text-dim)',
+            }}
+          >
+            <ChevronLeft size={20} />
+          </button>
+        </div>
+
+        <div className="cosmic-scroll">
+          <PlanetPortrait
+            biome={biome}
+            name={planet.name}
+            size={planet.size}
+            slots={slotCount}
+            slotsUsed={usedSlots}
+          />
+
+          <div className="rail-wrap">
+            <div className="rail-label">
+              {systemName.toUpperCase()}
+              {sectorTag ? ` · ${sectorTag}` : ''}
+            </div>
+            <PlanetRail
+              planets={allPlanets.map((p) => ({ id: p.id, name: p.name, biome: p.biome }))}
+              current={planet.id}
+              onSelect={(id) => navigate(`/planet/${id}`)}
+            />
+          </div>
+
+          <div className="slots-section">
+            <div className="section-head">
+              <div className="section-title">INSTALLATIONS</div>
+              <div className="section-count">
+                {usedSlots}/{slotCount} slots
               </div>
             </div>
+            <div className="slots-grid">
+              {Array.from({ length: slotCount }, (_, i) => {
+                const building = planet.buildings?.find((b) => b.slotIndex === i);
+                return (
+                  <BuildingSlot
+                    key={i}
+                    index={i}
+                    building={building}
+                    onClick={handleSlotClick}
+                    biomeAccent={accent}
+                  />
+                );
+              })}
+            </div>
           </div>
-
-          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 px-1">Infrastructure Slots</h3>
-          <div className="grid grid-cols-2 xs:grid-cols-3 gap-3">
-            {Array.from({ length: planet.slotCount }, (_, i) => {
-              const building = planet.buildings?.find(b => b.slotIndex === i);
-              return (
-                <BuildingSlot
-                  key={i}
-                  index={i}
-                  building={building}
-                  onClick={handleSlotClick}
-                />
-              );
-            })}
-          </div>
+          <div style={{ height: 80 }} />
         </div>
+
+        <BuildQueue />
+        <CosmicBottomNav active="planets" />
       </div>
 
       <BuildDialog
@@ -189,6 +260,8 @@ export function PlanetDetailPage() {
         types={buildingTypes}
         onAction={handleBuild}
         isProcessing={isProcessing}
+        accent={accent}
+        planetLabel={`${planet.name} · ${BIOME_META[biome].label}`}
       />
 
       <UpgradeDialog
@@ -198,6 +271,7 @@ export function PlanetDetailPage() {
         typeInfo={selectedBuildingType}
         onAction={handleUpgrade}
         isProcessing={isProcessing}
+        accent={accent}
       />
     </div>
   );

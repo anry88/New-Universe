@@ -1,74 +1,95 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMe } from '../hooks/useMe';
+import {
+  BIOME_META,
+  CosmicBackground,
+  PlanetPortrait,
+  PlanetRail,
+  resolveBiome,
+} from './cosmic/atoms';
+import { BuildingSlot } from './BuildingSlot';
 import type { Planet } from '@shared/types/world';
 
+/**
+ * The "current planet" snapshot rendered on the home screen.
+ *
+ * Picks the first planet from the home system payload as the focal planet,
+ * shows the same portrait + rail + slot grid as the dedicated PlanetDetail
+ * page, and routes any slot tap into the full editor.
+ */
 export function PlanetView() {
   const { data: meData } = useMe();
   const navigate = useNavigate();
-  
-  const currentPlanet = useMemo(() => {
-    const homeSystem = meData?.homeSystem;
-    if (!homeSystem?.planets?.length) return null;
-    return homeSystem.planets[0];
-  }, [meData]);
 
-  if (!currentPlanet) {
+  const allPlanets = useMemo<Planet[]>(
+    () => meData?.homeSystem?.planets ?? [],
+    [meData]
+  );
+
+  const planet = allPlanets[0] ?? null;
+
+  if (!planet) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <p className="text-slate-400">Loading planet data...</p>
+      <div className="cosmic-scroll" style={{ display: 'grid', placeItems: 'center' }}>
+        <p style={{ color: 'var(--text-dim)' }}>Loading planet data…</p>
       </div>
     );
   }
 
-  const planet = currentPlanet as Planet;
+  const biome = resolveBiome(planet.biome);
+  const accent = BIOME_META[biome].accent;
+  const slotCount = planet.slotCount ?? 0;
+  const usedSlots = planet.buildings?.length ?? 0;
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-6">
-      <div className="max-w-2xl mx-auto">
-        <div className="mb-6 text-center">
-          <h2 className="text-xl font-bold text-white mb-1">{planet.name}</h2>
-          <p className="text-sm text-slate-400 capitalize">
-            {planet.biome} • Size {planet.size} • Slots {planet.slotCount}
-          </p>
+    <div
+      style={{ '--accent': accent, position: 'relative', flex: 1, display: 'flex', flexDirection: 'column' } as React.CSSProperties}
+    >
+      <CosmicBackground accent={accent} starSeed={planet.id.charCodeAt(0) || 7} />
+      <div className="cosmic-scroll">
+        <PlanetPortrait
+          biome={biome}
+          name={planet.name}
+          size={planet.size}
+          slots={slotCount}
+          slotsUsed={usedSlots}
+        />
+
+        <div className="rail-wrap">
+          <div className="rail-label">
+            {(meData?.homeSystem?.name ?? 'HOME SYSTEM').toUpperCase()}
+          </div>
+          <PlanetRail
+            planets={allPlanets.map((p) => ({ id: p.id, name: p.name, biome: p.biome }))}
+            current={planet.id}
+            onSelect={(id) => navigate(`/planet/${id}`)}
+          />
         </div>
 
-        <div className="relative bg-slate-800/50 rounded-2xl p-6 border border-slate-700">
-          <div className="text-center mb-4">
-            <span className="inline-block w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-3xl mb-2">
-              🌍
-            </span>
+        <div className="slots-section">
+          <div className="section-head">
+            <div className="section-title">INSTALLATIONS</div>
+            <div className="section-count">
+              {usedSlots}/{slotCount} slots
+            </div>
           </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            {Array.from({ length: planet.slotCount }, (_, i) => {
-              const building = planet.buildings?.find((item) => item.slotIndex === i);
+          <div className="slots-grid">
+            {Array.from({ length: slotCount }, (_, i) => {
+              const building = planet.buildings?.find((b) => b.slotIndex === i);
               return (
-                <button
+                <BuildingSlot
                   key={i}
-                  className={`p-4 rounded-xl border-2 transition-all hover:scale-105 ${
-                    building
-                      ? 'bg-slate-700 border-blue-500'
-                      : 'bg-slate-800/50 border-slate-600 border-dashed'
-                  }`}
-                  onClick={() => {
-                    navigate(`/planet/${planet.id}`);
-                  }}
-                >
-                  {building ? (
-                    <div className="text-center">
-                      <p className="text-lg mb-1">🏭</p>
-                      <p className="text-xs text-slate-300">{building.typeId}</p>
-                      <p className="text-xs text-slate-400">Lv.{building.level}</p>
-                    </div>
-                  ) : (
-                    <p className="text-center text-slate-500 text-sm">Empty Slot</p>
-                  )}
-                </button>
+                  index={i}
+                  building={building}
+                  onClick={() => navigate(`/planet/${planet.id}`)}
+                  biomeAccent={accent}
+                />
               );
             })}
           </div>
         </div>
+        <div style={{ height: 80 }} />
       </div>
     </div>
   );
