@@ -203,7 +203,6 @@ export function resolveBuildingType(typeId: string | undefined | null): Building
   if (v in BUILDING_BY_TYPE) return BUILDING_BY_TYPE[v as BuildingTypeId];
   // Aliases for legacy / synonym ids (hyphenated/underscore-combined lab spellings and `laboratory`).
   if (/^research[_-]?lab$/i.test(v) || v === 'laboratory') return BUILDING_BY_TYPE.lab;
-  if (v === 'power_plant' || v === 'energy_plant' || v === 'solar') return BUILDING_BY_TYPE.solar_plant;
   if (v === 'depot' || v === 'warehouse') return BUILDING_BY_TYPE.storage;
   if (v === 'factory') return BUILDING_BY_TYPE.smelter;
   return BUILDING_BY_TYPE.mine;
