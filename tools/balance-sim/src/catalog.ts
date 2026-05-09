@@ -170,6 +170,8 @@ export const RESOURCE_BASELINE_PRICE: Record<string, number> = {
   titanium: 55,
   ice: 42,
   sulfur: 40,
+  steel: 50,
+  electronics: 54,
   mercury: 170,
   magnesium: 165,
   lead: 160,

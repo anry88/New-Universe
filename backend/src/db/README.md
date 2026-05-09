@@ -40,10 +40,13 @@ Each module owns one domain and exports the Drizzle table objects. `schema.ts` r
 
 Each seed module exports an idempotent `async function seedXxx()` that calls `db.insert(table).values(row).onConflictDoUpdate({ target: table.id, set: row })`. They are safe to re-run.
 
-- **`resources.ts`** — populates the 21-resource catalog (`water`, `iron`, `carbon`, `silicon`, `methane`, `copper`, `aluminum`, `titanium`, `ice`, `sulfur`, `mercury`, `magnesium`, `lead`, `uranium`, `cobalt`, `silicon_carbide`, `tritium`, `antimatter`, `dark_matter`, `iridium`, `biomass`) with bilingual names, tier, symbol, base regen, and default storage cap.
+- **`catalog-rows.ts`** — single source of truth for `RESOURCE_CATALOG_ROWS`, `BUILDING_TYPE_CATALOG_ROWS`, and `SHIP_TYPE_CATALOG_ROWS` (no DB import). Consumed by seed scripts and `runCatalogAudit()` so CI can validate catalogs without connecting to Postgres.
+- **`resources.ts`** — inserts `RESOURCE_CATALOG_ROWS` into `resources` (23 rows including `fuel`, `steel`, `electronics`, and base/mineral tiers `water` … `biomass`).
 - **`research.ts`** — idempotent seeder for `research_branches` from `config/research-catalog.ts`. Keeps branch name/description in sync with the phase-2 catalog source of truth.
-- **`building-types.ts`** — building catalog: `command_center`, `mine`, `drill`, `storage`, `smelter`, `spaceport`, `shipyard`, `lab`, `cryo_factory`, `solar_plant`. Includes dependency chains (`spaceport ⇒ command_center L4`, `shipyard ⇒ spaceport L2`, `cryo_factory ⇒ spaceport L2 + smelter L3`, etc.).
-- **`ship-types.ts`** — five starter ship types: `scout`, `cargo_light`, `colonizer`, `recon_probe`, `jump_ship`. Each row encodes role, stats, fuel use, build time, build cost, required buildings, and sensor range.
+- **`building-types.ts`** — inserts `BUILDING_TYPE_CATALOG_ROWS` (`command_center`, `mine`, `drill`, `storage`, `smelter`, `spaceport`, `shipyard`, `lab`, `cryo_factory`, `solar_plant`) with dependency chains (`spaceport ⇒ command_center L4`, `shipyard ⇒ spaceport L2`, `cryo_factory ⇒ spaceport L2 + smelter L3`, etc.).
+- **`ship-types.ts`** — inserts `SHIP_TYPE_CATALOG_ROWS` (`scout`, `cargo_light`, `colonizer`, `recon_probe`, `jump_ship`). Each row encodes role, stats, fuel use, build time, build cost, required buildings, and sensor range.
+- **`audit.ts`** — exports `runCatalogAudit()` to verify duplicate-free ids, `ru`/`en` names on catalog rows, tier/defaultStorageCap consistency, cross-references (costs → resource ids, building deps, NPC baseline keys), and research-branch localization. Used by `audit.test.ts` (default `npm test` / CI).
+- **`audit.test.ts`** — Vitest gate that fails when catalog drift would break seeds or market pricing alignment.
 
 ## Working with the schema
 
