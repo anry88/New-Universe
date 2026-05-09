@@ -141,6 +141,7 @@ export const FoundColonyDialog: React.FC<FoundColonyDialogProps> = ({
                 </button>
                 <button
                   type="button"
+                  data-testid="found-colony-button"
                   disabled={!data.eligibility.allowed || isFounding}
                   onClick={handleFound}
                   className={`flex-[2] py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all ${
