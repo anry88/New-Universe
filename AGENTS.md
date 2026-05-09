@@ -120,6 +120,7 @@ Your goal is not just to edit files. Your goal is to complete the task end to en
    - Default merge gate on GitHub is [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (`check`). Playwright runs only from [`.github/workflows/e2e.yml`](.github/workflows/e2e.yml) when someone adds label **`run-e2e`** to the PR or runs the workflow manually — do not expect browser E2E on every small PR.
    - Before claiming repository-wide **Local pass** when Docker is available, run `./scripts/ci-verify.sh` from the repo root (matches default CI). Use `RUN_PLAYWRIGHT_E2E=1 ./scripts/ci-verify.sh` when you must reproduce `e2e.yml`, or confirm a green **`ci.yml`** run on the PR.
    - Run the command listed in the task `verify` field when possible (must stay compatible with default CI unless the task explicitly requires E2E).
+   - If the task is an **epic rollup** (task `id` matches `*-EPIC-*` in `tasks/tasks.json`, e.g. `P2-EPIC-COLONIZE`), add GitHub label **`run-e2e`** on the closing PR before merge so [`e2e.yml`](.github/workflows/e2e.yml) runs Playwright; confirm green or document why E2E was skipped.
    - Also run the nearest relevant tests/build/type-check for changed code during iteration.
    - Check the code you wrote immediately after implementation: run the smallest relevant unit tests first, then broader build/type-check/lint commands as appropriate.
    - If verification cannot run because Docker disk/images, Playwright browsers, or other infra are missing, state exactly what blocked it and why CI/GitHub would still be authoritative once merged — never substitute improvised flows when documenting parity.
@@ -165,6 +166,11 @@ Closing policy:
 - When closing manually, add a final issue comment with the PR link, verification evidence, and any known follow-up before closing.
 - Move/update the GitHub Project item to `Done` only after the same completion confirmation. If status fields are not configured or the CLI cannot resolve them safely, leave a clear comment instead of guessing.
 
+Epic closure (Playwright):
+
+- When merging the PR that **closes an epic rollup task** — task `id` matching `*-EPIC-*` in [`tasks/tasks.json`](tasks/tasks.json) (examples: `P2-EPIC-COLONIZE`, `P2-EPIC-MARKET-NPC`) — add label **`run-e2e`** on that PR before merge (create the label in the repo once if it does not exist). This triggers [.github/workflows/e2e.yml](.github/workflows/e2e.yml). Wait for it to pass or note the failure in the PR/issue.
+- Do **not** add **`run-e2e`** on ordinary microtask PRs (`P2-COL-003`, `P2-RES-003`, etc.) unless the task explicitly requires browser E2E or the user asked for it.
+
 Status policy:
 
 - Use the Project status lifecycle exactly:
@@ -192,7 +198,8 @@ Status policy:
 ## CI and Playwright E2E (GitHub)
 
 - **Small PRs** — require only the `check` job from `ci.yml` in branch protection so browser installs do not block every review.
-- **Epic / full UI smoke** — add **`run-e2e`** on the PR (create the label in the repo if needed), or **Actions → E2E → Run workflow** against the branch you want.
+- **Epic rollup PRs** — agents **must** add **`run-e2e`** when closing an epic (`*-EPIC-*` task ids); see **Epic closure (Playwright)** under Pull Request rules above.
+- **Other full UI smoke** — add **`run-e2e`** on any PR where you need Playwright without merging an epic, or run **Actions → E2E → Run workflow** against the branch you want.
 - **Optional blocking** — add the `playwright` job from `e2e.yml` as a required check only if you want Playwright to gate every merge (usually omit).
 
 ## Useful Commands
