@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useMe } from '../hooks/useMe';
 import { apiFetch } from '../lib/api';
 import { BuildingSlot } from '../components/BuildingSlot';
@@ -22,23 +22,12 @@ import { useQueryClient } from '@tanstack/react-query';
 
 /**
  * PlanetDetail — Cosmic Atlas (P1.1 redesign).
- *
- * Layout (top → bottom):
- *  1. Resource bar (live regen) — shared across all screens.
- *  2. Planet portrait (biome SVG, name, class, slots used).
- *  3. Planet rail — horizontally scrollable list of all planets in the
- *     home system, with the active one highlighted. Tapping switches the
- *     view to that planet.
- *  4. Installations grid — the slot grid bound to the active planet.
- *  5. Queue strip + bottom nav (sticky at the bottom).
- *
- * Behavior preserved from the legacy page: optimistic UI on build/upgrade,
- * rollback on error, building-type catalog fetched on mount, dialog state
- * for both BuildDialog and UpgradeDialog.
  */
 export function PlanetDetailPage() {
   const { planetId } = useParams();
   const navigate = useNavigate();
+  const { search } = useLocation();
+  const queryParams = useMemo(() => new URLSearchParams(search), [search]);
   const queryClient = useQueryClient();
   const { data: meData } = useMe();
 
@@ -61,6 +50,24 @@ export function PlanetDetailPage() {
     return allPlanets.find((p) => p.id === planetId) ?? null;
   }, [allPlanets, planetId]);
 
+  // Handle deep-link to a specific slot
+  useEffect(() => {
+    const slotParam = queryParams.get('slot');
+    if (slotParam !== null && planet && buildingTypes.length > 0) {
+      const slotIndex = parseInt(slotParam, 10);
+      if (!isNaN(slotIndex)) {
+        const building = planet.buildings?.find((b) => b.slotIndex === slotIndex);
+        if (building) {
+          if (!building.queueAction) {
+            setSelectedBuilding(building);
+          }
+        } else if (slotIndex < (planet.slotCount ?? 0)) {
+          setSelectedSlot(slotIndex);
+        }
+      }
+    }
+  }, [queryParams, planet, buildingTypes]);
+
   const biome = resolveBiome(planet?.biome);
   const accent = BIOME_META[biome].accent;
 
@@ -79,6 +86,9 @@ export function PlanetDetailPage() {
   const slotCount = planet.slotCount ?? 0;
 
   const handleSlotClick = (index: number, building?: Building) => {
+    // Update URL with slot param for deep-linking
+    navigate(`/planet/${planetId}?slot=${index}`, { replace: true });
+    
     if (building) {
       if (building.queueAction) return;
       setSelectedBuilding(building);
@@ -180,7 +190,6 @@ export function PlanetDetailPage() {
       <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
         <ResourceBar planetId={planet.id} />
 
-        {/* Compact back button row above the portrait */}
         <div
           style={{
             position: 'relative',
