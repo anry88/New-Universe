@@ -11,6 +11,7 @@ import {
 import { resources } from './resources.js';
 import { users } from './users.js';
 import { expeditions } from './expeditions.js';
+import { planets } from './world.js';
 
 export const marketScopeEnum = pgEnum('market_scope', ['npc', 'player']);
 export const marketSideEnum = pgEnum('market_side', ['buy', 'sell']);
@@ -91,6 +92,8 @@ export const marketOrders = pgTable(
     deliveryExpeditionId: uuid('delivery_expedition_id').references(() => expeditions.id, {
       onDelete: 'set null',
     }),
+    planetId: uuid('planet_id').references(() => planets.id, { onDelete: 'set null' }),
+    deliveryReadyAt: timestamp('delivery_ready_at'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
     closedAt: timestamp('closed_at'),
@@ -103,6 +106,11 @@ export const marketOrders = pgTable(
       table.createdAt,
     ),
     statusCreatedIdx: index('market_orders_status_created_idx').on(table.status, table.createdAt),
+    fulfillmentTickIdx: index('market_orders_fulfillment_tick_idx').on(
+      table.scope,
+      table.status,
+      table.deliveryReadyAt,
+    ),
   }),
 );
 

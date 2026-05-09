@@ -15,6 +15,7 @@ const envSchema = z.object({
   PUBLIC_FRONTEND_URL: z.string().url().optional().or(z.literal('')).transform(v => v === '' ? undefined : v),
   JWT_SECRET: z.string().min(8),
   SENTRY_DSN: z.string().url().optional().or(z.literal('')).transform(v => v === '' ? undefined : v),
+  MARKET_NPC_DELIVERY_SECONDS: z.coerce.number().int().min(0).default(120),
 });
 
 const result = envSchema.safeParse(process.env);

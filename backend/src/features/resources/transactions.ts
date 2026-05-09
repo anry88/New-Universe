@@ -13,14 +13,7 @@ interface TransactionResult {
   error?: string;
 }
 
-export async function spendResources(
-  planetId: string,
-  costs: ResourceChange[],
-  tx?: any,
-): Promise<TransactionResult> {
-  const database = tx || defaultDb;
-
-  return await database.transaction(async (trx: any) => {
+async function spendResourcesInner(trx: any, planetId: string, costs: ResourceChange[]): Promise<TransactionResult> {
     const resourceIds = costs.map(c => c.resourceId);
     const resourceIdList = resourceIds.map(id => `'${id}'`).join(', ');
 
@@ -59,17 +52,20 @@ export async function spendResources(
     }
 
     return { success: true, balanceAfter: balance };
-  });
 }
 
-export async function gainResources(
+export async function spendResources(
   planetId: string,
-  gains: ResourceChange[],
-  tx?: any,
+  costs: ResourceChange[],
+  outerTx?: any,
 ): Promise<TransactionResult> {
-  const database = tx || defaultDb;
+  if (outerTx) {
+    return spendResourcesInner(outerTx, planetId, costs);
+  }
+  return await defaultDb.transaction(async (trx: any) => spendResourcesInner(trx, planetId, costs));
+}
 
-  return await database.transaction(async (trx: any) => {
+async function gainResourcesInner(trx: any, planetId: string, gains: ResourceChange[]): Promise<TransactionResult> {
     const resourceIds = gains.map(g => g.resourceId);
     const resourceIdList = resourceIds.map(id => `'${id}'`).join(', ');
 
@@ -102,5 +98,15 @@ export async function gainResources(
     }
 
     return { success: true, balanceAfter: balance };
-  });
+}
+
+export async function gainResources(
+  planetId: string,
+  gains: ResourceChange[],
+  outerTx?: any,
+): Promise<TransactionResult> {
+  if (outerTx) {
+    return gainResourcesInner(outerTx, planetId, gains);
+  }
+  return await defaultDb.transaction(async (trx: any) => gainResourcesInner(trx, planetId, gains));
 }

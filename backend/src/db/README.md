@@ -30,7 +30,7 @@ Each module owns one domain and exports the Drizzle table objects. `schema.ts` r
 - **`notifications.ts`** — `notifications` table. Columns: `id`, `userId`, `type` (`building_done`, `ship_done`, etc.), `payload` (JSONB), `createdAt`, `read`, `pending` (default `true`), `sentAt`. Used by the push notification system.
 - **`market.ts`** — NPC/player market persistence primitives:
   - `market_offers` — offer book rows keyed by scope (`npc`/`player`), side (`buy`/`sell`), resource, status, price, qty, fees, and expiry.
-  - `market_orders` — per-user order lifecycle rows (`open`, `partially_filled`, `filled`, `cancelled`, `expired`, `failed`, `settled`) with fill totals, fees, and optional delivery/offer references.
+  - `market_orders` — per-user order lifecycle rows (`open`, `partially_filled`, `filled`, `cancelled`, `expired`, `failed`, `settled`) with fill totals, fees, optional delivery/offer references, nullable `planet_id` (FK → `planets`, `ON DELETE set null`) for settlement routing, and optional `delivery_ready_at` for NPC buy ETA indexing (`market_orders_fulfillment_tick_idx`).
   - `market_order_fills` — immutable fill records tied to orders/offers, with execution price/qty, fees, and optional delivery expedition reference.
 - **`colonies.ts`** — `colonies` table. Columns: `id` (UUID PK), `ownerId` (references `users.id`), `planetId` (references `planets.id`), `foundedAt`, `status`. A planet can only have one colony total across all players (`colonies_planet_id_idx`).
 

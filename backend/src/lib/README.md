@@ -14,6 +14,7 @@ Shared infrastructure used across features, middleware, and routes. Anything in 
   - `TELEGRAM_BOT_SECRET` (default `'dev-secret-change-me'`).
   - `JWT_SECRET` (≥ 8 chars, required).
   - `SENTRY_DSN` (URL or empty, normalized to `undefined` when empty).
+  - `MARKET_NPC_DELIVERY_SECONDS` (integer ≥ 0, default `120`) — delay between placing an NPC **buy** order and cargo delivery (`delivery_ready_at`).
   
   On validation failure the module logs the formatted Zod error and calls `process.exit(1)`. The exported `env` is the only place to read these variables; never read `process.env.X` from feature code.
 - **`logger.ts`** — exports a configured Pino instance:
