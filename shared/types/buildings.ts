@@ -73,3 +73,13 @@ export interface DemolishStatus {
   message?: string;
   refund?: Record<string, number>;
 }
+
+export interface RushBuildRequest {
+  buildingId: string;
+}
+
+export interface RushBuildResponse {
+  success: boolean;
+  cost: number;
+  diamondsRemaining: number;
+}

@@ -16,6 +16,12 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(8),
   SENTRY_DSN: z.string().url().optional().or(z.literal('')).transform(v => v === '' ? undefined : v),
   MARKET_NPC_DELIVERY_SECONDS: z.coerce.number().int().min(0).default(120),
+  /** Diamonds granted once when a Telegram account creates its first user row. */
+  DIAMOND_STARTING_GRANT: z.coerce.number().int().min(0).default(100),
+  /** Rush pricing: diamonds charged per started minute of remaining queue time (ceil). */
+  DIAMOND_RUSH_PER_MINUTE: z.coerce.number().int().min(1).default(2),
+  /** Optional cap per rush action; 0 = uncapped. */
+  DIAMOND_RUSH_MAX_PER_ACTION: z.coerce.number().int().min(0).default(0),
 });
 
 const result = envSchema.safeParse(process.env);

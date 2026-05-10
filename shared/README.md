@@ -9,10 +9,11 @@ Cross-package contracts shared between the Fastify backend (`backend/`) and the 
     - **`researchCatalog.ts`** — canonical **7×5** research tree (`RESEARCH_CATALOG`, `RESEARCH_TECH_TREE`); import via `@shared/config/researchCatalog` from backend and frontend (Docker mounts `shared/` at `/app/shared`; backend code uses `@shared`, not `../../../shared`).
 
 - `types/` — TypeScript interfaces and Zod schemas for HTTP payloads, WebSocket events, and other cross-cutting structures.
-    - **`user.ts`** — `User` interface including `homeSystem` and onboarding fields (`tutorialStep`, `tutorialCompletedAt`).
+    - **`user.ts`** — `User` interface including `diamonds`, `homeSystem`, and onboarding fields (`tutorialStep`, `tutorialCompletedAt`).
     - **`auth.ts`** — `AuthResponse` for the login flow.
     - **`world.ts`** — `PlanetResource`, `Building`, `Planet`, `HomeSystem` interfaces for world/planet state.
-    - **`buildings.ts`** — `BuildingType` interface (including optional catalog limits), `BuildBlockedReason` unions, and request/response types for construction.
+    - **`buildings.ts`** — `BuildingType` interface (including optional catalog limits), `BuildBlockedReason` unions, request/response types for construction, and **`RushBuildRequest` / `RushBuildResponse`** for `POST /buildings/rush`.
+    - **`diamonds.ts`** — `estimateRushDiamondCost` mirrors backend rush pricing so the UI can tick countdown prices live alongside `GET /buildings/queue` **`rushPricing`** metadata.
     - **`building-eligibility.ts`** — `resolveBuildBlockedReason` and `formatBuildBlockedMessage` for shared server/client validation messaging around construction gates (research → deps → per-planet/global caps).
     - **`research.ts`** — `ResearchBranch`, `ResearchProgress`, `ResearchDefinition`, `ResearchRequirementRef`, `RESEARCH_BRANCH_LABELS_EN`, and `ResourceId` union (includes gameplay resources such as `fuel`, `steel`, `electronics`, and tiered minerals) used by the tech tree and unlock messaging on backend/frontend.
     - **`ships.ts`** — `Ship` and `ShipType` interfaces.

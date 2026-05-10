@@ -27,12 +27,12 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
   - `pixi/` — canvas-based rendering components using PixiJS.
     - **`SystemRenderer.tsx`** — top-down system map renderer. Handles orbits, planets, star, and ship markers with pan/zoom logic.
     - **`SectorRenderer.tsx`** — compact Pixi scatter plot for multiplayer sector markers (`PresenceEntityKind` colors); receives `SectorPresenceEntity[]` from the presence API.
-  - **`ResourceBar.tsx`** — displays planet resources with real-time regeneration animation via `requestAnimationFrame`.
+  - **`ResourceBar.tsx`** — displays planet resources with real-time regeneration animation via `requestAnimationFrame`; passes **`user.diamonds`** from `useMe()` into `CosmicTopBar` as a compact diamond chip (shows four resource tiles plus the chip when balance is present).
   - **`cosmic/resources.ts`** — resource id -> symbol/label dictionary used in cosmic UI; aligned with seeded resource ids (`iron`, `silicon`, `tritium`, etc.) for tech-tree cost rendering.
   - **`PlanetView.tsx`** — shows the current focus planet with its buildings schema.
   - **`cosmic/buildings.tsx`** — Cosmic Atlas building icons keyed by backend catalog ids; exports `resolveBuildingType(typeId)` (canonical ids plus legacy synonyms such as `laboratory` and alternate lab spellings matched via `/^research[_-]?lab$/i`).
   - **`cosmic/buildings.test.ts`** — Vitest coverage for `resolveBuildingType` (known id resolution plus unknown-id fallback to the safe default icon).
-  - **`BuildQueue.tsx`** — displays the current build queue with countdown timers.
+  - **`BuildQueue.tsx`** — displays the current build queue head with countdown timers, polls `GET /buildings/queue` for **`rushPricing`**, computes live rush cost via `@shared/types/diamonds` (`estimateRushDiamondCost`), and calls **`POST /buildings/rush`** with loading/disabled states tied to `useMe().diamonds`.
   - **`BuildDialog.tsx`** — Cosmic Atlas bottom sheet for picking a building type on an empty slot; applies dashed/low-opacity styling when `blockedReasonFor` reports a shared `BuildBlockedReason`, opens an inline hint (`build-block-reason`) on tap, and only calls `POST /buildings/build` when the row is eligible.
   - **`CargoTransferDialog.tsx`** — interplanetary logistics interface for moving resources between colonies.
   - **`ExpeditionDialog.tsx`** — mission launch configuration with coordinate selection and ETA.
