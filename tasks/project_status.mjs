@@ -103,12 +103,14 @@ function loadAllProjectItems() {
     const title = row.title || '';
     const match = /^\[(?<id>[^\]]+)\]/.exec(title);
     if (!match?.groups?.id) continue;
+    const st = row.status != null ? String(row.status).trim() : undefined;
+    const vf = row.verification != null ? String(row.verification).trim() : undefined;
     items.push({
       id: row.id,
       title,
       number: row.content?.number,
-      status: row.status ?? undefined,
-      verification: row.verification ?? undefined,
+      status: st === '' ? undefined : st,
+      verification: vf === '' ? undefined : vf,
     });
   }
   return items;
@@ -219,7 +221,9 @@ function loadTaskIdSet() {
 }
 
 function isBacklogLike(status) {
-  return status == null || status === '' || status === 'Backlog';
+  if (status == null || status === '') return true;
+  const s = String(status).trim();
+  return s === '' || s === 'Backlog';
 }
 
 /**
@@ -240,10 +244,11 @@ function loadIssueStateByTaskId() {
     const match = /^\[(?<id>[^\]]+)\]/.exec(row.title || '');
     if (!match?.groups?.id) continue;
     const id = match.groups.id;
-    if (row.state === 'CLOSED') {
+    const st = typeof row.state === 'string' ? row.state.toUpperCase() : row.state;
+    if (st === 'CLOSED') {
       map.set(id, 'CLOSED');
     } else if (!map.has(id)) {
-      map.set(id, row.state);
+      map.set(id, st);
     }
   }
   return map;
@@ -252,7 +257,8 @@ function loadIssueStateByTaskId() {
 /** True if dependency is done on the Project board or the GitHub issue is closed (source of truth). */
 function dependencyResolved(depId, itemByTask, issueStateByTaskId) {
   const depItem = itemByTask.get(depId);
-  if (depItem?.status === 'Done') return true;
+  const ds = depItem?.status != null ? String(depItem.status).trim() : '';
+  if (ds === 'Done') return true;
   return issueStateByTaskId.get(depId) === 'CLOSED';
 }
 
@@ -291,9 +297,43 @@ function syncReady() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.warn(`${task.id}: could not set Ready: ${msg}`);
+      if (process.env.CI === 'true') {
+        console.log(`::warning title=sync-ready::${task.id}: ${msg.replace(/\n/g, ' ')}`);
+      }
     }
   }
   console.log(`Promoted to Ready: ${promoted}`);
+
+  if (promoted === 0 && process.env.CI === 'true') {
+    let backlogOnBoard = 0;
+    const eligibleIds = [];
+    const blockedSamples = [];
+    for (const task of tasks) {
+      const row = itemByTask.get(task.id);
+      if (!row || !isBacklogLike(row.status)) continue;
+      backlogOnBoard += 1;
+      const deps = task.deps || [];
+      const ok =
+        deps.length === 0 ||
+        deps.every((depId) => dependencyResolved(depId, itemByTask, issueStateByTaskId));
+      if (ok) eligibleIds.push(task.id);
+      else if (blockedSamples.length < 8) {
+        const bad = deps.find(
+          (depId) => !dependencyResolved(depId, itemByTask, issueStateByTaskId),
+        );
+        blockedSamples.push(`${task.id}: blocked by ${bad}`);
+      }
+    }
+    console.log(
+      `sync-ready diag: tasks.json=${tasks.length}, backlog rows on board=${backlogOnBoard}, deps-satisfied backlog=${eligibleIds.length}`,
+    );
+    if (eligibleIds.length) {
+      console.log(`sync-ready diag: would set Ready for: ${eligibleIds.slice(0, 25).join(', ')}`);
+    }
+    if (blockedSamples.length) {
+      console.log(`sync-ready diag: sample blocked (first ${blockedSamples.length}): ${blockedSamples.join(' | ')}`);
+    }
+  }
 }
 
 function updateFromIssue(flags) {

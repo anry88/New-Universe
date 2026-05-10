@@ -28,6 +28,8 @@ jobs:
       PROJECT_OWNER: anry88
       PROJECT_NUMBER: "3"
       REPO: anry88/New-Universe
+      TASKS_JSON: ${{ github.workspace }}/tasks/tasks.json
+      CI: "true"
     steps:
       - uses: actions/checkout@v4
 
@@ -47,6 +49,12 @@ jobs:
             echo "::error title=PROJECT_TOKEN cannot read GitHub Project::PROJECT_TOKEN must be a classic personal access token owned by a user who can access the Project, with repo, project, and read:org scopes. GITHUB_TOKEN and fine-grained tokens often cannot access user-owned Project v2."
             exit 1
           fi
+
+      - name: Why PR/issue sync steps are skipped (manual run only)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "Manual workflow_dispatch only runs sync-ready (Backlog → Ready)."
+          echo "Steps 'Sync linked task status' and 'Sync closed issue status' need pull_request / issues events — they are skipped here by design, not broken."
 
       - name: Sync linked task status
         if: github.event_name == 'pull_request'
