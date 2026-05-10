@@ -27,3 +27,7 @@ npm test
 ```
 
 The CI mirror for the whole repo remains `./scripts/ci-verify.sh`; this package is invoked manually or via future workflow hooks.
+
+## Epic P2-EPIC-POLISH gate
+
+Roll-up issue [`P2-EPIC-POLISH`](https://github.com/anry88/New-Universe/issues/93) requires a reviewable first-week report from this simulator. Evidence commands and cross-links to the seed audit and Phase 2 regression suite are recorded in [`tasks/ROADMAP_COVERAGE_MATRIX.md`](../../tasks/ROADMAP_COVERAGE_MATRIX.md) (section **Phase 2 polish epic gate**).
