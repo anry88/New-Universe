@@ -7,6 +7,7 @@ Cross-package contracts shared between the Fastify backend (`backend/`) and the 
 - `config/` — progression catalogs consumed by both Node and Vite bundles where duplication would drift (research gates for buildings; full tech tree).
     - **`buildingResearchGates.ts`** — `ResearchUnlockRequirement` plus `BUILDING_RESEARCH_GATES` (imported through `backend/src/config/research-unlocks.ts` on the API side and directly by Cosmic build previews).
     - **`researchCatalog.ts`** — canonical **7×5** research tree (`RESEARCH_CATALOG`, `RESEARCH_TECH_TREE`); import via `@shared/config/researchCatalog` from backend and frontend (Docker mounts `shared/` at `/app/shared`; backend code uses `@shared`, not `../../../shared`).
+    - **`tutorialRewards.ts`** — `TUTORIAL_STEP_RESOURCE_GRANTS`, `TUTORIAL_COMPLETION_RESOURCE_GRANTS`, and English UI summaries for onboarding; consumed by `features/tutorial/service.ts` and the Cosmic `Tutorial` overlay.
 
 - `types/` — TypeScript interfaces and Zod schemas for HTTP payloads, WebSocket events, and other cross-cutting structures.
     - **`user.ts`** — `User` interface including `diamonds`, `homeSystem`, and onboarding fields (`tutorialStep`, `tutorialCompletedAt`).

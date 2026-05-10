@@ -150,6 +150,15 @@ body {
   -webkit-backdrop-filter: blur(12px);
   flex-shrink: 0;
 }
+
+/* Home — tutorial shortcut sits below the resource bar (never overlaps chips / diamonds). */
+.tutorial-launcher {
+  position: absolute;
+  right: 12px;
+  top: calc(env(safe-area-inset-top, 0px) + 64px);
+  z-index: 3;
+}
+
 .cosmic-topbar-inner {
   display: flex;
   align-items: stretch;

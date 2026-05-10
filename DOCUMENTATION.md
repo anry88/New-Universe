@@ -100,11 +100,11 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 - `hooks/useMe.ts` — uses TanStack Query to fetch and cache the current player state from `GET /me`.
 - `pages/SectorMap.tsx` — Phase 3 sector radar: queries `GET /multiplayer/sectors/:sx/:sy/:sz/presence` and renders markers via `components/pixi/SectorRenderer.tsx` (PixiJS scatter plot; foreign actors shown with summary visibility).
 - `hooks/useColonies.ts` — manages the collection of player-owned planets and tracks the focal planet across the UI via a dedicated Zustand store.
-- `pages/Home.tsx` — main game screen with resource bar, tab bar, and navigation.
+- `pages/Home.tsx` — main game screen with resource bar, tab bar, and navigation; inactive-tutorial shortcut uses **`tutorial-launcher`** CSS so it sits below the resource bar (no overlap).
 - `pages/Colonies.tsx` — lists all owned planets with their resources and status, allowing focal planet switching and initiating cargo transfers.
 - `pages/Market.tsx` — market UI for browsing buy/sell quotes, submitting NPC market orders, and tracking pending order ETA.
 - `pages/Research.tsx` — Cosmic Atlas tech tree (**levels 1–5** per branch, synced with `frontend/src/lib/tech-tree.ts` / `@shared/config/researchCatalog`); lab/prerequisite/resource gating (BuildDialog-style blocking copy), tier detail sheet, optimistic research starts, live countdown chips.
-- `pages/onboarding/Onboarding.tsx` — 5-step onboarding flow with skip-and-return behavior and current-objective toast.
+- `pages/onboarding/Onboarding.tsx` — Cosmic tutorial overlay: step list with reward copy from `@shared/config/tutorialRewards`, periodic `POST /tutorial/sync`, **Continue** returns to Home without forcing `/onboarding` again until the player re-opens tutorial or completes it (`sessionStorage` + lifted App state).
 - `pages/PlanetDetail.tsx` — detailed planet screen with infrastructure slots, building construction, and upgrade dialogs.
 - `components/ResourceBar.tsx` — displays planet resources with animated real-time regeneration.
 - `components/PlanetView.tsx` — shows the current focus planet overview.
@@ -123,7 +123,7 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 - `research.ts` — research DTOs, `ResearchRequirementRef`, `RESEARCH_BRANCH_LABELS_EN`, plus `ResourceId` union used by tech-tree costs and unlock messaging on both backend and frontend.
 - `market.ts` — market offer and order contracts shared between frontend market hooks and backend market routes.
 
-`shared/config/` holds deterministic catalogs duplicated only when both backend and browser need identical numbers — today **`researchCatalog.ts`** (full tech tree + scaling notes) alongside **`buildingResearchGates.ts`**.
+`shared/config/` holds deterministic catalogs duplicated only when both backend and browser need identical numbers — today **`researchCatalog.ts`** (full tech tree + scaling notes), **`buildingResearchGates.ts`**, and **`tutorialRewards.ts`** (tutorial iron/water bundles + UI summaries).
 
 ## Local environment
 
