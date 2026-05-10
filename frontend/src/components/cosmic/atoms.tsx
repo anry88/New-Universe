@@ -340,7 +340,7 @@ export const CosmicBottomNav: React.FC<{ active?: CosmicNavId | 'home' }> = ({ a
           ? 'tech'
           : location.pathname.startsWith('/profile')
             ? 'profile'
-            : location.pathname.startsWith('/colonies')
+            : location.pathname.startsWith('/colonies') || location.pathname.startsWith('/planet')
               ? 'planets'
               : 'home');
 

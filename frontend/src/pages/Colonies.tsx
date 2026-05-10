@@ -136,7 +136,7 @@ export function ColoniesPage() {
         />
       )}
 
-      <CosmicBottomNav active="planets" />
+      <CosmicBottomNav />
     </div>
   );
 }

@@ -324,7 +324,7 @@ export function PlanetDetailPage() {
 
         <div className="fixed-bottom-ui">
           <BuildQueue planetId={planet.id} />
-          <CosmicBottomNav active="planets" />
+          <CosmicBottomNav />
         </div>
       </div>
 

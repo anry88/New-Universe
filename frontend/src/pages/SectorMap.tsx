@@ -262,7 +262,7 @@ export function SectorMapPage() {
         </div>
       </div>
 
-      <CosmicBottomNav active="map" />
+      <CosmicBottomNav />
     </div>
   );
 }

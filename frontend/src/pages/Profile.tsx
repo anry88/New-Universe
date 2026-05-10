@@ -123,7 +123,7 @@ export function ProfilePage() {
         <div style={{ flex: 1 }} />
       </div>
 
-      <CosmicBottomNav active="profile" />
+      <CosmicBottomNav />
     </div>
   );
 }

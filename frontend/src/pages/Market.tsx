@@ -133,7 +133,7 @@ export function MarketPage() {
         </div>
       </div>
 
-      <CosmicBottomNav active="market" />
+      <CosmicBottomNav />
 
       <MarketOrderDialog
         isOpen={Boolean(dialogSide)}

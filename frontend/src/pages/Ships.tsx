@@ -128,7 +128,7 @@ export function ShipsPage() {
         </div>
       </div>
 
-      <CosmicBottomNav active="ships" />
+      <CosmicBottomNav />
 
       {selectedShip && getShipType(selectedShip.typeId) && (
         <ExpeditionDialog
