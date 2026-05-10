@@ -65,11 +65,14 @@ create_view() {
 
 echo ">> Creating Project #$PROJECT_NUMBER views for $OWNER"
 
-create_view "Execution Board" "board" "phase:P0,P1"
+create_view "Execution Board" "board" "phase:P0,P1,P1.1"
 create_view "Phase 0 Setup" "board" "phase:P0"
 create_view "Phase 1 Core" "board" "phase:P1"
-create_view "Roadmap P2-P5" "table" "phase:P2,P3,P4,P5"
-create_view "Phase 2 Expansion" "board" "phase:P2"
+create_view "Phase 1.1 Post-fixes" "board" "phase:P1.1"
+create_view "Roadmap P0-P5" "table" "phase:P0,P1,P1.1,P2,P2.1,P3,P4,P5"
+create_view "Roadmap P2-P5" "table" "phase:P2,P2.1,P3,P4,P5"
+create_view "Phase 2 Expansion" "board" "phase:P2,P2.1"
+create_view "Phase 2.1 Gameplay" "board" "phase:P2.1"
 create_view "Phase 3 Multiplayer" "board" "phase:P3"
 create_view "Launch Readiness" "board" "phase:P4"
 create_view "Live Ops" "board" "phase:P5"
