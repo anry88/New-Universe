@@ -5,8 +5,11 @@ import { BuildingType, ConstructionStatus, DemolishStatus } from '@shared/types/
 import { spendResources, gainResources } from '../resources/transactions.js';
 import { applyBuildTimeSeconds, getResearchEffectsForUser } from '../research/effects.js';
 import { BUILDING_RESEARCH_GATES } from '../../config/research-unlocks.js';
-import { assertResearchRequirement, loadUserResearchLevels } from '../research/gates.js';
+import { loadUserResearchLevels } from '../research/gates.js';
 import { logger } from '../../lib/logger.js';
+import { resolveBuildBlockedReason, formatBuildBlockedMessage } from '@shared/types/building-eligibility.js';
+import { BuildingOperationError } from './building-operation-error.js';
+import { countUserBuildingsOfType } from './count-user-buildings.js';
 
 type BuildingOutput = {
   resourceId?: string;
@@ -98,12 +101,6 @@ export class BuildingService {
       throw new Error('Building type not found');
     }
 
-    const researchGate = BUILDING_RESEARCH_GATES[typeId];
-    if (researchGate) {
-      const levels = await loadUserResearchLevels(userId, db);
-      assertResearchRequirement(levels, researchGate, `Build ${typeId}`);
-    }
-
     const queuedBuildings = await db
       .select({ count: sql<number>`COUNT(*)` })
       .from(buildings)
@@ -118,14 +115,34 @@ export class BuildingService {
       throw new Error('Build queue is full (max 1 building at a time)');
     }
 
-    const deps = typeInfo.deps as { typeId: string; level: number }[] | null;
-    if (deps && deps.length > 0) {
-      for (const dep of deps) {
-        const depBuilding = planet.buildings?.find((b: any) => b.typeId === dep.typeId);
-        if (!depBuilding || depBuilding.level < dep.level) {
-          throw new Error(`Missing dependency: ${dep.typeId} level ${dep.level}`);
-        }
-      }
+    const researchLevels = await loadUserResearchLevels(userId, db);
+    const researchGate = BUILDING_RESEARCH_GATES[typeId];
+
+    let globalCountForType = 0;
+    if (typeInfo.maxGlobal != null) {
+      globalCountForType = await countUserBuildingsOfType(userId, typeId);
+    }
+
+    const planetBuilt =
+      planet.buildings?.map((b: any) => ({ typeId: b.typeId as string, level: b.level as number })) ?? [];
+
+    const blocked = resolveBuildBlockedReason({
+      typeId,
+      deps: (typeInfo.deps ?? []) as { typeId: string; level: number }[],
+      maxPerPlanet: typeInfo.maxPerPlanet ?? null,
+      maxGlobal: typeInfo.maxGlobal ?? null,
+      planetBuildings: planetBuilt,
+      globalCountForType,
+      researchLevels,
+      researchGate,
+    });
+
+    if (blocked) {
+      throw new BuildingOperationError(
+        formatBuildBlockedMessage(blocked, 'en'),
+        blocked.code,
+        blocked.details as Record<string, unknown>,
+      );
     }
 
     const costs = typeInfo.baseCost as Record<string, number>;

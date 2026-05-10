@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useMe } from '../hooks/useMe';
 import { apiFetch } from '../lib/api';
@@ -16,7 +16,9 @@ import {
   resolveBiome,
 } from '../components/cosmic/atoms';
 import type { Building, Planet } from '@shared/types/world';
-import type { BuildingType, ConstructionStatus, DemolishStatus } from '@shared/types/buildings';
+import type { BuildingType, BuildBlockedReason, ConstructionStatus, DemolishStatus } from '@shared/types/buildings';
+import { resolveBuildBlockedReason } from '@shared/types/building-eligibility';
+import { BUILDING_RESEARCH_GATES } from '@shared/config/buildingResearchGates';
 import { ChevronLeft } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -70,6 +72,44 @@ export function PlanetDetailPage() {
 
   const biome = resolveBiome(planet?.biome);
   const accent = BIOME_META[biome].accent;
+
+  const globalTypeCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const p of meData?.planets ?? []) {
+      for (const b of p.buildings ?? []) {
+        m[b.typeId] = (m[b.typeId] ?? 0) + 1;
+      }
+    }
+    return m;
+  }, [meData?.planets]);
+
+  const researchLevels = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of meData?.research ?? []) {
+      m.set(r.branch, r.level);
+    }
+    return m;
+  }, [meData?.research]);
+
+  const blockedReasonForType = useCallback(
+    (typeId: string): BuildBlockedReason | null => {
+      const typeRow = buildingTypes.find((t) => t.id === typeId);
+      if (!typeRow || !planet) return null;
+      const planetBuilt =
+        planet.buildings?.map((b) => ({ typeId: b.typeId, level: b.level })) ?? [];
+      return resolveBuildBlockedReason({
+        typeId: typeRow.id,
+        deps: typeRow.deps ?? [],
+        maxPerPlanet: typeRow.maxPerPlanet ?? null,
+        maxGlobal: typeRow.maxGlobal ?? null,
+        planetBuildings: planetBuilt,
+        globalCountForType: globalTypeCounts[typeRow.id] ?? 0,
+        researchLevels,
+        researchGate: BUILDING_RESEARCH_GATES[typeRow.id],
+      });
+    },
+    [buildingTypes, planet, globalTypeCounts, researchLevels],
+  );
 
   if (!planet) {
     return (
@@ -293,6 +333,7 @@ export function PlanetDetailPage() {
         types={buildingTypes}
         onAction={handleBuild}
         isProcessing={isProcessing}
+        blockedReasonFor={blockedReasonForType}
         accent={accent}
         planetLabel={`${planet.name} · ${BIOME_META[biome].label}`}
       />

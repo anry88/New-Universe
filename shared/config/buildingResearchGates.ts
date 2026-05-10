@@ -1,0 +1,19 @@
+/**
+ * Research prerequisites for constructing specific building types.
+ * Imported by backend gates and frontend build eligibility (single catalog).
+ */
+
+export interface ResearchUnlockRequirement {
+  branch: string;
+  level: number;
+}
+
+/** Building type ID → minimum completed research level for **new** construction */
+export const BUILDING_RESEARCH_GATES: Partial<Record<string, ResearchUnlockRequirement>> = {
+  /** Lab is not gated — it unlocks the research tree (see research catalog prerequisites). */
+  shipyard: { branch: 'engineering', level: 1 },
+  spaceport: { branch: 'engineering', level: 1 },
+  cryo_factory: { branch: 'engineering', level: 2 },
+  smelter: { branch: 'mining', level: 1 },
+  fabrication_bay: { branch: 'engineering', level: 1 },
+};

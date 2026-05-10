@@ -69,7 +69,7 @@ The bot entry point is `POST /webhook/telegram`. Incoming updates are dispatched
 - `users` — Telegram-linked player accounts and onboarding progression (`tutorial_step` exposed in code as `tutorialStepCompleted`, `tutorial_completed_at`).
 - `resources`, `richness`, `planet_resources` — universe resource catalog (23 seeded resources across tiers 1–4, including `steel`, `electronics`, and `fuel`) and per-planet inventory. **`planet_resources.regenRate`** combines planetary richness with **building outputs** from `building_types.baseOutput` (`smelter` → `steel`, `fabrication_bay` → `electronics`, mines/drills → ores/water); the NPC market is not required for those baselines.
 - `systems`, `planets` — generated star systems and their planets, including biome and slot count.
-- `building_types`, `buildings` — building catalog and per-planet build queue rows.
+- `building_types`, `buildings` — building catalog and per-planet build queue rows. Catalog rows may set **`max_per_planet`** / **`max_global`** (nullable integers) so uniqueness rules such as one Command Center per planet or one Laboratory account-wide stay aligned between seeds, API payloads (`GET /buildings/types`), and UI eligibility (`shared/types/building-eligibility.ts`).
 - `research_branches`, `research_progress` — research tree definitions and per-user progress.
 - `ship_types`, `ships` — ship catalog and player-owned ship instances.
 - `discovered_planets`, `discovered_systems` — fog-of-war reveal records.

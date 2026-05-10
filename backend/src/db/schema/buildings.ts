@@ -6,6 +6,10 @@ export const buildingTypes = pgTable('building_types', {
   id: text('id').primaryKey(),
   name: jsonb('name').$type<{ ru: string; en: string }>().notNull(),
   category: text('category').notNull(),
+  /** Max completed + in-queue instances per planet; null = unlimited. */
+  maxPerPlanet: integer('max_per_planet'),
+  /** Max completed + in-queue instances across all owned planets; null = unlimited. */
+  maxGlobal: integer('max_global'),
   maxLevel: integer('max_level').notNull(),
   deps: jsonb('deps').$type<{ typeId: string; level: number }[]>().notNull().default([]),
   baseCost: jsonb('base_cost').$type<Record<string, number>>().notNull(),

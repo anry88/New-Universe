@@ -17,7 +17,7 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
   - **`Profile.tsx`** — player profile card with sector/system details and a `RESUME TUTORIAL` action when onboarding is not completed yet.
   - `onboarding/` — first-session onboarding tutorial pages. See [`pages/onboarding/README.md`](./pages/onboarding/README.md).
     - **`Onboarding.tsx`** — 5-step tutorial overlay (welcome → mine → storage → scout → expedition), with skip/return-later flow and current-objective toast.
-  - **`PlanetDetail.tsx`** — detailed planet view with building slots and upgrade options.
+  - **`PlanetDetail.tsx`** — detailed planet view with building slots and upgrade options; derives construction eligibility from `GET /buildings/types` limits plus live `/me` planets/research via `@shared/types/building-eligibility`.
   - **`SystemMap.tsx`** — page component for the interactive home system map; links into the sector radar for the same sector cube.
   - **`SectorMap.tsx`** — Phase 3 sector map: queries `GET /multiplayer/sectors/:sx/:sy/:sz/presence`, supports manual sector coordinates (global search within numeric sector grid), renders Pixi markers via `SectorRenderer`.
   - **`Ships.tsx`** — fleet management and ship list.
@@ -33,6 +33,7 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
   - **`cosmic/buildings.tsx`** — Cosmic Atlas building icons keyed by backend catalog ids; exports `resolveBuildingType(typeId)` (canonical ids plus legacy synonyms such as `laboratory` and alternate lab spellings matched via `/^research[_-]?lab$/i`).
   - **`cosmic/buildings.test.ts`** — Vitest coverage for `resolveBuildingType` (known id resolution plus unknown-id fallback to the safe default icon).
   - **`BuildQueue.tsx`** — displays the current build queue with countdown timers.
+  - **`BuildDialog.tsx`** — Cosmic Atlas bottom sheet for picking a building type on an empty slot; applies dashed/low-opacity styling when `blockedReasonFor` reports a shared `BuildBlockedReason`, opens an inline hint (`build-block-reason`) on tap, and only calls `POST /buildings/build` when the row is eligible.
   - **`CargoTransferDialog.tsx`** — interplanetary logistics interface for moving resources between colonies.
   - **`ExpeditionDialog.tsx`** — mission launch configuration with coordinate selection and ETA.
   - **`MarketOrderDialog.tsx`** — modal form for creating buy/sell NPC market orders with resource selection, quantity, and clear validation error states.
