@@ -129,6 +129,30 @@ describe('Tick Buildings Worker', () => {
     expect(Number(pr!.regenRate)).toBe(50);
   });
 
+  it('should insert steel production when smelter completes (no prior steel row)', async () => {
+    const user = await createTestUser();
+    const planetId = await getHomePlanetId(user.id);
+
+    const past = new Date(Date.now() - 5000);
+
+    await db.insert(buildings).values({
+      planetId,
+      typeId: 'smelter',
+      slotIndex: 3,
+      level: 1,
+      queueAction: 'build',
+      queueCompletesAt: past,
+    });
+
+    await processCompletedBuildings();
+
+    const steel = await db.query.planetResources.findFirst({
+      where: and(eq(planetResources.planetId, planetId), eq(planetResources.resourceId, 'steel')),
+    });
+    expect(steel).toBeDefined();
+    expect(Number(steel!.regenRate)).toBe(36);
+  });
+
   it('should create a notification when building completes', async () => {
     const user = await createTestUser();
     const planetId = await getHomePlanetId(user.id);

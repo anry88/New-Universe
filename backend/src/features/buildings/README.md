@@ -14,5 +14,7 @@ This feature handles building construction and queue management on player planet
 
 ## Adding a new building type
 
-1. Add the building type definition to `backend/src/db/seed/building-types.ts` and re-run `npm run db:seed`.
-2. No code changes are needed in this module — the build endpoint reads the catalog dynamically.
+1. Add the row to `backend/src/db/seed/catalog-rows.ts` (`BUILDING_TYPE_CATALOG_ROWS`), run `npm run db:seed`, and align `tools/balance-sim/src/catalog.ts` if the building produces resources (`baseOutput.resourceId` / `baseRate`).
+2. If the building gates on research, add an entry to `backend/src/config/research-unlocks.ts` (`BUILDING_RESEARCH_GATES`).
+3. Production completion aggregates **`planet_resources.regenRate`** across **all** buildings on the planet that output the same `resourceId` (`upsertProductionRegen` in `service.ts`) and **inserts** a `planet_resources` row the first time a produced resource appears.
+

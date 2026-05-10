@@ -43,9 +43,13 @@ Each seed module exports an idempotent `async function seedXxx()` that calls `db
 - **`catalog-rows.ts`** — single source of truth for `RESOURCE_CATALOG_ROWS`, `BUILDING_TYPE_CATALOG_ROWS`, and `SHIP_TYPE_CATALOG_ROWS` (no DB import). Consumed by seed scripts and `runCatalogAudit()` so CI can validate catalogs without connecting to Postgres.
 - **`resources.ts`** — inserts `RESOURCE_CATALOG_ROWS` into `resources` (23 rows including `fuel`, `steel`, `electronics`, and base/mineral tiers `water` … `biomass`).
 - **`research.ts`** — idempotent seeder for `research_branches` from `config/research-catalog.ts`. Keeps branch name/description in sync with the phase-2 catalog source of truth.
-- **`building-types.ts`** — inserts `BUILDING_TYPE_CATALOG_ROWS` (`command_center`, `mine`, `drill`, `storage`, `smelter`, `spaceport`, `shipyard`, `lab`, `cryo_factory`, `solar_plant`) with dependency chains (`spaceport ⇒ command_center L4`, `shipyard ⇒ spaceport L2`, `cryo_factory ⇒ spaceport L2 + smelter L3`, etc.).
+- **`building-types.ts`** — inserts `BUILDING_TYPE_CATALOG_ROWS` (`command_center`, `mine`, `drill`, `storage`, `smelter`, `fabrication_bay`, `spaceport`, `shipyard`, `lab`, `cryo_factory`, `solar_plant`) with dependency chains (`spaceport ⇒ command_center L4`, `shipyard ⇒ spaceport L2`, `fabrication_bay ⇒ command_center L3 + smelter L1`, `cryo_factory ⇒ spaceport L2 + smelter L3`, etc.).
 - **`ship-types.ts`** — inserts `SHIP_TYPE_CATALOG_ROWS` (`scout`, `cargo_light`, `colonizer`, `recon_probe`, `jump_ship`). Each row encodes role, stats, fuel use, build time, build cost, required buildings, and sensor range.
 - **`audit.ts`** — exports `runCatalogAudit()` to verify duplicate-free ids, `ru`/`en` names on catalog rows, tier/defaultStorageCap consistency, cross-references (costs → resource ids, building deps, NPC baseline keys), and research-branch localization. Used by `audit.test.ts` (default `npm test` / CI).
+
+### Resource sourcing (game economy)
+
+Non-currency materials should be obtainable without the NPC broker: **planetary richness** (`richness` / passive `planet_resources.regenRate`) and/or **building production** (`building_types.baseOutput` with `resourceId` + `baseRate`, applied on build/upgrade completion in `features/buildings/service.ts`). In particular, **`steel`** is produced by **`smelter`**, and **`electronics`** by **`fabrication_bay`**; the market remains an optional liquidity sink, not the sole source of baseline alloys/components.
 - **`audit.test.ts`** — Vitest gate that fails when catalog drift would break seeds or market pricing alignment.
 
 ## Working with the schema

@@ -55,6 +55,17 @@ export const BUILDINGS = {
     baseCost: { iron: 400, silicon: 200 },
     baseTimeSec: 900,
     category: 'production',
+    output: { resourceId: 'steel', baseRate: 36 },
+  },
+  fabrication_bay: {
+    deps: [
+      { typeId: 'command_center', level: 3 },
+      { typeId: 'smelter', level: 1 },
+    ],
+    baseCost: { iron: 450, silicon: 350, carbon: 150, steel: 120 },
+    baseTimeSec: 1200,
+    category: 'production',
+    output: { resourceId: 'electronics', baseRate: 14 },
   },
   spaceport: {
     deps: [{ typeId: 'command_center', level: 4 }],

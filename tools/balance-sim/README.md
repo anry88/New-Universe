@@ -8,7 +8,7 @@ Deterministic offline simulator for first-week economy progression (resources, b
 - **`scenarios/first-week.json`** — beginner vs optimized fixture definitions (`marketChunks` expands into granular NPC trades).
 - **`expected-ranges.json`** — inclusive milestone bands validated by tests / `npm run verify`.
 - **`artifacts/`** — generated JSON summaries (`artifacts/latest-summary.json` last run pointer). Ignored by git except `.gitkeep`.
-- **`src/catalog.ts`** — numeric mirrors of backend seeds/config (keep synchronized when balance changes). Includes **`HOME_SYSTEM_BASE_BIOME_IDS`** / **`HOME_SYSTEM_PLANET_COUNT_*`** aligned with `backend/src/features/world/biomes.ts` and `home-system-generator.ts`.
+- **`src/catalog.ts`** — numeric mirrors of backend seeds/config (keep synchronized when balance changes). Includes **`HOME_SYSTEM_BASE_BIOME_IDS`** / **`HOME_SYSTEM_PLANET_COUNT_*`** aligned with `backend/src/features/world/biomes.ts` and `home-system-generator.ts`. Production buildings (`mine`, `drill`, **`smelter`**, **`fabrication_bay`**, …) must list `output` where the server catalog uses `baseOutput.resourceId` + `baseRate`.
 - **`src/simulate.ts`** — discrete-time integrator with parallel NPC trade resolution (no single serial trade blocks unrelated fills).
 - **`src/cli.ts`** — loads a scenario file, writes artifacts, optional `--verify`.
 

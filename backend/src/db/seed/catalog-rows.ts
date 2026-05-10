@@ -107,8 +107,22 @@ export const BUILDING_TYPE_CATALOG_ROWS: BuildingCatalogRow[] = [
     deps: [{ typeId: 'command_center', level: 3 }],
     baseCost: { iron: 400, silicon: 200 },
     baseTimeSec: 900,
-    baseOutput: {},
+    baseOutput: { resourceId: 'steel', baseRate: 36 },
     energyConsumption: 30,
+  },
+  {
+    id: 'fabrication_bay',
+    name: { ru: 'Цех электроники', en: 'Fabrication Bay' },
+    category: 'production',
+    maxLevel: 15,
+    deps: [
+      { typeId: 'command_center', level: 3 },
+      { typeId: 'smelter', level: 1 },
+    ],
+    baseCost: { iron: 450, silicon: 350, carbon: 150, steel: 120 },
+    baseTimeSec: 1200,
+    baseOutput: { resourceId: 'electronics', baseRate: 14 },
+    energyConsumption: 28,
   },
   {
     id: 'spaceport',

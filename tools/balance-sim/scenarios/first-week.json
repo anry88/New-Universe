@@ -84,6 +84,34 @@
         { "op": "repeatSell", "resourceId": "methane", "chunkAmount": 200, "repeat": 6 },
         { "op": "repeatBuy", "resourceId": "silicon", "chunkAmount": 80, "repeat": 3 }
       ]
+    },
+    {
+      "id": "steel-without-market",
+      "label": "Steel and electronics from planetary production — no NPC trades; validates P2.1-406 chains.",
+      "initialResources": {
+        "iron": 8000,
+        "water": 4000,
+        "carbon": 4000,
+        "silicon": 6000,
+        "methane": 800,
+        "fuel": 120
+      },
+      "passiveRegenPerHour": {
+        "iron": 8,
+        "water": 6,
+        "carbon": 5,
+        "silicon": 5,
+        "methane": 4
+      },
+      "baseStorageCap": 50000,
+      "structurePlan": [
+        { "kind": "upgrade", "buildingId": "command_center" },
+        { "kind": "upgrade", "buildingId": "command_center" },
+        { "kind": "build", "buildingId": "smelter" },
+        { "kind": "build", "buildingId": "fabrication_bay" }
+      ],
+      "researchPlan": [],
+      "shipPlan": []
     }
   ]
 }
