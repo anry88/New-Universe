@@ -86,11 +86,15 @@ function clientToWorldCoords(
 function worldRayToSectorDelta(
   wx: number,
   wy: number,
+  originX: number,
+  originY: number,
   worldUnitsPerLy: number,
 ): { dx: number; dy: number } {
-  const angle = Math.atan2(wy, wx);
-  let r = Math.hypot(wx, wy);
-  const MIN_WORLD = 52;
+  const dxw = wx - originX;
+  const dyw = wy - originY;
+  const angle = Math.atan2(dyw, dxw);
+  let r = Math.hypot(dxw, dyw);
+  const MIN_WORLD = 40;
   if (r < MIN_WORLD) r = MIN_WORLD;
   const ly = r / worldUnitsPerLy;
   const distInt = Math.max(1, Math.round(ly));
@@ -263,13 +267,14 @@ export function CosmicSystemRenderer({
       if (wasAimTap && pickCfg) {
         const wPerLy = pickCfg.worldUnitsPerLy ?? DEFAULT_WORLD_UNITS_PER_LY;
         const { wx, wy } = clientToWorldCoords(el, transform, e.clientX, e.clientY);
-        const { dx, dy } = worldRayToSectorDelta(wx, wy, wPerLy);
+        const launch = layouts.find((l) => l.planet.id === pickCfg.launchPlanetId);
+        const { dx, dy } = worldRayToSectorDelta(wx, wy, launch?.x ?? 0, launch?.y ?? 0, wPerLy);
         pickCfg.onPickSectorDelta(dx, dy);
       }
 
       expeditionPanArmRef.current = null;
     },
-    [expeditionPick, transform],
+    [expeditionPick, transform, layouts],
   );
 
   // Wheel handler: must be passive: false to call preventDefault. React's
@@ -455,7 +460,7 @@ export function CosmicSystemRenderer({
 
           {/* Ship markers — small green chevron just outside parking orbit */}
           {ships.map((ship, shipIdx) => {
-            if (ship.status !== 'idle' || !ship.locationPlanetId) return null;
+            if (!['idle', 'moving'].includes(ship.status) || !ship.locationPlanetId) return null;
             const layout = layouts.find((l) => l.planet.id === ship.locationPlanetId);
             if (!layout) return null;
             const r = layout.orbitRadius + 22;
@@ -471,7 +476,7 @@ export function CosmicSystemRenderer({
                   top: sy - 6,
                   width: 12,
                   height: 12,
-                  color: '#5BFFA9',
+                  color: ship.status === 'moving' ? '#F4B84A' : '#5BFFA9',
                   pointerEvents: expeditionPick ? 'none' : 'auto',
                 }}
               >
@@ -648,30 +653,7 @@ export function CosmicSystemRenderer({
             Orbit
           </div>
         </div>
-      ) : (
-        <div
-          style={{
-            position: 'absolute',
-            left: 12,
-            bottom: 96,
-            maxWidth: 'calc(100% - 120px)',
-            padding: '8px 10px',
-            background: 'rgba(8,12,22,0.88)',
-            border: '1px solid var(--line)',
-            borderRadius: 8,
-            backdropFilter: 'blur(8px)',
-            pointerEvents: 'none',
-            fontFamily: 'var(--font-mono)',
-            fontSize: 9,
-            letterSpacing: '0.08em',
-            color: 'var(--text-dim)',
-            zIndex: 5,
-            lineHeight: 1.35,
-          }}
-        >
-          TAP MAP FROM THE STAR — SET JUMP · DRAG TO PAN · PINCH TO ZOOM
-        </div>
-      )}
+      ) : null}
 
       {/* Reset zoom (top-right, below the page header) */}
       <button

@@ -157,38 +157,6 @@ export function SystemMapPage() {
         />
       </div>
 
-      {/* Footer hint */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: 88,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          pointerEvents: 'none',
-        }}
-      >
-        <div
-          style={{
-            background: 'rgba(8,12,22,0.85)',
-            border: '1px solid var(--line)',
-            borderRadius: 999,
-            padding: '6px 14px',
-            backdropFilter: 'blur(8px)',
-          }}
-        >
-          <span
-            style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: 9,
-              letterSpacing: '0.18em',
-              color: 'var(--text-dim)',
-            }}
-          >
-            DRAG TO PAN · PINCH TO ZOOM · TAP PLANETS
-          </span>
-        </div>
-      </div>
-
       <CosmicBottomNav />
     </div>
   );
