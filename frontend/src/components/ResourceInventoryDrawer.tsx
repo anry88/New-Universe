@@ -14,6 +14,7 @@ interface ResourceInventoryDrawerProps {
   rows: InventoryRow[];
   /** When set, shows account-level premium balance (not planet stock). */
   diamondBalance?: number;
+  onResourceClick?: (resourceId: string) => void;
 }
 
 /**
@@ -25,6 +26,7 @@ export function ResourceInventoryDrawer({
   planetTitle,
   rows,
   diamondBalance,
+  onResourceClick,
 }: ResourceInventoryDrawerProps) {
   if (!open) return null;
 
@@ -57,8 +59,9 @@ export function ResourceInventoryDrawer({
           <ul className="resource-inv-list">
             {sorted.map((r) => {
               const pct = r.cap > 0 ? Math.min(100, Math.round((r.amount / r.cap) * 100)) : 0;
+              const clickable = typeof onResourceClick === 'function';
               return (
-                <li key={r.resourceId} className="resource-inv-row">
+                <li key={r.resourceId} className={'resource-inv-row' + (clickable ? ' resource-inv-row-clickable' : '')}>
                   <div className="resource-inv-row-top">
                     <div className="resource-inv-row-main">
                       <span className="resource-inv-sym">{getResourceSymbol(r.resourceId)}</span>
@@ -75,6 +78,15 @@ export function ResourceInventoryDrawer({
                   <div className="resource-inv-bar">
                     <div className="resource-inv-bar-fill" style={{ width: `${pct}%` }} />
                   </div>
+                  {clickable && (
+                    <button
+                      type="button"
+                      className="resource-inv-buy-btn"
+                      onClick={() => onResourceClick?.(r.resourceId)}
+                    >
+                      Buy with diamonds
+                    </button>
+                  )}
                 </li>
               );
             })}

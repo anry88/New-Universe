@@ -21,11 +21,18 @@ export interface ResourceChipData {
   rate: number;
 }
 
-export const ResourceChip: React.FC<{ data: ResourceChipData }> = ({ data }) => {
+export const ResourceChip: React.FC<{ data: ResourceChipData; onClick?: (resourceId: string) => void }> = ({ data, onClick }) => {
   const pct = data.cap > 0 ? Math.min(100, Math.round((data.amount / data.cap) * 100)) : 0;
   const near = pct > 85;
+  const clickable = typeof onClick === 'function';
   return (
-    <div className="rchip">
+    <button
+      type="button"
+      className={'rchip' + (clickable ? ' rchip-clickable' : '')}
+      onClick={() => onClick?.(data.resourceId)}
+      disabled={!clickable}
+      title={clickable ? 'Buy this resource with diamonds' : undefined}
+    >
       <div className="rchip-row">
         <span className="rchip-sym">{getResourceSymbol(data.resourceId)}</span>
         <span className="rchip-amt">{Math.floor(data.amount).toLocaleString()}</span>
@@ -41,15 +48,16 @@ export const ResourceChip: React.FC<{ data: ResourceChipData }> = ({ data }) => 
           />
         </div>
       </div>
-    </div>
+    </button>
   );
 };
 
 // --- Top bar ---------------------------------------------------------------
 
-export const CosmicTopBar: React.FC<{ resources: ResourceChipData[]; diamonds?: number }> = ({
+export const CosmicTopBar: React.FC<{ resources: ResourceChipData[]; diamonds?: number; onResourceClick?: (resourceId: string) => void }> = ({
   resources,
   diamonds,
+  onResourceClick,
 }) => (
   <div className="cosmic-topbar" data-testid="cosmic-topbar">
     <div
@@ -67,7 +75,7 @@ export const CosmicTopBar: React.FC<{ resources: ResourceChipData[]; diamonds?: 
       )}
       <div className="cosmic-topbar-grid">
         {resources.slice(0, diamonds !== undefined ? 4 : 5).map((r) => (
-          <ResourceChip key={r.resourceId} data={r} />
+          <ResourceChip key={r.resourceId} data={r} onClick={onResourceClick} />
         ))}
       </div>
     </div>

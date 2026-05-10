@@ -6,6 +6,8 @@ import { CosmicTopBar, type ResourceChipData } from './cosmic/atoms';
 import { calculateRegen } from './cosmic/resources';
 import { planetInventoryApiPath } from '../lib/resourceBarScope';
 import { ResourceInventoryDrawer, type InventoryRow } from './ResourceInventoryDrawer';
+import { ResourceDiamondPurchaseDialog } from './ResourceDiamondPurchaseDialog';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface ResourceBarProps {
   planetId?: string;
@@ -26,9 +28,13 @@ interface ResourceWithAmount extends PlanetResource {
  */
 export function ResourceBar({ planetId, planetLabel }: ResourceBarProps) {
   const { data: meData } = useMe();
+  const queryClient = useQueryClient();
   const diamondBalance = meData?.diamonds;
   const [resources, setResources] = useState<ResourceWithAmount[]>([]);
   const [inventoryOpen, setInventoryOpen] = useState(false);
+  const [purchaseOpen, setPurchaseOpen] = useState(false);
+  const [purchaseResourceId, setPurchaseResourceId] = useState<string | null>(null);
+  const [purchaseBusy, setPurchaseBusy] = useState(false);
   const animationRef = useRef<number | undefined>(undefined);
   const lastUpdateRef = useRef<number>(Date.now());
 
@@ -115,12 +121,48 @@ export function ResourceBar({ planetId, planetLabel }: ResourceBarProps) {
     meData?.homeSystem?.planets?.[0]?.name ||
     'Planet';
 
+  const selectedPlanetId = planetId || meData?.homeSystem?.planets?.[0]?.id;
+  const openPurchase = (resourceId: string) => {
+    setPurchaseResourceId(resourceId);
+    setPurchaseOpen(true);
+  };
+
+  const handlePurchase = async (amount: number) => {
+    if (!purchaseResourceId || !selectedPlanetId) return;
+    setPurchaseBusy(true);
+    try {
+      const result = await apiFetch<{
+        resourceId: string;
+        amount: number;
+        diamondsSpent: number;
+        diamondsRemaining: number;
+      }>('/resources/buy-with-diamonds', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planetId: selectedPlanetId,
+          resourceId: purchaseResourceId,
+          amount,
+        }),
+      });
+      void result;
+      await fetchResources();
+      await queryClient.invalidateQueries({ queryKey: ['me'] });
+      setPurchaseOpen(false);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to buy resource');
+    } finally {
+      setPurchaseBusy(false);
+    }
+  };
+
   if (data.length === 0) {
     return (
       <>
         <div className="cosmic-resource-strip">
           <CosmicTopBar
             diamonds={diamondBalance}
+            onResourceClick={selectedPlanetId ? openPurchase : undefined}
             resources={[
               { resourceId: 'water', amount: 0, cap: 1000, rate: 0 },
               { resourceId: 'iron', amount: 0, cap: 1000, rate: 0 },
@@ -145,7 +187,11 @@ export function ResourceBar({ planetId, planetLabel }: ResourceBarProps) {
   return (
     <>
       <div className="cosmic-resource-strip">
-        <CosmicTopBar resources={data} diamonds={diamondBalance} />
+        <CosmicTopBar
+          resources={data}
+          diamonds={diamondBalance}
+          onResourceClick={selectedPlanetId ? openPurchase : undefined}
+        />
         <button
           type="button"
           className="resource-bar-all-btn"
@@ -162,6 +208,16 @@ export function ResourceBar({ planetId, planetLabel }: ResourceBarProps) {
         planetTitle={titlePlanet}
         rows={inventoryRows}
         diamondBalance={diamondBalance}
+        onResourceClick={selectedPlanetId ? openPurchase : undefined}
+      />
+      <ResourceDiamondPurchaseDialog
+        open={purchaseOpen}
+        planetId={selectedPlanetId ?? null}
+        resourceId={purchaseResourceId}
+        diamondBalance={diamondBalance ?? 0}
+        busy={purchaseBusy}
+        onClose={() => setPurchaseOpen(false)}
+        onConfirm={handlePurchase}
       />
     </>
   );
