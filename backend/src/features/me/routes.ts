@@ -136,9 +136,9 @@ export async function meRoutes(app: FastifyInstance) {
           },
         });
 
-        const homePlanets = homeSystem?.planets || [];
+        const homePlanets = (homeSystem?.planets || []).filter((p: any) => p.isDiscovered !== false);
         const colonyPlanets = userColonies.map(c => c.planet);
-        const allPlanets = [...homePlanets, ...colonyPlanets];
+        const allPlanets = [...homePlanets, ...colonyPlanets].filter((p: any) => p.isDiscovered !== false);
 
         const enrichedPlanets = await Promise.all(
           allPlanets.map(async (planet: any) => {

@@ -26,7 +26,7 @@ export function useColonies() {
     }
   }, [meData?.planets, focalPlanetId, setFocalPlanetId]);
 
-  const planets = meData?.planets || [];
+  const planets = (meData?.planets || []).filter((planet) => planet.isDiscovered !== false);
   const focalPlanet = planets.find((p) => p.id === focalPlanetId) || planets[0] || null;
 
   return {
