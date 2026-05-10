@@ -1,11 +1,17 @@
 import { db } from '../../db/index.js';
-import { buildings, buildingTypes, planets } from '../../db/schema.js';
-import { eq, and, sql } from 'drizzle-orm';
+import { buildings, buildingTypes, planets, planetResources, notifications, systems } from '../../db/schema.js';
+import { eq, and, sql, lte } from 'drizzle-orm';
 import { BuildingType, ConstructionStatus } from '@shared/types/buildings.js';
 import { spendResources } from '../resources/transactions.js';
 import { applyBuildTimeSeconds, getResearchEffectsForUser } from '../research/effects.js';
 import { BUILDING_RESEARCH_GATES } from '../../config/research-unlocks.js';
 import { assertResearchRequirement, loadUserResearchLevels } from '../research/gates.js';
+import { logger } from '../../lib/logger.js';
+
+type BuildingOutput = {
+  resourceId?: string;
+  baseRate?: number;
+};
 
 export class BuildingService {
   async getBuildingTypes(): Promise<BuildingType[]> {
@@ -232,6 +238,114 @@ export class BuildingService {
         }
       };
     });
+  }
+
+  async finalizeBuildingConstruction(tx: any, buildingId: string, options: { skipNotification?: boolean } = {}): Promise<void> {
+    const building = await tx.query.buildings.findFirst({
+      where: eq(buildings.id, buildingId),
+    });
+
+    if (!building || !building.queueAction) return;
+
+    const isBuild = building.queueAction === 'build';
+    const newLevel = isBuild ? 1 : building.level + 1;
+
+    await tx
+      .update(buildings)
+      .set({
+        level: newLevel,
+        queueAction: null,
+        queueCompletesAt: null,
+      })
+      .where(eq(buildings.id, building.id));
+
+    const bType = await tx.query.buildingTypes.findFirst({
+      where: eq(buildingTypes.id, building.typeId),
+    });
+
+    if (bType?.baseOutput) {
+      const output = bType.baseOutput as BuildingOutput;
+      if (output.resourceId && typeof output.baseRate === 'number') {
+        const totalRate = output.baseRate * newLevel;
+
+        const existing = await tx.query.planetResources.findFirst({
+          where: and(
+            eq(planetResources.planetId, building.planetId),
+            eq(planetResources.resourceId, output.resourceId),
+          ),
+        });
+
+        if (existing) {
+          await tx
+            .update(planetResources)
+            .set({ regenRate: totalRate.toFixed(4) })
+            .where(
+              and(
+                eq(planetResources.planetId, building.planetId),
+                eq(planetResources.resourceId, output.resourceId),
+              ),
+            );
+        }
+      }
+    }
+
+    if (options.skipNotification) return;
+
+    const planet = await tx.query.planets.findFirst({
+      where: eq(planets.id, building.planetId),
+    });
+    if (planet) {
+      const system = await tx.query.systems.findFirst({
+        where: eq(systems.id, planet.systemId),
+      });
+      if (system?.ownerId) {
+        const actionLabel = isBuild ? 'built' : `upgraded to level ${newLevel}`;
+        await tx.insert(notifications).values({
+          userId: system.ownerId,
+          type: 'building_done',
+          payload: {
+            buildingId: building.id,
+            typeId: building.typeId,
+            planetId: building.planetId,
+            planetName: planet.name,
+            action: isBuild ? 'build' : 'upgrade',
+            level: newLevel,
+          },
+        });
+        logger.info(
+          { buildingId: building.id, typeId: building.typeId, action: actionLabel, userId: system.ownerId },
+          'Building completion notification created',
+        );
+      }
+    }
+  }
+
+  async syncPlanetBuildings(userId: string, planetId: string): Promise<void> {
+    const now = new Date();
+    const readyBuildings = await db.query.buildings.findMany({
+      where: and(
+        eq(buildings.planetId, planetId),
+        lte(buildings.queueCompletesAt, now),
+        sql`${buildings.queueAction} IS NOT NULL`
+      ),
+      with: {
+        planet: {
+          with: {
+            system: true
+          }
+        }
+      }
+    });
+
+    if (readyBuildings.length === 0) return;
+
+    for (const building of readyBuildings) {
+      if ((building.planet as any).system.ownerId !== userId) continue;
+
+      await db.transaction(async (tx) => {
+        await this.finalizeBuildingConstruction(tx, building.id, { skipNotification: true });
+      });
+    }
   }
 }
 

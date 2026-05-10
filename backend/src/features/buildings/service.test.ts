@@ -225,4 +225,41 @@ describe('Buildings Service - POST /buildings/build', () => {
     const body = response.json();
     expect(body.message).toContain('Planet not found');
   });
+
+  it('should sync and finalize completed building construction', async () => {
+    const { app, token, userId } = await createTestUser();
+
+    const userSystem = await db.query.systems.findFirst({
+      where: eq(systems.ownerId, userId),
+    });
+    const userPlanet = await db.query.planets.findFirst({
+      where: eq(planets.systemId, userSystem!.id),
+    });
+
+    // Manually insert a building that is "ready"
+    const [b] = await db.insert(buildings).values({
+      planetId: userPlanet!.id,
+      typeId: 'mine',
+      slotIndex: 3,
+      level: 0,
+      queueAction: 'build',
+      queueCompletesAt: new Date(Date.now() - 1000), // Finished 1 second ago
+    }).returning();
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/buildings/sync/${userPlanet!.id}`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().success).toBe(true);
+
+    const updated = await db.query.buildings.findFirst({
+      where: eq(buildings.id, b.id),
+    });
+    expect(updated?.level).toBe(1);
+    expect(updated?.queueAction).toBeNull();
+    expect(updated?.queueCompletesAt).toBeNull();
+  });
 });
