@@ -506,8 +506,8 @@ export function CosmicSystemRenderer({
                   progress = Math.max(0, Math.min(1, progress));
 
                   const targetAngle = Math.atan2(
-                    Number(exp.targetY ?? 0),
-                    Number(exp.targetX ?? 1)
+                    Number(exp.targetY) - system.sectorY,
+                    Number(exp.targetX) - system.sectorX
                   );
                   const trailLength = 600;
                   const endX = Math.cos(targetAngle) * trailLength;
@@ -628,8 +628,8 @@ export function CosmicSystemRenderer({
             const origin = layouts.find((l) => l.planet.id === exp.originPlanetId);
             if (!origin) return null;
             const targetAngle = Math.atan2(
-              Number(exp.targetY ?? 0),
-              Number(exp.targetX ?? 1)
+              Number(exp.targetY) - system.sectorY,
+              Number(exp.targetX) - system.sectorX
             );
             const trailLength = 600;
             const endX = Math.cos(targetAngle) * trailLength;
