@@ -323,4 +323,20 @@ describe('Visibility Check Service', () => {
     );
     expect(outsideDisc).toBeUndefined();
   });
+
+  it('does not auto-discover locked planets in the player home system', async () => {
+    const userId = await createTestUser();
+    const home = await createSystem(5, 5, 5, userId, true);
+    const capitalId = await createPlanet(home.id, 'Capital');
+    const lockedId = await createPlanet(home.id, 'Locked Body');
+
+    await db.insert(discoveredPlanets).values({ userId, planetId: capitalId });
+
+    const shipId = await createShip(userId, capitalId);
+
+    const discoveries = await checkVisibility(shipId);
+    const planetHits = discoveries.filter((d) => d.type === 'planet').map((d) => d.id);
+
+    expect(planetHits).not.toContain(lockedId);
+  });
 });

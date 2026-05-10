@@ -1,4 +1,4 @@
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { db as defaultDb } from '../../db/index.js';
 import {
   expeditions,
@@ -7,6 +7,7 @@ import {
   ships,
   shipTypes,
   systems,
+  discoveredPlanets,
 } from '../../db/schema.js';
 import { spendResources } from '../resources/transactions.js';
 import { applyShipSpeed, getResearchEffectsForUser } from '../research/effects.js';
@@ -18,6 +19,8 @@ export interface LaunchExpeditionRequest {
   targetZ: number;
   fuelLoaded: number;
   cargoLoaded: number;
+  /** When set, scout completes planetary survey of this body in the player's home system at arrival. */
+  targetPlanetId?: string | null;
 }
 
 export interface LaunchExpeditionResult {
@@ -65,7 +68,7 @@ export async function launchExpedition(
   userId: string,
   request: LaunchExpeditionRequest,
 ): Promise<LaunchExpeditionResult> {
-  const { shipId, targetX, targetY, targetZ, fuelLoaded, cargoLoaded } = request;
+  const { shipId, targetX, targetY, targetZ, fuelLoaded, cargoLoaded, targetPlanetId } = request;
 
   if (!shipId) {
     return {
@@ -167,6 +170,60 @@ export async function launchExpedition(
     };
   }
 
+  let resolvedTargetPlanetId: string | null = null;
+  if (targetPlanetId) {
+    if (shipRow.shipTypeId !== 'scout') {
+      return {
+        success: false,
+        status: 400,
+        error: 'targetPlanetId is only supported for scout expeditions',
+      };
+    }
+
+    const targetPlanet = await defaultDb.query.planets.findFirst({
+      where: eq(planets.id, targetPlanetId),
+      with: { system: true },
+    });
+
+    if (!targetPlanet?.system) {
+      return { success: false, status: 404, error: 'Target planet not found' };
+    }
+
+    const sys = targetPlanet.system;
+    if (!sys.isHome || sys.ownerId !== userId) {
+      return {
+        success: false,
+        status: 400,
+        error: 'targetPlanetId must refer to a planet in your home system',
+      };
+    }
+
+    if (
+      Math.trunc(targetX) !== sys.sectorX ||
+      Math.trunc(targetY) !== sys.sectorY ||
+      Math.trunc(targetZ) !== sys.sectorZ
+    ) {
+      return {
+        success: false,
+        status: 400,
+        error: 'targetSector must match the home system sector when targetPlanetId is set',
+      };
+    }
+
+    const already = await defaultDb.query.discoveredPlanets.findFirst({
+      where: and(eq(discoveredPlanets.userId, userId), eq(discoveredPlanets.planetId, targetPlanetId)),
+    });
+    if (already) {
+      return {
+        success: false,
+        status: 400,
+        error: 'Planet is already surveyed',
+      };
+    }
+
+    resolvedTargetPlanetId = targetPlanetId;
+  }
+
   const distance = Math.sqrt(
     Math.pow(targetX - Number(shipRow.originX), 2) +
       Math.pow(targetY - Number(shipRow.originY), 2) +
@@ -210,7 +267,7 @@ export async function launchExpedition(
         targetX: Math.trunc(targetX),
         targetY: Math.trunc(targetY),
         targetZ: Math.trunc(targetZ),
-        targetPlanetId: null,
+        targetPlanetId: resolvedTargetPlanetId,
         status: 'in_flight',
         eta,
         result: {

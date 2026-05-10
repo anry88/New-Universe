@@ -159,8 +159,18 @@ export async function checkVisibility(
   }
   const alreadyKnownPlanets = new Set(existingPlanetRows.map((r: { planetId: string }) => r.planetId));
 
+  const systemById = new Map(visibleSystems.map((s: SystemRow) => [s.id, s]));
+
   const newSystems = visibleSystems.filter((sys: SystemRow) => !alreadyKnownSys.has(sys.id));
-  const newPlanets = allPlanets.filter((p: PlanetRow) => !alreadyKnownPlanets.has(p.id));
+  const newPlanets = allPlanets
+    .filter((p: PlanetRow) => !alreadyKnownPlanets.has(p.id))
+    .filter((p: PlanetRow) => {
+      const sys = systemById.get(p.systemId);
+      if (!sys?.isHome || sys.ownerId !== ownerId) return true;
+      // Undiscovered bodies in your own home system are not revealed by passive sensors
+      // (avoids spoiling positions before a scout expedition completes).
+      return false;
+    });
 
   if (newSystems.length > 0) {
     await database.insert(discoveredSystems).values(

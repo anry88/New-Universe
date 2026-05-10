@@ -7,6 +7,7 @@ import {
   planets,
   systems,
   notifications,
+  discoveredPlanets,
 } from '../db/schema.js';
 
 import { eq, or } from 'drizzle-orm';
@@ -76,6 +77,16 @@ async function handleArrivalAtTarget(
 ) {
   const result = expedition.result as any;
   const durationMs = (result.distance * 60 / result.speed) * result.engineFactor * 1000;
+
+  if (expedition.targetPlanetId && expedition.type === 'scout') {
+    const [ship] = await tx.select().from(ships).where(eq(ships.id, expedition.shipId)).limit(1);
+    if (ship) {
+      await tx
+        .insert(discoveredPlanets)
+        .values({ userId: ship.ownerId, planetId: expedition.targetPlanetId })
+        .onConflictDoNothing();
+    }
+  }
 
   // Start return journey
   await tx

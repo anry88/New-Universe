@@ -5,7 +5,22 @@
  * - backend/src/config/research-catalog.ts
  * - backend/src/config/colonization-rules.ts
  * - backend/src/config/market-prices.ts
+ * - backend/src/features/world/biomes.ts (`HOME_SYSTEM_BASE_BIOMES`) / home-system-generator.ts (planet counts, capital slots)
  */
+
+/** Mirrors `HOME_SYSTEM_BASE_BIOMES` in `backend/src/features/world/biomes.ts`. */
+export const HOME_SYSTEM_BASE_BIOME_IDS = [
+  'green',
+  'rocky',
+  'ocean',
+  'ice',
+  'gas_giant',
+  'volcanic',
+] as const;
+
+/** Mirrors home genesis planet count range (`generateHomeSystem`). */
+export const HOME_SYSTEM_PLANET_COUNT_MIN = 6;
+export const HOME_SYSTEM_PLANET_COUNT_MAX = 7;
 
 export const BUILDINGS = {
   command_center: {
