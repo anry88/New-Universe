@@ -16,8 +16,9 @@
 | `merge_roadmap_p2_p5.mjs` | Генератор, который мерджит roadmap additions в `tasks.json`, CSV и docs |
 | `import_to_github.sh` | Bash-скрипт для bulk-создания issues в GitHub |
 | `import_to_github_idempotent.sh` | Безопасный повторный импорт: переиспользует существующие issues и не падает, если item уже есть в Project |
-| `setup_github_project3_structure.sh` | Синхронизация Project fields/options и значений для всех задач |
+| `setup_github_project3_structure.sh` | Синхронизация Project fields/options и значений для всех задач; учитывает **закрытые GitHub issues** как источник правды для **Done**; см. `SETUP_ITEMS_ONLY` ниже |
 | `setup_github_project3_views.sh` | Создание Project views для execution board и roadmap |
+| `sync_project_phases_from_tasks.mjs` | Проставляет **Phase** по epic из `tasks.json` и **Status**, если он пустой: без зависимостей → Ready, иначе Backlog (как `setup_github_project3_structure.sh`) |
 | `project_status.mjs` | Точечное движение задач по `Status`/`Verification` и автопромо разблокированных задач в `Ready` |
 | `README_github_import.md` | Этот файл |
 
@@ -71,8 +72,26 @@ PROJECT_NUMBER=3 \
 
 ```bash
 chmod +x import_to_github_idempotent.sh
-/opt/homebrew/bin/bash ./import_to_github_idempotent.sh
+TASKS_JSON=tasks/tasks.json /opt/homebrew/bin/bash ./tasks/import_to_github_idempotent.sh
 ```
+
+После импорта новых задач прогони синхронизацию полей Project (из корня репозитория):
+
+```bash
+node tasks/sync_project_phases_from_tasks.mjs
+```
+
+Иначе у карточек может быть пустой **Phase** (не попадут во фазовые вьюхи) и пустой **Status** (автоматизация `sync-ready` и доска работают некорректно). Полная перезапись всех полей по всем задачам — `tasks/setup_github_project3_structure.sh` (ещё и опции Phase в проекте подтягивает из `tasks.json`).
+
+Если GitHub возвращает `GraphQL: API rate limit exceeded`, дождись сброса (`gh api rate_limit`) и запусти **только карточки** без мутаций опций полей:
+
+```bash
+SETUP_ITEMS_ONLY=1 bash tasks/setup_github_project3_structure.sh
+```
+
+Полный прогон (опции Phase/Epic и readme проекта) — без этой переменной, когда лимит GraphQL относительно полный (~5000).
+
+**Восстановление доски после сброса статусов:** скрипт один раз запрашивает `gh issue list --state all` по репозиторию. Если заголовок issue совпадает с `[TASK_ID]…` и issue **закрыт**, карточке выставляются **Status = Done** и **Verification = Accepted**, даже если на проекте остались Backlog/Ready. Для **открытого** issue статус снова считается из `deps`: **Ready**, если в `tasks.json` нет зависимостей **или** каждая зависимость уже **Done** на доске либо её issue **закрыт** (как `node tasks/project_status.mjs sync-ready`); иначе **Backlog**. **Review / In Progress / Blocked** с доски сохраняются; устаревший **Done** при открытом issue не подтягивается. Если `gh issue list` недоступен, используется прежняя логика (борд + deps).
 
 ## Что произойдёт
 
@@ -122,7 +141,9 @@ node tasks/project_status.mjs task P0-004 --status "Blocked" --verification "Blo
 node tasks/project_status.mjs sync-ready
 ```
 
-GitHub Action `.github/workflows/project-status.yml` двигает связанные задачи в `Review` при открытии PR, в `Done` после merge и прогоняет `sync-ready` после закрытия issue, чтобы зависимые задачи автоматически переходили в `Ready`. Для user-owned Project v2 нужен repository secret `PROJECT_TOKEN`: classic personal access token пользователя, который видит Project, со scopes `repo`, `project` и `read:org`. Не используй `GITHUB_TOKEN` или fine-grained token для этой автоматизации: они часто не имеют доступа к user-owned Project v2.
+GitHub Action `.github/workflows/project-status.yml` двигает связанные задачи в `Review` при открытии PR, в `Done` после merge и прогоняет `sync-ready` после закрытия issue, чтобы зависимые задачи автоматически переходили в `Ready`.
+
+Правило `sync-ready`: из **Backlog** (или из незаполненного статуса — см. `sync_project_phases_from_tasks.mjs`) в **Ready** переводятся задачи, у которых каждая зависимость считается выполненной: карточка зависимости на доске в **Done** **или** соответствующий GitHub issue **закрыт** (как у старых prerequisite вроде P1-161, если доска отстаёт). Задачи **без** `deps` в JSON также переводятся из Backlog в **Ready**. Для user-owned Project v2 нужен repository secret `PROJECT_TOKEN`: classic personal access token пользователя, который видит Project, со scopes `repo`, `project` и `read:org`. Не используй `GITHUB_TOKEN` или fine-grained token для этой автоматизации: они часто не имеют доступа к user-owned Project v2.
 
 Если workflow падает на `gh project view 3 --owner anry88 --format json` с `unknown owner type`, `Could not resolve to a ProjectV2`, `Resource not accessible` или похожей ошибкой, почти всегда проблема в `PROJECT_TOKEN`: секрет отсутствует, токен создан не как classic PAT, не хватает scopes `repo`/`project`/`read:org`, токен истёк или создан пользователем без доступа к Project.
 - **Дубликаты issue** — скрипт идемпотентным НЕ написан (для простоты). Если нужно перезапустить — закрой все ранее созданные через:

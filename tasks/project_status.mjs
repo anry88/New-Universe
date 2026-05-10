@@ -223,9 +223,47 @@ function loadTaskIdSet() {
   return new Set(loadTasks().map((task) => task.id));
 }
 
+function isBacklogLike(status) {
+  return status == null || status === '' || status === 'Backlog';
+}
+
+/** Maps task id (from issue title prefix `[id]`) to CLOSED | OPEN. Paginates repo issues. */
+function loadIssueStateByTaskId() {
+  const map = new Map();
+  let page = 1;
+  while (page <= 100) {
+    const output = gh([
+      'issue', 'list', '--repo', REPO, '--state', 'all', '--limit', '100',
+      '--json', 'title,state', '--page', String(page),
+    ]);
+    const rows = JSON.parse(output);
+    if (!Array.isArray(rows) || rows.length === 0) break;
+    for (const row of rows) {
+      const match = /^\[(?<id>[^\]]+)\]/.exec(row.title || '');
+      if (!match?.groups?.id) continue;
+      const id = match.groups.id;
+      if (row.state === 'CLOSED') {
+        map.set(id, 'CLOSED');
+      } else if (!map.has(id)) {
+        map.set(id, row.state);
+      }
+    }
+    page += 1;
+  }
+  return map;
+}
+
+/** True if dependency is done on the Project board or the GitHub issue is closed (source of truth). */
+function dependencyResolved(depId, itemByTask, issueStateByTaskId) {
+  const depItem = itemByTask.get(depId);
+  if (depItem?.status === 'Done') return true;
+  return issueStateByTaskId.get(depId) === 'CLOSED';
+}
+
 function syncReady() {
   const project = loadProject();
   const tasks = loadTasks();
+  const issueStateByTaskId = loadIssueStateByTaskId();
   const itemByTask = new Map();
   for (const item of project.items) {
     const match = /^\[(?<id>[^\]]+)\]/.exec(item.title || '');
@@ -235,15 +273,18 @@ function syncReady() {
   let promoted = 0;
   for (const task of tasks) {
     const item = itemByTask.get(task.id);
-    if (!item || item.status !== 'Backlog') continue;
+    if (!item || !isBacklogLike(item.status)) continue;
 
     const deps = task.deps || [];
-    const ready = deps.length > 0 && deps.every((depId) => itemByTask.get(depId)?.status === 'Done');
-    if (!ready) continue;
+    const depsSatisfied =
+      deps.length === 0
+        ? true
+        : deps.every((depId) => dependencyResolved(depId, itemByTask, issueStateByTaskId));
+    if (!depsSatisfied) continue;
 
     setSingleSelect(project, item, 'Status', 'Ready');
     promoted += 1;
-    console.log(`${task.id}: Backlog -> Ready`);
+    console.log(`${task.id}: ${item.status ?? '∅'} -> Ready`);
   }
   console.log(`Promoted to Ready: ${promoted}`);
 }
