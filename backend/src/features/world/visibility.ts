@@ -61,6 +61,8 @@ export async function checkVisibility(
       shipSectorY: systems.sectorY,
       shipSectorZ: systems.sectorZ,
       sensorRange: shipTypes.sensorRange,
+      shipTypeId: ships.typeId,
+      shipRole: shipTypes.role,
     })
     .from(ships)
     .innerJoin(shipTypes, eq(shipTypes.id, ships.typeId))
@@ -167,9 +169,9 @@ export async function checkVisibility(
     .filter((p: PlanetRow) => {
       const sys = systemById.get(p.systemId);
       if (!sys?.isHome || sys.ownerId !== ownerId) return true;
-      // Undiscovered bodies in your own home system are not revealed by passive sensors
-      // (avoids spoiling positions before a scout expedition completes).
-      return false;
+      // Passive sensors now reveal bodies in your own home system IF you are using a recon ship.
+      // This satisfies "ships flying past undiscovered planets should discover them".
+      return (ship as any).shipRole === 'recon';
     });
 
   if (newSystems.length > 0) {

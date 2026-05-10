@@ -18,6 +18,7 @@ import {
 } from '../../db/schema.js';
 
 const TEST_SHIP_TYPE = 'test_scout';
+const TEST_CARGO_TYPE = 'test_cargo';
 
 describe('Visibility Check Service', () => {
   async function createTestUser(): Promise<string> {
@@ -52,6 +53,28 @@ describe('Visibility Check Service', () => {
       .onConflictDoUpdate({
         target: shipTypes.id,
         set: { sensorRange },
+      });
+
+    await db
+      .insert(shipTypes)
+      .values({
+        id: TEST_CARGO_TYPE,
+        name: { ru: 'Грузовик', en: 'Test Cargo' },
+        role: 'logistics',
+        hp: 10,
+        speed: '1.00',
+        cargo: 100,
+        dps: 0,
+        armor: 0,
+        fuelConsumption: '0.10',
+        buildTimeSec: 10,
+        buildCost: { iron: 1 },
+        requiredBuildings: [],
+        sensorRange: 5,
+      })
+      .onConflictDoUpdate({
+        target: shipTypes.id,
+        set: { role: 'logistics' },
       });
   }
 
@@ -97,12 +120,13 @@ describe('Visibility Check Service', () => {
   async function createShip(
     userId: string,
     planetId: string,
+    typeId: string = TEST_SHIP_TYPE,
   ): Promise<string> {
     const [ship] = await db
       .insert(ships)
       .values({
         ownerId: userId,
-        typeId: TEST_SHIP_TYPE,
+        typeId,
         locationPlanetId: planetId,
         status: 'idle',
       })
@@ -324,7 +348,7 @@ describe('Visibility Check Service', () => {
     expect(outsideDisc).toBeUndefined();
   });
 
-  it('does not auto-discover locked planets in the player home system', async () => {
+  it('does not auto-discover locked planets in the player home system with regular ships', async () => {
     const userId = await createTestUser();
     const home = await createSystem(5, 5, 5, userId, true);
     const capitalId = await createPlanet(home.id, 'Capital');
@@ -332,11 +356,27 @@ describe('Visibility Check Service', () => {
 
     await db.insert(discoveredPlanets).values({ userId, planetId: capitalId });
 
-    const shipId = await createShip(userId, capitalId);
+    const shipId = await createShip(userId, capitalId, TEST_CARGO_TYPE);
 
     const discoveries = await checkVisibility(shipId);
     const planetHits = discoveries.filter((d) => d.type === 'planet').map((d) => d.id);
 
     expect(planetHits).not.toContain(lockedId);
+  });
+
+  it('auto-discovers locked planets in the player home system with recon ships', async () => {
+    const userId = await createTestUser();
+    const home = await createSystem(5, 5, 5, userId, true);
+    const capitalId = await createPlanet(home.id, 'Capital');
+    const lockedId = await createPlanet(home.id, 'Locked Body');
+
+    await db.insert(discoveredPlanets).values({ userId, planetId: capitalId });
+
+    const shipId = await createShip(userId, capitalId, TEST_SHIP_TYPE);
+
+    const discoveries = await checkVisibility(shipId);
+    const planetHits = discoveries.filter((d) => d.type === 'planet').map((d) => d.id);
+
+    expect(planetHits).toContain(lockedId);
   });
 });
