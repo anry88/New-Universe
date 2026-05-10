@@ -133,6 +133,7 @@ body {
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: none;
+  padding-bottom: calc(100px + env(safe-area-inset-bottom));
 }
 .cosmic-scroll::-webkit-scrollbar {
   display: none;
@@ -582,12 +583,39 @@ body {
 
 /* BOTTOM NAV */
 .bnav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  padding: 10px 8px 12px;
+  grid-template-columns: repeat(7, 1fr);
+  padding: 10px 4px calc(12px + env(safe-area-inset-bottom));
   background: rgba(8, 12, 22, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-top: 1px solid var(--line);
   flex-shrink: 0;
+  z-index: 1000;
+}
+
+.fixed-bottom-ui {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+}
+
+.fixed-bottom-ui .qstrip {
+  position: relative; /* sits on top of bnav in the flex column */
+  border-bottom: none;
+  background: rgba(14, 20, 36, 0.95);
+}
+
+.fixed-bottom-ui .bnav {
+  position: relative; /* inside the fixed container */
 }
 .bnav-item {
   display: flex;
