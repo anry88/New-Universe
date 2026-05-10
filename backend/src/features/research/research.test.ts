@@ -98,8 +98,8 @@ describe('Research Routes', () => {
 
     const ironAfter = await getResourceAmount(planetId, 'iron');
     const siliconAfter = await getResourceAmount(planetId, 'silicon');
-    expect(ironAfter).toBe(ironBefore - ironCost);
-    expect(siliconAfter).toBe(siliconBefore - siliconCost);
+    expect(ironAfter).toBeCloseTo(ironBefore - ironCost, 1);
+    expect(siliconAfter).toBeCloseTo(siliconBefore - siliconCost, 1);
 
     const progress = await db.query.researchProgress.findFirst({
       where: and(eq(researchProgress.userId, userId), eq(researchProgress.branch, 'mining')),

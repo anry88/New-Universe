@@ -29,4 +29,8 @@ export const buildingsRelations = relations(buildings, ({ one }) => ({
     fields: [buildings.planetId],
     references: [planets.id],
   }),
+  type: one(buildingTypes, {
+    fields: [buildings.typeId],
+    references: [buildingTypes.id],
+  }),
 }));

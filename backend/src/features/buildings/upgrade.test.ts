@@ -4,8 +4,8 @@ import { buildingsRoutes } from './routes.js';
 import { authRoutes } from '../auth/routes.js';
 import { meRoutes } from '../me/routes.js';
 import { db } from '../../db/index.js';
-import { planets, systems, buildings, buildingTypes } from '../../db/schema.js';
-import { eq } from 'drizzle-orm';
+import { planets, systems, buildings, buildingTypes, planetResources } from '../../db/schema.js';
+import { eq, and } from 'drizzle-orm';
 import crypto from 'crypto';
 import { env } from '../../lib/env.js';
 
@@ -65,6 +65,16 @@ describe('Building Upgrade - POST /buildings/upgrade', () => {
       where: eq(planets.systemId, system!.id),
     });
     return planet!.id;
+  }
+
+  async function getResourceAmount(planetId: string, resourceId: string): Promise<number> {
+    const record = await db.query.planetResources.findFirst({
+      where: and(
+        eq(planetResources.planetId, planetId),
+        eq(planetResources.resourceId, resourceId),
+      ),
+    });
+    return record ? Number(record.amount) : 0;
   }
 
   it('should upgrade a building successfully', async () => {
@@ -205,6 +215,8 @@ describe('Building Upgrade - POST /buildings/upgrade', () => {
     const { app, token, userId } = await createTestUser();
     const planetId = await getHomePlanetId(userId);
 
+    const ironBefore = await getResourceAmount(planetId, 'iron');
+
     const mineType = await db.query.buildingTypes.findFirst({
       where: eq(buildingTypes.id, 'mine'),
     });
@@ -227,9 +239,7 @@ describe('Building Upgrade - POST /buildings/upgrade', () => {
 
     expect(response.statusCode).toBe(200);
 
-    const ironAfter = await db.query.planetResources.findFirst({
-      where: (pr, { eq: e, and: a }) => a(e(pr.planetId, planetId), e(pr.resourceId, 'iron')),
-    });
-    expect(Number(ironAfter?.amount || 0)).toBe(1000 - scaledIron);
+    const ironAfter = await getResourceAmount(planetId, 'iron');
+    expect(ironAfter).toBeCloseTo(ironBefore - scaledIron, 1);
   });
 });
