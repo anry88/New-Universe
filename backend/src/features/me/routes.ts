@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import { env } from '../../lib/env.js';
 import { db } from '../../db/index.js';
 import { users, systems, discoveredPlanets, planets, ships, expeditions, researchProgress } from '../../db/schema.js';
-import { eq } from 'drizzle-orm';
+import { eq, or } from 'drizzle-orm';
 import { syncTutorialProgress } from '../tutorial/service.js';
 import { homeSystemShortTag } from '@shared/format/homeSystemNaming.js';
 
