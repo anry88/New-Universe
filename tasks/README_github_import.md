@@ -141,7 +141,7 @@ node tasks/project_status.mjs task P0-004 --status "Blocked" --verification "Blo
 node tasks/project_status.mjs sync-ready
 ```
 
-GitHub Action `.github/workflows/project-status.yml` двигает связанные задачи в `Review` при открытии PR, в `Done` после merge и прогоняет `sync-ready` после закрытия issue, чтобы зависимые задачи автоматически переходили в `Ready`.
+GitHub Action `.github/workflows/project-status.yml` двигает связанные задачи в `Review` при открытии PR, в `Done` после merge и прогоняет `sync-ready` после закрытия issue, чтобы зависимые задачи автоматически переходили в `Ready`. После **merge PR без** распознанного task id в заголовке/ветке/теле (ошибка `Closes`, только общий рефакторинг и т.п.) связанные карточки всё равно обрабатываются: скрипт вызывает `sync-ready`, чтобы разблокировать задачи по закрытым на GitHub зависимостям.
 
 Правило `sync-ready`: из **Backlog** (или из незаполненного статуса — см. `sync_project_phases_from_tasks.mjs`) в **Ready** переводятся задачи, у которых каждая зависимость считается выполненной: карточка зависимости на доске в **Done** **или** соответствующий GitHub issue **закрыт** (как у старых prerequisite вроде P1-161, если доска отстаёт). Задачи **без** `deps` в JSON также переводятся из Backlog в **Ready**. Для user-owned Project v2 нужен repository secret `PROJECT_TOKEN`: classic personal access token пользователя, который видит Project, со scopes `repo`, `project` и `read:org`. Не используй `GITHUB_TOKEN` или fine-grained token для этой автоматизации: они часто не имеют доступа к user-owned Project v2.
 

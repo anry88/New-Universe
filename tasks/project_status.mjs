@@ -361,19 +361,26 @@ function updateFromPr(flags) {
   const closingTitles = (pr.closingIssuesReferences || []).map((issue) => issue.title).join('\n');
   const linkedIssueTitles = issueTitles(referencedIssueNumbers(pr.body)).join('\n');
   const ids = extractTaskIds(pr.title, pr.headRefName, closingTitles, linkedIssueTitles).filter((id) => knownTaskIds.has(id));
-  
+
+  const merged = action === 'closed' && (flags.merged === 'true' || !!pr.mergedAt);
+
+  if (action === 'closed' && !merged) {
+    console.log(`PR #${number}: closed without merge; project status unchanged`);
+    return;
+  }
+
   if (ids.length === 0) {
     console.log(`PR #${number}: no task ids found`);
+    if (merged) {
+      console.log(`PR #${number}: sync-ready after merge (PR had no linked task ids in title/body/branch)`);
+      syncReady();
+    }
     return;
   }
 
   let status;
   let verification;
-  if (action === 'closed') {
-    if (flags.merged !== 'true' && !pr.mergedAt) {
-      console.log(`PR #${number}: closed without merge; project status unchanged`);
-      return;
-    }
+  if (merged) {
     status = 'Done';
     verification = 'Accepted';
   } else if (action === 'converted_to_draft') {
