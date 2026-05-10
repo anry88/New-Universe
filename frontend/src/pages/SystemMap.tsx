@@ -188,7 +188,7 @@ export function SystemMapPage() {
         </div>
       </div>
 
-      <CosmicBottomNav active="map" />
+      <CosmicBottomNav />
     </div>
   );
 }

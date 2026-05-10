@@ -227,7 +227,7 @@ export function ResearchPage() {
         </div>
       </div>
 
-      <CosmicBottomNav active="tech" />
+      <CosmicBottomNav />
 
       {panel?.kind === 'tier' && (
         <TierDetailSheet

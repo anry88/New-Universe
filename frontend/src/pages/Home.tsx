@@ -38,7 +38,7 @@ export function HomePage({ onOpenTutorial }: HomePageProps) {
       <PlanetView />
       <div className="fixed-bottom-ui">
         <BuildQueue planetId={focalPlanetId || undefined} />
-        <CosmicBottomNav active="planets" />
+        <CosmicBottomNav />
       </div>
     </div>
   );
