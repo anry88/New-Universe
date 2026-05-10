@@ -63,7 +63,23 @@ export async function meRoutes(app: FastifyInstance) {
         if (homeSystem?.planets?.length) {
           homeSystem = {
             ...homeSystem,
-            planets: homeSystem.planets.filter((p) => discoveredPlanetIdSet.has(p.id)),
+            planets: homeSystem.planets.map((p) => {
+              const isDiscovered = discoveredPlanetIdSet.has(p.id);
+              if (isDiscovered) {
+                return { ...p, isDiscovered: true };
+              }
+              // Obfuscate undiscovered planet
+              return {
+                id: p.id,
+                systemId: p.systemId,
+                biome: 'unknown',
+                size: 0,
+                slotCount: 0,
+                name: 'Unknown Planet',
+                isDiscovered: false,
+                buildings: [],
+              };
+            }),
           };
         }
 
@@ -125,9 +141,13 @@ export async function meRoutes(app: FastifyInstance) {
 
         const enrichedPlanets = await Promise.all(
           allPlanets.map(async (planet: any) => {
+            if (planet.isDiscovered === false) {
+              return planet;
+            }
             const res = await computeCurrentResources(planet.id);
             return {
               ...planet,
+              isDiscovered: true,
               resources: res.map(r => ({
                 ...r,
                 amount: r.amount.toString(),

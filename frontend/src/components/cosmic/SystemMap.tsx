@@ -85,7 +85,12 @@ export function CosmicSystemRenderer({
       const angle = planetAngle(planet, index, seed);
       const x = Math.cos(angle) * orbitRadius;
       const y = Math.sin(angle) * orbitRadius;
-      const sizeFromBiome = planet.biome === 'gas_giant' ? 70 : 52;
+      const sizeFromBiome =
+        planet.isDiscovered === false
+          ? 60
+          : planet.biome === 'gas_giant'
+          ? 70
+          : 52;
       const spriteSize = Math.round(
         sizeFromBiome * (0.85 + Math.min(0.6, (planet.size ?? 10) / 20))
       );
@@ -295,6 +300,10 @@ export function CosmicSystemRenderer({
                 data-testid={`planet-btn-${l.planet.id}`}
                 onClick={(e) => {
                   e.stopPropagation();
+                  if (l.planet.isDiscovered === false) {
+                    setSelectedId(l.planet.id);
+                    return;
+                  }
                   if (selectedId === l.planet.id) {
                     onPlanetClick(l.planet);
                   } else {
@@ -312,9 +321,12 @@ export function CosmicSystemRenderer({
                   padding: 0,
                   cursor: 'pointer',
                   pointerEvents: 'auto',
-                  filter: isSelected
-                    ? `drop-shadow(0 0 10px ${meta.accent})`
-                    : 'drop-shadow(0 6px 14px rgba(0,0,0,0.5))',
+                  filter:
+                    l.planet.isDiscovered === false
+                      ? 'none'
+                      : isSelected
+                      ? `drop-shadow(0 0 10px ${meta.accent})`
+                      : 'drop-shadow(0 6px 14px rgba(0,0,0,0.5))',
                 }}
               >
                 <PlanetSvg biome={biome} size={l.spriteSize} uid={`map-${l.planet.id}`} />
@@ -333,7 +345,7 @@ export function CosmicSystemRenderer({
                     textShadow: '0 1px 2px rgba(0,0,0,0.8)',
                   }}
                 >
-                  {(l.planet.name || '?').toUpperCase()}
+                  {l.planet.isDiscovered === false ? '???' : (l.planet.name || '?').toUpperCase()}
                 </div>
               </button>
             );
@@ -576,6 +588,7 @@ export function CosmicSystemRenderer({
           </div>
           <button
             type="button"
+            disabled={selected.planet.isDiscovered === false}
             onClick={() => {
               if (ownedPlanetIds.has(selected.planet.id)) {
                 onPlanetClick(selected.planet);
@@ -585,9 +598,18 @@ export function CosmicSystemRenderer({
             }}
             className="cosmic-cta"
             data-testid="colonize-button"
-            style={{ width: '100%', marginTop: 10, padding: '10px 14px' }}
+            style={{
+              width: '100%',
+              marginTop: 10,
+              padding: '10px 14px',
+              opacity: selected.planet.isDiscovered === false ? 0.5 : 1,
+            }}
           >
-            {ownedPlanetIds.has(selected.planet.id) ? 'Open planet' : 'Colonize'}
+            {selected.planet.isDiscovered === false
+              ? 'Discovery Required'
+              : ownedPlanetIds.has(selected.planet.id)
+              ? 'Open planet'
+              : 'Colonize'}
           </button>
         </div>
       )}

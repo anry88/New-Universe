@@ -24,6 +24,7 @@ export interface Planet {
   size: number;
   slotCount: number;
   name: string;
+  isDiscovered?: boolean;
   resources?: PlanetResource[];
   buildings?: Building[];
 }
