@@ -141,13 +141,15 @@ describe('foundColony', () => {
     });
     expect(ship).toBeUndefined();
 
-    // Verify initial building (Command Center L1)
+    // Verify initial building (Command Center L1 in queue)
     const commandCenter = await db.query.buildings.findFirst({
       where: and(eq(buildings.planetId, targetPlanetId), eq(buildings.typeId, 'command_center'))
     });
     expect(commandCenter).toBeDefined();
     expect(commandCenter!.level).toBe(1);
     expect(commandCenter!.slotIndex).toBe(0);
+    expect(commandCenter!.queueAction).toBe('build');
+    expect(commandCenter!.queueCompletesAt).toBeInstanceOf(Date);
   });
 
   it('rejects colonization if already colonized', async () => {

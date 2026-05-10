@@ -1,8 +1,8 @@
 import { db } from '../../db/index.js';
 import { colonies } from '../../db/schema/colonies.js';
 import { ships, shipTypes } from '../../db/schema/ships.js';
-import { buildings } from '../../db/schema/buildings.js';
-import { eq, and, count } from 'drizzle-orm';
+import { buildings, buildingTypes } from '../../db/schema/buildings.js';
+import { eq, and } from 'drizzle-orm';
 import { colonyService } from './colonies.js';
 import { bootstrapColony } from './bootstrap.js';
 import { COLONIZATION_RULES } from '../../config/colonization-rules.js';
@@ -104,12 +104,20 @@ export async function foundColony(userId: string, shipId: string, planetId: stri
       })
       .returning();
 
-    // 5. Establish initial infrastructure (Command Center L1)
+    // 5. Establish initial infrastructure (Command Center L1 in build queue)
+    const typeInfo = await tx.query.buildingTypes.findFirst({
+      where: eq(buildingTypes.id, 'command_center'),
+    });
+    const buildTimeSec = typeInfo?.baseTimeSec || 600;
+    const completesAt = new Date(Date.now() + buildTimeSec * 1000);
+
     await tx.insert(buildings).values({
       planetId: planetId,
       typeId: 'command_center',
-      level: 1,
+      level: 1, // Will be finalized by worker
       slotIndex: 0, // Always starts at first slot
+      queueAction: 'build',
+      queueCompletesAt: completesAt,
     });
 
     // 6. Bootstrap economy (resources, storage, regen)

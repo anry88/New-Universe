@@ -274,8 +274,8 @@ describe('Buildings Service - POST /buildings/build', () => {
     });
 
     // Manually insert a level 2 building
-    // Total spent for level 2: baseCost * (2^2 - 1) = 3 * baseCost
-    // Refund: floor(0.5 * 3 * baseCost) = floor(1.5 * baseCost)
+    // Total spent for level 2: baseCost * (1 + 1.6) = 2.6 * baseCost
+    // Refund: floor(0.5 * 2.6 * baseCost) = floor(1.3 * baseCost)
     const [b] = await db.insert(buildings).values({
       planetId: userPlanet!.id,
       typeId: 'mine',

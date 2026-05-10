@@ -5,10 +5,10 @@ Construction queues, demolitions, and building-type reads on player planets.
 ## Files
 
 - **`routes.ts`** — Registers JWT-protected `GET /types`, `POST /build`, `POST /upgrade`, `POST /demolish`, `POST /sync/:planetId`, `GET /queue` (includes per-row **`rushCost`** snapshot plus **`rushPricing`** meta), and **`POST /rush`** (`{ buildingId }`) under `/buildings`.
-- **`service.ts`** — `BuildingService` owns catalog reads plus transactional **`build`**, **`upgrade`**, **`demolish`**, **`rushQueuedBuilding`** (spend `users.diamonds`, then **`finalizeBuildingConstruction`**), **`syncPlanetBuildings`**, **`finalizeBuildingConstruction`**, and regen aggregation for producers (`upsertProductionRegen`).
+- **`service.ts`** — `BuildingService` owns catalog reads plus transactional **`build`**, **`upgrade`**, **`demolish`**, **`rushQueuedBuilding`** (spend `users.diamonds`, then **`finalizeBuildingConstruction`**), **`syncPlanetBuildings`**, **`finalizeBuildingConstruction`**, and regen aggregation for producers (`upsertProductionRegen`). **`build`** passes two building snapshots into eligibility: full rows for per-planet caps, and a dependency snapshot that omits rows still in the initial construction queue (`queueAction === 'build'`) so a colony founding CC under construction does not unlock dependents early. **`upgrade`** scales the next level’s resource cost by **1.6^currentLevel** (per resource, floored) and upgrade duration by **1.8^currentLevel × baseTimeSec** before research speed modifiers; demolition refunds sum historical upgrade spends under the same cost curve (50% floor).
 - **`building-operation-error.ts`** — `BuildingOperationError` carries deterministic `{ code, details }` pairs mirrored by `@shared/types/buildings` (`BuildBlockedReason`).
 - **`count-user-buildings.ts`** — `countUserBuildingsOfType` is the single account-wide counter used when enforcing **`building_types.max_global`** at construction time.
-- **`upgrade.ts`** — helpers/time maths separated from `service.ts` for clearer upgrades (still exercised via routes/service tests).
+- **`upgrade.ts`** — legacy/alternate upgrade entry point kept aligned with `BuildingService.upgrade` multipliers (**1.6^level**, **1.8^level**); HTTP routes call `BuildingService` directly.
 - **`buildings.test.ts`**, **`service.test.ts`**, **`upgrade.test.ts`**, **`rush.test.ts`**, **`eligibility.test.ts`** — Vitest coverage over transactional flows plus pure eligibility ordering rules shared with the frontend.
 
 ## Adding limits / prerequisites

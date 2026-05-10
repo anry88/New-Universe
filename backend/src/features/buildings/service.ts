@@ -134,6 +134,10 @@ export class BuildingService {
 
     const planetBuilt =
       planet.buildings?.map((b: any) => ({ typeId: b.typeId as string, level: b.level as number })) ?? [];
+    const dependencyBuildings =
+      planet.buildings
+        ?.filter((b: any) => b.queueAction !== 'build')
+        .map((b: any) => ({ typeId: b.typeId as string, level: b.level as number })) ?? [];
 
     const blocked = resolveBuildBlockedReason({
       typeId,
@@ -141,6 +145,7 @@ export class BuildingService {
       maxPerPlanet: typeInfo.maxPerPlanet ?? null,
       maxGlobal: typeInfo.maxGlobal ?? null,
       planetBuildings: planetBuilt,
+      dependencyBuildings,
       globalCountForType,
       researchLevels,
       researchGate,
@@ -257,11 +262,18 @@ export class BuildingService {
       throw new Error('Build queue is full (max 1 building at a time)');
     }
 
-    const multiplier = Math.pow(2, building.level);
+    /**
+     * Upgrade cost and time scaling:
+     * - Cost multiplier: 1.6 ^ current_level
+     * - Time multiplier: 1.8 ^ current_level
+     * This provides a steeper curve than the initial 1.5, reaching 24h+ build times around level 11.
+     */
+    const costMultiplier = Math.pow(1.6, building.level);
+    const timeMultiplier = Math.pow(1.8, building.level);
     const costs = typeInfo.baseCost as Record<string, number>;
     const resourceCosts = Object.entries(costs).map(([resourceId, amount]) => ({
       resourceId,
-      amount: Math.floor(amount * multiplier),
+      amount: Math.floor(amount * costMultiplier),
     }));
 
     const researchEffects = await getResearchEffectsForUser(userId, db);
@@ -274,7 +286,7 @@ export class BuildingService {
         }
       }
 
-      const baseUpgradeTime = Math.floor(typeInfo.baseTimeSec * multiplier);
+      const baseUpgradeTime = Math.floor(typeInfo.baseTimeSec * timeMultiplier);
       const buildTime = applyBuildTimeSeconds(baseUpgradeTime, researchEffects);
       const completesAt = new Date(Date.now() + buildTime * 1000);
 
@@ -495,13 +507,15 @@ export class BuildingService {
      * 
      * Refund is 50% of total spent. Rounding is floor (in favor of bank).
      */
-    const multiplier = Math.pow(2, building.level) - 1;
     const baseCosts = typeInfo.baseCost as Record<string, number>;
     const refundChanges: { resourceId: string; amount: number }[] = [];
     const refundMap: Record<string, number> = {};
 
     for (const [resourceId, amount] of Object.entries(baseCosts)) {
-      const totalSpent = amount * multiplier;
+      let totalSpent = 0;
+      for (let l = 0; l < building.level; l++) {
+        totalSpent += Math.floor(amount * Math.pow(1.6, l));
+      }
       const refundAmount = Math.floor(totalSpent * 0.5);
       if (refundAmount > 0) {
         refundChanges.push({ resourceId, amount: refundAmount });

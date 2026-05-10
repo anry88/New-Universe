@@ -62,4 +62,19 @@ describe('resolveBuildBlockedReason', () => {
     });
     expect(reason?.code).toBe('building_blocked_research');
   });
+
+  it('does not treat a command center still under construction as a dependency', () => {
+    const reason = resolveBuildBlockedReason({
+      typeId: 'mine',
+      deps: [{ typeId: 'command_center', level: 1 }],
+      maxPerPlanet: null,
+      maxGlobal: null,
+      planetBuildings: [{ typeId: 'command_center', level: 1 }],
+      dependencyBuildings: [],
+      globalCountForType: 0,
+      researchLevels: new Map(),
+      researchGate: emptyGate,
+    });
+    expect(reason?.code).toBe('building_blocked_dependency');
+  });
 });
