@@ -91,6 +91,7 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
             const seconds = type.baseTimeSec % 60;
             const blocked = blockedReasonFor?.(type.id) ?? null;
             const locked = Boolean(blocked);
+            const output = type.baseOutput;
             return (
               <button
                 key={type.id}
@@ -115,6 +116,34 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
                   <div className="bopt-row">
                     <span className="bopt-name">{type.name.en}</span>
                     <span className="bopt-locked">{type.category.toUpperCase()}</span>
+                  </div>
+                  <div className="bopt-desc">{type.description.en}</div>
+                  <div className="bopt-stats">
+                    {output.resourceId && output.baseRate && (
+                      <span className="bstat">
+                        Yield: +{output.baseRate} {getResourceSymbol(output.resourceId)}/h
+                      </span>
+                    )}
+                    {output.cap && (
+                      <span className="bstat">
+                        Capacity: +{output.cap}
+                      </span>
+                    )}
+                    {output.energy && (
+                      <span className="bstat energy">
+                        Energy: +{output.energy}
+                      </span>
+                    )}
+                    {type.energyConsumption > 0 && (
+                      <span className="bstat neg">
+                        Usage: -{type.energyConsumption} E
+                      </span>
+                    )}
+                    {output.conversion && (
+                      <span className="bstat">
+                        {getResourceSymbol(output.conversion.from)} → {getResourceSymbol(output.conversion.to)} ({output.conversion.rate}/h)
+                      </span>
+                    )}
                   </div>
                   <div className="bopt-meta">
                     <span className="bopt-cost">

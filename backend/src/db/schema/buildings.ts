@@ -5,6 +5,7 @@ import { planets } from './world.js';
 export const buildingTypes = pgTable('building_types', {
   id: text('id').primaryKey(),
   name: jsonb('name').$type<{ ru: string; en: string }>().notNull(),
+  description: jsonb('description').$type<{ ru: string; en: string }>().notNull().default({ ru: '', en: '' }),
   category: text('category').notNull(),
   /** Max completed + in-queue instances per planet; null = unlimited. */
   maxPerPlanet: integer('max_per_planet'),

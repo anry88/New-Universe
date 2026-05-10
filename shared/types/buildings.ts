@@ -1,6 +1,19 @@
+export interface BuildingOutput {
+  resourceId?: string;
+  baseRate?: number;
+  cap?: number;
+  energy?: number;
+  conversion?: {
+    from: string;
+    to: string;
+    rate: number;
+  };
+}
+
 export interface BuildingType {
   id: string;
   name: { ru: string; en: string };
+  description: { ru: string; en: string };
   category: string;
   /** From DB; null/undefined = unlimited per planet. */
   maxPerPlanet?: number | null;
@@ -10,7 +23,7 @@ export interface BuildingType {
   deps: { typeId: string; level: number }[];
   baseCost: Record<string, number>;
   baseTimeSec: number;
-  baseOutput: Record<string, unknown>;
+  baseOutput: BuildingOutput;
   energyConsumption: number;
 }
 

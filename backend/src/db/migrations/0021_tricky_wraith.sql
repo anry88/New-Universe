@@ -1,0 +1,1 @@
+ALTER TABLE "building_types" ADD COLUMN "description" jsonb DEFAULT '{"ru":"","en":""}'::jsonb NOT NULL;
