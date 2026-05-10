@@ -147,6 +147,8 @@ GitHub Action `.github/workflows/project-status.yml` двигает связан
 
 Список состояний issues для зависимостей собирается одним вызовом `gh issue list --limit 10000` — флаг `--page` у `gh issue list` не поддерживается; прежний постраничный цикл ломал скрипт при более чем 100 issues в репозитории.
 
+После **merge PR** скрипт **всегда** вызывает `sync-ready` в `finally` (даже если в PR не нашли task id, карточки нет на Project или `updateTask` упал). Иначе зависимые задачи никогда не уходили из Backlog в Ready.
+
 Правило `sync-ready`: из **Backlog** (или из незаполненного статуса — см. `sync_project_phases_from_tasks.mjs`) в **Ready** переводятся задачи, у которых каждая зависимость считается выполненной: карточка зависимости на доске в **Done** **или** соответствующий GitHub issue **закрыт** (как у старых prerequisite вроде P1-161, если доска отстаёт). Задачи **без** `deps` в JSON также переводятся из Backlog в **Ready**. Для user-owned Project v2 нужен repository secret `PROJECT_TOKEN`: classic personal access token пользователя, который видит Project, со scopes `repo`, `project` и `read:org`. Не используй `GITHUB_TOKEN` или fine-grained token для этой автоматизации: они часто не имеют доступа к user-owned Project v2.
 
 Если workflow падает на `gh project view 3 --owner anry88 --format json` с `unknown owner type`, `Could not resolve to a ProjectV2`, `Resource not accessible` или похожей ошибкой, почти всегда проблема в `PROJECT_TOKEN`: секрет отсутствует, токен создан не как classic PAT, не хватает scopes `repo`/`project`/`read:org`, токен истёк или создан пользователем без доступа к Project.

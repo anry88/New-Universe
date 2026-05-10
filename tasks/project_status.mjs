@@ -210,6 +210,18 @@ function updateTask(taskId, flags) {
   console.log(`${taskId}: ${status || item.status}${verification ? ` / ${verification}` : ''}`);
 }
 
+/** Does not throw — missing Project rows must not block sync-ready after merge/close. */
+function updateTaskSafe(taskId, flags) {
+  try {
+    updateTask(taskId, flags);
+    return true;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`updateTask skipped for ${taskId}: ${msg}`);
+    return false;
+  }
+}
+
 function startTask(taskId, flags) {
   const branch = flags.branch || run('git', ['rev-parse', '--abbrev-ref', 'HEAD']);
   updateTask(taskId, {
@@ -287,9 +299,14 @@ function syncReady() {
         : deps.every((depId) => dependencyResolved(depId, itemByTask, issueStateByTaskId));
     if (!depsSatisfied) continue;
 
-    setSingleSelect(project, item, 'Status', 'Ready');
-    promoted += 1;
-    console.log(`${task.id}: ${item.status ?? '∅'} -> Ready`);
+    try {
+      setSingleSelect(project, item, 'Status', 'Ready');
+      promoted += 1;
+      console.log(`${task.id}: ${item.status ?? '∅'} -> Ready`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`${task.id}: could not set Ready: ${msg}`);
+    }
   }
   console.log(`Promoted to Ready: ${promoted}`);
 }
@@ -310,12 +327,13 @@ function updateFromIssue(flags) {
   const ids = extractTaskIds(issue.title, issue.body).filter((id) => knownTaskIds.has(id));
 
   if (ids.length === 0) {
-    console.log(`Issue #${number}: no task ids found`);
+    console.log(`Issue #${number}: no task ids found (still running sync-ready for dependents)`);
+    syncReady();
     return;
   }
 
   for (const taskId of ids) {
-    updateTask(taskId, {
+    updateTaskSafe(taskId, {
       status: 'Done',
       verification: 'Accepted',
       comment: `Issue closed: ${issue.url}`,
@@ -367,40 +385,51 @@ function updateFromPr(flags) {
   const linkedIssueTitles = issueTitles(referencedIssueNumbers(pr.body)).join('\n');
   const ids = extractTaskIds(pr.title, pr.headRefName, closingTitles, linkedIssueTitles).filter((id) => knownTaskIds.has(id));
 
-  const merged = action === 'closed' && (flags.merged === 'true' || !!pr.mergedAt);
+  const mergedFlag =
+    typeof flags.merged === 'string'
+      ? flags.merged.toLowerCase() === 'true'
+      : flags.merged === true;
+  const merged = action === 'closed' && (mergedFlag || !!pr.mergedAt);
 
   if (action === 'closed' && !merged) {
     console.log(`PR #${number}: closed without merge; project status unchanged`);
     return;
   }
 
-  if (ids.length === 0) {
-    console.log(`PR #${number}: no task ids found`);
-    if (merged) {
-      console.log(`PR #${number}: sync-ready after merge (PR had no linked task ids in title/body/branch)`);
+  const runSyncReadyAfterMerge = merged;
+
+  try {
+    if (ids.length === 0) {
+      console.log(`PR #${number}: no task ids found`);
+    } else {
+      let status;
+      let verification;
+      if (merged) {
+        status = 'Done';
+        verification = 'Accepted';
+      } else if (action === 'converted_to_draft') {
+        status = 'In Progress';
+      } else {
+        status = pr.isDraft ? 'In Progress' : 'Review';
+      }
+
+      const comment =
+        status === 'Review'
+          ? `PR opened for review: ${pr.url}`
+          : status === 'Done'
+            ? `PR merged: ${pr.url}`
+            : undefined;
+
+      for (const taskId of ids) {
+        updateTaskSafe(taskId, { status, verification, comment });
+      }
+    }
+  } finally {
+    if (runSyncReadyAfterMerge) {
+      console.log(`PR #${number}: sync-ready after merge`);
       syncReady();
     }
-    return;
   }
-
-  let status;
-  let verification;
-  if (merged) {
-    status = 'Done';
-    verification = 'Accepted';
-  } else if (action === 'converted_to_draft') {
-    status = 'In Progress';
-  } else {
-    status = pr.isDraft ? 'In Progress' : 'Review';
-  }
-
-  const comment = status === 'Review' ? `PR opened for review: ${pr.url}` : status === 'Done' ? `PR merged: ${pr.url}` : undefined;
-
-  for (const taskId of ids) {
-    updateTask(taskId, { status, verification, comment });
-  }
-
-  if (status === 'Done') syncReady();
 }
 
 const [command, maybeTaskId, ...rest] = process.argv.slice(2);
