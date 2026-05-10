@@ -55,6 +55,8 @@ function formatEffectLines(effects: TechTreeEntry['effects']): string {
     .join(' · ');
 }
 
+const TIER_LEVELS = Array.from({ length: RESEARCH_MAX_LEVEL }, (_, i) => (i + 1) as 1 | 2 | 3 | 4 | 5);
+
 export function ResearchPage() {
   const { data: meData } = useMe();
   const startResearch = useStartResearch();
@@ -63,9 +65,11 @@ export function ResearchPage() {
   const [panel, setPanel] = useState<DetailPanel>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const homePlanetId = meData?.homeSystem?.planets?.[0]?.id;
+  const homePlanet = meData?.homeSystem?.planets?.[0];
+  const homePlanetId = homePlanet?.id;
+  const homePlanetResources = homePlanet?.resources;
 
-  const labBuilding = meData?.homeSystem?.planets?.[0]?.buildings?.find((b) => {
+  const labBuilding = homePlanet?.buildings?.find((b) => {
     const def = resolveBuildingType(b.typeId);
     return def === resolveBuildingType('lab');
   });
@@ -102,8 +106,6 @@ export function ResearchPage() {
       setActionError(msg);
     }
   };
-
-  const levels = [1, 2, 3] as const;
 
   return (
     <div className="cosmic-screen" style={{ '--accent': '#5BD7FF' } as React.CSSProperties}>
@@ -143,7 +145,7 @@ export function ResearchPage() {
               (t) => t.branch === branch.id && t.level === completedLevel + 1,
             );
 
-            const openPanel = () => {
+            const openNextPanel = () => {
               if (completedLevel >= RESEARCH_MAX_LEVEL) {
                 setPanel({ kind: 'complete', branchId: branch.id });
                 return;
@@ -152,14 +154,19 @@ export function ResearchPage() {
             };
 
             return (
-              <button
-                key={branch.id}
-                type="button"
-                className="tech-row"
-                onClick={openPanel}
-                style={{ '--accent': accent } as React.CSSProperties}
-              >
-                <div className="tech-row-head">
+              <div key={branch.id} className="tech-row" style={{ '--accent': accent } as React.CSSProperties}>
+                <div
+                  className="tech-row-head tech-row-head--action"
+                  role="button"
+                  tabIndex={0}
+                  onClick={openNextPanel}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      openNextPanel();
+                    }
+                  }}
+                >
                   <div className="tech-name" style={{ color: 'var(--text)' }}>
                     <span className="tech-dot" style={{ background: accent, color: accent }} />
                     {branch.name.en}
@@ -171,20 +178,31 @@ export function ResearchPage() {
                 </div>
                 <div className="tech-branch-desc">{branch.description.en}</div>
                 <div className="tech-nodes">
-                  {levels.map((level) => {
+                  {TIER_LEVELS.map((level) => {
                     const tierDef = TECH_TREE_DATA.find((t) => t.branch === branch.id && t.level === level);
                     const vis = tierVisual(level, completedLevel, progress?.completesAt ?? null);
                     const dur = tierDef?.timeSec;
                     return (
-                      <TechTreeNode
+                      <button
                         key={level}
-                        level={level}
-                        accent={accent}
-                        visual={vis}
-                        tierDefinition={tierDef}
-                        completesAt={progress?.completesAt}
-                        durationSec={vis === 'active' && tierDef ? dur : undefined}
-                      />
+                        type="button"
+                        className="tech-node-hitbox"
+                        aria-label={`Tier ${level} details`}
+                        disabled={!tierDef}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (tierDef) setPanel({ kind: 'tier', def: tierDef });
+                        }}
+                      >
+                        <TechTreeNode
+                          level={level}
+                          accent={accent}
+                          visual={vis}
+                          tierDefinition={tierDef}
+                          completesAt={progress?.completesAt}
+                          durationSec={vis === 'active' && tierDef ? dur : undefined}
+                        />
+                      </button>
                     );
                   })}
                 </div>
@@ -203,7 +221,7 @@ export function ResearchPage() {
                     Applied: {formatEffectLines(tierDefForCompleted(branch.id, completedLevel)!.effects)}
                   </div>
                 )}
-              </button>
+              </div>
             );
           })}
           <div style={{ height: 80 }} />
@@ -217,6 +235,7 @@ export function ResearchPage() {
           def={panel.def}
           labLevel={labLevel}
           research={meData?.research}
+          planetResources={homePlanetResources}
           startResearch={startResearch}
           error={actionError}
           onClose={() => setPanel(null)}
@@ -255,14 +274,24 @@ interface TierDetailSheetProps {
   def: TechTreeEntry;
   labLevel: number;
   research: import('@shared/types/user').User['research'];
+  planetResources: import('@shared/types/world').PlanetResource[] | undefined;
   startResearch: ReturnType<typeof useStartResearch>;
   error: string | null;
   onClose: () => void;
   onStart: () => void;
 }
 
-function TierDetailSheet({ def, labLevel, research, startResearch, error, onClose, onStart }: TierDetailSheetProps) {
-  const eligibility = evaluateResearchEligibility(def, labLevel, research);
+function TierDetailSheet({
+  def,
+  labLevel,
+  research,
+  planetResources,
+  startResearch,
+  error,
+  onClose,
+  onStart,
+}: TierDetailSheetProps) {
+  const eligibility = evaluateResearchEligibility(def, labLevel, research, planetResources);
 
   return (
     <div className="bd-backdrop" onClick={onClose}>
@@ -290,15 +319,20 @@ function TierDetailSheet({ def, labLevel, research, startResearch, error, onClos
 
           {!eligibility.ok && (
             <div className="tech-lock-block">
-              <div className="tech-effect-label">Requirements</div>
+              <div className="tech-effect-label">Blocked</div>
               {eligibility.labMessage && <p className="tech-lock-line">{eligibility.labMessage}</p>}
+              {eligibility.resourceMessage && (
+                <p className="tech-lock-line" data-testid="research-block-resources">
+                  Need resources: {eligibility.resourceMessage}
+                </p>
+              )}
               {eligibility.missingResearch.length > 0 && (
                 <RequirementList title="Research prerequisites" missing={eligibility.missingResearch} locale="en" />
               )}
             </div>
           )}
 
-          <div className="bopt" style={{ cursor: 'default' }}>
+          <div className={`bopt${!eligibility.ok ? ' locked' : ''}`} style={{ cursor: 'default' }}>
             <div className="bopt-icon">
               <svg width="32" height="32" viewBox="0 0 64 64" fill="none" stroke="var(--accent)" strokeWidth="1.6">
                 <path d="M26 10 L38 10" />

@@ -8,9 +8,9 @@ Static tuning constants for backend subsystems.
 - **`colonization-rules.test.ts`** — validates cost keys, matches the same cap formula as `checkColonizationGates`, and gates epic **P2-EPIC-COLONIZE** (≥2 off-world colonies at logistics level 1, ≥3 at level 2).
 - **`market-prices.ts`** — deterministic NPC pricing constants: per-tier baselines, resource baseline overrides, spread ranges, stock-pressure clamps, and pricing model version.
 - **`market-prices.test.ts`** — asserts baseline keys stay aligned with seeded resource tiers and gates epic **P2-EPIC-MARKET-NPC** (no instant NPC arbitrage loop at neutral stock; spreads defined for tiers 1–4).
-- **`research-catalog.ts`** — Phase 2 research catalog source of truth (levels 1-3 per branch). Exports localized names/descriptions, conservative costs/time, typed effect modifiers, and a flattened `RESEARCH_TECH_TREE` consumed by research routes/effects.
+- **`research-catalog.ts`** — Phase 2 research catalog: thin re-export of **`shared/config/researchCatalog.ts`** (seven branches × **five** tiers). Localized names/descriptions, costs/time scaling, typed effect modifiers, flattened `RESEARCH_TECH_TREE` consumed by research routes/effects/seeding.
 - **`research-unlocks.ts`** — maps gated actions (specific buildings, hulls, colonization, cargo transfers, NPC market orders, jump drive) to minimum completed `{ branch, level }` pairs; enforced by `features/research/gates.ts`.
-- **`research-catalog.test.ts`** — validates catalog structure guarantees: every branch contains levels `1..3`, localized copy is present, effect multipliers are positive where effects exist, and `getResearchDef` resolves levels `1–3` per branch (epic **P2-EPIC-RESEARCH** gate).
+- **`research-catalog.test.ts`** — validates catalog structure guarantees: **35** nodes (levels `1..5` per branch), monotonic cost/time scaling vs documented minimum ratios (integer slack), localized copy, effects sanity, and `getResearchDef(..., 6)` undefined (epic **P2-EPIC-RESEARCH** gate). Run via `npm run research:catalog-check`.
 
 ## Conventions
 

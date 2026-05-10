@@ -71,7 +71,7 @@ describe('Research Routes', () => {
     await db.insert(buildings).values({
       planetId,
       typeId: 'lab',
-      slotIndex: 0,
+      slotIndex: 1,
       level: 1,
     });
 

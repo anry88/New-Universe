@@ -2,7 +2,7 @@
  * Numeric mirrors of backend seeds / config. Update when changing:
  * - backend/src/db/seed/building-types.ts
  * - backend/src/db/seed/ship-types.ts
- * - backend/src/config/research-catalog.ts
+ * - shared/config/researchCatalog.ts (canonical tree; re-exported as backend/src/config/research-catalog.ts)
  * - backend/src/config/colonization-rules.ts
  * - backend/src/config/market-prices.ts
  * - backend/src/features/world/biomes.ts (`HOME_SYSTEM_BASE_BIOMES`) / home-system-generator.ts (planet counts, capital slots)

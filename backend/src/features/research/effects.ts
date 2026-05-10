@@ -2,6 +2,7 @@ import { db as defaultDb } from '../../db/index.js';
 import { researchProgress } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 import type { ResearchProgress } from '@shared/types/research.js';
+import type { ResearchLevelCatalogEntry } from '@shared/config/researchCatalog.js';
 import { RESEARCH_TECH_TREE } from '../../config/research-catalog.js';
 
 type EffectTarget =
@@ -33,8 +34,11 @@ const DEFAULT_EFFECTS: ResearchEffects = {
   buildTimeMultiplier: 1,
 };
 
-const TECH_EFFECTS_LOOKUP = new Map(
-  RESEARCH_TECH_TREE.map((entry) => [`${entry.branch}:${entry.level}`, entry.effects] as const)
+type TierEffects = ResearchLevelCatalogEntry['effects'];
+type TierEffectRow = TierEffects[number];
+
+const TECH_EFFECTS_LOOKUP = new Map<string, TierEffects>(
+  RESEARCH_TECH_TREE.map((entry: ResearchLevelCatalogEntry) => [`${entry.branch}:${entry.level}`, entry.effects]),
 );
 
 function clampMultiplier(value: number): number {
@@ -52,7 +56,7 @@ export function buildResearchEffectModifiers(
     const effects = TECH_EFFECTS_LOOKUP.get(`${progress.branch}:${progress.level}`);
     if (!effects) continue;
     modifiers.push(
-      ...effects.map((effect) => ({
+      ...effects.map((effect: TierEffectRow) => ({
         source: `${progress.branch}@${progress.level}`,
         target: effect.target,
         multiplier: effect.multiplier,
