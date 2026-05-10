@@ -222,9 +222,29 @@ export function CosmicSystemRenderer({
         ) {
           const arm = expeditionPanArmRef.current;
           const moved = Math.hypot(e.clientX - arm.startX, e.clientY - arm.startY);
+          
+          // Real-time aiming update
+          const wPerLy = expeditionPick.worldUnitsPerLy ?? DEFAULT_WORLD_UNITS_PER_LY;
+          const { wx, wy } = clientToWorldCoords(containerRef.current!, transform, e.clientX, e.clientY);
+          const launch = layouts.find((l) => l.planet.id === expeditionPick!.launchPlanetId);
+          const { dx, dy } = worldRayToSectorDelta(wx, wy, launch?.x ?? 0, launch?.y ?? 0, wPerLy);
+          expeditionPick.onPickSectorDelta(dx, dy);
+
           if (moved < EXPEDITION_TAP_THRESHOLD_PX) {
             return;
           }
+          
+          // If we moved significantly, check if we should switch to pan or stay in aim
+          // If the drag started near the launch planet, we treat it as 'drag to aim' and stay.
+          // Otherwise we switch to panning.
+          const { wx: swx, wy: swy } = clientToWorldCoords(containerRef.current!, transform, arm.startX, arm.startY);
+          const distFromLaunch = Math.hypot(swx - (launch?.x ?? 0), swy - (launch?.y ?? 0));
+          
+          if (distFromLaunch < 100) { // started near launch
+             // Stay in 'aim' mode, don't set exceeded = true for panning
+             return;
+          }
+
           expeditionPanArmRef.current.exceeded = true;
           dragState.current.startX = e.clientX;
           dragState.current.startY = e.clientY;
