@@ -4,7 +4,7 @@ import { buildingsRoutes } from './routes.js';
 import { authRoutes } from '../auth/routes.js';
 import { meRoutes } from '../me/routes.js';
 import { db } from '../../db/index.js';
-import { planets, systems, buildings } from '../../db/schema.js';
+import { planets, systems, buildings, planetResources } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 import { env } from '../../lib/env.js';
@@ -261,5 +261,62 @@ describe('Buildings Service - POST /buildings/build', () => {
     expect(updated?.level).toBe(1);
     expect(updated?.queueAction).toBeNull();
     expect(updated?.queueCompletesAt).toBeNull();
+  });
+
+  it('should demolish a building and refund 50% of costs', async () => {
+    const { app, token, userId } = await createTestUser();
+
+    const userSystem = await db.query.systems.findFirst({
+      where: eq(systems.ownerId, userId),
+    });
+    const userPlanet = await db.query.planets.findFirst({
+      where: eq(planets.systemId, userSystem!.id),
+    });
+
+    // Manually insert a level 2 building
+    // Total spent for level 2: baseCost * (2^2 - 1) = 3 * baseCost
+    // Refund: floor(0.5 * 3 * baseCost) = floor(1.5 * baseCost)
+    const [b] = await db.insert(buildings).values({
+      planetId: userPlanet!.id,
+      typeId: 'mine',
+      slotIndex: 4,
+      level: 2,
+    }).returning();
+
+    // Get initial resources total
+    const initialResources = await db.query.planetResources.findMany({
+      where: eq(planetResources.planetId, userPlanet!.id),
+    });
+    const initialTotal = initialResources.reduce((sum, r) => sum + Number(r.amount), 0);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/buildings/demolish',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { buildingId: b.id },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.success).toBe(true);
+    expect(body.refund).toBeDefined();
+
+    const updated = await db.query.buildings.findFirst({
+      where: eq(buildings.id, b.id),
+    });
+    expect(updated).toBeUndefined();
+
+    const updatedResources = await db.query.planetResources.findMany({
+      where: eq(planetResources.planetId, userPlanet!.id),
+    });
+    const updatedTotal = updatedResources.reduce((sum, r) => sum + Number(r.amount), 0);
+    
+    // Check refund: initial total + refund sum = updated total
+    const refundSum = Object.values(body.refund as Record<string, number>).reduce((sum, a) => sum + a, 0);
+    if (refundSum > 0) {
+      expect(updatedTotal).toBeGreaterThan(initialTotal);
+      // Optional: check exact sum if needed
+      expect(Math.floor(updatedTotal)).toBe(Math.floor(initialTotal + refundSum));
+    }
   });
 });

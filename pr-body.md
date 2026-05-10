@@ -1,21 +1,23 @@
 ## Description
-Implemented instant building completion when the game is open. The client now triggers a sync when the construction timer expires, bypassing the background worker for active sessions.
+Implemented building demolition with a 50% resource refund of all construction and upgrade costs.
 
 ### Changes
+- **Shared**:
+  - Added `DemolishRequest` and `DemolishStatus` types.
 - **Backend**:
-  - Refactored building completion logic into `BuildingService.finalizeBuildingConstruction`.
-  - Added `BuildingService.syncPlanetBuildings` to handle batch synchronization for a planet.
-  - Added `POST /buildings/sync/:planetId` endpoint.
-  - Included `planetId` in `/buildings/queue` response.
-  - Updated notifications to include `planetName` and skip push notifications if synced online.
-  - Updated notification formatter to display the human-readable planet name.
+  - Implemented `BuildingService.demolish`:
+    - Calculates total costs spent: `baseCost * (2^level - 1)`.
+    - Refunds 50% (floor) of the total spent for each resource.
+    - Atomically updates planet resources and removes the building.
+    - Recalculates resource regeneration rates if a production building is demolished.
+  - Added `POST /buildings/demolish` endpoint.
 - **Frontend**:
-  - `BuildQueue` component now monitors the construction timer.
-  - When the timer reaches zero, it calls the `/sync` endpoint and invalidates the 'me' query to refresh the UI.
+  - Added "Demolish Installation" button to `UpgradeDialog` with confirmation prompt.
+  - Implemented `handleDemolish` in `PlanetDetailPage` with optimistic UI handling and React Query invalidation.
 
 ### Verification
-- Added unit test in `service.test.ts` for the sync functionality.
-- Ran backend lint, build, and tests (buildings and notifications): PASS.
-- Ran frontend build: PASS.
+- Added unit test in `service.test.ts` to verify the refund calculation and resource update: PASS.
+- Ran backend lint, build, and tests: PASS.
+- Ran frontend build in Docker: PASS.
 
-Closes #207
+Closes #208

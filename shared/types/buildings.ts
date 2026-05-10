@@ -28,3 +28,12 @@ export interface ConstructionStatus {
     completesAt: string;
   };
 }
+export interface DemolishRequest {
+  buildingId: string;
+}
+
+export interface DemolishStatus {
+  success: boolean;
+  message?: string;
+  refund?: Record<string, number>;
+}

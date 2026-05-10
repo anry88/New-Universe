@@ -10,6 +10,7 @@ interface UpgradeDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onAction: (buildingId: string) => void;
+  onDemolish: (buildingId: string) => void;
   isProcessing: boolean;
   /** Biome accent override; defaults to Atlas cyan. */
   accent?: string;
@@ -27,6 +28,7 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
   isOpen,
   onClose,
   onAction,
+  onDemolish,
   isProcessing,
   accent = '#5BD7FF',
 }) => {
@@ -100,6 +102,24 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
             style={{ width: '100%', padding: '14px', marginTop: '8px' }}
           >
             {isProcessing ? 'Processing…' : `Upgrade to L${building.level + 1}`}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onDemolish(building.id)}
+            disabled={isProcessing}
+            className="cosmic-cta"
+            style={{
+              width: '100%',
+              padding: '10px',
+              marginTop: '12px',
+              background: 'rgba(255, 80, 80, 0.1)',
+              border: '1px solid rgba(255, 80, 80, 0.3)',
+              color: '#FF8080',
+              fontSize: '0.8rem',
+            }}
+          >
+            {isProcessing ? 'Processing…' : 'Demolish Installation'}
           </button>
         </div>
       </div>
