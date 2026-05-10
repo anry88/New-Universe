@@ -16,7 +16,7 @@ import {
   resolveBiome,
 } from '../components/cosmic/atoms';
 import type { Building, Planet } from '@shared/types/world';
-import type { BuildingType, ConstructionStatus } from '@shared/types/buildings';
+import type { BuildingType, ConstructionStatus, DemolishStatus } from '@shared/types/buildings';
 import { ChevronLeft } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -174,6 +174,30 @@ export function PlanetDetailPage() {
     }
   };
 
+  const handleDemolish = async (buildingId: string) => {
+    if (!window.confirm('Are you sure you want to demolish this building? You will only get 50% of the resources back.')) {
+      return;
+    }
+
+    setIsProcessing(true);
+    const previousMeData = queryClient.getQueryData(['me']);
+
+    try {
+      await apiFetch<DemolishStatus>('/buildings/demolish', {
+        method: 'POST',
+        body: JSON.stringify({ buildingId }),
+      });
+      setSelectedBuilding(null);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to demolish building';
+      alert(message);
+      queryClient.setQueryData(['me'], previousMeData);
+    } finally {
+      setIsProcessing(false);
+      queryClient.invalidateQueries({ queryKey: ['me'] });
+    }
+  };
+
   const selectedBuildingType = selectedBuilding
     ? buildingTypes.find((t) => t.id === selectedBuilding.typeId)
     : undefined;
@@ -279,6 +303,7 @@ export function PlanetDetailPage() {
         building={selectedBuilding || undefined}
         typeInfo={selectedBuildingType}
         onAction={handleUpgrade}
+        onDemolish={handleDemolish}
         isProcessing={isProcessing}
         accent={accent}
       />

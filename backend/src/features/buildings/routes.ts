@@ -2,7 +2,8 @@ import { FastifyInstance } from 'fastify';
 import jwt from 'jsonwebtoken';
 import { env } from '../../lib/env.js';
 import { buildingService } from './service.js';
-import { BuildRequest, UpgradeRequest } from '@shared/types/buildings.js';
+import { BuildRequest, UpgradeRequest, DemolishRequest } from '@shared/types/buildings.js';
+
 import { db } from '../../db/index.js';
 import { buildings, planets, systems } from '../../db/schema.js';
 import { and, eq, isNotNull } from 'drizzle-orm';
@@ -55,6 +56,21 @@ export async function buildingsRoutes(app: FastifyInstance) {
 
     try {
       const result = await buildingService.upgrade(userId, buildingId);
+      return result;
+    } catch (err: any) {
+      return reply.status(400).send({
+        error: 'Bad Request',
+        message: err.message,
+      });
+    }
+  });
+
+  app.post('/demolish', async (request, reply) => {
+    const { buildingId } = request.body as DemolishRequest;
+    const userId = (request as any).userId;
+
+    try {
+      const result = await buildingService.demolish(userId, buildingId);
       return result;
     } catch (err: any) {
       return reply.status(400).send({

@@ -1,8 +1,8 @@
 import { db } from '../../db/index.js';
 import { buildings, buildingTypes, planets, planetResources, notifications, systems } from '../../db/schema.js';
 import { eq, and, sql, lte } from 'drizzle-orm';
-import { BuildingType, ConstructionStatus } from '@shared/types/buildings.js';
-import { spendResources } from '../resources/transactions.js';
+import { BuildingType, ConstructionStatus, DemolishStatus } from '@shared/types/buildings.js';
+import { spendResources, gainResources } from '../resources/transactions.js';
 import { applyBuildTimeSeconds, getResearchEffectsForUser } from '../research/effects.js';
 import { BUILDING_RESEARCH_GATES } from '../../config/research-unlocks.js';
 import { assertResearchRequirement, loadUserResearchLevels } from '../research/gates.js';
@@ -346,6 +346,100 @@ export class BuildingService {
         await this.finalizeBuildingConstruction(tx, building.id, { skipNotification: true });
       });
     }
+  }
+
+  async demolish(userId: string, buildingId: string): Promise<DemolishStatus> {
+    const building = await db.query.buildings.findFirst({
+      where: eq(buildings.id, buildingId),
+      with: {
+        planet: {
+          with: {
+            system: true
+          }
+        }
+      }
+    });
+
+    if (!building || (building.planet as any).system.ownerId !== userId) {
+      throw new Error('Building not found or not owned by user');
+    }
+
+    if (building.queueAction) {
+      throw new Error('Building is currently in queue');
+    }
+
+    const typeInfo = await db.query.buildingTypes.findFirst({
+      where: eq(buildingTypes.id, building.typeId),
+    });
+
+    if (!typeInfo) {
+      throw new Error('Building type not found');
+    }
+
+    /**
+     * Total cost spent on building of level L:
+     * baseCost + baseCost * 2^1 + baseCost * 2^2 + ... + baseCost * 2^(L-1)
+     * = baseCost * (1 + 2 + 4 + ... + 2^(L-1))
+     * = baseCost * (2^L - 1)
+     * 
+     * Refund is 50% of total spent. Rounding is floor (in favor of bank).
+     */
+    const multiplier = Math.pow(2, building.level) - 1;
+    const baseCosts = typeInfo.baseCost as Record<string, number>;
+    const refundChanges: { resourceId: string; amount: number }[] = [];
+    const refundMap: Record<string, number> = {};
+
+    for (const [resourceId, amount] of Object.entries(baseCosts)) {
+      const totalSpent = amount * multiplier;
+      const refundAmount = Math.floor(totalSpent * 0.5);
+      if (refundAmount > 0) {
+        refundChanges.push({ resourceId, amount: refundAmount });
+        refundMap[resourceId] = refundAmount;
+      }
+    }
+
+    await db.transaction(async (tx) => {
+      // 1. Give resources back
+      if (refundChanges.length > 0) {
+        const result = await gainResources(building.planetId, refundChanges, tx);
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to refund resources');
+        }
+      }
+
+      // 2. Remove building
+      await tx.delete(buildings).where(eq(buildings.id, buildingId));
+
+      // 3. Reset regen rate if it was a production building
+      if (typeInfo.baseOutput) {
+        const output = typeInfo.baseOutput as BuildingOutput;
+        if (output.resourceId) {
+          // Check if there are other buildings of the same type producing the same resource
+          const otherBuildings = await tx.query.buildings.findMany({
+            where: and(
+              eq(buildings.planetId, building.planetId),
+              eq(buildings.typeId, building.typeId)
+            )
+          });
+          
+          const totalLevel = otherBuildings.reduce((sum, b) => sum + b.level, 0);
+          const baseRate = output.baseRate || 0;
+          const newTotalRate = baseRate * totalLevel;
+
+          await tx
+            .update(planetResources)
+            .set({ regenRate: newTotalRate.toFixed(4) })
+            .where(
+              and(
+                eq(planetResources.planetId, building.planetId),
+                eq(planetResources.resourceId, output.resourceId),
+              ),
+            );
+        }
+      }
+    });
+
+    return { success: true, refund: refundMap };
   }
 }
 
