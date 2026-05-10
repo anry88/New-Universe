@@ -6,7 +6,7 @@
  */
 import React from 'react';
 
-export type Biome = 'rocky' | 'ocean' | 'gas_giant' | 'ice' | 'volcanic' | 'green' | 'anomaly';
+export type Biome = 'rocky' | 'ocean' | 'gas_giant' | 'ice' | 'volcanic' | 'green' | 'anomaly' | 'unknown';
 
 export interface BiomeMeta {
   label: string;
@@ -23,6 +23,7 @@ export const BIOME_META: Record<Biome, BiomeMeta> = {
   volcanic: { label: 'Volcanic', tag: 'MAGMATIC', accent: '#FF6B2C', hue: 18 },
   green: { label: 'Green', tag: 'BIOTIC', accent: '#9FE0B5', hue: 150 },
   anomaly: { label: 'Anomaly', tag: 'EXOTIC', accent: '#E0B0FF', hue: 280 },
+  unknown: { label: 'Unknown', tag: 'UNIDENTIFIED', accent: '#96AFD2', hue: 210 },
 };
 
 export interface PlanetSvgProps {
@@ -228,6 +229,33 @@ export const PlanetAnomaly: React.FC<PlanetSvgProps> = ({ size = 88, uid }) => (
   </svg>
 );
 
+export const PlanetFog: React.FC<PlanetSvgProps> = ({ size = 88, uid }) => (
+  <svg width={size} height={size} viewBox="0 0 100 100">
+    <defs>
+      <radialGradient id={`fog-g${u(uid)}`} cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stopColor="#96AFD2" stopOpacity="0.5" />
+        <stop offset="70%" stopColor="#96AFD2" stopOpacity="0.15" />
+        <stop offset="100%" stopColor="#96AFD2" stopOpacity="0" />
+      </radialGradient>
+    </defs>
+    <circle cx="50" cy="50" r="48" fill={`url(#fog-g${u(uid)})`} />
+    <path
+      d="M30 40 q10 -10 20 0 t20 0 t10 10"
+      stroke="#96AFD2"
+      strokeWidth="1.5"
+      strokeOpacity="0.25"
+      fill="none"
+    />
+    <path
+      d="M25 60 q15 5 30 0 t30 0"
+      stroke="#96AFD2"
+      strokeWidth="1.5"
+      strokeOpacity="0.15"
+      fill="none"
+    />
+  </svg>
+);
+
 export const PLANET_BY_BIOME: Record<Biome, React.FC<PlanetSvgProps>> = {
   rocky: PlanetRocky,
   ocean: PlanetOcean,
@@ -236,6 +264,7 @@ export const PLANET_BY_BIOME: Record<Biome, React.FC<PlanetSvgProps>> = {
   volcanic: PlanetVolcanic,
   green: PlanetGreen,
   anomaly: PlanetAnomaly,
+  unknown: PlanetFog,
 };
 
 /**
@@ -253,7 +282,8 @@ export function resolveBiome(value: string | undefined | null): Biome {
   if (v === 'forest' || v === 'biotic' || v === 'jungle') return 'green';
   if (v === 'lava' || v === 'magmatic') return 'volcanic';
   if (v === 'frozen' || v === 'cryogenic') return 'ice';
-  if (v === 'exotic' || v === 'unknown') return 'anomaly';
+  if (v === 'exotic') return 'anomaly';
+  if (v === 'unknown' || v === 'fog' || v === 'locked') return 'unknown';
   return 'rocky';
 }
 
