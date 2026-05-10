@@ -17,14 +17,16 @@ fi
 
 FIELDS_FILE="$(mktemp)"
 ITEMS_FILE="$(mktemp)"
-trap 'rm -f "$FIELDS_FILE" "$ITEMS_FILE"' EXIT
+ISSUES_FILE="$(mktemp)"
+trap 'rm -f "$FIELDS_FILE" "$ITEMS_FILE" "$ISSUES_FILE"' EXIT
 
 refresh_fields() {
   gh project field-list "$PROJECT_NUMBER" --owner "$OWNER" --format json > "$FIELDS_FILE"
 }
 
 refresh_items() {
-  gh project item-list "$PROJECT_NUMBER" --owner "$OWNER" --limit 100 --format json > "$ITEMS_FILE"
+  # Must cover all project items (GitHub default limit is small); otherwise tasks later in the list never match.
+  gh project item-list "$PROJECT_NUMBER" --owner "$OWNER" --limit 2000 --format json > "$ITEMS_FILE"
 }
 
 field_id() {
@@ -227,6 +229,8 @@ area_for_epic() {
     EPIC-P1-FE) echo "Frontend" ;;
     EPIC-P1-BOT) echo "Bot" ;;
     EPIC-P1-QA) echo "QA" ;;
+    EPIC-P1.1-FIX) echo "Frontend" ;;
+    EPIC-P2.1-GAMEPLAY) echo "World" ;;
     EPIC-P2-OUT) echo "Phase 2 Outline" ;;
     EPIC-P2-COL) echo "Colonization" ;;
     EPIC-P2-MKT) echo "Market" ;;
@@ -322,6 +326,56 @@ item_id_for_task() {
     "$ITEMS_FILE" | head -n 1
 }
 
+current_status_for_task() {
+  local task_id="$1"
+  jq -r --arg prefix "[$task_id]" \
+    '.items[] | select(.title | startswith($prefix)) | .status // empty' \
+    "$ITEMS_FILE" | head -n 1
+}
+
+current_verification_for_task() {
+  local task_id="$1"
+  jq -r --arg prefix "[$task_id]" \
+    '.items[] | select(.title | startswith($prefix)) | .verification // empty' \
+    "$ITEMS_FILE" | head -n 1
+}
+
+# CLOSED / OPEN / empty (нет совпадающего issue в выборке `gh issue list`)
+issue_state_for_task() {
+  local task_id="$1"
+  [[ -s "$ISSUES_FILE" ]] || { echo ""; return; }
+  jq -r --arg prefix "[$task_id]" '
+    [.[] | select(.title | startswith($prefix)) | .state] | first // empty
+  ' "$ISSUES_FILE"
+}
+
+# Как sync-ready в project_status.mjs: каждая зависимость закрыта на GitHub или в статусе Done на доске.
+deps_all_done_for_ready() {
+  local task_json="$1"
+  local dep_id
+  while IFS= read -r dep_id; do
+    [[ -z "$dep_id" ]] && continue
+    local ist st
+    ist="$(issue_state_for_task "$dep_id")"
+    st="$(current_status_for_task "$dep_id")"
+    if [[ "$ist" == "CLOSED" ]] || [[ "$st" == "Done" ]]; then
+      continue
+    fi
+    return 1
+  done < <(jq -r '.deps[]?' <<<"$task_json")
+  return 0
+}
+
+status_backlog_or_ready_from_deps() {
+  local task_json="$1"
+  local deps_len="$2"
+  status="Backlog"
+  verification="Not run"
+  if [[ "$deps_len" == "0" ]] || deps_all_done_for_ready "$task_json"; then
+    status="Ready"
+  fi
+}
+
 must_option_id() {
   local field="$1"
   local option="$2"
@@ -412,21 +466,25 @@ echo "PROJECT_ID=$PROJECT_ID"
 echo ">> Refresh fields"
 refresh_fields
 
-echo ">> Update Status options"
-update_status_options
+# SETUP_ITEMS_ONLY=1 — только перезапись карточек из tasks.json (без мутаций опций полей проекта).
+# Нужен при исчерпании GraphQL rate limit после полного прогона.
+if [[ "${SETUP_ITEMS_ONLY:-}" != "1" ]]; then
+  echo ">> Update Status options"
+  update_status_options
 
-echo ">> Ensure custom fields"
-PHASE_OPTIONS="$(jq -r '[.epics[].phase] | unique | map("P\(.)") | join(",")' "$TASKS_JSON")"
-EPIC_OPTIONS="$(jq -r '[.epics[].id] | join(",")' "$TASKS_JSON")"
-ensure_single_select_field "Phase" "$PHASE_OPTIONS"
-ensure_single_select_field "Epic" "$EPIC_OPTIONS"
-ensure_single_select_field "Size" "S,M,L,XL"
-ensure_single_select_field "Work Type" "Epic,Infra,Schema,API,Worker,UI,Test,Bot,Docs,Feature,Chore,Spike,Deploy,Ops,Security,Analytics,Monetization,Live Ops,Content,Balance,Support"
-ensure_single_select_field "Area" "Infra,DB,Auth,World,Economy,Buildings,Ships,Expeditions,Frontend,Bot,QA,Phase 2 Outline,Colonization,Market,Research,Balance,Phase 3 Outline,Multiplayer Map,Alliances,Player Market,Production,Ops,Security,Analytics,Monetization,Live Ops,Content,Support,Unknown"
-ensure_single_select_field "Priority" "Now,High,Medium,Low"
-ensure_number_field "Estimate"
-ensure_single_select_field "Verification" "Not run,Local pass,CI pass,Manual needed,Accepted,Blocked"
-ensure_text_field "Depends On"
+  echo ">> Ensure custom fields"
+  PHASE_OPTIONS="$(jq -r '[.epics[].phase] | unique | map("P\(.)") | join(",")' "$TASKS_JSON")"
+  EPIC_OPTIONS="$(jq -r '[.epics[].id] | join(",")' "$TASKS_JSON")"
+  ensure_single_select_field "Phase" "$PHASE_OPTIONS"
+  ensure_single_select_field "Epic" "$EPIC_OPTIONS"
+  ensure_single_select_field "Size" "S,M,L,XL"
+  ensure_single_select_field "Work Type" "Epic,Infra,Schema,API,Worker,UI,Test,Bot,Docs,Feature,Chore,Spike,Deploy,Ops,Security,Analytics,Monetization,Live Ops,Content,Balance,Support"
+  ensure_single_select_field "Area" "Infra,DB,Auth,World,Economy,Buildings,Ships,Expeditions,Frontend,Bot,QA,Phase 2 Outline,Colonization,Market,Research,Balance,Phase 3 Outline,Multiplayer Map,Alliances,Player Market,Production,Ops,Security,Analytics,Monetization,Live Ops,Content,Support,Unknown"
+  ensure_single_select_field "Priority" "Now,High,Medium,Low"
+  ensure_number_field "Estimate"
+  ensure_single_select_field "Verification" "Not run,Local pass,CI pass,Manual needed,Accepted,Blocked"
+  ensure_text_field "Depends On"
+fi
 refresh_fields
 
 STATUS_FIELD_ID="$(field_id "Status")"
@@ -440,6 +498,7 @@ ESTIMATE_FIELD_ID="$(field_id "Estimate")"
 VERIFICATION_FIELD_ID="$(field_id "Verification")"
 DEPENDS_ON_FIELD_ID="$(field_id "Depends On")"
 
+if [[ "${SETUP_ITEMS_ONLY:-}" != "1" ]]; then
 echo ">> Update Project description/readme"
 PROJECT_README='## Operating Model
 
@@ -447,10 +506,14 @@ Use this project as the execution board for New Universe tasks.
 
 Recommended views to create in the GitHub UI:
 
-- Execution Board: group by `Status`, filter `Phase:P0,P1`
+- Execution Board: group by `Status`, filter `Phase:P0,P1,P1.1`
 - Phase 0 Setup: filter `Phase:P0`
 - Phase 1 Core: filter `Phase:P1`
-- Phase 2 Expansion: filter `Phase:P2`
+- Phase 1.1 Post-fixes: filter `Phase:P1.1`
+- Roadmap P0-P5: table, filter `Phase:P0,P1,P1.1,P2,P2.1,P3,P4,P5`
+- Roadmap P2-P5: table, filter `Phase:P2,P2.1,P3,P4,P5`
+- Phase 2 Expansion: filter `Phase:P2,P2.1`
+- Phase 2.1 Gameplay: filter `Phase:P2.1`
 - Phase 3 Multiplayer: filter `Phase:P3`
 - Launch Readiness: filter `Phase:P4`
 - Live Ops: filter `Phase:P5`
@@ -481,9 +544,16 @@ gh project edit "$PROJECT_NUMBER" \
   --description "Execution board for New Universe MVP tasks and agent PR workflow" \
   --readme "$PROJECT_README" \
   --format json >/dev/null
+fi
 
 echo ">> Refresh items"
 refresh_items
+
+echo ">> Fetch GitHub issue states ($REPO)"
+if ! gh issue list --repo "$REPO" --state all --limit 2000 --json number,title,state >"$ISSUES_FILE" 2>/dev/null; then
+  echo "  warning: gh issue list failed; Status falls back to board snapshot + deps only" >&2
+  printf '%s\n' '[]' >"$ISSUES_FILE"
+fi
 
 updated=0
 missing=0
@@ -509,13 +579,39 @@ while IFS= read -r encoded_task; do
   work_type="$(work_type_for_task "$task_id" "$epic" "$title")"
   priority="$(priority_for_phase "$phase")"
   estimate="$(estimate_for_size "$size")"
-  status="Backlog"
-  if [[ "$deps_len" == "0" ]]; then
-    status="Ready"
+
+  cur_status="$(current_status_for_task "$task_id")"
+  cur_verification="$(current_verification_for_task "$task_id")"
+  issue_state="$(issue_state_for_task "$task_id")"
+
+  # Закрытый issue — источник правды для Done (чинит регресс после sync только по deps/борду).
+  if [[ "$issue_state" == "CLOSED" ]]; then
+    status="Done"
+    verification="Accepted"
+  elif [[ "$issue_state" == "OPEN" ]]; then
+    case "$cur_status" in
+      Review|"In Progress"|Blocked)
+        status="$cur_status"
+        verification="${cur_verification:-Not run}"
+        ;;
+      *)
+        status_backlog_or_ready_from_deps "$task_json" "$deps_len"
+        ;;
+    esac
+  else
+    case "$cur_status" in
+      Done|Review|"In Progress"|Blocked)
+        status="$cur_status"
+        verification="${cur_verification:-Not run}"
+        ;;
+      *)
+        status_backlog_or_ready_from_deps "$task_json" "$deps_len"
+        ;;
+    esac
   fi
 
   echo "  $task_id -> $status / $phase / $area / $work_type / $priority / $estimate"
-  update_item_fields "$item_id" "$status" "$phase" "$epic" "$size" "$work_type" "$area" "$priority" "$estimate" "Not run" "$deps"
+  update_item_fields "$item_id" "$status" "$phase" "$epic" "$size" "$work_type" "$area" "$priority" "$estimate" "$verification" "$deps"
   updated=$((updated + 1))
 done < <(jq -r '.tasks[] | @base64' "$TASKS_JSON")
 
