@@ -22,7 +22,7 @@
  *
  * This works regardless of how the parent measures, scrolls, or resizes.
  */
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { HomeSystem, Planet } from '@shared/types/world';
 import type { Ship } from '@shared/types/ships';
 import type { Expedition } from '@shared/types/expeditions';
@@ -30,12 +30,25 @@ import { BIOME_META, PlanetSvg, resolveBiome } from './planets';
 import { SunSvg } from './sun';
 import { FoundColonyDialog } from '../FoundColonyDialog';
 
+/** When set, the map is used to pick a sector jump vector from the home star: tap = set course, drag = pan. */
+export interface ExpeditionPickConfig {
+  /** Integer sector delta from home (X/Y galactic grid). */
+  sectorDx: number;
+  sectorDy: number;
+  /** Trail starts at this planet (launch site). */
+  launchPlanetId: string;
+  /** World-map pixels per sector light-year along the aim ray (tuning for comfortable reach). */
+  worldUnitsPerLy?: number;
+  onPickSectorDelta: (dx: number, dy: number) => void;
+}
+
 interface CosmicSystemRendererProps {
   system: HomeSystem;
   ships: Ship[];
   expeditions: Expedition[];
   onPlanetClick: (planet: Planet) => void;
   ownedPlanetIds: Set<string>;
+  expeditionPick?: ExpeditionPickConfig;
 }
 
 interface PlanetLayout {
@@ -52,6 +65,40 @@ const ORBIT_BASE = 90;
 const ORBIT_STEP = 70;
 const MIN_SCALE = 0.3;
 const MAX_SCALE = 4;
+/** Below this drag distance (CSS px), a one-finger gesture counts as a tap for expedition aiming. */
+const EXPEDITION_TAP_THRESHOLD_PX = 14;
+const DEFAULT_WORLD_UNITS_PER_LY = 40;
+
+function clientToWorldCoords(
+  container: HTMLElement,
+  transform: { x: number; y: number; scale: number },
+  clientX: number,
+  clientY: number,
+): { wx: number; wy: number } {
+  const rect = container.getBoundingClientRect();
+  const sx = clientX - rect.left - rect.width / 2;
+  const sy = clientY - rect.top - rect.height / 2;
+  const wx = (sx - transform.x) / transform.scale;
+  const wy = (sy - transform.y) / transform.scale;
+  return { wx, wy };
+}
+
+function worldRayToSectorDelta(
+  wx: number,
+  wy: number,
+  worldUnitsPerLy: number,
+): { dx: number; dy: number } {
+  const angle = Math.atan2(wy, wx);
+  let r = Math.hypot(wx, wy);
+  const MIN_WORLD = 52;
+  if (r < MIN_WORLD) r = MIN_WORLD;
+  const ly = r / worldUnitsPerLy;
+  const distInt = Math.max(1, Math.round(ly));
+  return {
+    dx: Math.round(distInt * Math.cos(angle)),
+    dy: Math.round(distInt * Math.sin(angle)),
+  };
+}
 
 /** Stable pseudo-random angle so a planet always sits in the same orbital
  *  slot across renders. */
@@ -68,12 +115,16 @@ export function CosmicSystemRenderer({
   expeditions,
   onPlanetClick,
   ownedPlanetIds,
+  expeditionPick,
 }: CosmicSystemRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pointerCount, setPointerCount] = useState(0);
   const [isColonyDialogOpen, setIsColonyDialogOpen] = useState(false);
+  /** Expedition mode: defer pan until finger moves past tap threshold so taps can aim. */
+  const expeditionPanArmRef = useRef<{ exceeded: boolean; startX: number; startY: number } | null>(null);
+  const expeditionDraftGradId = useId().replace(/:/g, '');
 
   // ----- Layout ----------------------------------------------------------
 
@@ -123,6 +174,9 @@ export function CosmicSystemRenderer({
       el.setPointerCapture(e.pointerId);
       dragState.current.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       setPointerCount(dragState.current.pointers.size);
+      if (expeditionPick && dragState.current.pointers.size === 1) {
+        expeditionPanArmRef.current = { exceeded: false, startX: e.clientX, startY: e.clientY };
+      }
       if (dragState.current.pointers.size === 1) {
         dragState.current.pointerId = e.pointerId;
         dragState.current.startX = e.clientX;
@@ -130,6 +184,7 @@ export function CosmicSystemRenderer({
         dragState.current.originX = transform.x;
         dragState.current.originY = transform.y;
       } else if (dragState.current.pointers.size === 2) {
+        expeditionPanArmRef.current = null;
         const pts = Array.from(dragState.current.pointers.values());
         const dx = pts[0].x - pts[1].x;
         const dy = pts[0].y - pts[1].y;
@@ -137,41 +192,85 @@ export function CosmicSystemRenderer({
         dragState.current.pinchStartScale = transform.scale;
       }
     },
-    [transform]
+    [transform, expeditionPick]
   );
 
-  const onPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (!dragState.current.pointers.has(e.pointerId)) return;
-    dragState.current.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (dragState.current.pointers.size === 2) {
-      const pts = Array.from(dragState.current.pointers.values());
-      const dx = pts[0].x - pts[1].x;
-      const dy = pts[0].y - pts[1].y;
-      const dist = Math.hypot(dx, dy) || 1;
-      const ratio = dist / Math.max(1, dragState.current.pinchStartDist);
-      const newScale = Math.max(
-        MIN_SCALE,
-        Math.min(MAX_SCALE, dragState.current.pinchStartScale * ratio)
-      );
-      setTransform((t) => ({ ...t, scale: newScale }));
-    } else if (e.pointerId === dragState.current.pointerId) {
-      const dx = e.clientX - dragState.current.startX;
-      const dy = e.clientY - dragState.current.startY;
-      setTransform((t) => ({
-        ...t,
-        x: dragState.current.originX + dx,
-        y: dragState.current.originY + dy,
-      }));
-    }
-  }, []);
+  const onPointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!dragState.current.pointers.has(e.pointerId)) return;
+      dragState.current.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (dragState.current.pointers.size === 2) {
+        expeditionPanArmRef.current = null;
+        const pts = Array.from(dragState.current.pointers.values());
+        const dx = pts[0].x - pts[1].x;
+        const dy = pts[0].y - pts[1].y;
+        const dist = Math.hypot(dx, dy) || 1;
+        const ratio = dist / Math.max(1, dragState.current.pinchStartDist);
+        const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, dragState.current.pinchStartScale * ratio));
+        setTransform((t) => ({ ...t, scale: newScale }));
+      } else if (e.pointerId === dragState.current.pointerId) {
+        if (
+          expeditionPick &&
+          expeditionPanArmRef.current &&
+          !expeditionPanArmRef.current.exceeded &&
+          dragState.current.pointers.size === 1
+        ) {
+          const arm = expeditionPanArmRef.current;
+          const moved = Math.hypot(e.clientX - arm.startX, e.clientY - arm.startY);
+          if (moved < EXPEDITION_TAP_THRESHOLD_PX) {
+            return;
+          }
+          expeditionPanArmRef.current.exceeded = true;
+          dragState.current.startX = e.clientX;
+          dragState.current.startY = e.clientY;
+          dragState.current.originX = transform.x;
+          dragState.current.originY = transform.y;
+        }
+        const dx = e.clientX - dragState.current.startX;
+        const dy = e.clientY - dragState.current.startY;
+        setTransform((t) => ({
+          ...t,
+          x: dragState.current.originX + dx,
+          y: dragState.current.originY + dy,
+        }));
+      }
+    },
+    [expeditionPick, transform.x, transform.y],
+  );
 
-  const onPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    dragState.current.pointers.delete(e.pointerId);
-    setPointerCount(dragState.current.pointers.size);
-    if (dragState.current.pointers.size === 0) {
-      dragState.current.pointerId = null;
-    }
-  }, []);
+  const onPointerUp = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const el = containerRef.current;
+      const pickCfg = expeditionPick;
+      const arm = expeditionPanArmRef.current;
+      const movedFromDown =
+        arm != null ? Math.hypot(e.clientX - arm.startX, e.clientY - arm.startY) : Infinity;
+      const wasAimTap =
+        pickCfg &&
+        arm &&
+        !arm.exceeded &&
+        movedFromDown < EXPEDITION_TAP_THRESHOLD_PX &&
+        el &&
+        dragState.current.pointers.size === 1 &&
+        e.pointerId === dragState.current.pointerId;
+
+      dragState.current.pointers.delete(e.pointerId);
+      setPointerCount(dragState.current.pointers.size);
+      if (dragState.current.pointers.size === 0) {
+        dragState.current.pointerId = null;
+      }
+
+      if (wasAimTap && pickCfg) {
+        const wPerLy = pickCfg.worldUnitsPerLy ?? DEFAULT_WORLD_UNITS_PER_LY;
+        const { wx, wy } = clientToWorldCoords(el, transform, e.clientX, e.clientY);
+        const { dx, dy } = worldRayToSectorDelta(wx, wy, wPerLy);
+        pickCfg.onPickSectorDelta(dx, dy);
+      }
+
+      expeditionPanArmRef.current = null;
+    },
+    [expeditionPick, transform],
+  );
 
   // Wheel handler: must be passive: false to call preventDefault. React's
   // onWheel is registered as passive in modern React, so we attach manually.
@@ -231,7 +330,8 @@ export function CosmicSystemRenderer({
         inset: 0,
         overflow: 'hidden',
         touchAction: 'none',
-        cursor: pointerCount > 0 ? 'grabbing' : 'grab',
+        cursor:
+          expeditionPick && pointerCount === 0 ? 'crosshair' : pointerCount > 0 ? 'grabbing' : 'grab',
         background:
           'radial-gradient(ellipse at 50% 50%, rgba(91,215,255,0.06), transparent 60%), #050811',
       }}
@@ -271,6 +371,7 @@ export function CosmicSystemRenderer({
                 height: l.orbitRadius * 2,
                 border: '1px dashed rgba(150,175,220,0.18)',
                 borderRadius: '50%',
+                pointerEvents: expeditionPick ? 'none' : 'auto',
               }}
             />
           ))}
@@ -283,6 +384,7 @@ export function CosmicSystemRenderer({
               top: -56,
               width: 112,
               height: 112,
+              pointerEvents: expeditionPick ? 'none' : 'auto',
             }}
           >
             <SunSvg size={112} />
@@ -319,8 +421,8 @@ export function CosmicSystemRenderer({
                   background: 'transparent',
                   border: 0,
                   padding: 0,
-                  cursor: 'pointer',
-                  pointerEvents: 'auto',
+                  cursor: expeditionPick ? 'inherit' : 'pointer',
+                  pointerEvents: expeditionPick ? 'none' : 'auto',
                   filter:
                     l.planet.isDiscovered === false
                       ? 'none'
@@ -370,6 +472,7 @@ export function CosmicSystemRenderer({
                   width: 12,
                   height: 12,
                   color: '#5BFFA9',
+                  pointerEvents: expeditionPick ? 'none' : 'auto',
                 }}
               >
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
@@ -378,6 +481,62 @@ export function CosmicSystemRenderer({
               </div>
             );
           })}
+
+          {/* Draft course for expedition launcher (vector from home star, shown from launch planet). */}
+          {expeditionPick &&
+            (() => {
+              const launch = layouts.find((l) => l.planet.id === expeditionPick.launchPlanetId);
+              if (!launch) return null;
+              const { sectorDx, sectorDy } = expeditionPick;
+              const h = Math.hypot(sectorDx, sectorDy);
+              if (h < 1e-6) return null;
+              const angle = Math.atan2(sectorDy, sectorDx);
+              const trailLength = Math.min(700, 56 + h * 14);
+              const endX = launch.x + Math.cos(angle) * trailLength;
+              const endY = launch.y + Math.sin(angle) * trailLength;
+              const svgPad = trailLength + 80;
+              return (
+                <svg
+                  key="expedition-draft-trail"
+                  style={{
+                    position: 'absolute',
+                    left: launch.x - svgPad,
+                    top: launch.y - svgPad,
+                    width: svgPad * 2,
+                    height: svgPad * 2,
+                    pointerEvents: 'none',
+                    zIndex: 3,
+                  }}
+                  viewBox={`${-svgPad} ${-svgPad} ${svgPad * 2} ${svgPad * 2}`}
+                >
+                  <defs>
+                    <linearGradient id={`exp-draft-line-${expeditionDraftGradId}`} x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="#5BD7FF" stopOpacity={0.95} />
+                      <stop offset="100%" stopColor="#6366f1" stopOpacity={0.75} />
+                    </linearGradient>
+                  </defs>
+                  <line
+                    x1={0}
+                    y1={0}
+                    x2={endX - launch.x}
+                    y2={endY - launch.y}
+                    stroke={`url(#exp-draft-line-${expeditionDraftGradId})`}
+                    strokeWidth={2.5}
+                    strokeDasharray="10 6"
+                    opacity={0.92}
+                  />
+                  <circle
+                    cx={endX - launch.x}
+                    cy={endY - launch.y}
+                    r={9}
+                    fill="none"
+                    stroke="#a5b4fc"
+                    strokeWidth={2}
+                  />
+                  <circle cx={endX - launch.x} cy={endY - launch.y} r={4} fill="#c7d2fe" />
+                </svg>
+              );
+            })()}
 
           {/* Expedition trails */}
           {expeditions.map((exp) => {
@@ -439,55 +598,80 @@ export function CosmicSystemRenderer({
       )}
 
       {/* Legend (fixed bottom-left, above the bottom nav) */}
-      <div
-        style={{
-          position: 'absolute',
-          left: 12,
-          bottom: 96,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 4,
-          padding: '8px 10px',
-          background: 'rgba(8,12,22,0.85)',
-          border: '1px solid var(--line)',
-          borderRadius: 8,
-          backdropFilter: 'blur(8px)',
-          pointerEvents: 'none',
-          fontFamily: 'var(--font-mono)',
-          fontSize: 9,
-          letterSpacing: '0.05em',
-          color: 'var(--text-dim)',
-          zIndex: 5,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span
-            style={{
-              width: 7,
-              height: 7,
-              borderRadius: '50%',
-              background: '#5BFFA9',
-              boxShadow: '0 0 6px #5BFFA9',
-            }}
-          />
-          Idle ship
+      {!expeditionPick ? (
+        <div
+          style={{
+            position: 'absolute',
+            left: 12,
+            bottom: 96,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 4,
+            padding: '8px 10px',
+            background: 'rgba(8,12,22,0.85)',
+            border: '1px solid var(--line)',
+            borderRadius: 8,
+            backdropFilter: 'blur(8px)',
+            pointerEvents: 'none',
+            fontFamily: 'var(--font-mono)',
+            fontSize: 9,
+            letterSpacing: '0.05em',
+            color: 'var(--text-dim)',
+            zIndex: 5,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: '50%',
+                background: '#5BFFA9',
+                boxShadow: '0 0 6px #5BFFA9',
+              }}
+            />
+            Idle ship
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 7, height: 2, background: '#F4B84A' }} />
+            Expedition trail
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span
+              style={{
+                width: 7,
+                height: 7,
+                border: '1px dashed rgba(150,175,220,0.4)',
+                borderRadius: '50%',
+              }}
+            />
+            Orbit
+          </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ width: 7, height: 2, background: '#F4B84A' }} />
-          Expedition trail
+      ) : (
+        <div
+          style={{
+            position: 'absolute',
+            left: 12,
+            bottom: 96,
+            maxWidth: 'calc(100% - 120px)',
+            padding: '8px 10px',
+            background: 'rgba(8,12,22,0.88)',
+            border: '1px solid var(--line)',
+            borderRadius: 8,
+            backdropFilter: 'blur(8px)',
+            pointerEvents: 'none',
+            fontFamily: 'var(--font-mono)',
+            fontSize: 9,
+            letterSpacing: '0.08em',
+            color: 'var(--text-dim)',
+            zIndex: 5,
+            lineHeight: 1.35,
+          }}
+        >
+          TAP MAP FROM THE STAR — SET JUMP · DRAG TO PAN · PINCH TO ZOOM
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span
-            style={{
-              width: 7,
-              height: 7,
-              border: '1px dashed rgba(150,175,220,0.4)',
-              borderRadius: '50%',
-            }}
-          />
-          Orbit
-        </div>
-      </div>
+      )}
 
       {/* Reset zoom (top-right, below the page header) */}
       <button
@@ -514,7 +698,7 @@ export function CosmicSystemRenderer({
       </button>
 
       {/* Selected planet info card */}
-      {selected && (
+      {!expeditionPick && selected && (
         <div
           className="cosmic-selection-card animate-in slide-in-from-bottom-4 duration-300"
           data-testid="selection-card"
@@ -614,7 +798,7 @@ export function CosmicSystemRenderer({
         </div>
       )}
 
-      {selected && (
+      {!expeditionPick && selected && (
         <FoundColonyDialog
           isOpen={isColonyDialogOpen}
           onClose={() => setIsColonyDialogOpen(false)}
