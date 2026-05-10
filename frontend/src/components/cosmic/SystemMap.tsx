@@ -530,7 +530,7 @@ export function CosmicSystemRenderer({
             if (ship.status === 'moving') {
               const exp = expeditions.find(e => e.shipId === ship.id && (e.status === 'in_flight' || e.status === 'returning'));
               if (exp && exp.result && typeof exp.result === 'object') {
-                const res = exp.result as any;
+                const res = exp.result as Record<string, number>;
                 if (res.distance && res.speed) {
                   const durationMs = (res.distance * 60 / res.speed) * (res.engineFactor || 1) * 1000;
                   const etaMs = new Date(exp.eta).getTime();
