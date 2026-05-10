@@ -22,6 +22,7 @@ export const BRANCHES = RESEARCH_CATALOG.map((b) => ({
 
 /** Strip effects for callers that only need `ResearchDefinition`. */
 export function definitionWithoutEffects(entry: TechTreeEntry): ResearchDefinition {
-  const { effects: _e, ...def } = entry;
+  const { effects, ...def } = entry;
+  void effects;
   return def;
 }

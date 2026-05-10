@@ -58,7 +58,6 @@ export function ShipsPage() {
     null;
 
   const selectedPlanet = shipyardPlanets.find((planet) => planet.id === resolvedPlanetId) ?? null;
-  const selectedPlanetBuildings = selectedPlanet?.buildings ?? [];
 
   const hasRequiredBuilding = (planetBuildings: Building[], typeId: string, minLevel: number) => {
     const level = planetBuildings.find((building) => building.typeId === typeId)?.level ?? 0;
