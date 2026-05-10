@@ -10,7 +10,7 @@ Cross-package contracts shared between the Fastify backend (`backend/`) and the 
     - **`tutorialRewards.ts`** — `TUTORIAL_STEP_RESOURCE_GRANTS`, `TUTORIAL_COMPLETION_RESOURCE_GRANTS`, and English UI summaries for onboarding; consumed by `features/tutorial/service.ts` and the Cosmic `Tutorial` overlay.
 
 - `types/` — TypeScript interfaces and Zod schemas for HTTP payloads, WebSocket events, and other cross-cutting structures.
-    - **`user.ts`** — `User` interface including `diamonds`, `homeSystem`, and onboarding fields (`tutorialStep`, `tutorialCompletedAt`).
+    - **`user.ts`** — `User` interface including **`diamonds`** (premium balance), `homeSystem`, and onboarding fields (`tutorialStep`, `tutorialCompletedAt`).
     - **`auth.ts`** — `AuthResponse` for the login flow.
     - **`world.ts`** — `PlanetResource`, `Building`, `Planet`, `HomeSystem` interfaces for world/planet state.
     - **`buildings.ts`** — `BuildingType` interface (including optional catalog limits), `BuildBlockedReason` unions, request/response types for construction, and **`RushBuildRequest` / `RushBuildResponse`** for `POST /buildings/rush`.

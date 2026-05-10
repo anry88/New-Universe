@@ -252,7 +252,7 @@ export function PlanetDetailPage() {
       <CosmicBackground accent={accent} starSeed={planet.id.charCodeAt(0) || 7} />
 
       <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-        <ResourceBar planetId={planet.id} />
+        <ResourceBar planetId={planet.id} planetLabel={planet.name} />
 
         <div
           style={{

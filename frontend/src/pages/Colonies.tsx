@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom';
 
 export function ColoniesPage() {
   const navigate = useNavigate();
-  const { planets, focalPlanetId, setFocalPlanetId, isLoading } = useColonies();
+  const { planets, focalPlanetId, focalPlanet, setFocalPlanetId, isLoading } = useColonies();
   const [transferOrigin, setTransferOrigin] = useState<Planet | null>(null);
 
   if (isLoading) {
@@ -22,7 +22,7 @@ export function ColoniesPage() {
 
   return (
     <div className="cosmic-screen" style={{ '--accent': '#5BD7FF' } as React.CSSProperties}>
-      <ResourceBar planetId={focalPlanetId || undefined} />
+      <ResourceBar planetId={focalPlanetId || undefined} planetLabel={focalPlanet?.name} />
 
       <div className="flex-1 overflow-y-auto p-4 space-y-6 pb-24">
         <header className="flex justify-between items-center">

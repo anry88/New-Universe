@@ -4,9 +4,13 @@ import { apiFetch } from '../lib/api';
 import type { PlanetResource } from '@shared/types/world';
 import { CosmicTopBar, type ResourceChipData } from './cosmic/atoms';
 import { calculateRegen } from './cosmic/resources';
+import { planetInventoryApiPath } from '../lib/resourceBarScope';
+import { ResourceInventoryDrawer, type InventoryRow } from './ResourceInventoryDrawer';
 
 interface ResourceBarProps {
   planetId?: string;
+  /** Planet name for the inventory header when switching focal planet from the rail. */
+  planetLabel?: string;
 }
 
 interface ResourceWithAmount extends PlanetResource {
@@ -15,40 +19,34 @@ interface ResourceWithAmount extends PlanetResource {
 }
 
 /**
- * Cosmic Atlas resource bar. Renders the top 5 resources as the design
- * specifies: monospace symbol, amount, +/h rate and a fill bar that turns
- * amber when capacity is almost reached.
+ * Cosmic Atlas resource bar: top five resources plus an optional full inventory sheet.
  *
- * Behavior preserved from the legacy implementation:
- *  - Lazy fetch from `/planets/{id}/resources` when a planet id is supplied;
- *    otherwise fall back to the home planet payload returned by `/me`.
- *  - Smooth in-UI accrual via requestAnimationFrame using the resource regen
- *    rate so the displayed number ticks up between API calls.
+ * With `planetId`, loads `planetInventoryApiPath(id)` so amounts match that planet.
+ * Without `planetId`, falls back to the home planet snapshot from `/me`.
  */
-export function ResourceBar({ planetId }: ResourceBarProps) {
+export function ResourceBar({ planetId, planetLabel }: ResourceBarProps) {
   const { data: meData } = useMe();
   const diamondBalance = meData?.diamonds;
   const [resources, setResources] = useState<ResourceWithAmount[]>([]);
+  const [inventoryOpen, setInventoryOpen] = useState(false);
   const animationRef = useRef<number | undefined>(undefined);
   const lastUpdateRef = useRef<number>(Date.now());
 
   const fetchResources = useCallback(async () => {
     if (planetId) {
       try {
-        const data = await apiFetch<{ resources: PlanetResource[] }>(
-          `/resources/planets/${planetId}`
-        );
+        const data = await apiFetch<{ resources: PlanetResource[] }>(planetInventoryApiPath(planetId));
         setResources(
           data.resources.map((r) => ({
             ...r,
-            currentAmount: typeof r.amount === 'number' ? r.amount : parseFloat(r.amount),
-            targetAmount: typeof r.amount === 'number' ? r.amount : parseFloat(r.amount),
-          }))
+            currentAmount: typeof r.amount === 'number' ? r.amount : parseFloat(String(r.amount)),
+            targetAmount: typeof r.amount === 'number' ? r.amount : parseFloat(String(r.amount)),
+          })),
         );
         return;
       } catch (err) {
         console.error('Failed to fetch resources for planet:', planetId, err);
-        /* fall through to mock */
+        /* fall through */
       }
     }
 
@@ -57,18 +55,18 @@ export function ResourceBar({ planetId }: ResourceBarProps) {
       setResources(
         mockResources.map((r) => ({
           ...r,
-          currentAmount: parseFloat(r.amount),
-          targetAmount: parseFloat(r.amount),
-        }))
+          currentAmount: parseFloat(String(r.amount)),
+          targetAmount: parseFloat(String(r.amount)),
+        })),
       );
     }
   }, [planetId, meData]);
 
   useEffect(() => {
-    fetchResources();
+    lastUpdateRef.current = Date.now();
+    void fetchResources();
   }, [fetchResources]);
 
-  // Animation loop for real-time resource regeneration.
   useEffect(() => {
     const animate = () => {
       const now = Date.now();
@@ -77,14 +75,14 @@ export function ResourceBar({ planetId }: ResourceBarProps) {
 
       setResources((prev) =>
         prev.map((r) => {
-          const regenRate = parseFloat(r.regenRate.toString());
-          const storageCap = parseFloat(r.storageCap.toString());
+          const regenRate = parseFloat(String(r.regenRate));
+          const storageCap = parseFloat(String(r.storageCap));
           const newAmount = calculateRegen(r.currentAmount, regenRate, deltaSeconds, storageCap);
           return {
             ...r,
             currentAmount: newAmount,
           };
-        })
+        }),
       );
 
       animationRef.current = requestAnimationFrame(animate);
@@ -92,37 +90,79 @@ export function ResourceBar({ planetId }: ResourceBarProps) {
 
     animationRef.current = requestAnimationFrame(animate);
     return () => {
-      if (animationRef.current) {
+      if (animationRef.current !== undefined) {
         cancelAnimationFrame(animationRef.current);
       }
     };
   }, []);
 
-  const data: ResourceChipData[] = resources.slice(0, 5).map((r) => {
-    return {
-      resourceId: r.resourceId,
-      amount: r.currentAmount,
-      cap: parseFloat(r.storageCap.toString()),
-      rate: Math.round(parseFloat(r.regenRate.toString())),
-    };
-  });
+  const data: ResourceChipData[] = resources.slice(0, 5).map((r) => ({
+    resourceId: r.resourceId,
+    amount: r.currentAmount,
+    cap: parseFloat(String(r.storageCap)),
+    rate: Math.round(parseFloat(String(r.regenRate))),
+  }));
 
-  // If we have no resources yet, render an empty bar with placeholders so the
-  // layout doesn't jump.
+  const inventoryRows: InventoryRow[] = resources.map((r) => ({
+    resourceId: r.resourceId,
+    amount: r.currentAmount,
+    cap: parseFloat(String(r.storageCap)),
+    ratePerHour: parseFloat(String(r.regenRate)),
+  }));
+
+  const titlePlanet =
+    planetLabel?.trim() ||
+    meData?.homeSystem?.planets?.[0]?.name ||
+    'Planet';
+
   if (data.length === 0) {
     return (
-      <CosmicTopBar
-        diamonds={diamondBalance}
-        resources={[
-          { resourceId: 'water', amount: 0, cap: 1000, rate: 0 },
-          { resourceId: 'iron', amount: 0, cap: 1000, rate: 0 },
-          { resourceId: 'silicon', amount: 0, cap: 1000, rate: 0 },
-          { resourceId: 'methane', amount: 0, cap: 1000, rate: 0 },
-          { resourceId: 'tritium', amount: 0, cap: 1000, rate: 0 },
-        ]}
-      />
+      <>
+        <div className="cosmic-resource-strip">
+          <CosmicTopBar
+            diamonds={diamondBalance}
+            resources={[
+              { resourceId: 'water', amount: 0, cap: 1000, rate: 0 },
+              { resourceId: 'iron', amount: 0, cap: 1000, rate: 0 },
+              { resourceId: 'silicon', amount: 0, cap: 1000, rate: 0 },
+              { resourceId: 'methane', amount: 0, cap: 1000, rate: 0 },
+              { resourceId: 'tritium', amount: 0, cap: 1000, rate: 0 },
+            ]}
+          />
+          <button
+            type="button"
+            className="resource-bar-all-btn"
+            disabled
+            aria-disabled="true"
+          >
+            All
+          </button>
+        </div>
+      </>
     );
   }
 
-  return <CosmicTopBar resources={data} diamonds={diamondBalance} />;
+  return (
+    <>
+      <div className="cosmic-resource-strip">
+        <CosmicTopBar resources={data} diamonds={diamondBalance} />
+        <button
+          type="button"
+          className="resource-bar-all-btn"
+          data-testid="resource-bar-all"
+          onClick={() => setInventoryOpen(true)}
+          aria-expanded={inventoryOpen}
+        >
+          All
+        </button>
+      </div>
+      <ResourceInventoryDrawer
+        open={inventoryOpen}
+        onClose={() => setInventoryOpen(false)}
+        planetTitle={titlePlanet}
+        rows={inventoryRows}
+        diamondBalance={diamondBalance}
+      />
+    </>
+  );
 }
