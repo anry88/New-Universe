@@ -90,8 +90,12 @@ query($owner: String!, $number: Int!, $after: String) {
 fragment ProjectItems on ProjectV2ItemConnection {
   nodes {
     id
-    content { ... on Issue { title number } ... on PullRequest { title number } }
-    fieldValues(first: 20) {
+    content {
+      ... on Issue { title number }
+      ... on PullRequest { title number }
+      ... on DraftIssue { title }
+    }
+    fieldValues(first: 80) {
       nodes {
         ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2FieldCommon { name } } }
       }
@@ -227,28 +231,29 @@ function isBacklogLike(status) {
   return status == null || status === '' || status === 'Backlog';
 }
 
-/** Maps task id (from issue title prefix `[id]`) to CLOSED | OPEN. Paginates repo issues. */
+/**
+ * Maps task id (from issue title prefix `[id]`) to CLOSED | OPEN.
+ * Uses one `gh issue list` request — GitHub CLI does not support `--page` pagination here;
+ * a broken paginator caused sync-ready to throw once the repo had >100 issues.
+ */
 function loadIssueStateByTaskId() {
   const map = new Map();
-  let page = 1;
-  while (page <= 100) {
-    const output = gh([
-      'issue', 'list', '--repo', REPO, '--state', 'all', '--limit', '100',
-      '--json', 'title,state', '--page', String(page),
-    ]);
-    const rows = JSON.parse(output);
-    if (!Array.isArray(rows) || rows.length === 0) break;
-    for (const row of rows) {
-      const match = /^\[(?<id>[^\]]+)\]/.exec(row.title || '');
-      if (!match?.groups?.id) continue;
-      const id = match.groups.id;
-      if (row.state === 'CLOSED') {
-        map.set(id, 'CLOSED');
-      } else if (!map.has(id)) {
-        map.set(id, row.state);
-      }
+  const output = gh([
+    'issue', 'list', '--repo', REPO, '--state', 'all',
+    '--limit', '10000',
+    '--json', 'title,state',
+  ]);
+  const rows = JSON.parse(output);
+  if (!Array.isArray(rows)) return map;
+  for (const row of rows) {
+    const match = /^\[(?<id>[^\]]+)\]/.exec(row.title || '');
+    if (!match?.groups?.id) continue;
+    const id = match.groups.id;
+    if (row.state === 'CLOSED') {
+      map.set(id, 'CLOSED');
+    } else if (!map.has(id)) {
+      map.set(id, row.state);
     }
-    page += 1;
   }
   return map;
 }

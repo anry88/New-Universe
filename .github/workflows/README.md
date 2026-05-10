@@ -16,4 +16,4 @@ Agents **must** add **`run-e2e`** on PRs that close epic rollup tasks (`*-EPIC-*
 
 Required status checks in branch protection should include the **`ci.yml`** job (`check`) only if you want small PRs to stay fast; add the **`e2e.yml`** job only when you require browser E2E on every merge (not recommended with this layout).
 
-- **`project-status.yml`** — Project automation (task IDs, board columns).
+- **`project-status.yml`** — Project automation (task IDs, board columns). Runs on PR events, issue closed, and **`workflow_dispatch`** (Actions → Project Status → Run workflow) to call `node tasks/project_status.mjs sync-ready` without opening a PR.

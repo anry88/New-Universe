@@ -1,6 +1,7 @@
 name: Project Status
 
 on:
+  workflow_dispatch:
   pull_request:
     types:
       - opened
@@ -60,3 +61,6 @@ jobs:
           node tasks/project_status.mjs issue \
             --number "${{ github.event.issue.number }}" \
             --action "${{ github.event.action }}"
+      - name: Manual backlog → Ready (sync-ready)
+        if: github.event_name == 'workflow_dispatch'
+        run: node tasks/project_status.mjs sync-ready
