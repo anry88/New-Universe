@@ -138,7 +138,7 @@ export async function generateHomeSystem(userId: string, tx?: any) {
       const planetResourcesList: string[] = [];
       
       if (i === 0) {
-        planetResourcesList.push('water', 'iron', 'carbon', 'silicon', 'methane');
+        planetResourcesList.push('water', 'iron', 'carbon', 'silicon', 'methane', 'oil');
       } else if (i === 1) {
         planetResourcesList.push('tritium');
         planetResourcesList.push(...BIOMES[biomeType].commonResources);

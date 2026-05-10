@@ -1,9 +1,10 @@
 import { db as defaultDb } from '../../db/index.js';
-import { ships, shipTypes, buildings, planets, systems } from '../../db/schema.js';
-import { eq, and, sql } from 'drizzle-orm';
+import { ships, shipTypes, buildings, planets, systems, users } from '../../db/schema.js';
+import { eq, and, sql, gte, isNotNull, lte } from 'drizzle-orm';
 import { spendResources } from '../resources/transactions.js';
 import { SHIP_RESEARCH_GATES } from '../../config/research-unlocks.js';
 import { assertResearchRequirement, loadUserResearchLevels } from '../research/gates.js';
+import { rushDiamondCost, rushRemainingSeconds } from '../../lib/diamonds.js';
 
 export interface BuildShipRequest {
   planetId: string;
@@ -128,6 +129,7 @@ export async function buildShip(
         typeId: typeSlug,
         locationPlanetId: planetId,
         status: 'building',
+        queueCompletesAt: new Date(Date.now() + type.buildTimeSec * 1000),
         cargoJson: {},
         fuel: '0',
       })
@@ -160,4 +162,109 @@ export async function buildShip(
   });
 
   return result;
+}
+
+export async function getShipQueue(userId: string): Promise<{
+  queue: {
+    id: string;
+    planetId: string | null;
+    typeId: string;
+    status: string;
+    queueCompletesAt: string;
+    rushCost: number;
+  }[];
+}> {
+  const rows = await defaultDb
+    .select({
+      id: ships.id,
+      planetId: ships.locationPlanetId,
+      typeId: ships.typeId,
+      status: ships.status,
+      queueCompletesAt: ships.queueCompletesAt,
+    })
+    .from(ships)
+    .where(
+      and(
+        eq(ships.ownerId, userId),
+        eq(ships.status, 'building'),
+        isNotNull(ships.queueCompletesAt),
+      ),
+    );
+
+  const queue = rows
+    .map((row) => ({
+      id: row.id,
+      planetId: row.planetId,
+      typeId: row.typeId,
+      status: row.status,
+      queueCompletesAt: row.queueCompletesAt!.toISOString(),
+      rushCost: rushDiamondCost(rushRemainingSeconds(row.queueCompletesAt!)),
+    }))
+    .sort((a, b) => new Date(a.queueCompletesAt).getTime() - new Date(b.queueCompletesAt).getTime());
+
+  return { queue };
+}
+
+export async function rushShipBuild(userId: string, shipId: string): Promise<{
+  success: boolean;
+  cost: number;
+  diamondsRemaining: number;
+}> {
+  const ship = await defaultDb.query.ships.findFirst({
+    where: and(eq(ships.id, shipId), eq(ships.ownerId, userId)),
+  });
+  if (!ship) {
+    throw new Error('Ship not found or not owned by user');
+  }
+  if (ship.status !== 'building' || !ship.queueCompletesAt) {
+    throw new Error('Ship is not in the construction queue');
+  }
+
+  const remainingSec = rushRemainingSeconds(ship.queueCompletesAt);
+  const cost = rushDiamondCost(remainingSec);
+
+  return defaultDb.transaction(async (tx) => {
+    if (cost > 0) {
+      const rows = await tx
+        .update(users)
+        .set({ diamonds: sql`${users.diamonds} - ${cost}` })
+        .where(and(eq(users.id, userId), gte(users.diamonds, cost)))
+        .returning({ diamonds: users.diamonds });
+      if (!rows.length) {
+        throw new Error('Not enough diamonds');
+      }
+    }
+
+    await tx
+      .update(ships)
+      .set({
+        status: 'idle',
+        queueCompletesAt: null,
+      })
+      .where(eq(ships.id, shipId));
+
+    const userAfter = await tx.query.users.findFirst({ where: eq(users.id, userId) });
+    return {
+      success: true,
+      cost,
+      diamondsRemaining: userAfter?.diamonds ?? 0,
+    };
+  });
+}
+
+export async function syncReadyShips(): Promise<void> {
+  const now = new Date();
+  await defaultDb
+    .update(ships)
+    .set({
+      status: 'idle',
+      queueCompletesAt: null,
+    })
+    .where(
+      and(
+        eq(ships.status, 'building'),
+        isNotNull(ships.queueCompletesAt),
+        lte(ships.queueCompletesAt, now),
+      ),
+    );
 }

@@ -2,6 +2,14 @@ import { retrieveLaunchParams } from '@telegram-apps/sdk-react';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
+function readApiErrorString(body: unknown, key: 'message' | 'error'): string | null {
+  if (body !== null && typeof body === 'object' && key in body) {
+    const v = (body as Record<string, unknown>)[key];
+    return typeof v === 'string' ? v : null;
+  }
+  return null;
+}
+
 let sessionToken: string | null = null;
 
 export const setSessionToken = (token: string | null) => {
@@ -38,11 +46,16 @@ export async function apiFetch<T>(
   });
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    const error = new Error(errorData.message || `API Error: ${response.status}`) as Error & {
+    const errorData: unknown = await response.json().catch(() => ({}));
+    const message =
+      readApiErrorString(errorData, 'message') ??
+      readApiErrorString(errorData, 'error') ??
+      `API Error: ${response.status}`;
+    const error = new Error(message) as Error & {
       status?: number;
       data?: unknown;
     };
+    error.message = message;
     error.status = response.status;
     error.data = errorData;
     throw error;

@@ -56,6 +56,7 @@ export type ResourceId =
   | 'aluminum'
   | 'titanium'
   | 'ice'
+  | 'oil'
   | 'sulfur'
   | 'steel'
   | 'electronics'

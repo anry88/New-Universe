@@ -1,5 +1,5 @@
 import Fastify from 'fastify';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { buildingsRoutes } from './routes.js';
 import { authRoutes } from '../auth/routes.js';
 import { meRoutes } from '../me/routes.js';
@@ -8,9 +8,14 @@ import { planets, systems, buildings, planetResources } from '../../db/schema.js
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 import { env } from '../../lib/env.js';
+import { seedBuildingTypes } from '../../db/seed/building-types.js';
 
 describe('Buildings Service - POST /buildings/build', () => {
   const botToken = env.TELEGRAM_BOT_TOKEN;
+
+  beforeAll(async () => {
+    await seedBuildingTypes();
+  });
 
   function createValidInitData(user: any): string {
     const authDate = Math.floor(Date.now() / 1000);
@@ -224,6 +229,63 @@ describe('Buildings Service - POST /buildings/build', () => {
     expect(response.statusCode).toBe(400);
     const body = response.json();
     expect(body.message).toContain('Planet not found');
+  });
+
+  it('should block refinery construction without an oil deposit on planet', async () => {
+    const { app, token, userId } = await createTestUser();
+
+    const userSystem = await db.query.systems.findFirst({
+      where: eq(systems.ownerId, userId),
+    });
+    const userPlanet = await db.query.planets.findFirst({
+      where: eq(planets.systemId, userSystem!.id),
+    });
+    expect(userPlanet).toBeDefined();
+
+    await db
+      .delete(planetResources)
+      .where(eq(planetResources.planetId, userPlanet!.id));
+
+    await db.insert(planetResources).values([
+      { planetId: userPlanet!.id, resourceId: 'iron', amount: '99999', regenRate: '0' },
+      { planetId: userPlanet!.id, resourceId: 'silicon', amount: '99999', regenRate: '0' },
+      { planetId: userPlanet!.id, resourceId: 'steel', amount: '99999', regenRate: '0' },
+    ]);
+
+    await db.insert(buildings).values([
+      {
+        planetId: userPlanet!.id,
+        typeId: 'oil_pump',
+        level: 1,
+        slotIndex: 1,
+        queueAction: null,
+        queueCompletesAt: null,
+      },
+      {
+        planetId: userPlanet!.id,
+        typeId: 'smelter',
+        level: 2,
+        slotIndex: 2,
+        queueAction: null,
+        queueCompletesAt: null,
+      },
+    ]);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/buildings/build',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        planetId: userPlanet!.id,
+        typeId: 'refinery',
+        slotIndex: 3,
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    const body = response.json();
+    expect(body.code).toBe('building_blocked_planet_resource');
+    expect(body.message).toContain('oil deposit');
   });
 
   it('should sync and finalize completed building construction', async () => {

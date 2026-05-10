@@ -44,6 +44,10 @@ export type BuildBlockedReason =
   | {
       code: 'building_blocked_research';
       details: { branch: string; level: number };
+    }
+  | {
+      code: 'building_blocked_planet_resource';
+      details: { resourceId: string };
     };
 
 export interface BuildRequest {

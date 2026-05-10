@@ -22,6 +22,7 @@ export const RESOURCE_CATALOG_ROWS: ResourceCatalogRow[] = [
   { id: 'aluminum', symbol: 'Al', tier: 2, name: { ru: 'Алюминий', en: 'Aluminum' }, baseRegenRate: 15, defaultStorageCap: 2500 },
   { id: 'titanium', symbol: 'Ti', tier: 2, name: { ru: 'Титан', en: 'Titanium' }, baseRegenRate: 10, defaultStorageCap: 2500 },
   { id: 'ice', symbol: 'Ice', tier: 2, name: { ru: 'Лёд', en: 'Ice' }, baseRegenRate: 20, defaultStorageCap: 2500 },
+  { id: 'oil', symbol: 'Oil', tier: 2, name: { ru: 'Нефть', en: 'Oil' }, baseRegenRate: 0, defaultStorageCap: 2500 },
   { id: 'sulfur', symbol: 'S', tier: 2, name: { ru: 'Сера', en: 'Sulfur' }, baseRegenRate: 15, defaultStorageCap: 2500 },
   { id: 'steel', symbol: 'St', tier: 2, name: { ru: 'Сталь', en: 'Steel' }, baseRegenRate: 0, defaultStorageCap: 2500 },
   {
@@ -124,6 +125,21 @@ export const BUILDING_TYPE_CATALOG_ROWS: BuildingCatalogRow[] = [
     energyConsumption: 5,
   },
   {
+    id: 'oil_pump',
+    name: { ru: 'Нефтекачка', en: 'Oil Pump' },
+    description: {
+      ru: 'Добывает сырую нефть из био-залежей для дальнейшей переработки.',
+      en: 'Extracts crude oil from biological deposits for downstream refining.',
+    },
+    category: 'production',
+    maxLevel: 20,
+    deps: [{ typeId: 'command_center', level: 2 }],
+    baseCost: { iron: 220, silicon: 140, carbon: 120 },
+    baseTimeSec: 720,
+    baseOutput: { resourceId: 'oil', baseRate: 45 },
+    energyConsumption: 12,
+  },
+  {
     id: 'smelter',
     name: { ru: 'Завод', en: 'Smelter' },
     description: {
@@ -137,6 +153,24 @@ export const BUILDING_TYPE_CATALOG_ROWS: BuildingCatalogRow[] = [
     baseTimeSec: 900,
     baseOutput: { resourceId: 'steel', baseRate: 36 },
     energyConsumption: 30,
+  },
+  {
+    id: 'refinery',
+    name: { ru: 'Нефтеперерабатывающий завод', en: 'Refinery' },
+    description: {
+      ru: 'Производит топливо для флота из нефтяного сырья.',
+      en: 'Produces fleet fuel from crude oil feedstock.',
+    },
+    category: 'production',
+    maxLevel: 15,
+    deps: [
+      { typeId: 'oil_pump', level: 1 },
+      { typeId: 'smelter', level: 2 },
+    ],
+    baseCost: { iron: 550, silicon: 320, steel: 180 },
+    baseTimeSec: 1500,
+    baseOutput: { resourceId: 'fuel', baseRate: 30 },
+    energyConsumption: 28,
   },
   {
     id: 'fabrication_bay',

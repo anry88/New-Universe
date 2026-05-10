@@ -15,7 +15,9 @@ export type BuildingTypeId =
   | 'mine'
   | 'drill'
   | 'storage'
+  | 'oil_pump'
   | 'smelter'
+  | 'refinery'
   | 'spaceport'
   | 'shipyard'
   | 'lab'
@@ -96,6 +98,17 @@ export const IconStorage: React.FC<BuildingIconProps> = ({ size, tone }) => (
   </Icon>
 );
 
+export const IconOilPump: React.FC<BuildingIconProps> = ({ size, tone }) => (
+  <Icon size={size} tone={tone}>
+    <path d="M18 50 L18 26 L24 20 L24 50 Z" fill={tone ?? '#5BD7FF'} fillOpacity="0.12" />
+    <path d="M18 26 L34 20 L50 26" />
+    <path d="M34 20 L34 50" />
+    <path d="M24 32 L34 28 L44 32" />
+    <path d="M44 32 L44 50" />
+    <ellipse cx="34" cy="54" rx="10" ry="3" fill={tone ?? '#5BD7FF'} fillOpacity="0.3" />
+  </Icon>
+);
+
 export const IconSmelter: React.FC<BuildingIconProps> = ({ size, tone }) => (
   <Icon size={size} tone={tone}>
     <path d="M14 52 L14 28 L26 22 L26 52 Z" fill={tone ?? '#5BD7FF'} fillOpacity="0.12" />
@@ -106,6 +119,20 @@ export const IconSmelter: React.FC<BuildingIconProps> = ({ size, tone }) => (
     <circle cx="44" cy="6" r="2" fill={tone ?? '#5BD7FF'} fillOpacity="0.5" />
     <path d="M32 38 L46 38" />
     <circle cx="39" cy="44" r="3" fill={tone ?? '#5BD7FF'} fillOpacity="0.4" />
+  </Icon>
+);
+
+export const IconRefinery: React.FC<BuildingIconProps> = ({ size, tone }) => (
+  <Icon size={size} tone={tone}>
+    <rect x="12" y="24" width="18" height="28" rx="1" fill={tone ?? '#5BD7FF'} fillOpacity="0.12" />
+    <rect x="34" y="18" width="18" height="34" rx="1" />
+    <path d="M18 24 L18 10" />
+    <path d="M24 24 L24 14" />
+    <path d="M40 18 L40 8" />
+    <path d="M46 18 L46 12" />
+    <path d="M30 34 L34 34" />
+    <path d="M20 44 L34 44" />
+    <circle cx="42" cy="38" r="3" fill={tone ?? '#5BD7FF'} fillOpacity="0.4" />
   </Icon>
 );
 
@@ -186,7 +213,9 @@ export const BUILDING_BY_TYPE: Record<BuildingTypeId, BuildingDef> = {
   mine: { Icon: IconMine, label: 'Mine', cat: 'Extraction' },
   drill: { Icon: IconDrill, label: 'Deep Drill', cat: 'Extraction' },
   storage: { Icon: IconStorage, label: 'Storage', cat: 'Logistics' },
+  oil_pump: { Icon: IconOilPump, label: 'Oil Pump', cat: 'Extraction' },
   smelter: { Icon: IconSmelter, label: 'Smelter', cat: 'Production' },
+  refinery: { Icon: IconRefinery, label: 'Refinery', cat: 'Production' },
   spaceport: { Icon: IconSpaceport, label: 'Spaceport', cat: 'Fleet' },
   shipyard: { Icon: IconShipyard, label: 'Shipyard', cat: 'Fleet' },
   lab: { Icon: IconLab, label: 'Research Lab', cat: 'Science' },

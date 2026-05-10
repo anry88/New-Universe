@@ -52,6 +52,13 @@ export const BUILDINGS = {
     category: 'logistics',
     storageBonusPerLevel: 5000,
   },
+  oil_pump: {
+    deps: [{ typeId: 'command_center', level: 2 }],
+    baseCost: { iron: 220, silicon: 140, carbon: 120 },
+    baseTimeSec: 720,
+    category: 'production',
+    output: { resourceId: 'oil', baseRate: 45 },
+  },
   smelter: {
     deps: [{ typeId: 'command_center', level: 3 }],
     baseCost: { iron: 400, silicon: 200 },
@@ -68,6 +75,16 @@ export const BUILDINGS = {
     baseTimeSec: 1200,
     category: 'production',
     output: { resourceId: 'electronics', baseRate: 14 },
+  },
+  refinery: {
+    deps: [
+      { typeId: 'oil_pump', level: 1 },
+      { typeId: 'smelter', level: 2 },
+    ],
+    baseCost: { iron: 550, silicon: 320, steel: 180 },
+    baseTimeSec: 1500,
+    category: 'production',
+    output: { resourceId: 'fuel', baseRate: 30 },
   },
   spaceport: {
     deps: [{ typeId: 'command_center', level: 4 }],
@@ -173,6 +190,7 @@ export const RESOURCE_TIER: Record<string, number> = {
   aluminum: 2,
   titanium: 2,
   ice: 2,
+  oil: 2,
   sulfur: 2,
   steel: 2,
   electronics: 2,
@@ -199,6 +217,7 @@ export const RESOURCE_BASELINE_PRICE: Record<string, number> = {
   aluminum: 46,
   titanium: 55,
   ice: 42,
+  oil: 45,
   sulfur: 40,
   steel: 50,
   electronics: 54,

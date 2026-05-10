@@ -98,7 +98,7 @@ export function PlanetDetailPage() {
       if (!typeRow || !planet) return null;
       const planetBuilt =
         planet.buildings?.map((b) => ({ typeId: b.typeId, level: b.level })) ?? [];
-      return resolveBuildBlockedReason({
+      const blocked = resolveBuildBlockedReason({
         typeId: typeRow.id,
         deps: typeRow.deps ?? [],
         maxPerPlanet: typeRow.maxPerPlanet ?? null,
@@ -108,6 +108,18 @@ export function PlanetDetailPage() {
         researchLevels,
         researchGate: BUILDING_RESEARCH_GATES[typeRow.id],
       });
+      if (blocked) return blocked;
+
+      if (typeRow.id === 'refinery') {
+        const hasOilDeposit = (planet.resources ?? []).some((res) => res.resourceId === 'oil');
+        if (!hasOilDeposit) {
+          return {
+            code: 'building_blocked_planet_resource',
+            details: { resourceId: 'oil' },
+          };
+        }
+      }
+      return null;
     },
     [buildingTypes, planet, globalTypeCounts, researchLevels],
   );
@@ -362,6 +374,7 @@ export function PlanetDetailPage() {
         typeInfo={selectedBuildingType}
         onAction={handleUpgrade}
         onDemolish={handleDemolish}
+        onOpenShipyard={() => navigate('/ships?tab=shipyard')}
         isProcessing={isProcessing}
         accent={accent}
       />

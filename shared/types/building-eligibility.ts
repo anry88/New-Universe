@@ -94,6 +94,10 @@ export function formatBuildBlockedMessage(reason: BuildBlockedReason, lang: 'en'
       return lang === 'ru'
         ? `Требуется исследование ${reason.details.branch} уровня ${reason.details.level}.`
         : `Requires research ${reason.details.branch} level ${reason.details.level}.`;
+    case 'building_blocked_planet_resource':
+      return lang === 'ru'
+        ? `На этой планете нет месторождения ресурса ${reason.details.resourceId}.`
+        : `This planet has no ${reason.details.resourceId} deposit.`;
     default:
       return lang === 'en' ? 'Cannot build.' : 'Строительство недоступно.';
   }

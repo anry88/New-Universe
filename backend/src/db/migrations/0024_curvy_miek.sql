@@ -1,0 +1,1 @@
+ALTER TABLE "ships" ADD COLUMN "queue_completes_at" timestamp;

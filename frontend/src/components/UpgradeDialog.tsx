@@ -11,6 +11,7 @@ interface UpgradeDialogProps {
   onClose: () => void;
   onAction: (buildingId: string) => void;
   onDemolish: (buildingId: string) => void;
+  onOpenShipyard?: () => void;
   isProcessing: boolean;
   /** Biome accent override; defaults to Atlas cyan. */
   accent?: string;
@@ -29,6 +30,7 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
   onClose,
   onAction,
   onDemolish,
+  onOpenShipyard,
   isProcessing,
   accent = '#5BD7FF',
 }) => {
@@ -143,6 +145,18 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
           >
             {isProcessing ? 'Processing…' : `Upgrade to L${building.level + 1}`}
           </button>
+
+          {typeInfo.id === 'shipyard' && onOpenShipyard && (
+            <button
+              type="button"
+              onClick={onOpenShipyard}
+              disabled={isProcessing}
+              className="cosmic-cta"
+              style={{ width: '100%', padding: '12px', marginTop: '10px' }}
+            >
+              Open Ship Construction
+            </button>
+          )}
 
           <button
             type="button"
