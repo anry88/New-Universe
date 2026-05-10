@@ -82,7 +82,7 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
               
               <div className="bopt-stats">
                 {(() => {
-                  const output = typeInfo.baseOutput as any;
+                  const output = typeInfo.baseOutput;
                   const curLvl = building.level;
                   const nextLvl = curLvl + 1;
                   

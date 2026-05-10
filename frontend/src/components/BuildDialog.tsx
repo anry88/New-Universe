@@ -91,7 +91,7 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
             const seconds = type.baseTimeSec % 60;
             const blocked = blockedReasonFor?.(type.id) ?? null;
             const locked = Boolean(blocked);
-            const output = type.baseOutput as any;
+            const output = type.baseOutput;
             return (
               <button
                 key={type.id}
