@@ -998,7 +998,7 @@ body {
   display: flex;
   flex-direction: column;
   box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.6);
-  z-index: 60;
+  z-index: 1110;
   color: var(--text);
 }
 .bd-handle {
@@ -1177,7 +1177,7 @@ body {
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
-  z-index: 55;
+  z-index: 1100;
 }
 
 /* Tech tree */
