@@ -8,6 +8,7 @@ function readToken(authorization?: string): string | null {
 }
 
 export async function tutorialRoutes(app: FastifyInstance) {
+  /** Applies milestone detection + per-step/completion resource grants (see `service.ts`, `@shared/config/tutorialRewards`). */
   app.post('/sync', async (request, reply) => {
     const token = readToken(request.headers.authorization);
     if (!token) {

@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMe } from '../hooks/useMe';
+import { formatHomeSystemTitleForUser } from '../lib/homeSystemTitle';
 import { CosmicBackground, CosmicBottomNav } from '../components/cosmic/atoms';
 
 /**
@@ -65,7 +66,9 @@ export function ProfilePage() {
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', paddingBottom: '12px' }}>
               <span style={{ color: 'var(--text-dim)', fontSize: '12px', letterSpacing: '0.05em' }}>SYSTEM</span>
-              <span style={{ color: 'var(--text)', fontSize: '13px', fontWeight: 500 }}>{homeSystem?.name?.toUpperCase() || 'INITIALIZING...'}</span>
+              <span style={{ color: 'var(--text)', fontSize: '13px', fontWeight: 500 }}>
+                {(user ? formatHomeSystemTitleForUser(user).toUpperCase() : null) || 'INITIALIZING...'}
+              </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', paddingBottom: '12px' }}>
               <span style={{ color: 'var(--text-dim)', fontSize: '12px', letterSpacing: '0.05em' }}>CONTROLLED PLANETS</span>

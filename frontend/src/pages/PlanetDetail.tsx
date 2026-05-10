@@ -21,6 +21,7 @@ import { resolveBuildBlockedReason } from '@shared/types/building-eligibility';
 import { BUILDING_RESEARCH_GATES } from '@shared/config/buildingResearchGates';
 import { ChevronLeft } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
+import { formatHomeSystemTitleForUser } from '../lib/homeSystemTitle';
 
 /**
  * PlanetDetail — Cosmic Atlas (P1.1 redesign).
@@ -242,7 +243,7 @@ export function PlanetDetailPage() {
     ? buildingTypes.find((t) => t.id === selectedBuilding.typeId)
     : undefined;
 
-  const systemName = meData?.homeSystem?.name ?? 'Home System';
+  const systemName = meData ? formatHomeSystemTitleForUser(meData) : 'Home System';
   const sectorTag = meData?.homeSystem
     ? `${meData.homeSystem.sectorX ?? 0}:${meData.homeSystem.sectorY ?? 0}:${meData.homeSystem.sectorZ ?? 0}`
     : '';
@@ -252,7 +253,7 @@ export function PlanetDetailPage() {
       <CosmicBackground accent={accent} starSeed={planet.id.charCodeAt(0) || 7} />
 
       <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-        <ResourceBar planetId={planet.id} />
+        <ResourceBar planetId={planet.id} planetLabel={planet.name} />
 
         <div
           style={{

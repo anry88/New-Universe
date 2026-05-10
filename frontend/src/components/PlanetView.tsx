@@ -17,6 +17,7 @@ import { BuildingSlot } from './BuildingSlot';
  * page, and routes any slot tap into the full editor.
  */
 import { useColonies } from '../hooks/useColonies';
+import { formatHomeSystemTitleForUser } from '../lib/homeSystemTitle';
 
 /**
  * The "current planet" snapshot rendered on the home screen.
@@ -27,7 +28,7 @@ import { useColonies } from '../hooks/useColonies';
  */
 export function PlanetView() {
   const { data: meData } = useMe();
-  const { focalPlanet: planet, planets: allPlanets } = useColonies();
+  const { focalPlanet: planet, planets: allPlanets, setFocalPlanetId } = useColonies();
   const navigate = useNavigate();
 
   if (!planet) {
@@ -59,12 +60,12 @@ export function PlanetView() {
 
         <div className="rail-wrap">
           <div className="rail-label">
-            {(meData?.homeSystem?.name ?? 'HOME SYSTEM').toUpperCase()}
+            {(meData ? formatHomeSystemTitleForUser(meData) : 'HOME SYSTEM').toUpperCase()}
           </div>
           <PlanetRail
             planets={allPlanets.map((p) => ({ id: p.id, name: p.name, biome: p.biome }))}
             current={planet.id}
-            onSelect={(id) => navigate(`/planet/${id}`)}
+            onSelect={(id) => setFocalPlanetId(id)}
           />
         </div>
 

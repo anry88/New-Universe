@@ -8,9 +8,9 @@ Each subfolder is a single feature and is wired into Fastify from `backend/src/i
 
 Planet infrastructure management.
 
-- **`routes.ts`** — registers `GET /types`, `POST /build`, and `POST /upgrade`.
-- **`service.ts`** — handles building logic, costs, and queueing.
-- **`buildings.test.ts`** — integration tests for construction flows.
+- **`routes.ts`** — registers `GET /types`, `POST /build`, `POST /upgrade`, `POST /demolish`, `POST /sync/:planetId`, `GET /queue`, **`POST /rush`**.
+- **`service.ts`** — handles building logic, costs, queueing, **`rushQueuedBuilding`**, demolish, and sync/finalize helpers.
+- **`buildings.test.ts`**, **`rush.test.ts`**, etc. — integration tests for construction flows.
 
 ## `auth/`
 
@@ -22,7 +22,7 @@ Telegram-Mini-App authentication. The route layer delegates everything to `authS
   - Returns the JSON `{ user, token }`.
 - **`service.ts`** — `AuthService.loginWithTelegram(telegramUser)`:
   - Looks up `users` by `tgId` (converted to `bigint`).
-  - If the user does not exist, opens a transaction (`db.transaction(...)`) and inserts the new row from `telegram.id`, `telegram.username`, `telegram.first_name`, then immediately calls `generateHomeSystem(newUser.id, tx)` so registration plus world bootstrap commit atomically.
+  - If the user does not exist, opens a transaction (`db.transaction(...)`) and inserts the new row from `telegram.id`, `telegram.username`, `telegram.first_name`, seeds **`diamonds`** with `env.DIAMOND_STARTING_GRANT`, then immediately calls `generateHomeSystem(newUser.id, tx)` so registration plus world bootstrap commit atomically.
   - Throws `'Failed to create or find user'` if neither lookup nor insert produced a row (defensive guard against a malformed transaction result).
   - Signs a JWT with `{ userId: user.id }` using `env.JWT_SECRET` and a 30-day expiry.
   - Returns `{ user: { ...user, tgId: user.tgId.toString() }, token }`. The `tgId` is converted to a string because BigInt does not survive JSON serialization.
@@ -127,7 +127,7 @@ Ship launch and travel scheduling. [Detailed documentation](./expeditions/README
 Procedural world generation primitives and visibility checks. Contains the home-system seeder used by `auth/service.ts`, sector pool management, and the fog-of-war visibility service.
 
 - **`biomes.ts`** — exports the `BiomeType` union (`'rocky' | 'ocean' | 'gas_giant' | 'ice' | 'volcanic' | 'green' | 'anomaly'`), a `BIOMES` map keyed by biome id (`commonResources`, `rareResources`, `bonuses`, `penalties`), and **`HOME_SYSTEM_BASE_BIOMES`** — the six starter biomes (`green`, `rocky`, `ocean`, `ice`, `gas_giant`, `volcanic`) each guaranteed once per generated home system (capital stays `green`; keep `tools/balance-sim` mirrors aligned).
-- **`home-system-generator.ts`** — exports `generateHomeSystem(userId, tx?)`, **`MIN_HOME_CAPITAL_SLOT_COUNT`** (minimum building slots on planet 1 / capital), and deterministic PRNG helpers `hashString` / `createRandom`.
+- **`home-system-generator.ts`** — exports `generateHomeSystem(userId, tx?)`, **`MIN_HOME_CAPITAL_SLOT_COUNT`** (minimum building slots on planet 1 / capital), deterministic PRNG helpers `hashString` / `createRandom`, and English-canonical `systems.name` plus `{shortTag}-N` planet codes via `@shared/format/homeSystemNaming`.
   - Uses `tx` from auth or opens `db.transaction`; idempotent when a home `systems` row already exists.
   - Seeds sector coords `[-500,500]`, system `seed`, `name = "Home System <userId-prefix>"`.
   - Generates **6–7** planets; assigns biomes so **every `HOME_SYSTEM_BASE_BIOMES` entry appears at least once** (deterministic shuffle for planets 1–5 after the capital).

@@ -16,10 +16,19 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from
 
 const queryClient = new QueryClient();
 
+function readTutorialOverlayDismissed(): boolean {
+  try {
+    return sessionStorage.getItem('nu_tutorial_overlay_dismissed') === '1';
+  } catch {
+    return false;
+  }
+}
+
 function AppContent() {
   const { login, isLoading: isAuthLoading, error: authError } = useAuth();
   const { data: meData, isLoading: isMeLoading } = useMe();
   const [tutorialHidden, setTutorialHidden] = useState(false);
+  const [tutorialOverlayDismissed, setTutorialOverlayDismissed] = useState(readTutorialOverlayDismissed);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -30,6 +39,12 @@ function AppContent() {
   useEffect(() => {
     if (meData?.tutorialCompletedAt) {
       setTutorialHidden(false);
+      try {
+        sessionStorage.removeItem('nu_tutorial_overlay_dismissed');
+      } catch {
+        /* ignore */
+      }
+      setTutorialOverlayDismissed(false);
     }
   }, [meData?.tutorialCompletedAt]);
 
@@ -50,7 +65,9 @@ function AppContent() {
   }
 
   const showTutorial = Boolean(meData && !meData.tutorialCompletedAt && !tutorialHidden);
-  if (showTutorial && location.pathname !== '/onboarding') {
+  const forceOnboarding =
+    showTutorial && !tutorialOverlayDismissed && location.pathname !== '/onboarding';
+  if (forceOnboarding) {
     return <Navigate to="/onboarding" replace />;
   }
 
@@ -67,7 +84,30 @@ function AppContent() {
           />
         }
       />
-      <Route path="/onboarding" element={<OnboardingPage onSkip={() => setTutorialHidden(true)} />} />
+      <Route
+        path="/onboarding"
+        element={
+          <OnboardingPage
+            onSkip={() => setTutorialHidden(true)}
+            onContinueToGame={() => {
+              try {
+                sessionStorage.setItem('nu_tutorial_overlay_dismissed', '1');
+              } catch {
+                /* ignore */
+              }
+              setTutorialOverlayDismissed(true);
+            }}
+            onEnter={() => {
+              try {
+                sessionStorage.removeItem('nu_tutorial_overlay_dismissed');
+              } catch {
+                /* ignore */
+              }
+              setTutorialOverlayDismissed(false);
+            }}
+          />
+        }
+      />
       <Route path="/planet/:planetId" element={<PlanetDetailPage />} />
       <Route path="/map" element={<SystemMapPage />} />
       <Route path="/sector-map" element={<SectorMapPage />} />

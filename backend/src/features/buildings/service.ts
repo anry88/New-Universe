@@ -1,6 +1,15 @@
 import { db } from '../../db/index.js';
-import { buildings, buildingTypes, planets, planetResources, notifications, systems } from '../../db/schema.js';
-import { eq, and, sql, lte, inArray, type InferSelectModel } from 'drizzle-orm';
+import {
+  buildings,
+  buildingTypes,
+  planets,
+  planetResources,
+  notifications,
+  systems,
+  users,
+} from '../../db/schema.js';
+import { eq, and, sql, lte, inArray, gte, type InferSelectModel } from 'drizzle-orm';
+import { rushDiamondCost, rushRemainingSeconds } from '../../lib/diamonds.js';
 import { BuildingType, ConstructionStatus, DemolishStatus } from '@shared/types/buildings.js';
 import { spendResources, gainResources } from '../resources/transactions.js';
 import { applyBuildTimeSeconds, getResearchEffectsForUser } from '../research/effects.js';
@@ -377,6 +386,61 @@ export class BuildingService {
         );
       }
     }
+  }
+
+  async rushQueuedBuilding(
+    userId: string,
+    buildingId: string,
+  ): Promise<{ success: boolean; cost: number; diamondsRemaining: number }> {
+    const building = await db.query.buildings.findFirst({
+      where: eq(buildings.id, buildingId),
+      with: {
+        planet: {
+          with: {
+            system: true,
+          },
+        },
+      },
+    });
+
+    if (!building || (building.planet as any).system.ownerId !== userId) {
+      throw new Error('Building not found or not owned by user');
+    }
+
+    if (!building.queueAction || !building.queueCompletesAt) {
+      throw new Error('Building is not in the construction queue');
+    }
+
+    const remainingSec = rushRemainingSeconds(building.queueCompletesAt);
+    const cost = rushDiamondCost(remainingSec);
+
+    return await db.transaction(async (tx) => {
+      if (cost > 0) {
+        const rows = await tx
+          .update(users)
+          .set({ diamonds: sql`${users.diamonds} - ${cost}` })
+          .where(and(eq(users.id, userId), gte(users.diamonds, cost)))
+          .returning({ diamonds: users.diamonds });
+
+        if (!rows.length) {
+          throw new BuildingOperationError('Not enough diamonds', 'insufficient_diamonds', {
+            required: cost,
+          });
+        }
+      }
+
+      await this.finalizeBuildingConstruction(tx, buildingId);
+
+      const userAfter = await tx.query.users.findFirst({
+        where: eq(users.id, userId),
+      });
+
+      return {
+        success: true,
+        cost,
+        diamondsRemaining: userAfter!.diamonds,
+      };
+    });
   }
 
   async syncPlanetBuildings(userId: string, planetId: string): Promise<void> {

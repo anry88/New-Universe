@@ -21,6 +21,7 @@ export class AuthService {
             tgId,
             tgUsername: telegramUser.username,
             tgFirstName: telegramUser.first_name,
+            diamonds: env.DIAMOND_STARTING_GRANT,
           }).returning();
 
           await generateHomeSystem(newUser.id, tx);

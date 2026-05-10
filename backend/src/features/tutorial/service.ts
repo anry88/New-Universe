@@ -2,6 +2,10 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { buildings, expeditions, planets, ships, systems, users } from '../../db/schema.js';
 import { gainResources } from '../resources/transactions.js';
+import {
+  TUTORIAL_COMPLETION_RESOURCE_GRANTS,
+  TUTORIAL_STEP_RESOURCE_GRANTS,
+} from '@shared/config/tutorialRewards.js';
 
 const TUTORIAL_FINAL_STEP = 4;
 
@@ -61,31 +65,36 @@ export async function syncTutorialProgress(userId: string): Promise<TutorialProg
     if (scoutRows.length > 0) nextStep = 3;
     if (expeditionRows.length > 0) nextStep = TUTORIAL_FINAL_STEP;
 
-    let tutorialCompletedAt: Date | null = user.tutorialCompletedAt;
-    if (nextStep === TUTORIAL_FINAL_STEP && !tutorialCompletedAt) {
-      const homeSystem = await tx.query.systems.findFirst({
-        where: and(eq(systems.ownerId, userId), eq(systems.isHome, true)),
-        with: {
-          planets: true,
-        },
-      });
+    const prevStep = user.tutorialStepCompleted;
 
-      const rewardPlanetId = homeSystem?.planets?.[0]?.id;
-      if (rewardPlanetId) {
-        const rewardResult = await gainResources(
-          rewardPlanetId,
-          [
-            { resourceId: 'iron', amount: 200 },
-            { resourceId: 'water', amount: 100 },
-          ],
-          tx
-        );
+    const homeSystem = await tx.query.systems.findFirst({
+      where: and(eq(systems.ownerId, userId), eq(systems.isHome, true)),
+      with: {
+        planets: true,
+      },
+    });
 
-        if (!rewardResult.success) {
-          throw new Error(rewardResult.error ?? 'Failed to apply tutorial completion reward');
+    const rewardPlanetId = homeSystem?.planets?.[0]?.id;
+
+    if (rewardPlanetId && nextStep > prevStep) {
+      const upper = Math.min(nextStep, TUTORIAL_FINAL_STEP);
+      for (let step = prevStep + 1; step <= upper; step++) {
+        const grants = TUTORIAL_STEP_RESOURCE_GRANTS[step];
+        if (grants?.length) {
+          const rewardResult = await gainResources(rewardPlanetId, grants, tx);
+          if (!rewardResult.success) {
+            throw new Error(rewardResult.error ?? `Failed to apply tutorial reward for step ${step}`);
+          }
         }
       }
+    }
 
+    let tutorialCompletedAt: Date | null = user.tutorialCompletedAt;
+    if (nextStep === TUTORIAL_FINAL_STEP && !tutorialCompletedAt && rewardPlanetId) {
+      const rewardResult = await gainResources(rewardPlanetId, TUTORIAL_COMPLETION_RESOURCE_GRANTS, tx);
+      if (!rewardResult.success) {
+        throw new Error(rewardResult.error ?? 'Failed to apply tutorial completion reward');
+      }
       tutorialCompletedAt = new Date();
     }
 

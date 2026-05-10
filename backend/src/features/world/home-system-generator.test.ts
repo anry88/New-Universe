@@ -4,6 +4,7 @@ import { HOME_SYSTEM_BASE_BIOMES } from './biomes.js';
 import { db } from '../../db/index.js';
 import { users, systems, planets, richness, planetResources, buildings } from '../../db/schema.js';
 import { eq, and } from 'drizzle-orm';
+import { formatPlanetCode, homeSystemShortTag } from '@shared/format/homeSystemNaming.js';
 
 describe('Home System Generator', () => {
   it('should generate identical systems for the same userId (determinism)', async () => {
@@ -22,12 +23,18 @@ describe('Home System Generator', () => {
     });
     expect(system?.isHome).toBe(true);
     expect(system?.ownerId).toBe(user.id);
+    const shortTag = homeSystemShortTag(systemId1);
+    expect(system?.name).toContain(shortTag);
+    expect(system?.name).toContain('system');
 
     const systemPlanets = await db.query.planets.findMany({
       where: eq(planets.systemId, systemId1),
     });
     expect(systemPlanets.length).toBeGreaterThanOrEqual(6);
     expect(systemPlanets.length).toBeLessThanOrEqual(7);
+
+    const capital = systemPlanets.find((p) => p.name === formatPlanetCode(shortTag, 1));
+    expect(capital).toBeDefined();
   });
 
   it('should guarantee basic resources and tritium distribution', async () => {
@@ -40,11 +47,14 @@ describe('Home System Generator', () => {
     
     const systemPlanets = await db.query.planets.findMany({
       where: eq(planets.systemId, systemId),
-      orderBy: (planets, { asc }) => [asc(planets.name)],
     });
 
+    const shortTag = homeSystemShortTag(systemId);
+    const capital = systemPlanets.find((p) => p.name === formatPlanetCode(shortTag, 1));
+    expect(capital).toBeDefined();
+
     const firstPlanetRichness = await db.query.richness.findMany({
-      where: eq(richness.planetId, systemPlanets[0].id),
+      where: eq(richness.planetId, capital!.id),
     });
     const resIds = firstPlanetRichness.map(r => r.resourceId);
     expect(resIds).toContain('water');
@@ -89,16 +99,19 @@ describe('Home System Generator', () => {
 
     const systemPlanets = await db.query.planets.findMany({
       where: eq(planets.systemId, systemId),
-      orderBy: (planets, { asc }) => [asc(planets.name)],
     });
+
+    const shortTag = homeSystemShortTag(systemId);
+    const capital = systemPlanets.find((p) => p.name === formatPlanetCode(shortTag, 1));
+    expect(capital).toBeDefined();
 
     const biomes = systemPlanets.map((p) => p.biome);
     for (const b of HOME_SYSTEM_BASE_BIOMES) {
       expect(biomes).toContain(b);
     }
 
-    expect(systemPlanets[0]!.biome).toBe('green');
-    expect(systemPlanets[0]!.slotCount).toBeGreaterThanOrEqual(MIN_HOME_CAPITAL_SLOT_COUNT);
+    expect(capital!.biome).toBe('green');
+    expect(capital!.slotCount).toBeGreaterThanOrEqual(MIN_HOME_CAPITAL_SLOT_COUNT);
   });
 
   it('places a finished Command Center on the capital (slot 0)', async () => {
@@ -110,11 +123,12 @@ describe('Home System Generator', () => {
     const systemId = await generateHomeSystem(user.id);
     const systemPlanets = await db.query.planets.findMany({
       where: eq(planets.systemId, systemId),
-      orderBy: (planets, { asc }) => [asc(planets.name)],
     });
-    const capitalId = systemPlanets[0]!.id;
+    const shortTag = homeSystemShortTag(systemId);
+    const capital = systemPlanets.find((p) => p.name === formatPlanetCode(shortTag, 1));
+    expect(capital).toBeDefined();
     const cc = await db.query.buildings.findFirst({
-      where: and(eq(buildings.planetId, capitalId), eq(buildings.typeId, 'command_center')),
+      where: and(eq(buildings.planetId, capital!.id), eq(buildings.typeId, 'command_center')),
     });
     expect(cc).toBeDefined();
     expect(cc!.slotIndex).toBe(0);

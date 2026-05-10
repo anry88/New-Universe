@@ -20,11 +20,11 @@ interface HomePageProps {
 
 export function HomePage({ onOpenTutorial }: HomePageProps) {
   const { data: meData } = useMe();
-  const { focalPlanetId } = useColonies();
+  const { focalPlanetId, focalPlanet } = useColonies();
   return (
     <div className="cosmic-screen" style={{ '--accent': '#5BD7FF' } as React.CSSProperties}>
       {!meData?.tutorialCompletedAt && (
-        <div className="absolute right-4 top-4 z-20">
+        <div className="tutorial-launcher">
           <button
             type="button"
             onClick={onOpenTutorial}
@@ -34,7 +34,7 @@ export function HomePage({ onOpenTutorial }: HomePageProps) {
           </button>
         </div>
       )}
-      <ResourceBar planetId={focalPlanetId || undefined} />
+      <ResourceBar planetId={focalPlanetId || undefined} planetLabel={focalPlanet?.name} />
       <PlanetView />
       <div className="fixed-bottom-ui">
         <BuildQueue planetId={focalPlanetId || undefined} />

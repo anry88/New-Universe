@@ -7,17 +7,17 @@ The data layer defines the Drizzle ORM client, all Postgres tables, generated mi
 - **`index.ts`** — loads `.env` from the repository root and from `backend/` (if those files exist; existing `process.env` wins), then opens Postgres from `process.env.DATABASE_URL` using `postgres-js`, then wraps it with `drizzle(client, { schema })`. The exported `db` is the only entry point services should use; passing `db.transaction(...)` is required when multiple inserts must succeed atomically (see `features/auth/service.ts` and `features/world/home-system-generator.ts`).
 - **`schema.ts`** — barrel that `export *`s from every domain module under `schema/`. Drizzle relies on this single export to build the relations and types passed into `drizzle({ schema })`. Whenever you add a new file under `schema/`, add an `export * from './schema/<file>.js';` line here.
 - **`seed.ts`** — entry point invoked by `npm run db:seed`. Calls `seedResources`, `seedResearchCatalog`, `seedBuildingTypes`, `seedShipTypes` in order, then exits the process. New seeders must be registered here.
-- **`migrations/`** — auto-generated SQL produced by `drizzle-kit generate`. Numbered `0000_*.sql` … `0007_*.sql` files plus the Drizzle `meta/` snapshots. Do not edit migrations by hand; regenerate them after schema changes.
+- **`migrations/`** — mostly auto-generated SQL from `drizzle-kit generate` plus the Drizzle `meta/` snapshots. Schema edits must go through `db:generate`; occasional **data-only** SQL (e.g. `0023_home_system_display_names.sql` backfills home system/planet labels) is checked in by hand with matching `meta/_journal.json` entries.
 
 ## Schema modules (`schema/`)
 
 Each module owns one domain and exports the Drizzle table objects. `schema.ts` re-exports them so consumers can `import { systems, planets } from '../../db/schema.js'`.
 
-- **`users.ts`** — `users` table. Columns: `id` (UUID PK), `tgId` (`bigint`, unique, mapped via `mode: 'bigint'`), `tgUsername`, `tgFirstName`, `createdAt`, `premiumUntil`, `powerScore`, `tutorialStepCompleted` (stored in `tutorial_step`), `tutorialCompletedAt`. Telegram identity is the unique business key; tutorial fields are used to auto-start and complete onboarding.
+- **`users.ts`** — `users` table. Columns: `id` (UUID PK), `tgId` (`bigint`, unique, mapped via `mode: 'bigint'`), `tgUsername`, `tgFirstName`, `createdAt`, `premiumUntil`, `powerScore`, `tutorialStepCompleted` (stored in `tutorial_step`), `tutorialCompletedAt`, **`diamonds`** (integer, default `0`) — premium currency for rush-build; new accounts receive `DIAMOND_STARTING_GRANT` on first insert via `features/auth/service.ts`. Telegram identity is the unique business key; tutorial fields are used to auto-start and complete onboarding.
 - **`resources.ts`** — `resources` reference catalog. Columns: `id` (text PK), `name` (`jsonb<{ ru, en }>`), `tier`, `symbol`, `baseRegenRate`, `defaultStorageCap`. Seeded by `seed/resources.ts` with 21 resources across tiers 1–4.
 - **`world.ts`** — `systems`, `planets`, `planet_resources`, `richness`. Notable details:
   - `systems.ownerId` is the home-system owner; `isHome` flags it as the player's starting system; `sectorX/Y/Z` are deterministic per-user sector coordinates produced by `home-system-generator.ts`; `x/y/z` are the system's position within the sector (numeric, precision 10 scale 2), used for distance calculations between systems in the same sector.
-  - `planets` carries `biome` (text), `size` (10–19), `slotCount` (≈80% of `size`).
+  - `planets` carries `biome` (text), `size` (10–19), `slotCount` (≈80% of `size`), `name` (`{shortTag}-{index}` for home worlds — see `@shared/format/homeSystemNaming`).
   - `planet_resources` is a composite-PK `(planet_id, resource_id)` table with `amount`, `lastUpdateAt`, `regenRate` (numeric). It is the source of truth for current per-planet balances.
   - `richness` is also `(planet_id, resource_id)` and stores `value` constrained to `0..5` via `richness_value_check`. It represents discovered deposit tier, not running balance.
   - `planets_system_id_idx` covers the common `systemId` lookup pattern.
