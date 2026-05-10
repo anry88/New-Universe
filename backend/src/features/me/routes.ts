@@ -43,6 +43,12 @@ export async function meRoutes(app: FastifyInstance) {
           });
         }
 
+        const discoveredPlanetIds = await db
+          .select({ planetId: discoveredPlanets.planetId })
+          .from(discoveredPlanets)
+          .where(eq(discoveredPlanets.userId, user.id));
+        const discoveredPlanetIdSet = new Set(discoveredPlanetIds.map((r) => r.planetId));
+
         let homeSystem = await db.query.systems.findFirst({
           where: eq(systems.ownerId, user.id),
           with: {
@@ -53,6 +59,13 @@ export async function meRoutes(app: FastifyInstance) {
             },
           },
         });
+
+        if (homeSystem?.planets?.length) {
+          homeSystem = {
+            ...homeSystem,
+            planets: homeSystem.planets.filter((p) => discoveredPlanetIdSet.has(p.id)),
+          };
+        }
 
         if (!homeSystem) {
           const discoveredPlanet = await db.query.discoveredPlanets.findFirst({

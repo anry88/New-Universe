@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { generateHomeSystem } from './home-system-generator.js';
+import { generateHomeSystem, MIN_HOME_CAPITAL_SLOT_COUNT } from './home-system-generator.js';
+import { HOME_SYSTEM_BASE_BIOMES } from './biomes.js';
 import { db } from '../../db/index.js';
 import { users, systems, planets, richness, planetResources } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
@@ -25,7 +26,7 @@ describe('Home System Generator', () => {
     const systemPlanets = await db.query.planets.findMany({
       where: eq(planets.systemId, systemId1),
     });
-    expect(systemPlanets.length).toBeGreaterThanOrEqual(4);
+    expect(systemPlanets.length).toBeGreaterThanOrEqual(6);
     expect(systemPlanets.length).toBeLessThanOrEqual(7);
   });
 
@@ -76,5 +77,27 @@ describe('Home System Generator', () => {
         expect(forbidden).not.toContain(r.resourceId);
       }
     }
+  });
+
+  it('should cover every HOME_SYSTEM_BASE_BIOME and give the capital enough slots', async () => {
+    const [user] = await db.insert(users).values({
+      tgId: BigInt(Math.floor(Math.random() * 1000000000)),
+      tgUsername: 'testuser_biomes',
+    }).returning();
+
+    const systemId = await generateHomeSystem(user.id);
+
+    const systemPlanets = await db.query.planets.findMany({
+      where: eq(planets.systemId, systemId),
+      orderBy: (planets, { asc }) => [asc(planets.name)],
+    });
+
+    const biomes = systemPlanets.map((p) => p.biome);
+    for (const b of HOME_SYSTEM_BASE_BIOMES) {
+      expect(biomes).toContain(b);
+    }
+
+    expect(systemPlanets[0]!.biome).toBe('green');
+    expect(systemPlanets[0]!.slotCount).toBeGreaterThanOrEqual(MIN_HOME_CAPITAL_SLOT_COUNT);
   });
 });

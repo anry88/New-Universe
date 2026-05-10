@@ -7,7 +7,37 @@ import {
   buildings, 
   discoveredPlanets 
 } from '../../db/schema.js';
-import { BIOMES, BiomeType } from './biomes.js';
+import { BIOMES, BiomeType, HOME_SYSTEM_BASE_BIOMES } from './biomes.js';
+
+/** Enough building slots on the capital for early tutorial + first ships (shipyard chain). */
+export const MIN_HOME_CAPITAL_SLOT_COUNT = 18;
+
+const HOME_PLANET_COUNT_MIN = 6;
+const HOME_PLANET_COUNT_MAX = 7;
+
+function shuffleInPlace<T>(arr: T[], rnd: () => number) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    const t = arr[i]!;
+    arr[i] = arr[j]!;
+    arr[j] = t;
+  }
+}
+
+function planHomeBiomes(planetCount: number, rnd: () => number): BiomeType[] {
+  const nonGreen = HOME_SYSTEM_BASE_BIOMES.filter((b) => b !== 'green') as BiomeType[];
+  shuffleInPlace(nonGreen, rnd);
+  const plan: BiomeType[] = [];
+  plan[0] = 'green';
+  for (let i = 0; i < nonGreen.length; i++) {
+    plan[i + 1] = nonGreen[i]!;
+  }
+  for (let i = nonGreen.length + 1; i < planetCount; i++) {
+    const pool = HOME_SYSTEM_BASE_BIOMES as unknown as BiomeType[];
+    plan[i] = pool[Math.floor(rnd() * pool.length)]!;
+  }
+  return plan;
+}
 
 function createRandom(seed: number) {
   return function() {
@@ -60,13 +90,21 @@ export async function generateHomeSystem(userId: string, tx?: any) {
       seed: Math.floor(random() * 1000000),
     }).returning();
 
-    const planetCount = Math.floor(random() * 4) + 4;
-    const homeBiomes: BiomeType[] = ['rocky', 'ocean', 'green', 'ice'];
+    const planetCount =
+      HOME_PLANET_COUNT_MIN +
+      Math.floor(random() * (HOME_PLANET_COUNT_MAX - HOME_PLANET_COUNT_MIN + 1));
+    const biomePlan = planHomeBiomes(planetCount, random);
 
     for (let i = 0; i < planetCount; i++) {
-      const biomeType = homeBiomes[Math.floor(random() * homeBiomes.length)];
-      const size = Math.floor(random() * 10) + 10;
-      const slotCount = Math.floor(size * 0.8);
+      const biomeType = biomePlan[i]!;
+      const size =
+        i === 0
+          ? Math.floor(random() * 5) + 22
+          : Math.floor(random() * 10) + 10;
+      const slotCount =
+        i === 0
+          ? Math.max(Math.floor(size * 0.8), MIN_HOME_CAPITAL_SLOT_COUNT)
+          : Math.floor(size * 0.8);
 
       const [planet] = await database.insert(planets).values({
         systemId: system.id,

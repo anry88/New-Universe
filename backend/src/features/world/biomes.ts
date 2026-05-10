@@ -1,5 +1,21 @@
 export type BiomeType = 'rocky' | 'ocean' | 'gas_giant' | 'ice' | 'volcanic' | 'green' | 'anomaly';
 
+/**
+ * Biomes that must each appear at least once in a freshly generated home system
+ * (capital is always `green`; the remaining five are placed on planets 1–5).
+ * Keep in sync with `generateHomeSystem` and `tools/balance-sim` mirrors.
+ */
+export const HOME_SYSTEM_BASE_BIOMES = [
+  'green',
+  'rocky',
+  'ocean',
+  'ice',
+  'gas_giant',
+  'volcanic',
+] as const satisfies readonly BiomeType[];
+
+export type HomeSystemBaseBiome = (typeof HOME_SYSTEM_BASE_BIOMES)[number];
+
 export interface Biome {
   id: BiomeType;
   name: { ru: string; en: string };

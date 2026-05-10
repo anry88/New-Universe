@@ -83,6 +83,7 @@ export async function expeditionsRoutes(app: FastifyInstance) {
       targetZ,
       fuelLoaded,
       cargoLoaded,
+      targetPlanetId,
     } = request.body as {
       shipId?: string;
       targetX?: number;
@@ -90,6 +91,7 @@ export async function expeditionsRoutes(app: FastifyInstance) {
       targetZ?: number;
       fuelLoaded?: number;
       cargoLoaded?: number;
+      targetPlanetId?: string | null;
     };
 
     if (
@@ -112,6 +114,7 @@ export async function expeditionsRoutes(app: FastifyInstance) {
       targetZ,
       fuelLoaded,
       cargoLoaded,
+      targetPlanetId: targetPlanetId ?? undefined,
     });
 
     if (!result.success) {

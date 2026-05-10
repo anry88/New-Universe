@@ -246,4 +246,71 @@ describe('Tick Expeditions Worker', () => {
     
     expect(discovery).toBeDefined();
   });
+
+  it('discovers a targeted home planet when scout reaches destination', async () => {
+    const user = await createTestUser();
+
+    const [homeSystem] = await db.insert(systems).values({
+      name: 'Home Scout Test',
+      sectorX: 3,
+      sectorY: 4,
+      sectorZ: 5,
+      x: '0.00',
+      y: '0.00',
+      z: '0.00',
+      seed: 222,
+      ownerId: user.id,
+      isHome: true,
+    }).returning();
+
+    const [capital] = await db.insert(planets).values({
+      systemId: homeSystem.id,
+      name: 'Capital',
+      biome: 'green',
+      size: 22,
+      slotCount: 18,
+    }).returning();
+
+    const [lockedTarget] = await db.insert(planets).values({
+      systemId: homeSystem.id,
+      name: 'Survey Target',
+      biome: 'rocky',
+      size: 12,
+      slotCount: 9,
+    }).returning();
+
+    await db.insert(discoveredPlanets).values({ userId: user.id, planetId: capital.id });
+
+    const [ship] = await db.insert(ships).values({
+      ownerId: user.id,
+      typeId: 'scout',
+      locationPlanetId: capital.id,
+      status: 'moving',
+    }).returning();
+
+    const pastEta = new Date(Date.now() - 1000);
+    await db.insert(expeditions).values({
+      shipId: ship.id,
+      type: 'scout',
+      originPlanetId: capital.id,
+      targetX: 3,
+      targetY: 4,
+      targetZ: 5,
+      targetPlanetId: lockedTarget.id,
+      status: 'in_flight',
+      eta: pastEta,
+      result: {
+        distance: 10,
+        speed: 10,
+        engineFactor: 1,
+      },
+    });
+
+    await processExpeditions();
+
+    const discovery = await db.query.discoveredPlanets.findFirst({
+      where: and(eq(discoveredPlanets.userId, user.id), eq(discoveredPlanets.planetId, lockedTarget.id)),
+    });
+    expect(discovery).toBeDefined();
+  });
 });
