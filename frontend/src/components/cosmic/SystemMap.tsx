@@ -123,6 +123,7 @@ export function CosmicSystemRenderer({
 }: CosmicSystemRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
+  const [now, setNow] = useState(Date.now());
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pointerCount, setPointerCount] = useState(0);
   const [isColonyDialogOpen, setIsColonyDialogOpen] = useState(false);
@@ -241,6 +242,12 @@ export function CosmicSystemRenderer({
     },
     [expeditionPick, transform.x, transform.y],
   );
+
+  // Tick for movement animations
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const onPointerUp = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
@@ -458,31 +465,90 @@ export function CosmicSystemRenderer({
             );
           })}
 
-          {/* Ship markers — small green chevron just outside parking orbit */}
+          {/* Ship markers — small green chevron just outside parking orbit or on trail */}
           {ships.map((ship, shipIdx) => {
             if (!['idle', 'moving'].includes(ship.status) || !ship.locationPlanetId) return null;
             const layout = layouts.find((l) => l.planet.id === ship.locationPlanetId);
             if (!layout) return null;
-            const r = layout.orbitRadius + 22;
-            const a = layout.angle + 0.18 + shipIdx * 0.06;
-            const sx = Math.cos(a) * r;
-            const sy = Math.sin(a) * r;
+
+            let sx, sy, angle = 0;
+            let isMoving = false;
+            let isReturning = false;
+
+            if (ship.status === 'moving') {
+              const exp = expeditions.find(e => e.shipId === ship.id && (e.status === 'in_flight' || e.status === 'returning'));
+              if (exp && exp.result && typeof exp.result === 'object') {
+                const res = exp.result as any;
+                if (res.distance && res.speed) {
+                  const durationMs = (res.distance * 60 / res.speed) * (res.engineFactor || 1) * 1000;
+                  const etaMs = new Date(exp.eta).getTime();
+                  let progress = 0;
+                  if (exp.status === 'in_flight') {
+                    progress = 1 - (etaMs - now) / durationMs;
+                  } else {
+                    progress = (etaMs - now) / durationMs;
+                    isReturning = true;
+                  }
+                  progress = Math.max(0, Math.min(1, progress));
+
+                  const targetAngle = Math.atan2(
+                    Number(exp.targetY ?? 0),
+                    Number(exp.targetX ?? 1)
+                  );
+                  const trailLength = 600;
+                  const endX = Math.cos(targetAngle) * trailLength;
+                  const endY = Math.sin(targetAngle) * trailLength;
+
+                  sx = layout.x + (endX - layout.x) * progress;
+                  sy = layout.y + (endY - layout.y) * progress;
+                  angle = targetAngle + (isReturning ? Math.PI : 0);
+                  isMoving = true;
+                }
+              }
+            }
+
+            if (!isMoving) {
+              const r = layout.orbitRadius + 22;
+              const a = layout.angle + 0.18 + shipIdx * 0.06;
+              sx = Math.cos(a) * r;
+              sy = Math.sin(a) * r;
+              angle = a + Math.PI / 2;
+            }
+
             return (
               <div
                 key={ship.id}
                 style={{
                   position: 'absolute',
-                  left: sx - 6,
-                  top: sy - 6,
-                  width: 12,
-                  height: 12,
-                  color: ship.status === 'moving' ? '#F4B84A' : '#5BFFA9',
+                  left: sx! - 8,
+                  top: sy! - 8,
+                  width: 16,
+                  height: 16,
+                  color: isMoving ? (isReturning ? '#F4B84A' : '#5BD7FF') : '#5BFFA9',
+                  transform: `rotate(${angle}rad)`,
+                  filter: isMoving ? 'drop-shadow(0 0 4px currentColor)' : 'none',
                   pointerEvents: expeditionPick ? 'none' : 'auto',
+                  transition: 'left 1s linear, top 1s linear',
                 }}
               >
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-                  <polygon points="0,0 12,6 0,12 3,6" />
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                  <polygon points="0,0 16,8 0,16 4,8" />
                 </svg>
+                {isMoving && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: '50%',
+                    transform: 'translateX(-50%) rotate(${-angle}rad)',
+                    fontSize: 8,
+                    fontFamily: 'var(--font-mono)',
+                    color: 'currentColor',
+                    whiteSpace: 'nowrap',
+                    marginTop: 4,
+                  }}>
+                    {isReturning ? 'RETURNING' : 'IN FLIGHT'}
+                  </div>
+                )}
               </div>
             );
           })}
