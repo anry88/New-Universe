@@ -63,6 +63,7 @@ describe('Building Upgrade - POST /buildings/upgrade', () => {
     });
     const planet = await db.query.planets.findFirst({
       where: eq(planets.systemId, system!.id),
+      with: { resources: true },
     });
     return planet!.id;
   }
