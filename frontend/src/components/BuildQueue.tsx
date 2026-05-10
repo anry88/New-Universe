@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { apiFetch } from '../lib/api';
 import { resolveBuildingType } from './cosmic/buildings';
 import { QueueStrip } from './cosmic/atoms';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface BuildQueueItem {
   id: string;
+  planetId: string;
   buildingTypeId: string;
   level: number;
   queueAction: 'build' | 'upgrade' | 'destroy';
@@ -25,26 +27,47 @@ interface BuildQueueItem {
 export function BuildQueue() {
   const [queue, setQueue] = useState<BuildQueueItem[]>([]);
   const [now, setNow] = useState(Date.now());
+  const queryClient = useQueryClient();
+  const syncingRef = useRef<string | null>(null);
+
+  const fetchQueue = async () => {
+    try {
+      const data = await apiFetch<{ queue: BuildQueueItem[] }>('/buildings/queue');
+      setQueue(data.queue || []);
+    } catch {
+      setQueue([]);
+    }
+  };
 
   useEffect(() => {
-    const fetchQueue = async () => {
-      try {
-        const data = await apiFetch<{ queue: BuildQueueItem[] }>('/buildings/queue');
-        setQueue(data.queue || []);
-      } catch {
-        setQueue([]);
-      }
-    };
-
     fetchQueue();
     const interval = setInterval(fetchQueue, 15000);
     return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000);
+    const timer = setInterval(() => {
+      const currentNow = Date.now();
+      setNow(currentNow);
+
+      if (queue.length > 0) {
+        const head = queue[0];
+        const completesAt = new Date(head.queueCompletesAt).getTime();
+        if (currentNow >= completesAt && syncingRef.current !== head.id) {
+          syncingRef.current = head.id;
+          apiFetch(`/buildings/sync/${head.planetId}`, { method: 'POST' })
+            .then(() => {
+              queryClient.invalidateQueries({ queryKey: ['me'] });
+              return fetchQueue();
+            })
+            .finally(() => {
+              syncingRef.current = null;
+            });
+        }
+      }
+    }, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [queue, queryClient]);
 
   if (!queue.length) return null;
   const head = queue[0];

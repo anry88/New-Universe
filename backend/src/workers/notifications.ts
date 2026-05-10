@@ -16,7 +16,7 @@ function formatNotificationMessage(type: string, payload: any): string | null {
   switch (type) {
     case 'building_complete':
     case 'building_done':
-      return `🏗️ <b>Building Complete!</b>\n\nYour ${payload.typeId} on planet ${payload.planetId} is ready.`;
+      return `🏗️ <b>Building Complete!</b>\n\nYour ${payload.typeId} on planet <b>${payload.planetName || payload.planetId}</b> is ready.`;
     case 'ship_done':
       return `🚀 <b>Ship Construction Complete!</b>\n\nYour ${payload.typeId} is ready for launch.`;
     case 'expedition_returned':

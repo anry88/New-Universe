@@ -1,25 +1,21 @@
-# [P2-COL-007] Colonization constraints and cost balance
+## Description
+Implemented instant building completion when the game is open. The client now triggers a sync when the construction timer expires, bypassing the background worker for active sessions.
 
-This PR implements the colonization rules framework, enforcing research prerequisites, colony limits, cooldowns, and distance constraints. It also includes the frontend UI to communicate these requirements to the player.
+### Changes
+- **Backend**:
+  - Refactored building completion logic into `BuildingService.finalizeBuildingConstruction`.
+  - Added `BuildingService.syncPlanetBuildings` to handle batch synchronization for a planet.
+  - Added `POST /buildings/sync/:planetId` endpoint.
+  - Included `planetId` in `/buildings/queue` response.
+  - Updated notifications to include `planetName` and skip push notifications if synced online.
+  - Updated notification formatter to display the human-readable planet name.
+- **Frontend**:
+  - `BuildQueue` component now monitors the construction timer.
+  - When the timer reaches zero, it calls the `/sync` endpoint and invalidates the 'me' query to refresh the UI.
 
-## Changes
+### Verification
+- Added unit test in `service.test.ts` for the sync functionality.
+- Ran backend lint, build, and tests (buildings and notifications): PASS.
+- Ran frontend build: PASS.
 
-### Backend
-- **Rules Config**: Defined centralized colonization rules in `backend/src/config/colonization-rules.ts`.
-- **Validation Engine**: Implemented `checkColonizationGates` in `backend/src/features/colonies/colonization-rules.ts`.
-- **Enforcement**: Integrated gates into `foundColony` and added resource cost deduction from the home planet.
-- **API**: Added `GET /colonies/eligibility/:planetId` endpoint.
-- **Schema**: Added `x, y, z` coordinates to the `systems` table.
-
-### Frontend
-- **ColonizationRequirements**: New component for visualizing eligibility and costs.
-- **FoundColonyDialog**: New modal for the colonization process.
-- **System Map**: Integrated "Colonize" action for unowned planets.
-
-## Verification
-- **Unit Tests**: `src/features/colonies/found-colony.test.ts` (4/4 passed).
-- **Service Tests**: `src/features/colonies/colonies.test.ts` (5/5 passed).
-- **Linting**: Passed.
-- **Manual**: Verified schema updates and API response structure.
-
-Closes #60
+Closes #207

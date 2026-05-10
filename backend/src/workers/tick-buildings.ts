@@ -19,6 +19,8 @@ type BuildingOutput = {
   baseRate?: number;
 };
 
+import { buildingService } from '../features/buildings/service.js';
+
 export async function processCompletedBuildings(): Promise<void> {
   const now = new Date();
 
@@ -36,76 +38,7 @@ export async function processCompletedBuildings(): Promise<void> {
 
   for (const building of completed) {
     await db.transaction(async (tx) => {
-      const isBuild = building.queueAction === 'build';
-
-      const newLevel = isBuild ? 1 : building.level + 1;
-
-      await tx
-        .update(buildings)
-        .set({
-          level: newLevel,
-          queueAction: null,
-          queueCompletesAt: null,
-        })
-        .where(eq(buildings.id, building.id));
-
-      const bType = await tx.query.buildingTypes.findFirst({
-        where: eq(buildingTypes.id, building.typeId),
-      });
-
-      if (bType?.baseOutput) {
-        const output = bType.baseOutput as BuildingOutput;
-        if (output.resourceId && typeof output.baseRate === 'number') {
-          const totalRate = output.baseRate * newLevel;
-
-          const existing = await tx.query.planetResources.findFirst({
-            where: and(
-              eq(planetResources.planetId, building.planetId),
-              eq(planetResources.resourceId, output.resourceId),
-            ),
-          });
-
-          if (existing) {
-            await tx
-              .update(planetResources)
-              .set({ regenRate: totalRate.toFixed(4) })
-              .where(
-                and(
-                  eq(planetResources.planetId, building.planetId),
-                  eq(planetResources.resourceId, output.resourceId),
-                ),
-              );
-          }
-        }
-      }
-
-      const planet = await tx.query.planets.findFirst({
-        where: eq(planets.id, building.planetId),
-      });
-      if (planet) {
-        const system = await tx.query.systems.findFirst({
-          where: eq(systems.id, planet.systemId),
-        });
-        if (system?.ownerId) {
-          const actionLabel = isBuild ? 'built' : `upgraded to level ${newLevel}`;
-          await tx.insert(notifications).values({
-            userId: system.ownerId,
-            type: 'building_done',
-            payload: {
-
-              buildingId: building.id,
-              typeId: building.typeId,
-              planetId: building.planetId,
-              action: isBuild ? 'build' : 'upgrade',
-              level: newLevel,
-            },
-          });
-          logger.info(
-            { buildingId: building.id, typeId: building.typeId, action: actionLabel, userId: system.ownerId },
-            'Building completion notification created',
-          );
-        }
-      }
+      await buildingService.finalizeBuildingConstruction(tx, building.id);
     });
   }
 }

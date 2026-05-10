@@ -64,12 +64,28 @@ export async function buildingsRoutes(app: FastifyInstance) {
     }
   });
 
+  app.post('/sync/:planetId', async (request, reply) => {
+    const { planetId } = request.params as { planetId: string };
+    const userId = (request as any).userId;
+
+    try {
+      await buildingService.syncPlanetBuildings(userId, planetId);
+      return { success: true };
+    } catch (err: any) {
+      return reply.status(400).send({
+        error: 'Bad Request',
+        message: err.message,
+      });
+    }
+  });
+
   app.get('/queue', async (request) => {
     const userId = (request as any).userId as string;
 
     const rows = await db
       .select({
         id: buildings.id,
+        planetId: buildings.planetId,
         buildingTypeId: buildings.typeId,
         level: buildings.level,
         queueAction: buildings.queueAction,
