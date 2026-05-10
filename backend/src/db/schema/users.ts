@@ -10,4 +10,6 @@ export const users = pgTable('users', {
   powerScore: integer('power_score').default(0).notNull(),
   tutorialStepCompleted: integer('tutorial_step').default(0).notNull(),
   tutorialCompletedAt: timestamp('tutorial_completed_at'),
+  /** Premium currency (diamonds); spent on rush-build; optional Telegram Stars purchase later. */
+  diamonds: integer('diamonds').notNull().default(0),
 });

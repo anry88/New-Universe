@@ -3,7 +3,13 @@ import jwt from 'jsonwebtoken';
 import { env } from '../../lib/env.js';
 import { buildingService } from './service.js';
 import { BuildingOperationError } from './building-operation-error.js';
-import { BuildRequest, UpgradeRequest, DemolishRequest } from '@shared/types/buildings.js';
+import {
+  BuildRequest,
+  UpgradeRequest,
+  DemolishRequest,
+  RushBuildRequest,
+} from '@shared/types/buildings.js';
+import { rushDiamondCost, rushPricingMeta, rushRemainingSeconds } from '../../lib/diamonds.js';
 
 import { db } from '../../db/index.js';
 import { buildings, planets, systems } from '../../db/schema.js';
@@ -128,17 +134,51 @@ export async function buildingsRoutes(app: FastifyInstance) {
         ),
       );
 
+    const sorted = rows
+      .map((row) => ({
+        ...row,
+        queueAction: row.queueAction as 'build' | 'upgrade' | 'destroy',
+        queueCompletesAt: row.queueCompletesAt!.toISOString(),
+        rushCost: rushDiamondCost(rushRemainingSeconds(row.queueCompletesAt!)),
+      }))
+      .sort(
+        (a, b) =>
+          new Date(a.queueCompletesAt).getTime() - new Date(b.queueCompletesAt).getTime(),
+      );
+
     return {
-      queue: rows
-        .map((row) => ({
-          ...row,
-          queueAction: row.queueAction as 'build' | 'upgrade' | 'destroy',
-          queueCompletesAt: row.queueCompletesAt!.toISOString(),
-        }))
-        .sort(
-          (a, b) =>
-            new Date(a.queueCompletesAt).getTime() - new Date(b.queueCompletesAt).getTime(),
-        ),
+      queue: sorted,
+      rushPricing: rushPricingMeta(),
     };
+  });
+
+  app.post('/rush', async (request, reply) => {
+    const { buildingId } = request.body as RushBuildRequest;
+    const userId = (request as any).userId as string;
+
+    if (!buildingId || typeof buildingId !== 'string') {
+      return reply.status(400).send({
+        error: 'Bad Request',
+        message: 'buildingId is required',
+      });
+    }
+
+    try {
+      return await buildingService.rushQueuedBuilding(userId, buildingId);
+    } catch (err: unknown) {
+      if (err instanceof BuildingOperationError) {
+        return reply.status(400).send({
+          error: 'Bad Request',
+          message: err.message,
+          code: err.code,
+          details: err.details,
+        });
+      }
+      const e = err as { message?: string };
+      return reply.status(400).send({
+        error: 'Bad Request',
+        message: e.message ?? 'Bad Request',
+      });
+    }
   });
 }

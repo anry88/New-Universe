@@ -120,6 +120,7 @@ export function ResourceBar({ planetId, planetLabel }: ResourceBarProps) {
       <>
         <div className="cosmic-resource-strip">
           <CosmicTopBar
+            diamonds={diamondBalance}
             resources={[
               { resourceId: 'water', amount: 0, cap: 1000, rate: 0 },
               { resourceId: 'iron', amount: 0, cap: 1000, rate: 0 },
@@ -144,7 +145,7 @@ export function ResourceBar({ planetId, planetLabel }: ResourceBarProps) {
   return (
     <>
       <div className="cosmic-resource-strip">
-        <CosmicTopBar resources={data} />
+        <CosmicTopBar resources={data} diamonds={diamondBalance} />
         <button
           type="button"
           className="resource-bar-all-btn"

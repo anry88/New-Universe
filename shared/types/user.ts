@@ -11,10 +11,10 @@ export interface User {
   createdAt: string;
   premiumUntil: string | null;
   powerScore: number;
+  /** Premium currency balance (rush builds), account-wide. */
+  diamonds: number;
   tutorialStep: number;
   tutorialCompletedAt: string | null;
-  /** Premium balance (account-wide); optional until backend exposes it everywhere. */
-  diamonds?: number;
   homeSystem?: HomeSystem;
   planets?: Planet[];
   ships?: Ship[];

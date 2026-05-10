@@ -3,6 +3,9 @@ import { db } from '../../db/index.js';
 import { buildings, expeditions, planetResources, planets, ships, systems, users } from '../../db/schema.js';
 import { and, eq, sql } from 'drizzle-orm';
 import { syncTutorialProgress } from './service.js';
+import { seedResources } from '../../db/seed/resources.js';
+import { seedBuildingTypes } from '../../db/seed/building-types.js';
+import { seedShipTypes } from '../../db/seed/ship-types.js';
 
 describe('tutorial sync', () => {
   beforeEach(async () => {
@@ -23,6 +26,9 @@ describe('tutorial sync', () => {
       RESTART IDENTITY
       CASCADE
     `);
+    await seedResources();
+    await seedBuildingTypes();
+    await seedShipTypes();
   });
 
   it('completes tutorial and applies reward once', async () => {
@@ -130,5 +136,81 @@ describe('tutorial sync', () => {
 
     expect(Number(ironAfterSecond.amount)).toBe(1200);
     expect(Number(waterAfterSecond.amount)).toBe(1100);
+  });
+
+  it('grants only step 1 rewards when only the mine milestone exists', async () => {
+    const tgId = BigInt(Math.floor(Math.random() * 10_000_000) + 60_000_000);
+    const [user] = await db
+      .insert(users)
+      .values({
+        tgId,
+        tgFirstName: 'Tutorial',
+      })
+      .returning();
+
+    const [system] = await db
+      .insert(systems)
+      .values({
+        ownerId: user.id,
+        isHome: true,
+        sectorX: 1,
+        sectorY: 1,
+        sectorZ: 1,
+        x: '0.00',
+        y: '0.00',
+        z: '0.00',
+        name: 'Home',
+        seed: 456,
+      })
+      .returning();
+
+    const [planet] = await db
+      .insert(planets)
+      .values({
+        systemId: system.id,
+        biome: 'rocky',
+        size: 12,
+        slotCount: 8,
+        name: 'Prime',
+      })
+      .returning();
+
+    await db.insert(planetResources).values([
+      {
+        planetId: planet.id,
+        resourceId: 'iron',
+        amount: '1000.0000',
+        regenRate: '0.0000',
+      },
+      {
+        planetId: planet.id,
+        resourceId: 'water',
+        amount: '1000.0000',
+        regenRate: '0.0000',
+      },
+    ]);
+
+    await db.insert(buildings).values({
+      planetId: planet.id,
+      typeId: 'mine',
+      level: 1,
+      slotIndex: 0,
+    });
+
+    const progress = await syncTutorialProgress(user.id);
+    expect(progress.tutorialStepCompleted).toBe(1);
+    expect(progress.tutorialCompletedAt).toBeNull();
+
+    const [ironRow] = await db
+      .select({ amount: planetResources.amount })
+      .from(planetResources)
+      .where(and(eq(planetResources.planetId, planet.id), eq(planetResources.resourceId, 'iron')));
+    const [waterRow] = await db
+      .select({ amount: planetResources.amount })
+      .from(planetResources)
+      .where(and(eq(planetResources.planetId, planet.id), eq(planetResources.resourceId, 'water')));
+
+    expect(Number(ironRow.amount)).toBe(1010);
+    expect(Number(waterRow.amount)).toBe(1015);
   });
 });

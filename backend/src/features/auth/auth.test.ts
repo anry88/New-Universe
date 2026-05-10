@@ -54,6 +54,7 @@ describe('Auth Routes', () => {
     expect(response.statusCode).toBe(200);
     const body = response.json();
     expect(body.user.tgId).toBe(tgId.toString());
+    expect(body.user.diamonds).toBe(env.DIAMOND_STARTING_GRANT);
     expect(body.token).toBeDefined();
 
     const userSystem = await db.query.systems.findFirst({

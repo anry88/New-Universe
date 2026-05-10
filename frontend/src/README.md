@@ -21,7 +21,7 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
   - **`Colonies.tsx`** — lists all owned planets with their resources and status, allowing focal planet switching and initiating cargo transfers.
   - **`Profile.tsx`** — player profile card with sector/system details and a `RESUME TUTORIAL` action when onboarding is not completed yet.
   - `onboarding/` — first-session onboarding tutorial pages. See [`pages/onboarding/README.md`](./pages/onboarding/README.md).
-    - **`Onboarding.tsx`** — 5-step tutorial overlay (welcome → mine → storage → scout → expedition), with skip/return-later flow and current-objective toast.
+    - **`Onboarding.tsx`** — 5-step tutorial overlay (welcome → mine → storage → scout → expedition); polls `POST /tutorial/sync`; wires **Continue** to dismiss full-screen gate via App/sessionStorage so Home stays playable without redirect loops.
   - **`PlanetDetail.tsx`** — detailed planet view with building slots and upgrade options; derives construction eligibility from `GET /buildings/types` limits plus live `/me` planets/research via `@shared/types/building-eligibility`.
   - **`SystemMap.tsx`** — page component for the interactive home system map; links into the sector radar for the same sector cube.
   - **`SectorMap.tsx`** — Phase 3 sector map: queries `GET /multiplayer/sectors/:sx/:sy/:sz/presence`, supports manual sector coordinates (global search within numeric sector grid), renders Pixi markers via `SectorRenderer`.
@@ -32,20 +32,20 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
   - `pixi/` — canvas-based rendering components using PixiJS.
     - **`SystemRenderer.tsx`** — top-down system map renderer. Handles orbits, planets, star, and ship markers with pan/zoom logic.
     - **`SectorRenderer.tsx`** — compact Pixi scatter plot for multiplayer sector markers (`PresenceEntityKind` colors); receives `SectorPresenceEntity[]` from the presence API.
-  - **`ResourceBar.tsx`** — top resource chips for the focal planet (`planetInventoryApiPath` when `planetId` is set), RAF smoothing between polls, optional `planetLabel`, and an **All** control opening `ResourceInventoryDrawer`.
-  - **`ResourceInventoryDrawer.tsx`** — full planet stockpile list (sorted by label) plus optional account-wide diamonds when `/me` includes `user.diamonds`.
+  - **`ResourceBar.tsx`** — planet-scoped top chips (`planetInventoryApiPath` when `planetId` is set), RAF smoothing, **`user.diamonds`** on `CosmicTopBar` (four resources + diamond chip when balance is defined), optional `planetLabel`, and **All** opening `ResourceInventoryDrawer`.
+  - **`ResourceInventoryDrawer.tsx`** — full planet stockpile list (sorted by label) plus account-wide diamonds in **Account (global)** when `/me` returns `user.diamonds`.
   - **`cosmic/resources.ts`** — resource id -> symbol/label dictionary used in cosmic UI; aligned with seeded resource ids (`iron`, `silicon`, `tritium`, etc.) for tech-tree cost rendering.
   - **`PlanetView.tsx`** — focal planet portrait + slot grid; `PlanetRail` updates the focal planet via `setFocalPlanetId` (keeps the user on Home while syncing the top resource bar).
   - **`cosmic/buildings.tsx`** — Cosmic Atlas building icons keyed by backend catalog ids; exports `resolveBuildingType(typeId)` (canonical ids plus legacy synonyms such as `laboratory` and alternate lab spellings matched via `/^research[_-]?lab$/i`).
   - **`cosmic/buildings.test.ts`** — Vitest coverage for `resolveBuildingType` (known id resolution plus unknown-id fallback to the safe default icon).
-  - **`BuildQueue.tsx`** — displays the current build queue with countdown timers.
+  - **`BuildQueue.tsx`** — displays the current build queue head with countdown timers, polls `GET /buildings/queue` for **`rushPricing`**, computes live rush cost via `@shared/types/diamonds` (`estimateRushDiamondCost`), and calls **`POST /buildings/rush`** with loading/disabled states tied to `useMe().diamonds`.
   - **`BuildDialog.tsx`** — Cosmic Atlas bottom sheet for picking a building type on an empty slot; applies dashed/low-opacity styling when `blockedReasonFor` reports a shared `BuildBlockedReason`, opens an inline hint (`build-block-reason`) on tap, and only calls `POST /buildings/build` when the row is eligible.
   - **`CargoTransferDialog.tsx`** — interplanetary logistics interface for moving resources between colonies.
   - **`ExpeditionDialog.tsx`** — mission launch configuration with coordinate selection and ETA.
   - **`MarketOrderDialog.tsx`** — modal form for creating buy/sell NPC market orders with resource selection, quantity, and clear validation error states.
   - **`RequirementList.tsx`** — compact list of missing `{ branch, level }` research prerequisites for gated UI actions; uses `RESEARCH_BRANCH_LABELS_EN` from `@shared/types/research`.
   - **`TechTreeNode.tsx`** — single-tier chip for Cosmic `tech-node` styles: completed/active countdown/pending/locked visuals without heavy Tailwind (mobile-friendly).
-  - **`Tutorial.tsx`** — reusable full-screen onboarding overlay with step list, current-objective hint, and action buttons.
+  - **`Tutorial.tsx`** — reusable full-screen onboarding overlay with step list, per-step reward blurbs from `@shared/config/tutorialRewards`, **Continue** (back to game without skip), **Skip for now**, and **Back to game** when complete.
 - `assets/` — static assets imported by Vite (currently empty).
 
 The folders above are reserved by `AGENTS.md` (`Engineering Rules` → "Keep frontend state and API calls in clear `lib/`, `pages/`, and `components/` boundaries"). Create them as soon as a feature needs them and document new files here.

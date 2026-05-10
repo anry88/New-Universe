@@ -39,7 +39,7 @@ The `tools/` folder hosts offline agents (not bundled into Docker images). Today
 - Logging: Pino instance from `lib/logger.ts`, switched to `pino-pretty` in development.
 - Request IDs: every incoming request gets a UUID via `middleware/request-id.ts` and the ID is exposed under the `requestId` log key.
 - Sentry: `lib/sentry.ts` is imported as the very first module to capture early-startup errors; it stays disabled when `SENTRY_DSN` is empty.
-- Routes: `/health` (`routes/health.ts`), `/webhook/telegram` (`routes/bot.ts`), `/auth/telegram` (`features/auth/routes.ts`), `/me` (`features/me/routes.ts`), `/buildings/*` (`features/buildings/routes.ts`), `/resources/convert` (`features/resources/routes.ts`), `/ships/build` (`features/ships/routes.ts`), `/expeditions` (`features/expeditions/routes.ts`), `/expeditions/jump` (`features/expeditions/routes.ts`), `/research/start` (`features/research/routes.ts`), `/tutorial/sync` (`features/tutorial/routes.ts`), `/market/offers` (`routes/market.ts`), `/market/orders` (`routes/market.ts`), `/market/orders/:orderId/cancel` (`routes/market.ts`), `/multiplayer/sectors/:sx/:sy/:sz/presence` (`routes/multiplayer.ts`).
+- Routes: `/health` (`routes/health.ts`), `/webhook/telegram` (`routes/bot.ts`), `/auth/telegram` (`features/auth/routes.ts`), `/me` (`features/me/routes.ts`), `/buildings/*` including **`POST /buildings/rush`** (`features/buildings/routes.ts`), `/resources/convert` (`features/resources/routes.ts`), `/ships/build` (`features/ships/routes.ts`), `/expeditions` (`features/expeditions/routes.ts`), `/expeditions/jump` (`features/expeditions/routes.ts`), `/research/start` (`features/research/routes.ts`), `/tutorial/sync` (`features/tutorial/routes.ts`), `/market/offers` (`routes/market.ts`), `/market/orders` (`routes/market.ts`), `/market/orders/:orderId/cancel` (`routes/market.ts`), `/multiplayer/sectors/:sx/:sy/:sz/presence` (`routes/multiplayer.ts`).
 
 ### Workers
 
@@ -66,7 +66,7 @@ The bot entry point is `POST /webhook/telegram`. Incoming updates are dispatched
 
 `backend/src/db/index.ts` opens a `postgres-js` connection from `DATABASE_URL` and exposes a typed Drizzle client via `db`. The schema is split per domain under `backend/src/db/schema/` and re-exported from `backend/src/db/schema.ts`:
 
-- `users` — Telegram-linked player accounts and onboarding progression (`tutorial_step` exposed in code as `tutorialStepCompleted`, `tutorial_completed_at`).
+- `users` — Telegram-linked player accounts and onboarding progression (`tutorial_step` exposed in code as `tutorialStepCompleted`, `tutorial_completed_at`), plus **`diamonds`** (premium currency for rush-build; starter grant on first registration via env `DIAMOND_STARTING_GRANT`).
 - `resources`, `richness`, `planet_resources` — universe resource catalog (23 seeded resources across tiers 1–4, including `steel`, `electronics`, and `fuel`) and per-planet inventory. **`planet_resources.regenRate`** combines planetary richness with **building outputs** from `building_types.baseOutput` (`smelter` → `steel`, `fabrication_bay` → `electronics`, mines/drills → ores/water); the NPC market is not required for those baselines.
 - `systems`, `planets` — generated star systems and their planets, including biome and slot count.
 - `building_types`, `buildings` — building catalog and per-planet build queue rows. Catalog rows may set **`max_per_planet`** / **`max_global`** (nullable integers) so uniqueness rules such as one Command Center per planet or one Laboratory account-wide stay aligned between seeds, API payloads (`GET /buildings/types`), and UI eligibility (`shared/types/building-eligibility.ts`).
@@ -100,11 +100,11 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 - `hooks/useMe.ts` — uses TanStack Query to fetch and cache the current player state from `GET /me`.
 - `pages/SectorMap.tsx` — Phase 3 sector radar: queries `GET /multiplayer/sectors/:sx/:sy/:sz/presence` and renders markers via `components/pixi/SectorRenderer.tsx` (PixiJS scatter plot; foreign actors shown with summary visibility).
 - `hooks/useColonies.ts` — manages the collection of player-owned planets and tracks the focal planet across the UI via a dedicated Zustand store.
-- `pages/Home.tsx` — main game screen with resource bar, tab bar, and navigation.
+- `pages/Home.tsx` — main game screen with resource bar, tab bar, and navigation; inactive-tutorial shortcut uses **`tutorial-launcher`** CSS so it sits below the resource bar (no overlap).
 - `pages/Colonies.tsx` — lists all owned planets with their resources and status, allowing focal planet switching and initiating cargo transfers.
 - `pages/Market.tsx` — market UI for browsing buy/sell quotes, submitting NPC market orders, and tracking pending order ETA.
 - `pages/Research.tsx` — Cosmic Atlas tech tree (**levels 1–5** per branch, synced with `frontend/src/lib/tech-tree.ts` / `@shared/config/researchCatalog`); lab/prerequisite/resource gating (BuildDialog-style blocking copy), tier detail sheet, optimistic research starts, live countdown chips.
-- `pages/onboarding/Onboarding.tsx` — 5-step onboarding flow with skip-and-return behavior and current-objective toast.
+- `pages/onboarding/Onboarding.tsx` — Cosmic tutorial overlay: step list with reward copy from `@shared/config/tutorialRewards`, periodic `POST /tutorial/sync`, **Continue** returns to Home without forcing `/onboarding` again until the player re-opens tutorial or completes it (`sessionStorage` + lifted App state).
 - `pages/PlanetDetail.tsx` — detailed planet screen with infrastructure slots, building construction, and upgrade dialogs.
 - `components/ResourceBar.tsx` — displays planet resources with animated real-time regeneration.
 - `components/PlanetView.tsx` — shows the current focus planet overview.
@@ -117,13 +117,13 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 ### Shared types and config
 
 `shared/types/` is the cross-cutting contract folder for backend ↔ frontend payloads:
-- `user.ts` — `User` interface (onboarding fields; optional `diamonds` when returned by `/me`).
+- `user.ts` — `User` interface (`diamonds`, onboarding fields, home system linkage).
 - `buildings.ts` — building types and construction requests.
 - `auth.ts` — `AuthResponse` interface.
 - `research.ts` — research DTOs, `ResearchRequirementRef`, `RESEARCH_BRANCH_LABELS_EN`, plus `ResourceId` union used by tech-tree costs and unlock messaging on both backend and frontend.
 - `market.ts` — market offer and order contracts shared between frontend market hooks and backend market routes.
 
-`shared/config/` holds deterministic catalogs duplicated only when both backend and browser need identical numbers — today **`researchCatalog.ts`** (full tech tree + scaling notes) alongside **`buildingResearchGates.ts`**.
+`shared/config/` holds deterministic catalogs duplicated only when both backend and browser need identical numbers — today **`researchCatalog.ts`** (full tech tree + scaling notes), **`buildingResearchGates.ts`**, and **`tutorialRewards.ts`** (tutorial iron/water bundles + UI summaries).
 
 ## Local environment
 
