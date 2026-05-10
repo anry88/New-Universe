@@ -75,9 +75,49 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
             </div>
             <div>
               <div className="bopt-row">
-                <span className="bopt-name">Upgrade cost</span>
-                <span className="bopt-locked">L{building.level + 1}</span>
+                <span className="bopt-name">Upgrade to L{building.level + 1}</span>
+                <span className="bopt-locked">{def.cat.toUpperCase()}</span>
               </div>
+              <div className="bopt-desc">{typeInfo.description.en}</div>
+              
+              <div className="bopt-stats">
+                {(() => {
+                  const output = typeInfo.baseOutput as any;
+                  const curLvl = building.level;
+                  const nextLvl = curLvl + 1;
+                  
+                  return (
+                    <>
+                      {output.resourceId && output.baseRate && (
+                        <span className="bstat">
+                          Yield: {output.baseRate * curLvl} → {output.baseRate * nextLvl} {getResourceSymbol(output.resourceId)}/h
+                        </span>
+                      )}
+                      {output.cap && (
+                        <span className="bstat">
+                          Capacity: {output.cap * curLvl} → {output.cap * nextLvl}
+                        </span>
+                      )}
+                      {output.energy && (
+                        <span className="bstat energy">
+                          Energy: {output.energy * curLvl} → {output.energy * nextLvl}
+                        </span>
+                      )}
+                      {typeInfo.energyConsumption > 0 && (
+                        <span className="bstat neg">
+                          Usage: -{typeInfo.energyConsumption} E
+                        </span>
+                      )}
+                      {output.conversion && (
+                        <span className="bstat">
+                          {getResourceSymbol(output.conversion.from)} → {getResourceSymbol(output.conversion.to)} ({output.conversion.rate}/h)
+                        </span>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+
               <div className="bopt-meta">
                 <span className="bopt-cost">
                   {costs.length === 0

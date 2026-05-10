@@ -1,6 +1,7 @@
 export interface BuildingType {
   id: string;
   name: { ru: string; en: string };
+  description: { ru: string; en: string };
   category: string;
   /** From DB; null/undefined = unlimited per planet. */
   maxPerPlanet?: number | null;

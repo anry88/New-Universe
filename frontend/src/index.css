@@ -798,10 +798,42 @@ body {
   display: flex;
   gap: 12px;
   margin-top: 3px;
+}
+.bopt-desc {
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 5px;
+  line-height: 1.4;
+}
+.bopt-stats {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.bstat {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.bstat.energy {
+  color: #ffca5b;
+  background: rgba(255, 202, 91, 0.1);
+}
+.bstat.neg {
+  color: #ff5a6e;
+  background: rgba(255, 90, 110, 0.1);
 }
 .bopt-cost {
+  font-family: var(--font-mono);
+  font-size: 10px;
   color: var(--text-dim);
 }
 .bopt-time {

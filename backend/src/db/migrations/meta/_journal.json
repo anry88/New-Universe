@@ -148,6 +148,13 @@
       "when": 1778410800000,
       "tag": "0020_building_type_limits",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1778411317090,
+      "tag": "0021_tricky_wraith",
+      "breakpoints": true
     }
   ]
 }

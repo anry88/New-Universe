@@ -58,6 +58,10 @@ export const BUILDING_TYPE_CATALOG_ROWS: BuildingCatalogRow[] = [
   {
     id: 'command_center',
     name: { ru: 'Командный центр', en: 'Command Center' },
+    description: {
+      ru: 'Административный узел вашей колонии. Позволяет строить новые здания.',
+      en: 'Administrative hub of your colony. Enables new building construction.',
+    },
     category: 'base',
     maxPerPlanet: 1,
     maxGlobal: null,
@@ -71,6 +75,10 @@ export const BUILDING_TYPE_CATALOG_ROWS: BuildingCatalogRow[] = [
   {
     id: 'mine',
     name: { ru: 'Шахта', en: 'Mine' },
+    description: {
+      ru: 'Добывает базовые минералы из недр планеты. Эффективна для железа и углерода.',
+      en: 'Extracts basic minerals from the planet\'s interior. Effective for iron and carbon.',
+    },
     category: 'production',
     maxLevel: 30,
     deps: [{ typeId: 'command_center', level: 1 }],
@@ -81,7 +89,11 @@ export const BUILDING_TYPE_CATALOG_ROWS: BuildingCatalogRow[] = [
   },
   {
     id: 'drill',
-    name: { ru: 'Бур', en: 'Drill' },
+    name: { ru: 'Глубокий бур', en: 'Deep Drill' },
+    description: {
+      ru: 'Глубокое бурение для добычи жидкостей и газов, таких как вода и метан.',
+      en: 'Deep drilling for extracting liquids and gases like water and methane.',
+    },
     category: 'production',
     maxLevel: 30,
     deps: [{ typeId: 'command_center', level: 1 }],
@@ -93,6 +105,10 @@ export const BUILDING_TYPE_CATALOG_ROWS: BuildingCatalogRow[] = [
   {
     id: 'storage',
     name: { ru: 'Склад', en: 'Storage' },
+    description: {
+      ru: 'Увеличивает вместимость хранилищ для всех типов ресурсов на планете.',
+      en: 'Increases storage capacity for all types of resources on the planet.',
+    },
     category: 'logistics',
     maxLevel: 25,
     deps: [{ typeId: 'command_center', level: 1 }],
@@ -104,6 +120,10 @@ export const BUILDING_TYPE_CATALOG_ROWS: BuildingCatalogRow[] = [
   {
     id: 'smelter',
     name: { ru: 'Завод', en: 'Smelter' },
+    description: {
+      ru: 'Перерабатывает сырье в очищенные материалы (например, железо в сталь).',
+      en: 'Processes raw materials into refined materials (e.g., iron into steel).',
+    },
     category: 'production',
     maxLevel: 20,
     deps: [{ typeId: 'command_center', level: 3 }],
@@ -115,6 +135,10 @@ export const BUILDING_TYPE_CATALOG_ROWS: BuildingCatalogRow[] = [
   {
     id: 'fabrication_bay',
     name: { ru: 'Цех электроники', en: 'Fabrication Bay' },
+    description: {
+      ru: 'Производит высокотехнологичные компоненты и электронику.',
+      en: 'Produces high-tech components and electronics.',
+    },
     category: 'production',
     maxLevel: 15,
     deps: [
@@ -129,6 +153,10 @@ export const BUILDING_TYPE_CATALOG_ROWS: BuildingCatalogRow[] = [
   {
     id: 'spaceport',
     name: { ru: 'Космопорт', en: 'Spaceport' },
+    description: {
+      ru: 'Обеспечивает логистику и запуск кораблей. Необходим для флота.',
+      en: 'Provides logistics and ship launching. Required for fleet operations.',
+    },
     category: 'ships',
     maxLevel: 10,
     deps: [{ typeId: 'command_center', level: 4 }],
@@ -140,6 +168,10 @@ export const BUILDING_TYPE_CATALOG_ROWS: BuildingCatalogRow[] = [
   {
     id: 'shipyard',
     name: { ru: 'Верфь', en: 'Shipyard' },
+    description: {
+      ru: 'Позволяет строить и ремонтировать космические корабли.',
+      en: 'Enables construction and repair of spacecraft.',
+    },
     category: 'ships',
     maxLevel: 15,
     deps: [{ typeId: 'spaceport', level: 2 }],
@@ -151,6 +183,10 @@ export const BUILDING_TYPE_CATALOG_ROWS: BuildingCatalogRow[] = [
   {
     id: 'lab',
     name: { ru: 'Лаборатория', en: 'Laboratory' },
+    description: {
+      ru: 'Центр научных исследований. Разблокирует новые технологии.',
+      en: 'Center for scientific research. Unlocks new technologies.',
+    },
     category: 'progress',
     maxPerPlanet: null,
     maxGlobal: 1,
@@ -164,6 +200,10 @@ export const BUILDING_TYPE_CATALOG_ROWS: BuildingCatalogRow[] = [
   {
     id: 'cryo_factory',
     name: { ru: 'Криогенный завод', en: 'Cryo Factory' },
+    description: {
+      ru: 'Занимается криогенной обработкой и производством льда.',
+      en: 'Handles cryogenic processing and ice production.',
+    },
     category: 'production',
     maxLevel: 15,
     deps: [
@@ -178,6 +218,10 @@ export const BUILDING_TYPE_CATALOG_ROWS: BuildingCatalogRow[] = [
   {
     id: 'solar_plant',
     name: { ru: 'Солнечная станция', en: 'Solar Plant' },
+    description: {
+      ru: 'Генерирует энергию из солнечного излучения для питания базы.',
+      en: 'Generates energy from solar radiation to power the base.',
+    },
     category: 'energy',
     maxLevel: 20,
     deps: [{ typeId: 'command_center', level: 1 }],
