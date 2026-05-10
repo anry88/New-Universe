@@ -6,11 +6,19 @@ import { apiFetch } from '../../lib/api';
 
 interface OnboardingPageProps {
   onSkip: () => void;
+  /** Returning to Home without skipping — clears forced full-screen gate. */
+  onContinueToGame: () => void;
+  /** Opening /onboarding resets overlay-dismiss flag (lifted from App). */
+  onEnter?: () => void;
 }
 
-export function OnboardingPage({ onSkip }: OnboardingPageProps) {
+export function OnboardingPage({ onSkip, onContinueToGame, onEnter }: OnboardingPageProps) {
   const navigate = useNavigate();
   const { data: meData, refetch } = useMe();
+
+  useEffect(() => {
+    onEnter?.();
+  }, [onEnter]);
 
   const tutorialStep = meData?.tutorialStep ?? 0;
   const completed = Boolean(meData?.tutorialCompletedAt);
@@ -23,10 +31,10 @@ export function OnboardingPage({ onSkip }: OnboardingPageProps) {
       { id: 3, title: 'Build scout', done: tutorialStep >= 3 },
       { id: 4, title: 'Send first expedition', done: tutorialStep >= 4 },
     ],
-    [tutorialStep]
+    [tutorialStep],
   );
   const currentHint = completed
-    ? 'Tutorial completed. Reward delivered: +200 Fe and +100 H2O.'
+    ? 'Tutorial completed. Rewards were delivered at each milestone.'
     : `Current objective: ${steps.find((step) => !step.done)?.title ?? 'Welcome'}`;
 
   const closeTutorial = () => {
@@ -51,6 +59,10 @@ export function OnboardingPage({ onSkip }: OnboardingPageProps) {
       currentHint={currentHint}
       onSkip={() => {
         onSkip();
+        navigate('/');
+      }}
+      onContinue={() => {
+        onContinueToGame();
         navigate('/');
       }}
       onClose={closeTutorial}

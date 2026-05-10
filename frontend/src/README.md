@@ -16,7 +16,7 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
   - **`Colonies.tsx`** — lists all owned planets with their resources and status, allowing focal planet switching and initiating cargo transfers.
   - **`Profile.tsx`** — player profile card with sector/system details and a `RESUME TUTORIAL` action when onboarding is not completed yet.
   - `onboarding/` — first-session onboarding tutorial pages. See [`pages/onboarding/README.md`](./pages/onboarding/README.md).
-    - **`Onboarding.tsx`** — 5-step tutorial overlay (welcome → mine → storage → scout → expedition), with skip/return-later flow and current-objective toast.
+    - **`Onboarding.tsx`** — 5-step tutorial overlay (welcome → mine → storage → scout → expedition); polls `POST /tutorial/sync`; wires **Continue** to dismiss full-screen gate via App/sessionStorage so Home stays playable without redirect loops.
   - **`PlanetDetail.tsx`** — detailed planet view with building slots and upgrade options; derives construction eligibility from `GET /buildings/types` limits plus live `/me` planets/research via `@shared/types/building-eligibility`.
   - **`SystemMap.tsx`** — page component for the interactive home system map; links into the sector radar for the same sector cube.
   - **`SectorMap.tsx`** — Phase 3 sector map: queries `GET /multiplayer/sectors/:sx/:sy/:sz/presence`, supports manual sector coordinates (global search within numeric sector grid), renders Pixi markers via `SectorRenderer`.
@@ -39,7 +39,7 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
   - **`MarketOrderDialog.tsx`** — modal form for creating buy/sell NPC market orders with resource selection, quantity, and clear validation error states.
   - **`RequirementList.tsx`** — compact list of missing `{ branch, level }` research prerequisites for gated UI actions; uses `RESEARCH_BRANCH_LABELS_EN` from `@shared/types/research`.
   - **`TechTreeNode.tsx`** — single-tier chip for Cosmic `tech-node` styles: completed/active countdown/pending/locked visuals without heavy Tailwind (mobile-friendly).
-  - **`Tutorial.tsx`** — reusable full-screen onboarding overlay with step list, current-objective hint, and action buttons.
+  - **`Tutorial.tsx`** — reusable full-screen onboarding overlay with step list, per-step reward blurbs from `@shared/config/tutorialRewards`, **Continue** (back to game without skip), **Skip for now**, and **Back to game** when complete.
 - `assets/` — static assets imported by Vite (currently empty).
 
 The folders above are reserved by `AGENTS.md` (`Engineering Rules` → "Keep frontend state and API calls in clear `lib/`, `pages/`, and `components/` boundaries"). Create them as soon as a feature needs them and document new files here.
