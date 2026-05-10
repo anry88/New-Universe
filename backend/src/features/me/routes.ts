@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import { env } from '../../lib/env.js';
 import { db } from '../../db/index.js';
 import { users, systems, discoveredPlanets, planets, ships, expeditions, researchProgress } from '../../db/schema.js';
-import { eq } from 'drizzle-orm';
+import { eq, or } from 'drizzle-orm';
 import { syncTutorialProgress } from '../tutorial/service.js';
 import { homeSystemShortTag } from '@shared/format/homeSystemNaming.js';
 
@@ -113,7 +113,7 @@ export async function meRoutes(app: FastifyInstance) {
         });
 
         const activeExpeditions = await db.query.expeditions.findMany({
-          where: eq(expeditions.status, 'active'),
+          where: or(eq(expeditions.status, 'in_flight'), eq(expeditions.status, 'returning')),
         });
 
         const userResearch = await db.query.researchProgress.findMany({
@@ -136,9 +136,9 @@ export async function meRoutes(app: FastifyInstance) {
           },
         });
 
-        const homePlanets = (homeSystem?.planets || []).filter((p: any) => p.isDiscovered !== false);
+        const homePlanets = (homeSystem?.planets || []);
         const colonyPlanets = userColonies.map(c => c.planet);
-        const allPlanets = [...homePlanets, ...colonyPlanets].filter((p: any) => p.isDiscovered !== false);
+        const allPlanets = [...homePlanets, ...colonyPlanets];
 
         const enrichedPlanets = await Promise.all(
           allPlanets.map(async (planet: any) => {
@@ -172,7 +172,7 @@ export async function meRoutes(app: FastifyInstance) {
                 planets: enrichedPlanets.filter((p) => p.systemId === homeSystem?.id),
               }
             : undefined,
-          planets: enrichedPlanets,
+          planets: enrichedPlanets.filter((p) => p.isDiscovered !== false),
           ships: userShips,
           expeditions: activeExpeditions,
           research: userResearch,

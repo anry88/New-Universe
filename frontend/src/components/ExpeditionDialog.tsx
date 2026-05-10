@@ -18,6 +18,7 @@ interface ExpeditionDialogProps {
 export function ExpeditionDialog({ ship, shipType, originX, originY, originZ, onClose }: ExpeditionDialogProps) {
   const { data: meData } = useMe();
   const [target, setTarget] = useState({ x: originX + 10, y: originY + 10, z: originZ });
+  const [targetPlanetId, setTargetPlanetId] = useState<string | null>(null);
   const [cargo] = useState(0);
   const [fuelManual, setFuelManual] = useState(false);
   const [fuel, setFuel] = useState(10);
@@ -74,6 +75,7 @@ export function ExpeditionDialog({ ship, shipType, originX, originY, originZ, on
         targetX: target.x,
         targetY: target.y,
         targetZ: target.z,
+        targetPlanetId: targetPlanetId || undefined,
         fuelLoaded: fuel,
         cargoLoaded: cargo,
       });
@@ -90,9 +92,16 @@ export function ExpeditionDialog({ ship, shipType, originX, originY, originZ, on
         x: originX + dx,
         y: originY + dy,
       }));
+      setTargetPlanetId(null);
     },
     [originX, originY],
   );
+
+  const onPickPlanet = useCallback((id: string) => {
+    setTargetPlanetId(id);
+    // When picking a planet in the same system, sector coords are the same as origin
+    setTarget({ x: originX, y: originY, z: originZ });
+  }, [originX, originY, originZ]);
 
   const sectorDx = target.x - originX;
   const sectorDy = target.y - originY;
@@ -104,7 +113,9 @@ export function ExpeditionDialog({ ship, shipType, originX, originY, originZ, on
           sectorDx,
           sectorDy,
           launchPlanetId: ship.locationPlanetId,
+          targetPlanetId,
           onPickSectorDelta,
+          onPickPlanet,
         }
       : undefined;
 
@@ -256,12 +267,20 @@ export function ExpeditionDialog({ ship, shipType, originX, originY, originZ, on
               minWidth: 160,
             }}
           >
-            <span style={{ color: 'var(--text-faint)', letterSpacing: '0.12em', fontSize: 9 }}>Δ FROM HOME</span>
-            <div style={{ color: 'var(--text)', marginTop: 4 }}>
-              [{sectorDx >= 0 ? '+' : ''}
-              {sectorDx}, {sectorDy >= 0 ? '+' : ''}
-              {sectorDy}, {sectorDz >= 0 ? '+' : ''}
-              {sectorDz}]
+            <span style={{ color: 'var(--text-faint)', letterSpacing: '0.12em', fontSize: 9 }}>
+              {targetPlanetId ? 'LOCAL BODY TARGET' : 'Δ FROM HOME'}
+            </span>
+            <div style={{ color: targetPlanetId ? 'var(--accent)' : 'var(--text)', marginTop: 4 }}>
+              {targetPlanetId ? (
+                <>LOCKED ON SIGNATURE</>
+              ) : (
+                <>
+                  [{sectorDx >= 0 ? '+' : ''}
+                  {sectorDx}, {sectorDy >= 0 ? '+' : ''}
+                  {sectorDy}, {sectorDz >= 0 ? '+' : ''}
+                  {sectorDz}]
+                </>
+              )}
             </div>
           </div>
         </div>
