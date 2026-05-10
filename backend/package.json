@@ -20,7 +20,8 @@
     "db:migrate": "tsx node_modules/drizzle-kit/bin.cjs migrate",
     "db:generate": "tsx node_modules/drizzle-kit/bin.cjs generate",
     "db:seed": "tsx src/db/seed.ts",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "research:catalog-check": "vitest run src/config/research-catalog.test.ts"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.0",

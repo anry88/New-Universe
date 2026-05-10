@@ -21,7 +21,7 @@ New Universe is a Telegram Mini App space-strategy game. The implementation is s
 
 - `backend/` — Fastify v5 + TypeScript (ESM) HTTP API. Entry point is `backend/src/index.ts`. End-to-end integration tests in `backend/tests/e2e` validate core game loops (registration, construction, expeditions) via `npm run test:e2e`. The Phase 2 regression gate (`phase2-regression.test.ts`) is documented in [`docs/testing/phase2-regression.md`](docs/testing/phase2-regression.md).
 - `frontend/` — Vite + React 18 Telegram Mini App client. Entry point is `frontend/src/main.tsx`, which initializes the Telegram Apps SDK (`init`, `miniApp.mount`, `themeParams.mount`, `viewport.mount`, `miniApp.ready`), boots Sentry, optionally mocks the Telegram environment for browser dev (`mockEnv.ts`), and renders `App.tsx` into `#root`.
-- `shared/` — cross-package contracts (currently `shared/types/`) consumed by both backend and frontend so HTTP payload shapes stay in sync.
+- `shared/` — cross-package contracts (`shared/types/` payloads plus `shared/config/` progression catalogs such as the research tree) consumed by both backend and frontend so shapes stay in sync.
 
 The `dev/`, `docs/`, and `tasks/` folders contain non-runtime materials: dev-environment scaffolding, the GDD/roadmap PDFs, and the task plan / GitHub Project automation scripts. They do not ship as application code.
 
@@ -79,7 +79,7 @@ The bot entry point is `POST /webhook/telegram`. Incoming updates are dispatched
 - `colonies` — player-owned colonies on discovered planets outside home systems.
 
 NPC broker pricing parameters live in `backend/src/config/market-prices.ts`; the deterministic quote algorithm is implemented in `backend/src/features/market/pricing.ts`. `market-prices.test.ts` keeps tier alignment with seeded resources and asserts there is no trivial NPC buy/sell arbitrage at neutral stock (epic **P2-EPIC-MARKET-NPC** gate).
-Phase 2 research definitions (levels 1-3 with typed effects) live in `backend/src/config/research-catalog.ts` and are reused by both seeding and runtime research/effects logic. Colonization tuning (colony caps vs logistics level, founding costs, cooldown, distance) lives in `backend/src/config/colonization-rules.ts` and is enforced in `features/colonies/colonization-rules.ts`. Progression gates that tie research completions to buildings, ships, colonization, logistics, and NPC trading are declared in `backend/src/config/research-unlocks.ts` and enforced in `backend/src/features/research/gates.ts`.
+Phase 2 research definitions (**seven branches × five tiers** with typed effects) live in **`shared/config/researchCatalog.ts`** and are re-exported from `backend/src/config/research-catalog.ts` for seeding and runtime research/effects logic. Colonization tuning (colony caps vs logistics level, founding costs, cooldown, distance) lives in `backend/src/config/colonization-rules.ts` and is enforced in `features/colonies/colonization-rules.ts`. Progression gates that tie research completions to buildings, ships, colonization, logistics, and NPC trading are declared in `backend/src/config/research-unlocks.ts` and enforced in `backend/src/features/research/gates.ts`.
 
 
 Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Kit (`npm run db:generate`, `npm run db:migrate`). Static reference data is loaded by `backend/src/db/seed.ts`, which runs the four seeders in `backend/src/db/seed/` (`resources`, `research-branches`, `building-types`, `ship-types`).
@@ -103,7 +103,7 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 - `pages/Home.tsx` — main game screen with resource bar, tab bar, and navigation.
 - `pages/Colonies.tsx` — lists all owned planets with their resources and status, allowing focal planet switching and initiating cargo transfers.
 - `pages/Market.tsx` — market UI for browsing buy/sell quotes, submitting NPC market orders, and tracking pending order ETA.
-- `pages/Research.tsx` — Cosmic Atlas tech tree (levels 1–3 per branch, synced with `frontend/src/lib/tech-tree.ts` / backend catalog); lab/prerequisite gating, optimistic research starts, live countdown chips.
+- `pages/Research.tsx` — Cosmic Atlas tech tree (**levels 1–5** per branch, synced with `frontend/src/lib/tech-tree.ts` / `@shared/config/researchCatalog`); lab/prerequisite/resource gating (BuildDialog-style blocking copy), tier detail sheet, optimistic research starts, live countdown chips.
 - `pages/onboarding/Onboarding.tsx` — 5-step onboarding flow with skip-and-return behavior and current-objective toast.
 - `pages/PlanetDetail.tsx` — detailed planet screen with infrastructure slots, building construction, and upgrade dialogs.
 - `components/ResourceBar.tsx` — displays planet resources with animated real-time regeneration.
@@ -114,7 +114,7 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 - `components/BuildingSlot.tsx` — presentational component for an infrastructure slot.
 - `components/UpgradeDialog.tsx` & `components/BuildDialog.tsx` — dialogs for managing buildings.
 
-### Shared types
+### Shared types and config
 
 `shared/types/` is the cross-cutting contract folder for backend ↔ frontend payloads:
 - `user.ts` — `User` interface.
@@ -122,6 +122,8 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 - `auth.ts` — `AuthResponse` interface.
 - `research.ts` — research DTOs, `ResearchRequirementRef`, `RESEARCH_BRANCH_LABELS_EN`, plus `ResourceId` union used by tech-tree costs and unlock messaging on both backend and frontend.
 - `market.ts` — market offer and order contracts shared between frontend market hooks and backend market routes.
+
+`shared/config/` holds deterministic catalogs duplicated only when both backend and browser need identical numbers — today **`researchCatalog.ts`** (full tech tree + scaling notes) alongside **`buildingResearchGates.ts`**.
 
 ## Local environment
 

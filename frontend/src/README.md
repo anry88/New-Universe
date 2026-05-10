@@ -22,7 +22,7 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
   - **`SectorMap.tsx`** — Phase 3 sector map: queries `GET /multiplayer/sectors/:sx/:sy/:sz/presence`, supports manual sector coordinates (global search within numeric sector grid), renders Pixi markers via `SectorRenderer`.
   - **`Ships.tsx`** — fleet management and ship list.
   - **`Market.tsx`** — utility economy market screen with buy/sell price browsing, order submission, and pending-order ETA tracking.
-  - **`Research.tsx`** — tech-tree screen (Cosmic Atlas): seven branches × three tiers aligned with `backend/src/config/research-catalog.ts`, branch blurbs, per-tier `TechTreeNode` states (completed / in-progress timer / next pending / locked), applied-effects summary, detail sheet with costs and `RequirementList` when gated, optimistic start via `useStartResearch`, refetch when lab timers complete.
+  - **`Research.tsx`** — tech-tree screen (Cosmic Atlas): seven branches × **five** tiers aligned with `@shared/config/researchCatalog`, branch blurbs, per-tier `TechTreeNode` states (completed / in-progress timer / next pending / locked), applied-effects summary, tier detail sheet with lab/prereq/resource blocking (BuildDialog-style), optimistic start via `useStartResearch`, refetch when lab timers complete.
 - `components/` — reusable presentational components.
   - `pixi/` — canvas-based rendering components using PixiJS.
     - **`SystemRenderer.tsx`** — top-down system map renderer. Handles orbits, planets, star, and ship markers with pan/zoom logic.
@@ -63,9 +63,9 @@ The folders above are reserved by `AGENTS.md` (`Engineering Rules` → "Keep fro
 
 ## `lib/`
 
-- **`tech-tree.ts`** — `TECH_TREE_DATA` (levels 1–3 per branch, costs/times/descriptions/effects) and `BRANCHES` metadata copied from `backend/src/config/research-catalog.ts`.
-- **`tech-tree.test.ts`** — asserts seven branches × three tiers stay aligned with `RESEARCH_MAX_LEVEL` for epic **P2-EPIC-RESEARCH** UI coverage.
-- **`research-eligibility.ts`** — `evaluateResearchEligibility` mirrors `/research/start` lab + prerequisite checks for UI lock copy.
+- **`tech-tree.ts`** — `TECH_TREE_DATA` (levels **1–5** per branch, costs/times/descriptions/effects) and `BRANCHES` metadata imported from `@shared/config/researchCatalog` (same source as `backend/src/config/research-catalog.ts`).
+- **`tech-tree.test.ts`** — asserts seven branches × five tiers stay aligned with `RESEARCH_MAX_LEVEL` for epic **P2-EPIC-RESEARCH** UI coverage.
+- **`research-eligibility.ts`** — `evaluateResearchEligibility` mirrors `/research/start` lab + prerequisite checks for UI lock copy; optional `planetResources` adds resource-shortage messaging aligned with server deductions.
 - **`api.ts`** — Unified fetch client. Automatically injects `X-Telegram-Init-Data` from the SDK and `Authorization: Bearer <token>` when a session is active.
 - **`sentry.ts`** — initializes `@sentry/react` only when `import.meta.env.VITE_SENTRY_DSN` is present.
  Uses `browserTracingIntegration` and `replayIntegration` with `replaysSessionSampleRate: 0.1` and `replaysOnErrorSampleRate: 1.0`, sets `tracesSampleRate: 1.0`, and reports `import.meta.env.MODE` as the environment. The module exports the `Sentry` namespace so error-boundary or `Sentry.captureException` calls can import directly from here.
