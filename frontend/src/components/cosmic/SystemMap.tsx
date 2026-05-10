@@ -37,9 +37,12 @@ export interface ExpeditionPickConfig {
   sectorDy: number;
   /** Trail starts at this planet (launch site). */
   launchPlanetId: string;
+  /** Set when targeting a specific local body (e.g. for Survey or Colonize). */
+  targetPlanetId?: string | null;
   /** World-map pixels per sector light-year along the aim ray (tuning for comfortable reach). */
   worldUnitsPerLy?: number;
   onPickSectorDelta: (dx: number, dy: number) => void;
+  onPickPlanet?: (planetId: string) => void;
 }
 
 interface CosmicSystemRendererProps {
@@ -424,10 +427,46 @@ export function CosmicSystemRenderer({
 
           {/* Planets */}
           {layouts.map((l) => {
-            if (l.planet.isDiscovered === false) return null;
+            const isDiscovered = l.planet.isDiscovered !== false;
             const biome = resolveBiome(l.planet.biome);
             const meta = BIOME_META[biome];
-            const isSelected = l.planet.id === selectedId;
+            const isSelected = l.planet.id === selectedId || expeditionPick?.targetPlanetId === l.planet.id;
+            
+            if (!isDiscovered) {
+               return (
+                 <button
+                   key={l.planet.id}
+                   type="button"
+                   onClick={(e) => {
+                     e.stopPropagation();
+                     setSelectedId(l.planet.id);
+                     if (expeditionPick?.onPickPlanet) {
+                        expeditionPick.onPickPlanet(l.planet.id);
+                     }
+                   }}
+                   style={{
+                     position: 'absolute',
+                     left: l.x - 12,
+                     top: l.y - 12,
+                     width: 24,
+                     height: 24,
+                     background: isSelected ? 'rgba(91,215,255,0.3)' : 'transparent',
+                     border: isSelected ? '1px solid var(--accent)' : '1px dashed rgba(255,255,255,0.2)',
+                     borderRadius: '50%',
+                     padding: 0,
+                     cursor: 'pointer',
+                     pointerEvents: 'auto',
+                     display: 'flex',
+                     alignItems: 'center',
+                     justifyContent: 'center',
+                     zIndex: 5,
+                   }}
+                 >
+                   <span style={{ fontSize: 10, color: isSelected ? 'var(--accent)' : 'rgba(255,255,255,0.4)', fontWeight: 800 }}>?</span>
+                 </button>
+               );
+            }
+
             return (
               <button
                 key={l.planet.id}
@@ -435,11 +474,10 @@ export function CosmicSystemRenderer({
                 data-testid={`planet-btn-${l.planet.id}`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (selectedId === l.planet.id) {
-                    onPlanetClick(l.planet);
-                  } else {
-                    setSelectedId(l.planet.id);
+                  if (expeditionPick?.onPickPlanet) {
+                     expeditionPick.onPickPlanet(l.planet.id);
                   }
+                  setSelectedId(l.planet.id);
                 }}
                 style={{
                   position: 'absolute',
@@ -571,14 +609,27 @@ export function CosmicSystemRenderer({
           {expeditionPick &&
             (() => {
               const launch = layouts.find((l) => l.planet.id === expeditionPick.launchPlanetId);
+              const targetPlanet = layouts.find((l) => l.planet.id === expeditionPick.targetPlanetId);
               if (!launch) return null;
+
               const { sectorDx, sectorDy } = expeditionPick;
-              const h = Math.hypot(sectorDx, sectorDy);
-              if (h < 1e-6) return null;
               const angle = Math.atan2(sectorDy, sectorDx);
-              const trailLength = Math.min(700, 56 + h * 14);
-              const endX = launch.x + Math.cos(angle) * trailLength;
-              const endY = launch.y + Math.sin(angle) * trailLength;
+              const h = Math.hypot(sectorDx, sectorDy);
+
+              let trailLength: number;
+              let endX: number;
+              let endY: number;
+
+              if (targetPlanet) {
+                endX = targetPlanet.x;
+                endY = targetPlanet.y;
+                trailLength = Math.hypot(endX - launch.x, endY - launch.y);
+              } else {
+                if (h < 1e-6) return null;
+                trailLength = Math.min(700, 56 + h * 14);
+                endX = launch.x + Math.cos(angle) * trailLength;
+                endY = launch.y + Math.sin(angle) * trailLength;
+              }
               const svgPad = trailLength + 80;
               return (
                 <svg

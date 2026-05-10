@@ -12,6 +12,7 @@ export function useLaunchExpedition() {
       targetX: number;
       targetY: number;
       targetZ: number;
+      targetPlanetId?: string;
       fuelLoaded: number;
       cargoLoaded: number;
     }) =>
