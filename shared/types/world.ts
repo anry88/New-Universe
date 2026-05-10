@@ -36,7 +36,10 @@ export interface HomeSystem {
   sectorX: number;
   sectorY: number;
   sectorZ: number;
+  /** Legacy English-shaped label in DB; prefer localized title from `shortTag` + player slug. */
   name: string;
   seed: number;
+  /** Four-char lowercase id derived from `id` (`homeSystemShortTag`); planet names use `{shortTag}-N`. */
+  shortTag?: string;
   planets?: Planet[];
 }

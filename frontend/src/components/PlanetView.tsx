@@ -17,6 +17,7 @@ import { BuildingSlot } from './BuildingSlot';
  * page, and routes any slot tap into the full editor.
  */
 import { useColonies } from '../hooks/useColonies';
+import { formatHomeSystemTitleForUser } from '../lib/homeSystemTitle';
 
 /**
  * The "current planet" snapshot rendered on the home screen.
@@ -59,7 +60,7 @@ export function PlanetView() {
 
         <div className="rail-wrap">
           <div className="rail-label">
-            {(meData?.homeSystem?.name ?? 'HOME SYSTEM').toUpperCase()}
+            {(meData ? formatHomeSystemTitleForUser(meData) : 'HOME SYSTEM').toUpperCase()}
           </div>
           <PlanetRail
             planets={allPlanets.map((p) => ({ id: p.id, name: p.name, biome: p.biome }))}

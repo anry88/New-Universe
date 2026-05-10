@@ -7,6 +7,8 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
 - `lib/` — shared infrastructure (API client, store, Sentry init, helpers).
   - **`api.ts`** — `apiFetch` wrapper for authenticated JSON calls.
   - **`resourceBarScope.ts`** — `planetInventoryApiPath(planetId)` for `GET /resources/planets/:id` (resource top bar + inventory).
+  - **`homeSystemTitle.ts`** — `formatHomeSystemTitleForUser()` builds localized home-system banners from `/me` (`@shared/format/homeSystemNaming`).
+  - **`uiLocale.ts`** — `getUiLocale()` (`en`/`ru`) from `localStorage` / `navigator` until full i18n owns persistence (P2.1-402).
   - **`sentry.ts`** — Sentry browser init.
   - **`tech-tree.ts`**, **`research-eligibility.ts`** — research UI helpers and tests.
 - `hooks/` — custom React hooks.

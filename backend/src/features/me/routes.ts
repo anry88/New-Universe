@@ -5,6 +5,7 @@ import { db } from '../../db/index.js';
 import { users, systems, discoveredPlanets, planets, ships, expeditions, researchProgress } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { syncTutorialProgress } from '../tutorial/service.js';
+import { homeSystemShortTag } from '@shared/format/homeSystemNaming.js';
 
 export async function meRoutes(app: FastifyInstance) {
   app.get(
@@ -164,7 +165,13 @@ export async function meRoutes(app: FastifyInstance) {
           tgId: user.tgId.toString(),
           tutorialStep: tutorialProgress.tutorialStepCompleted,
           tutorialCompletedAt: tutorialProgress.tutorialCompletedAt,
-          homeSystem: homeSystem ? { ...homeSystem, planets: enrichedPlanets.filter(p => p.systemId === homeSystem?.id) } : undefined,
+          homeSystem: homeSystem
+            ? {
+                ...homeSystem,
+                shortTag: homeSystemShortTag(homeSystem.id),
+                planets: enrichedPlanets.filter((p) => p.systemId === homeSystem?.id),
+              }
+            : undefined,
           planets: enrichedPlanets,
           ships: userShips,
           expeditions: activeExpeditions,

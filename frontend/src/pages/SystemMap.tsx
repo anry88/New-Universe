@@ -4,6 +4,7 @@ import { useMe } from '../hooks/useMe';
 import { CosmicSystemRenderer } from '../components/cosmic/SystemMap';
 import { CosmicBottomNav } from '../components/cosmic/atoms';
 import { ChevronLeft } from 'lucide-react';
+import { formatHomeSystemTitleForUser } from '../lib/homeSystemTitle';
 
 /**
  * Galaxy / system map — Cosmic Atlas chrome around the existing PixiJS
@@ -94,7 +95,7 @@ export function SystemMapPage() {
           }}
         >
           <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 13, color: 'var(--text)' }}>
-            {home.name}
+            {formatHomeSystemTitleForUser(meData)}
           </div>
           <div
             style={{

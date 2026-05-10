@@ -9,7 +9,7 @@ This feature handles the retrieval of the current player's state. It is the prim
   - It validates the token using `JWT_SECRET` from the environment.
   - On success, it runs tutorial progression sync, then returns the full player state:
     - `user`: the User object with `tgId` converted to string plus onboarding fields (`tutorialStep`, `tutorialCompletedAt`)
-    - `homeSystem`: the player's home system with **`planets` filtered to `discovered_planets` rows for this user** (capital plus any bodies surveyed by scout); per-planet resources (lazy-computed amounts) and buildings (queue status) follow that list
+    - `homeSystem`: the player's home system (includes derived **`shortTag`** from the system UUID for localized titles) with **`planets` filtered to `discovered_planets` rows for this user** (capital plus any bodies surveyed by scout); per-planet resources (lazy-computed amounts) and buildings (queue status) follow that list
     - `ships`: list of player's ships.
     - `expeditions`: list of active expeditions.
 - **`me.test.ts`** — Vitest coverage for the `me` feature. It tests both authorized (with token) and unauthorized (missing token) access paths.

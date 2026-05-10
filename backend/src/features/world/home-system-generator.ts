@@ -1,12 +1,20 @@
 import { db as defaultDb } from '../../db/index.js';
-import { 
-  systems, 
-  planets, 
-  richness, 
-  planetResources, 
-  buildings, 
-  discoveredPlanets 
+import {
+  systems,
+  planets,
+  richness,
+  planetResources,
+  buildings,
+  discoveredPlanets,
+  users,
 } from '../../db/schema.js';
+import { eq } from 'drizzle-orm';
+import {
+  formatHomeSystemDisplayName,
+  formatPlanetCode,
+  homeSystemShortTag,
+  sanitizePlayerSlug,
+} from '@shared/format/homeSystemNaming.js';
 import { BIOMES, BiomeType, HOME_SYSTEM_BASE_BIOMES } from './biomes.js';
 
 /** Enough building slots on the capital for early tutorial + first ships (shipyard chain). */
@@ -77,6 +85,13 @@ export async function generateHomeSystem(userId: string, tx?: any) {
     const y = sectorY * 500 + random() * 500;
     const z = sectorZ * 500 + random() * 500;
 
+    const userRow = await database.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
+    if (!userRow) {
+      throw new Error('generateHomeSystem: user row missing');
+    }
+
     const [system] = await database.insert(systems).values({
       ownerId: userId,
       isHome: true,
@@ -86,9 +101,15 @@ export async function generateHomeSystem(userId: string, tx?: any) {
       x: x.toFixed(2),
       y: y.toFixed(2),
       z: z.toFixed(2),
-      name: `Home System ${userId.slice(0, 4)}`,
+      name: 'pending',
       seed: Math.floor(random() * 1000000),
     }).returning();
+
+    const shortTag = homeSystemShortTag(system.id);
+    const slug = sanitizePlayerSlug(userRow.tgUsername, userRow.tgFirstName);
+    const systemDisplayEn = formatHomeSystemDisplayName('en', slug, shortTag);
+
+    await database.update(systems).set({ name: systemDisplayEn }).where(eq(systems.id, system.id));
 
     const planetCount =
       HOME_PLANET_COUNT_MIN +
@@ -111,7 +132,7 @@ export async function generateHomeSystem(userId: string, tx?: any) {
         biome: biomeType,
         size,
         slotCount,
-        name: `${system.name} - ${i + 1}`,
+        name: formatPlanetCode(shortTag, i + 1),
       }).returning();
       
       const planetResourcesList: string[] = [];
