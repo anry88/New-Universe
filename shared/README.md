@@ -9,7 +9,7 @@ Cross-package contracts shared between the Fastify backend (`backend/`) and the 
     - **`researchCatalog.ts`** — canonical **7×5** research tree (`RESEARCH_CATALOG`, `RESEARCH_TECH_TREE`); import via `@shared/config/researchCatalog` from backend and frontend (Docker mounts `shared/` at `/app/shared`; backend code uses `@shared`, not `../../../shared`).
 
 - `types/` — TypeScript interfaces and Zod schemas for HTTP payloads, WebSocket events, and other cross-cutting structures.
-    - **`user.ts`** — `User` interface including `homeSystem` and onboarding fields (`tutorialStep`, `tutorialCompletedAt`).
+    - **`user.ts`** — `User` interface including `homeSystem`, onboarding fields (`tutorialStep`, `tutorialCompletedAt`), and optional **`diamonds`** when the API exposes premium balance.
     - **`auth.ts`** — `AuthResponse` for the login flow.
     - **`world.ts`** — `PlanetResource`, `Building`, `Planet`, `HomeSystem` interfaces for world/planet state.
     - **`buildings.ts`** — `BuildingType` interface (including optional catalog limits), `BuildBlockedReason` unions, and request/response types for construction.

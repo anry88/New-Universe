@@ -13,6 +13,8 @@ export interface User {
   powerScore: number;
   tutorialStep: number;
   tutorialCompletedAt: string | null;
+  /** Premium balance (account-wide); optional until backend exposes it everywhere. */
+  diamonds?: number;
   homeSystem?: HomeSystem;
   planets?: Planet[];
   ships?: Ship[];

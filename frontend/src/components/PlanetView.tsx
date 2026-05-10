@@ -27,7 +27,7 @@ import { useColonies } from '../hooks/useColonies';
  */
 export function PlanetView() {
   const { data: meData } = useMe();
-  const { focalPlanet: planet, planets: allPlanets } = useColonies();
+  const { focalPlanet: planet, planets: allPlanets, setFocalPlanetId } = useColonies();
   const navigate = useNavigate();
 
   if (!planet) {
@@ -64,7 +64,7 @@ export function PlanetView() {
           <PlanetRail
             planets={allPlanets.map((p) => ({ id: p.id, name: p.name, biome: p.biome }))}
             current={planet.id}
-            onSelect={(id) => navigate(`/planet/${id}`)}
+            onSelect={(id) => setFocalPlanetId(id)}
           />
         </div>
 

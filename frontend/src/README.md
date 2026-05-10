@@ -4,13 +4,18 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
 
 ## Layout
 
-- `lib/` — shared infrastructure (API client, store, Sentry init, helpers). Today contains `sentry.ts`; future API clients (`api.ts`), stores (`store.ts`), and React Query helpers go here.
+- `lib/` — shared infrastructure (API client, store, Sentry init, helpers).
+  - **`api.ts`** — `apiFetch` wrapper for authenticated JSON calls.
+  - **`resourceBarScope.ts`** — `planetInventoryApiPath(planetId)` for `GET /resources/planets/:id` (resource top bar + inventory).
+  - **`sentry.ts`** — Sentry browser init.
+  - **`tech-tree.ts`**, **`research-eligibility.ts`** — research UI helpers and tests.
 - `hooks/` — custom React hooks.
   - **`useAuth.ts`** — manages JWT session state in memory via Zustand.
   - **`useMarket.ts`** — market offers query, create-order mutation, pending-order cache, and error normalization for market-specific UI states.
   - **`useResearch.ts`** — `useStartResearch()` wraps `POST /research/start` with optimistic `me` cache updates (`completesAt` + in-flight branch), rollback on error, and invalidation on settle.
   - **`useMe.ts`** — React Query hook for fetching current player data from `GET /me`.
-  - **`useColonies.ts`** — manages the collection of player-owned planets and tracks the focal planet across the UI via a dedicated Zustand store.
+  - **`useColonies.ts`** — manages the collection of player-owned planets and tracks the focal planet across the UI via a dedicated Zustand store (`useColoniesStore`).
+  - **`useColonies.test.ts`** — store-level coverage for switching the focal planet id (home rail / colonies).
 - `pages/` — page-level components routed by `react-router-dom`.
   - **`Home.tsx`** — main game screen with resource bar, planet view, build queue, and bottom tab bar.
   - **`Colonies.tsx`** — lists all owned planets with their resources and status, allowing focal planet switching and initiating cargo transfers.
@@ -27,9 +32,10 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
   - `pixi/` — canvas-based rendering components using PixiJS.
     - **`SystemRenderer.tsx`** — top-down system map renderer. Handles orbits, planets, star, and ship markers with pan/zoom logic.
     - **`SectorRenderer.tsx`** — compact Pixi scatter plot for multiplayer sector markers (`PresenceEntityKind` colors); receives `SectorPresenceEntity[]` from the presence API.
-  - **`ResourceBar.tsx`** — displays planet resources with real-time regeneration animation via `requestAnimationFrame`.
+  - **`ResourceBar.tsx`** — top resource chips for the focal planet (`planetInventoryApiPath` when `planetId` is set), RAF smoothing between polls, optional `planetLabel`, and an **All** control opening `ResourceInventoryDrawer`.
+  - **`ResourceInventoryDrawer.tsx`** — full planet stockpile list (sorted by label) plus optional account-wide diamonds when `/me` includes `user.diamonds`.
   - **`cosmic/resources.ts`** — resource id -> symbol/label dictionary used in cosmic UI; aligned with seeded resource ids (`iron`, `silicon`, `tritium`, etc.) for tech-tree cost rendering.
-  - **`PlanetView.tsx`** — shows the current focus planet with its buildings schema.
+  - **`PlanetView.tsx`** — focal planet portrait + slot grid; `PlanetRail` updates the focal planet via `setFocalPlanetId` (keeps the user on Home while syncing the top resource bar).
   - **`cosmic/buildings.tsx`** — Cosmic Atlas building icons keyed by backend catalog ids; exports `resolveBuildingType(typeId)` (canonical ids plus legacy synonyms such as `laboratory` and alternate lab spellings matched via `/^research[_-]?lab$/i`).
   - **`cosmic/buildings.test.ts`** — Vitest coverage for `resolveBuildingType` (known id resolution plus unknown-id fallback to the safe default icon).
   - **`BuildQueue.tsx`** — displays the current build queue with countdown timers.

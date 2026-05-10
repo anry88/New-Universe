@@ -117,7 +117,7 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 ### Shared types and config
 
 `shared/types/` is the cross-cutting contract folder for backend ↔ frontend payloads:
-- `user.ts` — `User` interface.
+- `user.ts` — `User` interface (onboarding fields; optional `diamonds` when returned by `/me`).
 - `buildings.ts` — building types and construction requests.
 - `auth.ts` — `AuthResponse` interface.
 - `research.ts` — research DTOs, `ResearchRequirementRef`, `RESEARCH_BRANCH_LABELS_EN`, plus `ResourceId` union used by tech-tree costs and unlock messaging on both backend and frontend.
