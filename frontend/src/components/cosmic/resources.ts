@@ -19,6 +19,7 @@ const RESOURCE_META: Record<string, ResourceMeta> = {
   aluminum: { symbol: 'Al', full: 'Aluminum' },
   titanium: { symbol: 'Ti', full: 'Titanium' },
   ice: { symbol: 'H₂O*', full: 'Ice' },
+  oil: { symbol: 'Oil', full: 'Oil' },
   sulfur: { symbol: 'S', full: 'Sulfur' },
   mercury: { symbol: 'Hg', full: 'Mercury' },
   magnesium: { symbol: 'Mg', full: 'Magnesium' },

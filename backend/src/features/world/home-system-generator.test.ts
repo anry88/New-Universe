@@ -1,12 +1,17 @@
-import { describe, it, expect } from 'vitest';
+import { beforeAll, describe, it, expect } from 'vitest';
 import { generateHomeSystem, MIN_HOME_CAPITAL_SLOT_COUNT } from './home-system-generator.js';
 import { HOME_SYSTEM_BASE_BIOMES } from './biomes.js';
 import { db } from '../../db/index.js';
 import { users, systems, planets, richness, planetResources, buildings } from '../../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import { formatPlanetCode, homeSystemShortTag } from '@shared/format/homeSystemNaming.js';
+import { seedResources } from '../../db/seed/resources.js';
 
 describe('Home System Generator', () => {
+  beforeAll(async () => {
+    await seedResources();
+  });
+
   it('should generate identical systems for the same userId (determinism)', async () => {
     const [user] = await db.insert(users).values({
       tgId: BigInt(Math.floor(Math.random() * 1000000000)),
@@ -62,6 +67,7 @@ describe('Home System Generator', () => {
     expect(resIds).toContain('carbon');
     expect(resIds).toContain('silicon');
     expect(resIds).toContain('methane');
+    expect(resIds).toContain('oil');
 
     let tritiumFound = false;
     for (const planet of systemPlanets) {

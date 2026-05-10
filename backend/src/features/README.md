@@ -65,6 +65,7 @@ Building construction and queue management. [Detailed documentation](./buildings
   3. Checks that the planet has a free slot (`buildingCount < planet.slotCount`).
   4. Ensures the build queue is not full (max 1 concurrent build without premium).
   5. Verifies all dependency buildings exist at the required level.
+  5a. Applies planet-specific gates (e.g. `refinery` requires an `oil` deposit row on that planet).
   6. Deducts resource costs via `spendResources` (from `features/resources/transactions.ts`).
   7. Creates a `buildings` row with `queueAction='build'` and `queueCompletesAt = now + baseTime`.
   8. Enqueues a BullMQ delayed job for completion (non-blocking; gracefully handles unavailable Redis).
@@ -126,13 +127,13 @@ Ship launch and travel scheduling. [Detailed documentation](./expeditions/README
 
 Procedural world generation primitives and visibility checks. Contains the home-system seeder used by `auth/service.ts`, sector pool management, and the fog-of-war visibility service.
 
-- **`biomes.ts`** — exports the `BiomeType` union (`'rocky' | 'ocean' | 'gas_giant' | 'ice' | 'volcanic' | 'green' | 'anomaly'`), a `BIOMES` map keyed by biome id (`commonResources`, `rareResources`, `bonuses`, `penalties`), and **`HOME_SYSTEM_BASE_BIOMES`** — the six starter biomes (`green`, `rocky`, `ocean`, `ice`, `gas_giant`, `volcanic`) each guaranteed once per generated home system (capital stays `green`; keep `tools/balance-sim` mirrors aligned).
+- **`biomes.ts`** — exports the `BiomeType` union (`'rocky' | 'ocean' | 'gas_giant' | 'ice' | 'volcanic' | 'green' | 'anomaly'`), a `BIOMES` map keyed by biome id (`commonResources`, `rareResources`, `bonuses`, `penalties`), and **`HOME_SYSTEM_BASE_BIOMES`** — the six starter biomes (`green`, `rocky`, `ocean`, `ice`, `gas_giant`, `volcanic`) each guaranteed once per generated home system (capital stays `green`; keep `tools/balance-sim` mirrors aligned). Green biome includes `oil` deposits for early refinery gameplay.
 - **`home-system-generator.ts`** — exports `generateHomeSystem(userId, tx?)`, **`MIN_HOME_CAPITAL_SLOT_COUNT`** (minimum building slots on planet 1 / capital), deterministic PRNG helpers `hashString` / `createRandom`, and English-canonical `systems.name` plus `{shortTag}-N` planet codes via `@shared/format/homeSystemNaming`.
   - Uses `tx` from auth or opens `db.transaction`; idempotent when a home `systems` row already exists.
   - Seeds sector coords `[-500,500]`, system `seed`, `name = "Home System <userId-prefix>"`.
   - Generates **6–7** planets; assigns biomes so **every `HOME_SYSTEM_BASE_BIOMES` entry appears at least once** (deterministic shuffle for planets 1–5 after the capital).
   - Capital (planet index 0): biome **`green`**, larger size, **`slotCount ≥ MIN_HOME_CAPITAL_SLOT_COUNT`** for early tutorial + shipyard chain.
-  - Other planets: sizes/slots as before; resource rules unchanged — planet 0 gets the five starter resources; planet 1 adds `tritium`; planet 2+ uses biome pools with optional rares.
+  - Other planets: sizes/slots as before; resource rules unchanged — planet 0 gets the six starter resources (`water`, `iron`, `carbon`, `silicon`, `methane`, `oil`); planet 1 adds `tritium`; planet 2+ uses biome pools with optional rares.
   - Filters forbidden tier-3/tier-4 richness ids; seeds `richness` + `planet_resources`; planet 0 gets `command_center` + **only planet 0** in `discovered_planets` (other home bodies stay locked until scout survey — see `visibility.ts` / expeditions).
   - Returns the new `systems.id`.
 - **`sectors.ts`** — exports `getOrCreateSector(x, y, z)` which returns an existing sector or creates a new one with a deterministic seed. Used by jump and exploration features to lazily initialize world regions. The seed is computed via `hashString` of the coordinate triple, ensuring determinism across server restarts.

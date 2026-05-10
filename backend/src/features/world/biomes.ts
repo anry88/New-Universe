@@ -69,7 +69,7 @@ export const BIOMES: Record<BiomeType, Biome> = {
   green: {
     id: 'green',
     name: { ru: 'Зелёная', en: 'Green' },
-    commonResources: ['biomass', 'silicon', 'water'],
+    commonResources: ['biomass', 'silicon', 'water', 'oil'],
     rareResources: ['iron'],
     bonuses: ['fast_build'],
     penalties: ['expensive_colonization'],

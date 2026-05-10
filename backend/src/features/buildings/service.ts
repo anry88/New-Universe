@@ -166,6 +166,22 @@ export class BuildingService {
       );
     }
 
+    if (typeId === 'refinery') {
+      const oilDeposit = await db.query.planetResources.findFirst({
+        where: and(eq(planetResources.planetId, planetId), eq(planetResources.resourceId, 'oil')),
+      });
+      if (!oilDeposit) {
+        throw new BuildingOperationError(
+          formatBuildBlockedMessage(
+            { code: 'building_blocked_planet_resource', details: { resourceId: 'oil' } },
+            'en',
+          ),
+          'building_blocked_planet_resource',
+          { resourceId: 'oil' },
+        );
+      }
+    }
+
     const costs = typeInfo.baseCost as Record<string, number>;
     const resourceCosts = Object.entries(costs).map(([resourceId, amount]) => ({
       resourceId,
