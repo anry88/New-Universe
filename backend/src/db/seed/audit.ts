@@ -1,3 +1,4 @@
+import type { ResearchBranchCatalog } from '@shared/config/researchCatalog.js';
 import { RESOURCE_BASELINE_PRICE } from '../../config/market-prices.js';
 import { RESEARCH_CATALOG } from '../../config/research-catalog.js';
 import {
@@ -122,7 +123,7 @@ export function runCatalogAudit(): CatalogAuditResult {
     }
   }
 
-  const researchBranchIds = RESEARCH_CATALOG.map((b) => b.branch);
+  const researchBranchIds = RESEARCH_CATALOG.map((b: ResearchBranchCatalog) => b.branch);
   assertNoDuplicateIds(researchBranchIds, 'research_branches', errors);
 
   for (const branch of RESEARCH_CATALOG) {

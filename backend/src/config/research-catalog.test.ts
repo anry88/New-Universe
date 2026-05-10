@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { ResearchLevelCatalogEntry } from '@shared/config/researchCatalog.js';
 import { RESEARCH_CATALOG, RESEARCH_TECH_TREE } from './research-catalog.js';
 import { getResearchDef } from '../features/research/data.js';
 
@@ -13,7 +14,7 @@ describe('research catalog', () => {
   it('exposes exactly five tiers per branch (7 × 5 nodes)', () => {
     expect(RESEARCH_TECH_TREE).toHaveLength(35);
     for (const branch of RESEARCH_CATALOG) {
-      const levels = branch.levels.map((entry) => entry.level);
+      const levels = branch.levels.map((entry: ResearchLevelCatalogEntry) => entry.level);
       expect(levels).toEqual([1, 2, 3, 4, 5]);
     }
   });
