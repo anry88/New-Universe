@@ -16,7 +16,7 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
   - **`useMarket.ts`** — market offers query, create-order mutation, pending-order cache, and error normalization for market-specific UI states.
   - **`useResearch.ts`** — `useStartResearch()` wraps `POST /research/start` with optimistic `me` cache updates (`completesAt` + in-flight branch), rollback on error, and invalidation on settle.
   - **`useMe.ts`** — React Query hook for fetching current player data from `GET /me`.
-  - **`useColonies.ts`** — manages the collection of player-owned planets and tracks the focal planet across the UI via a dedicated Zustand store (`useColoniesStore`).
+  - **`useColonies.ts`** — manages the collection of player-owned planets and tracks the focal planet across the UI via a dedicated Zustand store (`useColoniesStore`); excludes undiscovered bodies (`isDiscovered === false`) so Home/Colonies show only opened planets.
   - **`useColonies.test.ts`** — store-level coverage for switching the focal planet id (home rail / colonies).
 - `pages/` — page-level components routed by `react-router-dom`.
   - **`Home.tsx`** — main game screen with resource bar, planet view, build queue, and bottom tab bar.
@@ -41,7 +41,7 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
   - **`cosmic/buildings.tsx`** — Cosmic Atlas building icons keyed by backend catalog ids; exports `resolveBuildingType(typeId)` (canonical ids plus legacy synonyms such as `laboratory` and alternate lab spellings matched via `/^research[_-]?lab$/i`).
   - **`cosmic/buildings.test.ts`** — Vitest coverage for `resolveBuildingType` (known id resolution plus unknown-id fallback to the safe default icon).
   - **`BuildQueue.tsx`** — displays the current build queue head with countdown timers, polls `GET /buildings/queue` for **`rushPricing`**, computes live rush cost via `@shared/types/diamonds` (`estimateRushDiamondCost`), and calls **`POST /buildings/rush`** with loading/disabled states tied to `useMe().diamonds`.
-  - **`BuildDialog.tsx`** — Cosmic Atlas bottom sheet for picking a building type on an empty slot; applies dashed/low-opacity styling when `blockedReasonFor` reports a shared `BuildBlockedReason`, opens an inline hint (`build-block-reason`) on tap, and only calls `POST /buildings/build` when the row is eligible.
+  - **`BuildDialog.tsx`** — Cosmic Atlas bottom sheet for picking a building type on an empty slot; sorts building options by unlock progression (dependency gate/depth), applies dashed/low-opacity styling when `blockedReasonFor` reports a shared `BuildBlockedReason`, shows current energy balance (`+produced / -consumed / net`) with per-option projected net after build, opens an inline hint (`build-block-reason`) on tap, and only calls `POST /buildings/build` when the row is eligible.
   - **`CargoTransferDialog.tsx`** — interplanetary logistics interface for moving resources between colonies.
   - **`ExpeditionDialog.tsx`** — mission launch configuration with coordinate selection and ETA.
   - **`MarketOrderDialog.tsx`** — modal form for creating buy/sell NPC market orders with resource selection, quantity, and clear validation error states.

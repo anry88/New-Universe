@@ -111,6 +111,20 @@ export function PlanetDetailPage() {
     },
     [buildingTypes, planet, globalTypeCounts, researchLevels],
   );
+  const currentEnergy = useMemo(() => {
+    if (!planet) return { produced: 0, consumed: 0 };
+    const byId = new Map(buildingTypes.map((t) => [t.id, t]));
+    let produced = 0;
+    let consumed = 0;
+    for (const b of planet.buildings ?? []) {
+      if (b.queueAction === 'build') continue;
+      const type = byId.get(b.typeId);
+      if (!type) continue;
+      produced += (type.baseOutput?.energy ?? 0) * Math.max(1, b.level ?? 1);
+      consumed += (type.energyConsumption ?? 0) * Math.max(1, b.level ?? 1);
+    }
+    return { produced, consumed };
+  }, [planet, buildingTypes]);
 
   if (!planet) {
     return (
@@ -338,6 +352,7 @@ export function PlanetDetailPage() {
         blockedReasonFor={blockedReasonForType}
         accent={accent}
         planetLabel={`${planet.name} · ${BIOME_META[biome].label}`}
+        currentEnergy={currentEnergy}
       />
 
       <UpgradeDialog

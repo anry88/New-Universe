@@ -19,6 +19,7 @@ import { logger } from '../../lib/logger.js';
 import { resolveBuildBlockedReason, formatBuildBlockedMessage } from '@shared/types/building-eligibility.js';
 import { BuildingOperationError } from './building-operation-error.js';
 import { countUserBuildingsOfType } from './count-user-buildings.js';
+import { BUILDING_TYPE_CATALOG_ROWS } from '../../db/seed/catalog-rows.js';
 
 type BuildingOutput = {
   resourceId?: string;
@@ -77,7 +78,13 @@ async function upsertProductionRegen(tx: any, planetId: string, resourceId: stri
 export class BuildingService {
   async getBuildingTypes(): Promise<BuildingType[]> {
     const types = await db.query.buildingTypes.findMany();
-    return types as BuildingType[];
+    const catalogOrder = new Map(BUILDING_TYPE_CATALOG_ROWS.map((row, idx) => [row.id, idx]));
+    return [...(types as BuildingType[])].sort((a, b) => {
+      const aOrder = catalogOrder.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+      const bOrder = catalogOrder.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+      if (aOrder !== bOrder) return aOrder - bOrder;
+      return a.id.localeCompare(b.id);
+    });
   }
 
   async build(userId: string, planetId: string, typeId: string, slotIndex: number): Promise<ConstructionStatus> {
@@ -467,6 +474,22 @@ export class BuildingService {
 
       await db.transaction(async (tx) => {
         await this.finalizeBuildingConstruction(tx, building.id, { skipNotification: true });
+        // If a worker created a pending completion notification before manual sync won the race,
+        // silence that stale push so active players do not receive redundant Telegram alerts.
+        await tx
+          .update(notifications)
+          .set({
+            pending: false,
+            read: true,
+          })
+          .where(
+            and(
+              eq(notifications.userId, userId),
+              eq(notifications.type, 'building_done'),
+              sql`(${notifications.payload} ->> 'buildingId') = ${building.id}`,
+              eq(notifications.pending, true),
+            ),
+          );
       });
     }
   }

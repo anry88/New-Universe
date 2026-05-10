@@ -17,7 +17,7 @@ Cross-package contracts shared between the Fastify backend (`backend/`) and the 
     - **`auth.ts`** — `AuthResponse` for the login flow.
     - **`world.ts`** — `PlanetResource`, `Building`, `Planet`, `HomeSystem` interfaces for world/planet state (`HomeSystem.shortTag` optional wire field from `/me`).
     - **`buildings.ts`** — `BuildingType` interface (including optional catalog limits), `BuildBlockedReason` unions, request/response types for construction, and **`RushBuildRequest` / `RushBuildResponse`** for `POST /buildings/rush`.
-    - **`diamonds.ts`** — `estimateRushDiamondCost` mirrors backend rush pricing so the UI can tick countdown prices live alongside `GET /buildings/queue` **`rushPricing`** metadata.
+    - **`diamonds.ts`** — `estimateRushDiamondCost` mirrors backend rush pricing so the UI can tick countdown prices live alongside `GET /buildings/queue` **`rushPricing`** metadata (progressive curve `round((minutes^0.85) * rate)` with optional cap).
     - **`building-eligibility.ts`** — `resolveBuildBlockedReason` and `formatBuildBlockedMessage` for shared server/client validation messaging around construction gates (research → deps → per-planet/global caps). Optional `dependencyBuildings` narrows dependency checks when some rows are still in the initial build queue.
     - **`research.ts`** — `ResearchBranch`, `ResearchProgress`, `ResearchDefinition`, `ResearchRequirementRef`, `RESEARCH_BRANCH_LABELS_EN`, and `ResourceId` union (includes gameplay resources such as `fuel`, `steel`, `electronics`, and tiered minerals) used by the tech tree and unlock messaging on backend/frontend.
     - **`ships.ts`** — `Ship` and `ShipType` interfaces.

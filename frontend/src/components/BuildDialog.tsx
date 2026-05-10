@@ -19,6 +19,10 @@ interface BuildDialogProps {
   accent?: string;
   /** Optional planet biome label, surfaced in the sheet subtitle. */
   planetLabel?: string;
+  currentEnergy?: {
+    produced: number;
+    consumed: number;
+  };
 }
 
 /**
@@ -39,12 +43,25 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
   blockedReasonFor,
   accent = '#5BD7FF',
   planetLabel,
+  currentEnergy,
 }) => {
   const [explainedReason, setExplainedReason] = useState<BuildBlockedReason | null>(null);
 
   if (!isOpen) return null;
 
   const lang: 'en' | 'ru' = 'en';
+  const sortedTypes = [...types].sort((a, b) => {
+    const aGate = (a.deps ?? []).reduce((max, dep) => Math.max(max, dep.level), 0);
+    const bGate = (b.deps ?? []).reduce((max, dep) => Math.max(max, dep.level), 0);
+    if (aGate !== bGate) return aGate - bGate;
+    if ((a.deps?.length ?? 0) !== (b.deps?.length ?? 0)) {
+      return (a.deps?.length ?? 0) - (b.deps?.length ?? 0);
+    }
+    return a.baseTimeSec - b.baseTimeSec || a.name.en.localeCompare(b.name.en);
+  });
+  const producedNow = currentEnergy?.produced ?? 0;
+  const consumedNow = currentEnergy?.consumed ?? 0;
+  const netNow = producedNow - consumedNow;
 
   return (
     <div
@@ -72,6 +89,11 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
           <div className="bd-sub">
             {planetLabel ? `${planetLabel} · tap an option to start construction` : 'Tap an option to start construction'}
           </div>
+          {currentEnergy ? (
+            <div className="bd-sub" style={{ marginTop: 6 }}>
+              Energy now: +{producedNow} / -{consumedNow} (net {netNow >= 0 ? '+' : ''}{netNow})
+            </div>
+          ) : null}
         </div>
 
         {explainedReason ? (
@@ -84,7 +106,7 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
         ) : null}
 
         <div className="bd-list">
-          {types.map((type) => {
+          {sortedTypes.map((type) => {
             const def = resolveBuildingType(type.id);
             const costs = Object.entries(type.baseCost);
             const minutes = Math.floor(type.baseTimeSec / 60);
@@ -92,6 +114,9 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
             const blocked = blockedReasonFor?.(type.id) ?? null;
             const locked = Boolean(blocked);
             const output = type.baseOutput;
+            const projectedProduced = producedNow + (output.energy ?? 0);
+            const projectedConsumed = consumedNow + Math.max(0, type.energyConsumption ?? 0);
+            const projectedNet = projectedProduced - projectedConsumed;
             return (
               <button
                 key={type.id}
@@ -137,6 +162,11 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
                     {type.energyConsumption > 0 && (
                       <span className="bstat neg">
                         Usage: -{type.energyConsumption} E
+                      </span>
+                    )}
+                    {currentEnergy && (
+                      <span className={`bstat ${projectedNet < 0 ? 'neg' : 'energy'}`}>
+                        Net after build: {projectedNet >= 0 ? '+' : ''}{projectedNet} E
                       </span>
                     )}
                     {output.conversion && (

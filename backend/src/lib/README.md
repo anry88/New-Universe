@@ -15,8 +15,8 @@ Shared infrastructure used across features, middleware, and routes. Anything in 
   - `JWT_SECRET` (≥ 8 chars, required).
   - `SENTRY_DSN` (URL or empty, normalized to `undefined` when empty).
   - `MARKET_NPC_DELIVERY_SECONDS` (integer ≥ 0, default `120`) — delay between placing an NPC **buy** order and cargo delivery (`delivery_ready_at`).
-  - `DIAMOND_STARTING_GRANT` (integer ≥ 0, default `100`) — diamonds granted when a new `users` row is created at first Telegram login.
-  - `DIAMOND_RUSH_PER_MINUTE` (integer ≥ 1, default `2`) — rush pricing: diamonds per **started** minute of remaining build time (`ceil(remainingSeconds / 60) × rate`), optional max via `DIAMOND_RUSH_MAX_PER_ACTION`.
+  - `DIAMOND_STARTING_GRANT` (integer ≥ 0, default `1000`) — diamonds granted when a new `users` row is created at first Telegram login.
+  - `DIAMOND_RUSH_PER_MINUTE` (integer ≥ 1, default `1`) — rush pricing curve multiplier: `round((ceil(remainingSeconds / 60)^0.85) × rate)`, optional max via `DIAMOND_RUSH_MAX_PER_ACTION`.
   - `DIAMOND_RUSH_MAX_PER_ACTION` (integer ≥ 0, default `0`) — per-rush cap; `0` means uncapped.
   
   On validation failure the module logs the formatted Zod error and calls `process.exit(1)`. The exported `env` is the only place to read these variables; never read `process.env.X` from feature code.
