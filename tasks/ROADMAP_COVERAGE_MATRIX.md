@@ -24,6 +24,19 @@ This document is a checkpoint for future planning reviews. It separates implemen
 | Launch ready | Staging deploy/rollback succeeds, backups restore, monitoring alerts fire, security checklist passes |
 | Live ops ready | Event framework works, content validation exists, balance review loop and support runbook are usable |
 
+## Phase 2 polish epic gate (P2-EPIC-POLISH)
+
+Roll-up issue: [`P2-EPIC-POLISH`](https://github.com/anry88/New-Universe/issues/93) (depends on **P2-POL-001**, **P2-POL-002**, **P2-POL-003**). Evidence below satisfies the epic acceptance checklist before detailed Phase 3 execution planning.
+
+| Acceptance criterion | Evidence in repo | How to verify locally |
+|----------------------|------------------|------------------------|
+| P2 balance simulator produces a reviewable first-week report | [`tools/balance-sim/`](../tools/balance-sim/README.md) — `scenarios/first-week.json`, `expected-ranges.json`, generated summaries under `artifacts/` (see `.gitkeep`) | `cd tools/balance-sim && npm ci && npm run simulate && npm run verify && npm test` |
+| Content audit passes against catalog and localization expectations | [`backend/src/db/seed/audit.ts`](../backend/src/db/seed/audit.ts), [`backend/src/db/seed/audit.test.ts`](../backend/src/db/seed/audit.test.ts) | `cd backend && npm test` (includes audit test) or `npx vitest run src/db/seed/audit.test.ts` |
+| Phase 2 regression suite passes locally and is documented | [`backend/tests/e2e/phase2-regression.test.ts`](../backend/tests/e2e/phase2-regression.test.ts), [`docs/testing/phase2-regression.md`](../docs/testing/phase2-regression.md) | `cd backend && npx vitest run tests/e2e/phase2-regression.test.ts` |
+| Known P2 tuning risks recorded before Phase 3 task breakdown | [`docs/phase2/tuning-risks.md`](../docs/phase2/tuning-risks.md) | Reviewer read-through |
+
+**Repository-wide CI mirror (Docker):** from repo root, `./scripts/ci-verify.sh` matches [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) (backend `npm test` includes audit + all e2e tests including Phase 2 regression). **Optional browser gate for epic PR merge:** add label **`run-e2e`** and/or `RUN_PLAYWRIGHT_E2E=1 ./scripts/ci-verify.sh` per [`.github/workflows/e2e.yml`](../.github/workflows/e2e.yml).
+
 ## Known Gaps After This Expansion
 
 - P3 is still intentionally lighter than P2 and should be broken down again after Phase 2 regression is stable.

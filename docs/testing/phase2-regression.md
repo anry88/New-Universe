@@ -1,6 +1,6 @@
 # Phase 2 regression suite
 
-Gate scenario before Phase 3 breakdown ([P2-POL-003](https://github.com/anry88/New-Universe/issues/74)). One integration test exercises **research** (mining I start + worker completion), **colonization** (first extra colony via colonizer), **cargo** (player transfer between owned planets), and **market** (first NPC broker sell order), with strict planet balance checks so stock is not double-counted across cargo debits and market reservations.
+Gate scenario before Phase 3 breakdown ([P2-POL-003](https://github.com/anry88/New-Universe/issues/74)). It is also cited from the Phase 2 polish epic rollup ([P2-EPIC-POLISH](https://github.com/anry88/New-Universe/issues/93); see [`tasks/ROADMAP_COVERAGE_MATRIX.md`](../../tasks/ROADMAP_COVERAGE_MATRIX.md)). One integration test exercises **research** (mining I start + worker completion), **colonization** (first extra colony via colonizer), **cargo** (player transfer between owned planets), and **market** (first NPC broker sell order), with strict planet balance checks so stock is not double-counted across cargo debits and market reservations.
 
 ## Covered paths
 
