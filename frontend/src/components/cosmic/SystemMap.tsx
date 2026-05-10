@@ -440,9 +440,6 @@ export function CosmicSystemRenderer({
                    onClick={(e) => {
                      e.stopPropagation();
                      setSelectedId(l.planet.id);
-                     if (expeditionPick?.onPickPlanet) {
-                        expeditionPick.onPickPlanet(l.planet.id);
-                     }
                    }}
                    style={{
                      position: 'absolute',
@@ -531,7 +528,7 @@ export function CosmicSystemRenderer({
               const exp = expeditions.find(e => e.shipId === ship.id && (e.status === 'in_flight' || e.status === 'returning'));
               if (exp && exp.result && typeof exp.result === 'object') {
                 const res = exp.result as Record<string, number>;
-                if (res.distance && res.speed) {
+                if (res.distance !== undefined && res.speed) {
                   const durationMs = (res.distance * 60 / res.speed) * (res.engineFactor || 1) * 1000;
                   const etaMs = new Date(exp.eta).getTime();
                   let progress = 0;
@@ -543,16 +540,27 @@ export function CosmicSystemRenderer({
                   }
                   progress = Math.max(0, Math.min(1, progress));
 
-                  const targetAngle = Math.atan2(
-                    Number(exp.targetY) - system.sectorY,
-                    Number(exp.targetX) - system.sectorX
-                  );
-                  const trailLength = 600;
-                  const endX = Math.cos(targetAngle) * trailLength;
-                  const endY = Math.sin(targetAngle) * trailLength;
+                  let tx = Number(exp.targetX);
+                  let ty = Number(exp.targetY);
+                  let targetAngle = Math.atan2(ty - system.sectorY, tx - system.sectorX);
+                  
+                  const targetPlanet = exp.targetPlanetId ? layouts.find(l => l.planet.id === exp.targetPlanetId) : null;
+                  if (targetPlanet) {
+                    const dx = targetPlanet.x - layout.x;
+                    const dy = targetPlanet.y - layout.y;
+                    targetAngle = Math.atan2(dy, dx);
+                    
+                    sx = layout.x + (targetPlanet.x - layout.x) * progress;
+                    sy = layout.y + (targetPlanet.y - layout.y) * progress;
+                  } else {
+                    const trailLength = 600;
+                    const endX = Math.cos(targetAngle) * trailLength;
+                    const endY = Math.sin(targetAngle) * trailLength;
 
-                  sx = layout.x + (endX - layout.x) * progress;
-                  sy = layout.y + (endY - layout.y) * progress;
+                    sx = layout.x + (endX - layout.x) * progress;
+                    sy = layout.y + (endY - layout.y) * progress;
+                  }
+                  
                   angle = targetAngle + (isReturning ? Math.PI : 0);
                   isMoving = true;
                 }
@@ -626,7 +634,9 @@ export function CosmicSystemRenderer({
                 trailLength = Math.hypot(endX - launch.x, endY - launch.y);
               } else {
                 if (h < 1e-6) return null;
-                trailLength = Math.min(700, 56 + h * 14);
+                // Use the same scale as the coordinate picker (worldUnitsPerLy)
+                const wPerLy = expeditionPick.worldUnitsPerLy ?? DEFAULT_WORLD_UNITS_PER_LY;
+                trailLength = h * wPerLy;
                 endX = launch.x + Math.cos(angle) * trailLength;
                 endY = launch.y + Math.sin(angle) * trailLength;
               }

@@ -78,7 +78,7 @@ async function handleArrivalAtTarget(
   const result = expedition.result as any;
   const durationMs = (result.distance * 60 / result.speed) * result.engineFactor * 1000;
 
-  if (expedition.targetPlanetId && expedition.type === 'scout') {
+  if (expedition.targetPlanetId && (expedition.type === 'scout' || expedition.type === 'recon_probe')) {
     const [ship] = await tx.select().from(ships).where(eq(ships.id, expedition.shipId)).limit(1);
     if (ship) {
       await tx
