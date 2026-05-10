@@ -424,6 +424,7 @@ export function CosmicSystemRenderer({
 
           {/* Planets */}
           {layouts.map((l) => {
+            if (l.planet.isDiscovered === false) return null;
             const biome = resolveBiome(l.planet.biome);
             const meta = BIOME_META[biome];
             const isSelected = l.planet.id === selectedId;
@@ -434,10 +435,6 @@ export function CosmicSystemRenderer({
                 data-testid={`planet-btn-${l.planet.id}`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (l.planet.isDiscovered === false) {
-                    setSelectedId(l.planet.id);
-                    return;
-                  }
                   if (selectedId === l.planet.id) {
                     onPlanetClick(l.planet);
                   } else {
@@ -455,12 +452,9 @@ export function CosmicSystemRenderer({
                   padding: 0,
                   cursor: expeditionPick ? 'inherit' : 'pointer',
                   pointerEvents: expeditionPick ? 'none' : 'auto',
-                  filter:
-                    l.planet.isDiscovered === false
-                      ? 'none'
-                      : isSelected
-                      ? `drop-shadow(0 0 10px ${meta.accent})`
-                      : 'drop-shadow(0 6px 14px rgba(0,0,0,0.5))',
+                  filter: isSelected
+                    ? `drop-shadow(0 0 10px ${meta.accent})`
+                    : 'drop-shadow(0 6px 14px rgba(0,0,0,0.5))',
                 }}
               >
                 <PlanetSvg biome={biome} size={l.spriteSize} uid={`map-${l.planet.id}`} />
@@ -479,7 +473,7 @@ export function CosmicSystemRenderer({
                     textShadow: '0 1px 2px rgba(0,0,0,0.8)',
                   }}
                 >
-                  {l.planet.isDiscovered === false ? '???' : (l.planet.name || '?').toUpperCase()}
+                  {(l.planet.name || '?').toUpperCase()}
                 </div>
               </button>
             );

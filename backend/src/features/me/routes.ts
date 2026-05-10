@@ -113,7 +113,7 @@ export async function meRoutes(app: FastifyInstance) {
         });
 
         const activeExpeditions = await db.query.expeditions.findMany({
-          where: eq(expeditions.status, 'active'),
+          where: or(eq(expeditions.status, 'in_flight'), eq(expeditions.status, 'returning')),
         });
 
         const userResearch = await db.query.researchProgress.findMany({
