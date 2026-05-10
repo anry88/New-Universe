@@ -47,12 +47,29 @@ export const ResourceChip: React.FC<{ data: ResourceChipData }> = ({ data }) => 
 
 // --- Top bar ---------------------------------------------------------------
 
-export const CosmicTopBar: React.FC<{ resources: ResourceChipData[] }> = ({ resources }) => (
+export const CosmicTopBar: React.FC<{ resources: ResourceChipData[]; diamonds?: number }> = ({
+  resources,
+  diamonds,
+}) => (
   <div className="cosmic-topbar" data-testid="cosmic-topbar">
-    <div className="cosmic-topbar-grid">
-      {resources.slice(0, 5).map((r) => (
-        <ResourceChip key={r.resourceId} data={r} />
-      ))}
+    <div
+      className={
+        'cosmic-topbar-inner' + (diamonds !== undefined ? ' cosmic-topbar-inner--with-diamonds' : '')
+      }
+    >
+      {diamonds !== undefined && (
+        <div className="diamond-chip" data-testid="diamond-balance" title="Diamonds">
+          <span className="diamond-chip-sym" aria-hidden>
+            ◆
+          </span>
+          <span className="diamond-chip-amt">{diamonds.toLocaleString()}</span>
+        </div>
+      )}
+      <div className="cosmic-topbar-grid">
+        {resources.slice(0, diamonds !== undefined ? 4 : 5).map((r) => (
+          <ResourceChip key={r.resourceId} data={r} />
+        ))}
+      </div>
     </div>
   </div>
 );
@@ -219,10 +236,32 @@ export interface QueueStripProps {
   etaSec: number;
   progressPct: number;
   hidden?: boolean;
+  /** Server-computed rush price in diamonds; omit to hide the rush control. */
+  rushCost?: number;
+  /** Current diamond balance (for disabling rush). */
+  diamondBalance?: number;
+  rushBusy?: boolean;
+  onRush?: () => void;
 }
 
-export const QueueStrip: React.FC<QueueStripProps> = ({ title, etaSec, progressPct, hidden }) => {
+export const QueueStrip: React.FC<QueueStripProps> = ({
+  title,
+  etaSec,
+  progressPct,
+  hidden,
+  rushCost,
+  diamondBalance,
+  rushBusy,
+  onRush,
+}) => {
   if (hidden) return null;
+  const showRush =
+    typeof rushCost === 'number' &&
+    rushCost > 0 &&
+    typeof diamondBalance === 'number' &&
+    typeof onRush === 'function';
+  const cantAfford = showRush && diamondBalance < rushCost;
+
   return (
     <div className="qstrip" data-testid="queue-strip">
       <div className="qstrip-icon">
@@ -237,7 +276,21 @@ export const QueueStrip: React.FC<QueueStripProps> = ({ title, etaSec, progressP
           <div className="qstrip-fill" style={{ width: Math.min(100, Math.max(0, progressPct)) + '%' }} />
         </div>
       </div>
-      <div className="qstrip-eta">{formatEta(etaSec)}</div>
+      <div className="qstrip-actions">
+        <div className="qstrip-eta">{formatEta(etaSec)}</div>
+        {showRush && (
+          <button
+            type="button"
+            className="qstrip-rush"
+            data-testid="queue-rush-button"
+            disabled={cantAfford || rushBusy}
+            onClick={onRush}
+            title={cantAfford ? 'Not enough diamonds' : `Spend ${rushCost} diamonds to finish now`}
+          >
+            {rushBusy ? '…' : `◆ ${rushCost} Rush`}
+          </button>
+        )}
+      </div>
     </div>
   );
 };

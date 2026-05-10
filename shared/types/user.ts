@@ -11,6 +11,8 @@ export interface User {
   createdAt: string;
   premiumUntil: string | null;
   powerScore: number;
+  /** Premium currency balance (rush builds). */
+  diamonds: number;
   tutorialStep: number;
   tutorialCompletedAt: string | null;
   homeSystem?: HomeSystem;

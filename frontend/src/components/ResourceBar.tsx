@@ -27,6 +27,7 @@ interface ResourceWithAmount extends PlanetResource {
  */
 export function ResourceBar({ planetId }: ResourceBarProps) {
   const { data: meData } = useMe();
+  const diamondBalance = meData?.diamonds;
   const [resources, setResources] = useState<ResourceWithAmount[]>([]);
   const animationRef = useRef<number | undefined>(undefined);
   const lastUpdateRef = useRef<number>(Date.now());
@@ -111,6 +112,7 @@ export function ResourceBar({ planetId }: ResourceBarProps) {
   if (data.length === 0) {
     return (
       <CosmicTopBar
+        diamonds={diamondBalance}
         resources={[
           { resourceId: 'water', amount: 0, cap: 1000, rate: 0 },
           { resourceId: 'iron', amount: 0, cap: 1000, rate: 0 },
@@ -122,5 +124,5 @@ export function ResourceBar({ planetId }: ResourceBarProps) {
     );
   }
 
-  return <CosmicTopBar resources={data} />;
+  return <CosmicTopBar resources={data} diamonds={diamondBalance} />;
 }
