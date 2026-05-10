@@ -4,8 +4,28 @@ export interface Ship {
   typeId: string;
   locationPlanetId: string | null;
   status: string;
+  queueCompletesAt?: string | null;
   cargoJson: Record<string, number>;
   fuel: string;
+}
+
+export interface ShipQueueItem {
+  id: string;
+  planetId: string | null;
+  typeId: string;
+  status: string;
+  queueCompletesAt: string;
+  rushCost?: number;
+}
+
+export interface RushShipBuildRequest {
+  shipId: string;
+}
+
+export interface RushShipBuildResponse {
+  success: boolean;
+  cost: number;
+  diamondsRemaining: number;
 }
 
 export interface ShipType {

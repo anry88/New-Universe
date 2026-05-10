@@ -39,10 +39,19 @@ export async function apiFetch<T>(
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
+    const message =
+      (errorData && typeof errorData === 'object' && 'message' in errorData && typeof (errorData as any).message === 'string'
+        ? (errorData as any).message
+        : null) ??
+      (errorData && typeof errorData === 'object' && 'error' in errorData && typeof (errorData as any).error === 'string'
+        ? (errorData as any).error
+        : null) ??
+      `API Error: ${response.status}`;
     const error = new Error(errorData.message || `API Error: ${response.status}`) as Error & {
       status?: number;
       data?: unknown;
     };
+    error.message = message;
     error.status = response.status;
     error.data = errorData;
     throw error;

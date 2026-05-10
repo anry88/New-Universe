@@ -27,7 +27,7 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
   - **`PlanetDetail.tsx`** — detailed planet view with building slots and upgrade options; derives construction eligibility from `GET /buildings/types` limits plus live `/me` planets/research via `@shared/types/building-eligibility`.
   - **`SystemMap.tsx`** — page component for the interactive home system map; links into the sector radar for the same sector cube.
   - **`SectorMap.tsx`** — Phase 3 sector map: queries `GET /multiplayer/sectors/:sx/:sy/:sz/presence`, supports manual sector coordinates (global search within numeric sector grid), renders Pixi markers via `SectorRenderer`.
-  - **`Ships.tsx`** — fleet management screen with two tabs: roster (`/ships`) and shipyard build queue/planner (`/ships?tab=shipyard`) wired to `POST /ships/build`.
+  - **`Ships.tsx`** — fleet management screen with two tabs: roster (`/ships`) and shipyard build queue/planner (`/ships?tab=shipyard`) wired to `POST /ships/build`; ships in `building` show ETA from `GET /ships/queue` and support rush completion via `POST /ships/rush`.
   - **`Market.tsx`** — utility economy market screen with buy/sell price browsing, order submission, and pending-order ETA tracking.
   - **`Research.tsx`** — tech-tree screen (Cosmic Atlas): seven branches × **five** tiers aligned with `@shared/config/researchCatalog`, branch blurbs, per-tier `TechTreeNode` states (completed / in-progress timer / next pending / locked), applied-effects summary, tier detail sheet with lab/prereq/resource blocking (BuildDialog-style), optimistic start via `useStartResearch`, refetch when lab timers complete.
 - `components/` — reusable presentational components.

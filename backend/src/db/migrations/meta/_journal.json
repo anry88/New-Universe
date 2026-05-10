@@ -169,6 +169,13 @@
       "when": 1779100000000,
       "tag": "0023_home_system_display_names",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1778426099344,
+      "tag": "0024_curvy_miek",
+      "breakpoints": true
     }
   ]
 }

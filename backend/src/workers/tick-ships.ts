@@ -23,7 +23,7 @@ export async function createShipsWorker(): Promise<Worker> {
 
       await db
         .update(ships)
-        .set({ status: 'idle' })
+        .set({ status: 'idle', queueCompletesAt: null })
         .where(eq(ships.id, shipId));
 
       // Fetch user ID to send notification

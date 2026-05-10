@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useMe } from '../hooks/useMe';
-import { useBuildShip, useShipTypes } from '../hooks/useShips';
+import { useBuildShip, useRushShip, useShipQueue, useShipTypes } from '../hooks/useShips';
 import { ExpeditionDialog } from '../components/ExpeditionDialog';
 import { ResourceBar } from '../components/ResourceBar';
 import { CosmicBackground, CosmicBottomNav } from '../components/cosmic/atoms';
@@ -29,7 +29,9 @@ const SHIP_CLASS_TAG: Record<string, string> = {
 export function ShipsPage() {
   const { data: meData } = useMe();
   const { data: shipTypes } = useShipTypes();
+  const { data: shipQueueData } = useShipQueue();
   const buildShip = useBuildShip();
+  const rushShip = useRushShip();
   const navigate = useNavigate();
   const location = useLocation();
   const [selectedShip, setSelectedShip] = useState<Ship | null>(null);
@@ -79,6 +81,9 @@ export function ShipsPage() {
       alert(message);
     }
   };
+
+  const queueByShipId = new Map((shipQueueData?.queue ?? []).map((q) => [q.id, q]));
+  const now = Date.now();
 
   return (
     <div className="cosmic-screen" style={{ '--accent': '#5BD7FF' } as React.CSSProperties}>
@@ -241,10 +246,19 @@ export function ShipsPage() {
 
             {ships.map((ship) => {
               const type = getShipType(ship.typeId);
-              const isIdle = ship.status === 'idle';
               const cls = SHIP_CLASS_TAG[ship.typeId.toLowerCase()] ?? ship.typeId.slice(0, 6).toUpperCase();
+              const queueItem = queueByShipId.get(ship.id);
+              const effectiveStatus =
+                ship.status === 'building' && !queueItem ? 'idle' : ship.status;
+              const isIdle = effectiveStatus === 'idle';
+              const isBuilding = effectiveStatus === 'building';
+              const etaSec = queueItem
+                ? Math.max(0, Math.ceil((new Date(queueItem.queueCompletesAt).getTime() - now) / 1000))
+                : null;
               const shipLocation = isIdle
                 ? `Orbit · ${origin.sectorX}:${origin.sectorY}:${origin.sectorZ}`
+                : isBuilding
+                ? `Under construction${etaSec != null ? ` · ETA ${Math.floor(etaSec / 60)}m ${String(etaSec % 60).padStart(2, '0')}s` : ''}`
                 : `In transit · ${ship.status}`;
               return (
                 <div key={ship.id} className="ship-row">
@@ -265,8 +279,19 @@ export function ShipsPage() {
                         cursor: isIdle ? 'pointer' : 'not-allowed',
                       }}
                     >
-                      {isIdle ? 'SEND MISSION' : 'IN TRANSIT'}
+                      {isIdle ? 'SEND MISSION' : isBuilding ? 'BUILDING' : 'IN TRANSIT'}
                     </button>
+                    {isBuilding && queueItem ? (
+                      <button
+                        type="button"
+                        className="cosmic-cta"
+                        onClick={() => rushShip.mutate(ship.id)}
+                        disabled={rushShip.isPending}
+                        style={{ marginTop: 6, padding: '6px 12px', fontSize: 11 }}
+                      >
+                        {rushShip.isPending ? 'RUSHING...' : `◆ ${queueItem.rushCost ?? 0} RUSH BUILD`}
+                      </button>
+                    ) : null}
                   </div>
                   <div className="ship-stats">
                     <div className="ship-stat">

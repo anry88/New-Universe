@@ -122,6 +122,7 @@ describe('Ship Building - POST /ships/build', () => {
     expect(body.ship).toBeDefined();
     expect(body.ship.typeId).toBe('scout');
     expect(body.ship.status).toBe('building');
+    expect(body.ship.queueCompletesAt).toBeTruthy();
     expect(body.ship.ownerId).toBe(userId);
     expect(body.ship.locationPlanetId).toBe(planetId);
   });
