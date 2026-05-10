@@ -157,8 +157,8 @@ describe('Resource Conversion - POST /resources/convert', () => {
 
     const iceAfter = await getResourceAmount(planetId, 'ice');
     const waterAfter = await getResourceAmount(planetId, 'water');
-    expect(iceAfter).toBe(iceBefore - 100);
-    expect(waterAfter).toBe(waterBefore + 100);
+    expect(iceAfter).toBeCloseTo(iceBefore - 100, 1);
+    expect(waterAfter).toBeCloseTo(waterBefore + 100, 1);
   });
 
   it('should convert water to ice with 5% loss', async () => {
@@ -193,8 +193,8 @@ describe('Resource Conversion - POST /resources/convert', () => {
 
     const waterAfter = await getResourceAmount(planetId, 'water');
     const iceAfter = await getResourceAmount(planetId, 'ice');
-    expect(waterAfter).toBe(waterBefore - 100);
-    expect(iceAfter).toBe(95);
+    expect(waterAfter).toBeCloseTo(waterBefore - 100, 1);
+    expect(iceAfter).toBeCloseTo(95, 1);
   });
 
   it('should return 401 without authorization', async () => {

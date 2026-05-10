@@ -1,6 +1,6 @@
 import { db as defaultDb } from '../../db/index.js';
 import { planetResources, planets, resources } from '../../db/schema.js';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import {
   applyProductionRate,
   applyStorageCap,
@@ -15,7 +15,7 @@ interface DBRecord {
   storageCap: number;
 }
 
-interface ComputedResource {
+export interface ComputedResource {
   resourceId: string;
   amount: number;
   regenRate: number;
@@ -74,4 +74,28 @@ export async function computeCurrentResources(planetId: string, tx?: any) {
       storageCap,
     };
   }) as ComputedResource[];
+}
+
+/**
+ * Synchronizes planet resources by calculating accruals and persisting them to DB.
+ */
+export async function syncPlanetResources(planetId: string, tx?: any): Promise<void> {
+  const database = tx || defaultDb;
+  const computed = await computeCurrentResources(planetId, database);
+  const now = new Date();
+
+  for (const r of computed) {
+    await database
+      .update(planetResources)
+      .set({
+        amount: r.amount.toFixed(4),
+        lastUpdateAt: now,
+      })
+      .where(
+        and(
+          eq(planetResources.planetId, planetId),
+          eq(planetResources.resourceId, r.resourceId)
+        )
+      );
+  }
 }

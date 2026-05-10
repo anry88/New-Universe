@@ -1,23 +1,16 @@
-## Description
-Implemented building demolition with a 50% resource refund of all construction and upgrade costs.
+### Summary
+This PR fixes a bug where building construction would fail with "not enough resources" even when the UI showed sufficient amounts.
 
-### Changes
-- **Shared**:
-  - Added `DemolishRequest` and `DemolishStatus` types.
-- **Backend**:
-  - Implemented `BuildingService.demolish`:
-    - Calculates total costs spent: `baseCost * (2^level - 1)`.
-    - Refunds 50% (floor) of the total spent for each resource.
-    - Atomically updates planet resources and removes the building.
-    - Recalculates resource regeneration rates if a production building is demolished.
-  - Added `POST /buildings/demolish` endpoint.
-- **Frontend**:
-  - Added "Demolish Installation" button to `UpgradeDialog` with confirmation prompt.
-  - Implemented `handleDemolish` in `PlanetDetailPage` with optimistic UI handling and React Query invalidation.
+### Key Changes
+- **Backend Accrual**: Added `syncPlanetResources` to `accrual.ts` and integrated it into `spendResources` and `gainResources` transactions. This ensures the server accounts for resources regenerated since the last update before checking costs.
+- **Drizzle Refactor**: Replaced raw SQL in `transactions.ts` with type-safe Drizzle query builder and added row locking (`FOR UPDATE`).
+- **Frontend URL Fix**: Corrected the planetary resources URL in `ResourceBar.tsx` (`/resources/planets/:id`). This prevents the UI from falling back to stale home-planet data from `/me`.
+- **Defensive Parsing**: Updated `ResourceBar` to handle both string and number types for resource amounts to prevent NaN issues.
 
 ### Verification
-- Added unit test in `service.test.ts` to verify the refund calculation and resource update: PASS.
-- Ran backend lint, build, and tests: PASS.
-- Ran frontend build in Docker: PASS.
+- Created a reproduction test case confirming that stale DB balances caused failures.
+- Verified that the fix allows spending accrued resources correctly.
+- Updated existing tests to handle minor precision differences from real-time accrual.
+- Ran all resource tests in Docker: 15 passed.
 
-Closes #208
+Closes #411

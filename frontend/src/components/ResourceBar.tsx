@@ -35,17 +35,18 @@ export function ResourceBar({ planetId }: ResourceBarProps) {
     if (planetId) {
       try {
         const data = await apiFetch<{ resources: PlanetResource[] }>(
-          `/planets/${planetId}/resources`
+          `/resources/planets/${planetId}`
         );
         setResources(
           data.resources.map((r) => ({
             ...r,
-            currentAmount: parseFloat(r.amount),
-            targetAmount: parseFloat(r.amount),
+            currentAmount: typeof r.amount === 'number' ? r.amount : parseFloat(r.amount),
+            targetAmount: typeof r.amount === 'number' ? r.amount : parseFloat(r.amount),
           }))
         );
         return;
-      } catch {
+      } catch (err) {
+        console.error('Failed to fetch resources for planet:', planetId, err);
         /* fall through to mock */
       }
     }

@@ -1,6 +1,7 @@
 import { db as defaultDb } from '../../db/index.js';
 import { planetResources } from '../../db/schema.js';
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
+import { syncPlanetResources } from './accrual.js';
 
 interface ResourceChange {
   resourceId: string;
@@ -14,24 +15,32 @@ interface TransactionResult {
 }
 
 async function spendResourcesInner(trx: any, planetId: string, costs: ResourceChange[]): Promise<TransactionResult> {
+    // 1. Sync resources to current time so we check against the actual accrued balance
+    await syncPlanetResources(planetId, trx);
+
     const resourceIds = costs.map(c => c.resourceId);
-    const resourceIdList = resourceIds.map(id => `'${id}'`).join(', ');
-
-    const query = `
-      SELECT resource_id, amount 
-      FROM planet_resources 
-      WHERE planet_id = '${planetId}'::uuid
-        AND resource_id IN (${resourceIdList})
-      FOR UPDATE`
-    ;
-
-    const records = await trx.execute(sql.raw(query));
+    
+    // 2. Select for update to lock the rows
+    const records = await trx
+      .select({
+        resourceId: planetResources.resourceId,
+        amount: planetResources.amount,
+      })
+      .from(planetResources)
+      .where(
+        and(
+          eq(planetResources.planetId, planetId),
+          inArray(planetResources.resourceId, resourceIds)
+        )
+      )
+      .for('update');
 
     const balance: Record<string, number> = {};
     for (const record of records) {
-      balance[record.resource_id as string] = Number(record.amount);
+      balance[record.resourceId] = Number(record.amount);
     }
 
+    // 3. Perform the check
     for (const cost of costs) {
       const current = balance[cost.resourceId] || 0;
       if (current < cost.amount) {
@@ -43,12 +52,21 @@ async function spendResourcesInner(trx: any, planetId: string, costs: ResourceCh
       balance[cost.resourceId] = current - cost.amount;
     }
 
+    // 4. Update the DB
     const now = new Date();
     for (const cost of costs) {
       await trx
         .update(planetResources)
-        .set({ amount: balance[cost.resourceId].toFixed(4), lastUpdateAt: now })
-        .where(and(eq(planetResources.planetId, planetId), eq(planetResources.resourceId, cost.resourceId)));
+        .set({ 
+          amount: balance[cost.resourceId].toFixed(4), 
+          lastUpdateAt: now 
+        })
+        .where(
+          and(
+            eq(planetResources.planetId, planetId), 
+            eq(planetResources.resourceId, cost.resourceId)
+          )
+        );
     }
 
     return { success: true, balanceAfter: balance };
@@ -66,25 +84,32 @@ export async function spendResources(
 }
 
 async function gainResourcesInner(trx: any, planetId: string, gains: ResourceChange[]): Promise<TransactionResult> {
+    // 1. Sync resources first to avoid overwriting uncollected accruals
+    await syncPlanetResources(planetId, trx);
+
     const resourceIds = gains.map(g => g.resourceId);
-    const resourceIdList = resourceIds.map(id => `'${id}'`).join(', ');
 
-    const query = `
-      SELECT pr.resource_id, pr.amount, r.default_storage_cap
-      FROM planet_resources pr
-      INNER JOIN resources r ON r.id = pr.resource_id
-      WHERE pr.planet_id = '${planetId}'::uuid
-        AND pr.resource_id IN (${resourceIdList})
-      FOR UPDATE`
-    ;
-
-    const records = await trx.execute(sql.raw(query));
+    // 2. Select for update
+    const records = await trx
+      .select({
+        resourceId: planetResources.resourceId,
+        amount: planetResources.amount,
+      })
+      .from(planetResources)
+      .where(
+        and(
+          eq(planetResources.planetId, planetId),
+          inArray(planetResources.resourceId, resourceIds)
+        )
+      )
+      .for('update');
 
     const balance: Record<string, number> = {};
     for (const record of records) {
-      balance[record.resource_id as string] = Number(record.amount);
+      balance[record.resourceId] = Number(record.amount);
     }
 
+    // 3. Apply gains
     const now = new Date();
     for (const gain of gains) {
       const current = balance[gain.resourceId] || 0;
@@ -93,8 +118,16 @@ async function gainResourcesInner(trx: any, planetId: string, gains: ResourceCha
 
       await trx
         .update(planetResources)
-        .set({ amount: newAmount.toFixed(4), lastUpdateAt: now })
-        .where(and(eq(planetResources.planetId, planetId), eq(planetResources.resourceId, gain.resourceId)));
+        .set({ 
+          amount: newAmount.toFixed(4), 
+          lastUpdateAt: now 
+        })
+        .where(
+          and(
+            eq(planetResources.planetId, planetId), 
+            eq(planetResources.resourceId, gain.resourceId)
+          )
+        );
     }
 
     return { success: true, balanceAfter: balance };
