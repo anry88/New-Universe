@@ -206,7 +206,6 @@ export function ResearchPage() {
               </button>
             );
           })}
-          <div style={{ height: 80 }} />
         </div>
       </div>
 

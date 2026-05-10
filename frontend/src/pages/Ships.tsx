@@ -124,7 +124,7 @@ export function ShipsPage() {
               </div>
             );
           })}
-          <div style={{ height: 80 }} />
+          
         </div>
       </div>
 

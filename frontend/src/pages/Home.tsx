@@ -36,8 +36,10 @@ export function HomePage({ onOpenTutorial }: HomePageProps) {
       )}
       <ResourceBar planetId={focalPlanetId || undefined} />
       <PlanetView />
-      <BuildQueue />
-      <CosmicBottomNav active="planets" />
+      <div className="fixed-bottom-ui">
+        <BuildQueue planetId={focalPlanetId || undefined} />
+        <CosmicBottomNav active="planets" />
+      </div>
     </div>
   );
 }

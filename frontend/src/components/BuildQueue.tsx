@@ -14,6 +14,10 @@ interface BuildQueueItem {
   queueStartedAt?: string;
 }
 
+interface BuildQueueProps {
+  planetId?: string;
+}
+
 /**
  * Bottom strip showing the next item in the build queue. The strip auto-hides
  * when the queue is empty so the bottom navigation can sit flush against the
@@ -24,7 +28,7 @@ interface BuildQueueItem {
  * are not stacked here — only the head is rendered, which mirrors the design
  * intent (one focal task at a time).
  */
-export function BuildQueue() {
+export function BuildQueue({ planetId }: BuildQueueProps) {
   const [queue, setQueue] = useState<BuildQueueItem[]>([]);
   const [now, setNow] = useState(Date.now());
   const queryClient = useQueryClient();
@@ -69,8 +73,10 @@ export function BuildQueue() {
     return () => clearInterval(timer);
   }, [queue, queryClient]);
 
-  if (!queue.length) return null;
-  const head = queue[0];
+  const filteredQueue = planetId ? queue.filter((item) => item.planetId === planetId) : queue;
+
+  if (!filteredQueue.length) return null;
+  const head = filteredQueue[0];
   const completesAt = new Date(head.queueCompletesAt).getTime();
   const startedAt = head.queueStartedAt
     ? new Date(head.queueStartedAt).getTime()

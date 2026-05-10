@@ -320,11 +320,12 @@ export function PlanetDetailPage() {
               })}
             </div>
           </div>
-          <div style={{ height: 80 }} />
         </div>
 
-        <BuildQueue />
-        <CosmicBottomNav active="planets" />
+        <div className="fixed-bottom-ui">
+          <BuildQueue planetId={planet.id} />
+          <CosmicBottomNav active="planets" />
+        </div>
       </div>
 
       <BuildDialog

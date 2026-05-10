@@ -90,7 +90,6 @@ export function PlanetView() {
             })}
           </div>
         </div>
-        <div style={{ height: 80 }} />
       </div>
     </div>
   );
