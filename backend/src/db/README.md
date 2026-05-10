@@ -40,7 +40,7 @@ Each module owns one domain and exports the Drizzle table objects. `schema.ts` r
 
 Each seed module exports an idempotent `async function seedXxx()` that calls `db.insert(table).values(row).onConflictDoUpdate({ target: table.id, set: row })`. They are safe to re-run.
 
-- **`catalog-rows.ts`** — single source of truth for `RESOURCE_CATALOG_ROWS`, `BUILDING_TYPE_CATALOG_ROWS`, and `SHIP_TYPE_CATALOG_ROWS` (no DB import). Consumed by seed scripts and `runCatalogAudit()` so CI can validate catalogs without connecting to Postgres.
+- **`catalog-rows.ts`** — single source of truth for `RESOURCE_CATALOG_ROWS`, `BUILDING_TYPE_CATALOG_ROWS`, and `SHIP_TYPE_CATALOG_ROWS` (no DB import). Consumed by seed scripts and `runCatalogAudit()` so CI can validate catalogs without connecting to Postgres. Includes an inline summary of upgrade cost/time scaling (**1.6^L** cost, **1.8^L × baseTimeSec** time for upgrading from level L) matching `BuildingService.upgrade`.
 - **`resources.ts`** — inserts `RESOURCE_CATALOG_ROWS` into `resources` (23 rows including `fuel`, `steel`, `electronics`, and base/mineral tiers `water` … `biomass`).
 - **`research.ts`** — idempotent seeder for `research_branches` from `config/research-catalog.ts`. Keeps branch name/description in sync with the phase-2 catalog source of truth.
 - **`building-types.ts`** — inserts `BUILDING_TYPE_CATALOG_ROWS` (`command_center`, `mine`, `drill`, `storage`, `smelter`, `fabrication_bay`, `spaceport`, `shipyard`, `lab`, `cryo_factory`, `solar_plant`) with dependency chains (`spaceport ⇒ command_center L4`, `shipyard ⇒ spaceport L2`, `fabrication_bay ⇒ command_center L3 + smelter L1`, `cryo_factory ⇒ spaceport L2 + smelter L3`, etc.).

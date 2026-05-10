@@ -26,7 +26,7 @@ export const BUILDINGS = {
   command_center: {
     deps: [] as { typeId: string; level: number }[],
     baseCost: {} as Record<string, number>,
-    baseTimeSec: 0,
+    baseTimeSec: 600,
     category: 'base',
     /** Mirrors seeded `building_types.max_per_planet`. */
     maxPerPlanet: 1 as const,

@@ -78,9 +78,9 @@ export async function upgradeBuilding(
     };
   }
 
-  const exponent = building.level - 1;
-  const costMultiplier = Math.pow(1.6, exponent);
-  const timeMultiplier = Math.pow(1.5, exponent);
+  /** Matches `BuildingService.upgrade`: scale from current completed level index. */
+  const costMultiplier = Math.pow(1.6, building.level);
+  const timeMultiplier = Math.pow(1.8, building.level);
 
   const baseCost = type.baseCost as Record<string, number>;
   const costEntries = Object.entries(baseCost);

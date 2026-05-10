@@ -54,6 +54,12 @@ export const RESOURCE_CATALOG_ROWS: ResourceCatalogRow[] = [
   { id: 'biomass', symbol: 'Bio', tier: 4, name: { ru: 'Биомасса', en: 'Biomass' }, baseRegenRate: 0, defaultStorageCap: 1000 },
 ];
 
+/**
+ * Building upgrade economics (backend `BuildingService.upgrade` + `features/buildings/upgrade.ts`):
+ * - Cost for upgrading from level L → L+1: `floor(baseCost * 1.6^L)` per resource.
+ * - Time: `floor(baseTimeSec * 1.8^L)` before research build-speed modifiers.
+ * Initial construction pays listed `baseCost` / `baseTimeSec` without these multipliers.
+ */
 export const BUILDING_TYPE_CATALOG_ROWS: BuildingCatalogRow[] = [
   {
     id: 'command_center',
@@ -68,7 +74,7 @@ export const BUILDING_TYPE_CATALOG_ROWS: BuildingCatalogRow[] = [
     maxLevel: 20,
     deps: [],
     baseCost: {},
-    baseTimeSec: 0,
+    baseTimeSec: 600,
     baseOutput: {},
     energyConsumption: 0,
   },

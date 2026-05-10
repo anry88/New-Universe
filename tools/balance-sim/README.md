@@ -12,6 +12,13 @@ Deterministic offline simulator for first-week economy progression (resources, b
 - **`src/simulate.ts`** — discrete-time integrator with parallel NPC trade resolution (no single serial trade blocks unrelated fills).
 - **`src/cli.ts`** — loads a scenario file, writes artifacts, optional `--verify`.
 
+## Upgrade time & cost curve
+
+The simulator mirrors backend building upgrades:
+
+- Upgrade from level **L** → **L+1**: resource cost scales by **1.6^L** (per resource, rounded); build time scales by **1.8^L** × `baseTimeSec`, then research modifiers from `src/effects.ts`.
+- Command Center `baseTimeSec` matches seeds (`catalog.ts`); genesis home capital still starts with a completed CC (see `home-system-generator`), while newly founded colonies queue CC construction.
+
 ## Sync contract
 
 When you change production economics in the live game, update **`src/catalog.ts`** (and scenario labels if intent shifts). Document each adjustment in the PR that touches backend seeds or `colonization-rules`.

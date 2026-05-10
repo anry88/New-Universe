@@ -212,7 +212,7 @@ describe('Building Upgrade - POST /buildings/upgrade', () => {
     expect(body.message).toContain('Build queue is full');
   });
 
-  it('should calculate upgrade cost using base_cost * 2^level', async () => {
+  it('should calculate upgrade cost using base_cost * 1.6^level', async () => {
     const { app, token, userId } = await createTestUser();
     const planetId = await getHomePlanetId(userId);
 
@@ -222,7 +222,7 @@ describe('Building Upgrade - POST /buildings/upgrade', () => {
       where: eq(buildingTypes.id, 'mine'),
     });
     const baseCost = mineType!.baseCost as Record<string, number>;
-    const scaledIron = Math.floor((baseCost.iron || 0) * Math.pow(2, 1));
+    const scaledIron = Math.floor((baseCost.iron || 0) * Math.pow(1.6, 1));
 
     const [building] = await db.insert(buildings).values({
       planetId,

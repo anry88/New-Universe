@@ -18,6 +18,12 @@ export function resolveBuildBlockedReason(input: {
   maxPerPlanet: number | null | undefined;
   maxGlobal: number | null | undefined;
   planetBuildings: { typeId: string; level: number }[];
+  /**
+   * Buildings that count toward dependency checks (operational or upgrading).
+   * Omit or leave unset to use `planetBuildings`. Use a narrower list to ignore rows that are
+   * still in the initial construction queue (`queueAction === 'build'`).
+   */
+  dependencyBuildings?: { typeId: string; level: number }[];
   globalCountForType: number;
   researchLevels: Map<string, number> | Record<string, number>;
   researchGate: ResearchUnlockRequirement | undefined;
@@ -33,8 +39,10 @@ export function resolveBuildBlockedReason(input: {
     }
   }
 
+  const buildingsForDeps = input.dependencyBuildings ?? input.planetBuildings;
+
   for (const dep of input.deps ?? []) {
-    const found = input.planetBuildings.find((b) => b.typeId === dep.typeId);
+    const found = buildingsForDeps.find((b) => b.typeId === dep.typeId);
     if (!found || found.level < dep.level) {
       return {
         code: 'building_blocked_dependency',

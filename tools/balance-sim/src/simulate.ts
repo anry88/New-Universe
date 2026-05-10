@@ -39,9 +39,8 @@ function upgradeCostAndTime(
   const meta = BUILDINGS[typeId];
   const baseCost = ('baseCost' in meta ? meta.baseCost : {}) as Record<string, number>;
   const baseTimeSec = 'baseTimeSec' in meta ? meta.baseTimeSec : 0;
-  const exponent = Math.max(0, currentLevel - 1);
-  const costMultiplier = Math.pow(1.6, exponent);
-  const timeMultiplier = Math.pow(1.5, exponent);
+  const costMultiplier = Math.pow(1.6, currentLevel);
+  const timeMultiplier = Math.pow(1.8, currentLevel);
   const cost: Record<string, number> = {};
   for (const [k, v] of Object.entries(baseCost)) {
     cost[k] = Math.ceil(v * costMultiplier);

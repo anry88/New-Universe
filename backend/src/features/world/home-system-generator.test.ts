@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { generateHomeSystem, MIN_HOME_CAPITAL_SLOT_COUNT } from './home-system-generator.js';
 import { HOME_SYSTEM_BASE_BIOMES } from './biomes.js';
 import { db } from '../../db/index.js';
-import { users, systems, planets, richness, planetResources } from '../../db/schema.js';
-import { eq } from 'drizzle-orm';
+import { users, systems, planets, richness, planetResources, buildings } from '../../db/schema.js';
+import { eq, and } from 'drizzle-orm';
 
 describe('Home System Generator', () => {
   it('should generate identical systems for the same userId (determinism)', async () => {
@@ -99,5 +99,27 @@ describe('Home System Generator', () => {
 
     expect(systemPlanets[0]!.biome).toBe('green');
     expect(systemPlanets[0]!.slotCount).toBeGreaterThanOrEqual(MIN_HOME_CAPITAL_SLOT_COUNT);
+  });
+
+  it('places a finished Command Center on the capital (slot 0)', async () => {
+    const [user] = await db.insert(users).values({
+      tgId: BigInt(Math.floor(Math.random() * 1000000000)),
+      tgUsername: 'testuser_cc_genesis',
+    }).returning();
+
+    const systemId = await generateHomeSystem(user.id);
+    const systemPlanets = await db.query.planets.findMany({
+      where: eq(planets.systemId, systemId),
+      orderBy: (planets, { asc }) => [asc(planets.name)],
+    });
+    const capitalId = systemPlanets[0]!.id;
+    const cc = await db.query.buildings.findFirst({
+      where: and(eq(buildings.planetId, capitalId), eq(buildings.typeId, 'command_center')),
+    });
+    expect(cc).toBeDefined();
+    expect(cc!.slotIndex).toBe(0);
+    expect(cc!.level).toBe(1);
+    expect(cc!.queueAction).toBeNull();
+    expect(cc!.queueCompletesAt).toBeNull();
   });
 });
