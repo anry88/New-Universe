@@ -25,6 +25,7 @@ function gh(args, options = {}) {
 function ghApi(query, variables = {}) {
   const args = ['api', 'graphql', '-f', `query=${query}`];
   for (const [key, value] of Object.entries(variables)) {
+    if (value === null || value === undefined) continue;
     args.push('-F', `${key}=${value}`);
   }
   const output = gh(args);
@@ -79,58 +80,36 @@ fragment ProjectFields on ProjectV2 {
   }
 }`;
 
-const PROJECT_ITEMS_QUERY = `
-query($owner: String!, $number: Int!, $after: String) {
-  repositoryOwner(login: $owner) {
-    ... on User { projectV2(number: $number) { items(first: 100, after: $after) { ...ProjectItems } } }
-    ... on Organization { projectV2(number: $number) { items(first: 100, after: $after) { ...ProjectItems } } }
-  }
-}
-
-fragment ProjectItems on ProjectV2ItemConnection {
-  nodes {
-    id
-    content {
-      ... on Issue { title number }
-      ... on PullRequest { title number }
-      ... on DraftIssue { title }
-    }
-    fieldValues(first: 80) {
-      nodes {
-        ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2FieldCommon { name } } }
-      }
-    }
-  }
-  pageInfo {
-    hasNextPage
-    endCursor
-  }
-}`;
-
-function mapProjectItem(item) {
-  const statusValue = (item.fieldValues?.nodes || []).find((v) => v.field?.name === 'Status');
-  const verificationValue = (item.fieldValues?.nodes || []).find((v) => v.field?.name === 'Verification');
-  return {
-    id: item.id,
-    title: item.content?.title || '',
-    number: item.content?.number,
-    status: statusValue?.name,
-    verification: verificationValue?.name,
-  };
-}
-
+/**
+ * Reads board Status/Verification the same way as the GitHub UI / `gh project item-list`.
+ * GraphQL fieldValues pagination/caps caused missing Status → wrong backlog detection and 0 promotions.
+ */
 function loadAllProjectItems() {
+  const raw = gh([
+    'project',
+    'item-list',
+    String(PROJECT_NUMBER),
+    '--owner',
+    OWNER,
+    '--format',
+    'json',
+    '-L',
+    '5000',
+  ]);
+  const parsed = JSON.parse(raw);
+  const rows = parsed.items || [];
   const items = [];
-  let after = null;
-  while (true) {
-    const data = ghApi(PROJECT_ITEMS_QUERY, { owner: OWNER, number: PROJECT_NUMBER, after });
-    const connection = data.data?.repositoryOwner?.projectV2?.items;
-    if (!connection) break;
-    for (const item of connection.nodes || []) {
-      items.push(mapProjectItem(item));
-    }
-    if (!connection.pageInfo?.hasNextPage) break;
-    after = connection.pageInfo?.endCursor || null;
+  for (const row of rows) {
+    const title = row.title || '';
+    const match = /^\[(?<id>[^\]]+)\]/.exec(title);
+    if (!match?.groups?.id) continue;
+    items.push({
+      id: row.id,
+      title,
+      number: row.content?.number,
+      status: row.status ?? undefined,
+      verification: row.verification ?? undefined,
+    });
   }
   return items;
 }
@@ -285,6 +264,12 @@ function syncReady() {
   for (const item of project.items) {
     const match = /^\[(?<id>[^\]]+)\]/.exec(item.title || '');
     if (match?.groups?.id) itemByTask.set(match.groups.id, item);
+  }
+
+  if (process.env.CI === 'true') {
+    console.log(
+      `sync-ready: ${project.items.length} board rows with [TASK_ID] title, ${issueStateByTaskId.size} issue states loaded`,
+    );
   }
 
   let promoted = 0;
