@@ -1,6 +1,6 @@
 import { db } from '../../db/index.js';
 import { buildings, buildingTypes, planets, planetResources, notifications, systems } from '../../db/schema.js';
-import { eq, and, sql, lte, inArray } from 'drizzle-orm';
+import { eq, and, sql, lte, inArray, type InferSelectModel } from 'drizzle-orm';
 import { BuildingType, ConstructionStatus, DemolishStatus } from '@shared/types/buildings.js';
 import { spendResources, gainResources } from '../resources/transactions.js';
 import { applyBuildTimeSeconds, getResearchEffectsForUser } from '../research/effects.js';
@@ -13,20 +13,22 @@ type BuildingOutput = {
   baseRate?: number;
 };
 
+type BuildingTypeRow = InferSelectModel<typeof buildingTypes>;
+
 async function upsertProductionRegen(tx: any, planetId: string, resourceId: string): Promise<void> {
-  const buildingsOnPlanet = await tx
+  const buildingsOnPlanet = (await tx
     .select({ typeId: buildings.typeId, level: buildings.level })
     .from(buildings)
-    .where(eq(buildings.planetId, planetId));
+    .where(eq(buildings.planetId, planetId))) as { typeId: string; level: number }[];
 
   let totalRate = 0;
   if (buildingsOnPlanet.length > 0) {
-    const typeIds = [...new Set(buildingsOnPlanet.map((b: { typeId: string }) => b.typeId))];
-    const typeRows =
+    const typeIds = [...new Set(buildingsOnPlanet.map((b) => b.typeId))];
+    const typeRows: BuildingTypeRow[] =
       typeIds.length > 0
         ? await tx.select().from(buildingTypes).where(inArray(buildingTypes.id, typeIds))
         : [];
-    const typeMap = new Map(typeRows.map((t: { id: string }) => [t.id, t]));
+    const typeMap = new Map<string, BuildingTypeRow>(typeRows.map((t) => [t.id, t]));
 
     for (const b of buildingsOnPlanet) {
       const bt = typeMap.get(b.typeId);
