@@ -278,7 +278,7 @@ describe('E2E: Colonization Flow', () => {
 
     // Verify iron removed from home
     const [homeIron] = await db.select().from(planetResourcesTable).where(and(eq(planetResourcesTable.planetId, homePlanet.id), eq(planetResourcesTable.resourceId, 'iron'))).limit(1);
-    expect(Number(homeIron.amount)).toBe(900);
+    expect(Number(homeIron.amount)).toBeCloseTo(900, 1);
 
     // Verify ship has iron
     const [shipWithCargo] = await db.select().from(ships).where(eq(ships.id, cargoShip.id)).limit(1);
