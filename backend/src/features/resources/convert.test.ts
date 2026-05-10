@@ -283,4 +283,51 @@ describe('Resource Conversion - POST /resources/convert', () => {
     const body = response.json();
     expect(body.error).toContain('not enough');
   });
+
+  it('should buy planet resource with diamonds (tier-based pricing)', async () => {
+    const { app, token, userId } = await createTestUser();
+    const planetId = await getHomePlanet(userId);
+    const ironBefore = await getResourceAmount(planetId, 'iron');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/resources/buy-with-diamonds',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        planetId,
+        resourceId: 'iron',
+        amount: 250,
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.resourceId).toBe('iron');
+    expect(body.amount).toBe(250);
+    expect(body.diamondsSpent).toBe(3); // tier1: 100 units/diamond
+    expect(body.unitsPerDiamond).toBe(100);
+
+    const ironAfter = await getResourceAmount(planetId, 'iron');
+    expect(ironAfter).toBeCloseTo(ironBefore + 250, 1);
+  });
+
+  it('should reject diamond buy for resource absent on selected planet', async () => {
+    const { app, token, userId } = await createTestUser();
+    const planetId = await getHomePlanet(userId);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/resources/buy-with-diamonds',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        planetId,
+        resourceId: 'antimatter',
+        amount: 1,
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    const body = response.json();
+    expect(body.error).toContain('not available');
+  });
 });

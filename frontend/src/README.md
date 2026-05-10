@@ -34,8 +34,9 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
   - `pixi/` — canvas-based rendering components using PixiJS.
     - **`SystemRenderer.tsx`** — top-down system map renderer. Handles orbits, planets, star, and ship markers with pan/zoom logic.
     - **`SectorRenderer.tsx`** — compact Pixi scatter plot for multiplayer sector markers (`PresenceEntityKind` colors); receives `SectorPresenceEntity[]` from the presence API.
-  - **`ResourceBar.tsx`** — planet-scoped top chips (`planetInventoryApiPath` when `planetId` is set), RAF smoothing, **`user.diamonds`** on `CosmicTopBar` (four resources + diamond chip when balance is defined), optional `planetLabel`, and **All** opening `ResourceInventoryDrawer`.
-  - **`ResourceInventoryDrawer.tsx`** — full planet stockpile list (sorted by label) plus account-wide diamonds in **Account (global)** when `/me` returns `user.diamonds`.
+  - **`ResourceBar.tsx`** — planet-scoped top chips (`planetInventoryApiPath` when `planetId` is set), RAF smoothing, **`user.diamonds`** on `CosmicTopBar` (four resources + diamond chip when balance is defined), optional `planetLabel`, and **All** opening `ResourceInventoryDrawer`. Clicking a resource chip opens diamond purchase flow (`POST /resources/buy-with-diamonds`) for the current planet.
+  - **`ResourceInventoryDrawer.tsx`** — full planet stockpile list (sorted by label) plus account-wide diamonds in **Account (global)** when `/me` returns `user.diamonds`; each resource row has `Buy with diamonds` action using the same purchase flow as top chips.
+  - **`ResourceDiamondPurchaseDialog.tsx`** — right-panel purchase sheet for resource amount input + buy confirmation; shared entrypoint for top-bar and inventory clicks.
   - **`cosmic/resources.ts`** — resource id -> symbol/label dictionary used in cosmic UI; aligned with seeded resource ids (`iron`, `silicon`, `tritium`, etc.) for tech-tree cost rendering.
   - **`PlanetView.tsx`** — focal planet portrait + slot grid; `PlanetRail` updates the focal planet via `setFocalPlanetId` (keeps the user on Home while syncing the top resource bar).
   - **`cosmic/buildings.tsx`** — Cosmic Atlas building icons keyed by backend catalog ids; exports `resolveBuildingType(typeId)` (canonical ids plus legacy synonyms such as `laboratory` and alternate lab spellings matched via `/^research[_-]?lab$/i`).
