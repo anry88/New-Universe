@@ -68,6 +68,7 @@ Building construction and queue management. [Detailed documentation](./buildings
   6. Deducts resource costs via `spendResources` (from `features/resources/transactions.ts`).
   7. Creates a `buildings` row with `queueAction='build'` and `queueCompletesAt = now + baseTime`.
   8. Enqueues a BullMQ delayed job for completion (non-blocking; gracefully handles unavailable Redis).
+  9. On queue completion, **`finalizeBuildingConstruction`** recomputes **`planet_resources.regenRate`** for each produced `resourceId` by summing **`baseRate × level`** across **all** matching producers on the planet and **inserts** a `planet_resources` row the first time that resource appears (steel/electronics included).
 - **`service.test.ts`** — Vitest integration suite covering the full build flow: successful mine construction, free-slot exhaustion (via direct DB insert), queue limit enforcement, missing auth, unknown building type, and non-existent planet.
 
 ## `resources/`

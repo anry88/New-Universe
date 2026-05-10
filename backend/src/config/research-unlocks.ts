@@ -15,6 +15,7 @@ export const BUILDING_RESEARCH_GATES: Partial<Record<string, ResearchUnlockRequi
   spaceport: { branch: 'engineering', level: 1 },
   cryo_factory: { branch: 'engineering', level: 2 },
   smelter: { branch: 'mining', level: 1 },
+  fabrication_bay: { branch: 'engineering', level: 1 },
 };
 
 /** Ship type ID → minimum completed research before build queue accepts the hull */

@@ -1,6 +1,6 @@
 import { db } from '../../db/index.js';
 import { buildings, buildingTypes, planets, planetResources, notifications, systems } from '../../db/schema.js';
-import { eq, and, sql, lte } from 'drizzle-orm';
+import { eq, and, sql, lte, inArray } from 'drizzle-orm';
 import { BuildingType, ConstructionStatus, DemolishStatus } from '@shared/types/buildings.js';
 import { spendResources, gainResources } from '../resources/transactions.js';
 import { applyBuildTimeSeconds, getResearchEffectsForUser } from '../research/effects.js';
@@ -12,6 +12,53 @@ type BuildingOutput = {
   resourceId?: string;
   baseRate?: number;
 };
+
+async function upsertProductionRegen(tx: any, planetId: string, resourceId: string): Promise<void> {
+  const buildingsOnPlanet = await tx
+    .select({ typeId: buildings.typeId, level: buildings.level })
+    .from(buildings)
+    .where(eq(buildings.planetId, planetId));
+
+  let totalRate = 0;
+  if (buildingsOnPlanet.length > 0) {
+    const typeIds = [...new Set(buildingsOnPlanet.map((b: { typeId: string }) => b.typeId))];
+    const typeRows =
+      typeIds.length > 0
+        ? await tx.select().from(buildingTypes).where(inArray(buildingTypes.id, typeIds))
+        : [];
+    const typeMap = new Map(typeRows.map((t: { id: string }) => [t.id, t]));
+
+    for (const b of buildingsOnPlanet) {
+      const bt = typeMap.get(b.typeId);
+      if (!bt) continue;
+      const output = bt.baseOutput as BuildingOutput | Record<string, unknown>;
+      const rid = output.resourceId as string | undefined;
+      const br = output.baseRate as number | undefined;
+      if (rid === resourceId && typeof br === 'number') {
+        totalRate += br * b.level;
+      }
+    }
+  }
+
+  const existing = await tx.query.planetResources.findFirst({
+    where: and(eq(planetResources.planetId, planetId), eq(planetResources.resourceId, resourceId)),
+  });
+
+  if (existing) {
+    await tx
+      .update(planetResources)
+      .set({ regenRate: totalRate.toFixed(4) })
+      .where(and(eq(planetResources.planetId, planetId), eq(planetResources.resourceId, resourceId)));
+  } else if (totalRate > 0) {
+    await tx.insert(planetResources).values({
+      planetId,
+      resourceId,
+      amount: '0',
+      regenRate: totalRate.toFixed(4),
+      lastUpdateAt: new Date(),
+    });
+  }
+}
 
 export class BuildingService {
   async getBuildingTypes(): Promise<BuildingType[]> {
@@ -266,26 +313,7 @@ export class BuildingService {
     if (bType?.baseOutput) {
       const output = bType.baseOutput as BuildingOutput;
       if (output.resourceId && typeof output.baseRate === 'number') {
-        const totalRate = output.baseRate * newLevel;
-
-        const existing = await tx.query.planetResources.findFirst({
-          where: and(
-            eq(planetResources.planetId, building.planetId),
-            eq(planetResources.resourceId, output.resourceId),
-          ),
-        });
-
-        if (existing) {
-          await tx
-            .update(planetResources)
-            .set({ regenRate: totalRate.toFixed(4) })
-            .where(
-              and(
-                eq(planetResources.planetId, building.planetId),
-                eq(planetResources.resourceId, output.resourceId),
-              ),
-            );
-        }
+        await upsertProductionRegen(tx, building.planetId, output.resourceId);
       }
     }
 
@@ -410,31 +438,11 @@ export class BuildingService {
       // 2. Remove building
       await tx.delete(buildings).where(eq(buildings.id, buildingId));
 
-      // 3. Reset regen rate if it was a production building
+      // 3. Recalculate production regen for this resource (handles multiple producers / levels)
       if (typeInfo.baseOutput) {
         const output = typeInfo.baseOutput as BuildingOutput;
-        if (output.resourceId) {
-          // Check if there are other buildings of the same type producing the same resource
-          const otherBuildings = await tx.query.buildings.findMany({
-            where: and(
-              eq(buildings.planetId, building.planetId),
-              eq(buildings.typeId, building.typeId)
-            )
-          });
-          
-          const totalLevel = otherBuildings.reduce((sum, b) => sum + b.level, 0);
-          const baseRate = output.baseRate || 0;
-          const newTotalRate = baseRate * totalLevel;
-
-          await tx
-            .update(planetResources)
-            .set({ regenRate: newTotalRate.toFixed(4) })
-            .where(
-              and(
-                eq(planetResources.planetId, building.planetId),
-                eq(planetResources.resourceId, output.resourceId),
-              ),
-            );
+        if (output.resourceId && typeof output.baseRate === 'number') {
+          await upsertProductionRegen(tx, building.planetId, output.resourceId);
         }
       }
     });

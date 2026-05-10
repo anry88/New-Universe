@@ -67,7 +67,7 @@ The bot entry point is `POST /webhook/telegram`. Incoming updates are dispatched
 `backend/src/db/index.ts` opens a `postgres-js` connection from `DATABASE_URL` and exposes a typed Drizzle client via `db`. The schema is split per domain under `backend/src/db/schema/` and re-exported from `backend/src/db/schema.ts`:
 
 - `users` — Telegram-linked player accounts and onboarding progression (`tutorial_step` exposed in code as `tutorialStepCompleted`, `tutorial_completed_at`).
-- `resources`, `richness`, `planet_resources` — universe resource catalog (23 seeded resources across tiers 1–4, including `steel`, `electronics`, and `fuel`) and per-planet inventory.
+- `resources`, `richness`, `planet_resources` — universe resource catalog (23 seeded resources across tiers 1–4, including `steel`, `electronics`, and `fuel`) and per-planet inventory. **`planet_resources.regenRate`** combines planetary richness with **building outputs** from `building_types.baseOutput` (`smelter` → `steel`, `fabrication_bay` → `electronics`, mines/drills → ores/water); the NPC market is not required for those baselines.
 - `systems`, `planets` — generated star systems and their planets, including biome and slot count.
 - `building_types`, `buildings` — building catalog and per-planet build queue rows.
 - `research_branches`, `research_progress` — research tree definitions and per-user progress.

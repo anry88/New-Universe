@@ -78,6 +78,16 @@ function productionRates(levels: Record<string, number>, passive: Record<string,
     const base = BUILDINGS.drill.output.baseRate * drillL;
     rates.water = (rates.water ?? 0) + applyProductionRate(base, fx);
   }
+  const smelterL = levels.smelter ?? 0;
+  if (smelterL > 0 && BUILDINGS.smelter.output) {
+    const base = BUILDINGS.smelter.output.baseRate * smelterL;
+    rates.steel = (rates.steel ?? 0) + applyProductionRate(base, fx);
+  }
+  const fabL = levels.fabrication_bay ?? 0;
+  if (fabL > 0 && BUILDINGS.fabrication_bay.output) {
+    const base = BUILDINGS.fabrication_bay.output.baseRate * fabL;
+    rates.electronics = (rates.electronics ?? 0) + applyProductionRate(base, fx);
+  }
   return rates;
 }
 
