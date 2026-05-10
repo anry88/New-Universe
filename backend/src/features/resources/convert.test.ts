@@ -330,4 +330,26 @@ describe('Resource Conversion - POST /resources/convert', () => {
     const body = response.json();
     expect(body.error).toContain('not available');
   });
+
+  it('should return quote for diamond purchase', async () => {
+    const { app, token, userId } = await createTestUser();
+    const planetId = await getHomePlanet(userId);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/resources/buy-with-diamonds/quote',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        planetId,
+        resourceId: 'iron',
+        amount: 250,
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.diamondsNeeded).toBe(3);
+    expect(body.unitsPerDiamond).toBe(100);
+    expect(body.tier).toBe(1);
+  });
 });

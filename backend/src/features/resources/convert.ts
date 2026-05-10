@@ -50,12 +50,64 @@ export interface BuyWithDiamondsResult {
   error?: string;
 }
 
+export interface BuyWithDiamondsQuoteResult {
+  success: boolean;
+  status: number;
+  data?: {
+    resourceId: string;
+    amount: number;
+    diamondsNeeded: number;
+    unitsPerDiamond: number;
+    tier: number;
+  };
+  error?: string;
+}
+
 export function quoteDiamondPurchase(tier: number, amount: number): { diamonds: number; unitsPerDiamond: number } {
   const unitsPerDiamond = UNITS_PER_DIAMOND_BY_TIER[tier] ?? 1;
   return {
     diamonds: Math.max(1, Math.ceil(amount / unitsPerDiamond)),
     unitsPerDiamond,
   };
+}
+
+async function resolveDiamondPurchaseContext(
+  userId: string,
+  planetId: string,
+  resourceId: string,
+): Promise<
+  | { ok: true; tier: number }
+  | { ok: false; status: number; error: string }
+> {
+  const db = defaultDb;
+  const planet = await db.query.planets.findFirst({
+    where: eq(planets.id, planetId),
+  });
+  if (!planet) return { ok: false, status: 404, error: 'Planet not found' };
+
+  const system = await db.query.systems.findFirst({
+    where: eq(systems.id, planet.systemId),
+  });
+  if (!system || system.ownerId !== userId) {
+    return { ok: false, status: 403, error: 'Planet does not belong to you' };
+  }
+
+  const resource = await db.query.resources.findFirst({
+    where: eq(resources.id, resourceId),
+  });
+  if (!resource) return { ok: false, status: 400, error: 'Unknown resource' };
+
+  const resourceOnPlanet = await db.query.planetResources.findFirst({
+    where: and(
+      eq(planetResources.planetId, planetId),
+      eq(planetResources.resourceId, resourceId),
+    ),
+  });
+  if (!resourceOnPlanet) {
+    return { ok: false, status: 400, error: 'Resource is not available on this planet' };
+  }
+
+  return { ok: true, tier: resource.tier };
 }
 
 export async function convertResources(
@@ -219,38 +271,11 @@ export async function buyResourceWithDiamonds(
     return { success: false, status: 400, error: 'Amount must be positive' };
   }
 
-  const planet = await db.query.planets.findFirst({
-    where: eq(planets.id, planetId),
-  });
-  if (!planet) {
-    return { success: false, status: 404, error: 'Planet not found' };
+  const context = await resolveDiamondPurchaseContext(userId, planetId, resourceId);
+  if (!context.ok) {
+    return { success: false, status: context.status, error: context.error };
   }
-
-  const system = await db.query.systems.findFirst({
-    where: eq(systems.id, planet.systemId),
-  });
-  if (!system || system.ownerId !== userId) {
-    return { success: false, status: 403, error: 'Planet does not belong to you' };
-  }
-
-  const resource = await db.query.resources.findFirst({
-    where: eq(resources.id, resourceId),
-  });
-  if (!resource) {
-    return { success: false, status: 400, error: 'Unknown resource' };
-  }
-
-  const resourceOnPlanet = await db.query.planetResources.findFirst({
-    where: and(
-      eq(planetResources.planetId, planetId),
-      eq(planetResources.resourceId, resourceId),
-    ),
-  });
-  if (!resourceOnPlanet) {
-    return { success: false, status: 400, error: 'Resource is not available on this planet' };
-  }
-
-  const { diamonds, unitsPerDiamond } = quoteDiamondPurchase(resource.tier, amount);
+  const { diamonds, unitsPerDiamond } = quoteDiamondPurchase(context.tier, amount);
 
   return db.transaction(async (tx) => {
     const diamondRows = await tx
@@ -289,8 +314,35 @@ export async function buyResourceWithDiamonds(
         diamondsSpent: diamonds,
         diamondsRemaining: diamondRows[0]!.diamonds,
         unitsPerDiamond,
-        tier: resource.tier,
+        tier: context.tier,
       },
     } as BuyWithDiamondsResult;
   });
+}
+
+export async function quoteResourceWithDiamonds(
+  userId: string,
+  req: BuyWithDiamondsRequest,
+): Promise<BuyWithDiamondsQuoteResult> {
+  const amount = Math.floor(req.amount);
+  if (amount <= 0) {
+    return { success: false, status: 400, error: 'Amount must be positive' };
+  }
+
+  const context = await resolveDiamondPurchaseContext(userId, req.planetId, req.resourceId);
+  if (!context.ok) {
+    return { success: false, status: context.status, error: context.error };
+  }
+  const { diamonds, unitsPerDiamond } = quoteDiamondPurchase(context.tier, amount);
+  return {
+    success: true,
+    status: 200,
+    data: {
+      resourceId: req.resourceId,
+      amount,
+      diamondsNeeded: diamonds,
+      unitsPerDiamond,
+      tier: context.tier,
+    },
+  };
 }

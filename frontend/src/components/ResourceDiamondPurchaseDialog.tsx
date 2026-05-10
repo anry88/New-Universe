@@ -1,8 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getResourceLabel, getResourceSymbol } from './cosmic/resources';
+import { apiFetch } from '../lib/api';
 
 interface ResourceDiamondPurchaseDialogProps {
   open: boolean;
+  planetId: string | null;
   resourceId: string | null;
   diamondBalance: number;
   busy: boolean;
@@ -12,6 +14,7 @@ interface ResourceDiamondPurchaseDialogProps {
 
 export function ResourceDiamondPurchaseDialog({
   open,
+  planetId,
   resourceId,
   diamondBalance,
   busy,
@@ -20,6 +23,42 @@ export function ResourceDiamondPurchaseDialog({
 }: ResourceDiamondPurchaseDialogProps) {
   const [amount, setAmount] = useState('100');
   const parsedAmount = useMemo(() => Math.max(0, Math.floor(Number(amount))), [amount]);
+  const [quote, setQuote] = useState<{ diamondsNeeded: number; unitsPerDiamond: number; tier: number } | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open || !resourceId || !planetId || parsedAmount <= 0) {
+      setQuote(null);
+      return;
+    }
+    let cancelled = false;
+    setQuoteLoading(true);
+    apiFetch<{ diamondsNeeded: number; unitsPerDiamond: number; tier: number }>(
+      '/resources/buy-with-diamonds/quote',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planetId,
+          resourceId,
+          amount: parsedAmount,
+        }),
+      },
+    )
+      .then((data) => {
+        if (!cancelled) setQuote(data);
+      })
+      .catch(() => {
+        if (!cancelled) setQuote(null);
+      })
+      .finally(() => {
+        if (!cancelled) setQuoteLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, resourceId, planetId, parsedAmount]);
 
   if (!open || !resourceId) return null;
 
@@ -38,7 +77,7 @@ export function ResourceDiamondPurchaseDialog({
         <section className="resource-inv-section">
           <div className="resource-inv-section-label">Purchase</div>
           <div className="resource-inv-hint">
-            {getResourceSymbol(resourceId)} {getResourceLabel(resourceId)} · price scales by resource rarity.
+            {getResourceSymbol(resourceId)} {getResourceLabel(resourceId)}
           </div>
           <label className="resource-buy-input-wrap">
             <span className="resource-inv-sub">Amount</span>
@@ -53,10 +92,17 @@ export function ResourceDiamondPurchaseDialog({
             />
           </label>
           <div className="resource-inv-hint">Diamonds on account: ◆ {diamondBalance.toLocaleString()}</div>
+          <div className="resource-inv-hint">
+            {quoteLoading
+              ? 'Calculating price…'
+              : quote
+                ? `Price now: ◆ ${quote.diamondsNeeded.toLocaleString()} (tier ${quote.tier}, ${quote.unitsPerDiamond} units/diamond)`
+                : 'Price unavailable'}
+          </div>
           <button
             type="button"
             className="resource-buy-confirm-btn"
-            disabled={busy || parsedAmount <= 0}
+            disabled={busy || parsedAmount <= 0 || !quote}
             onClick={() => onConfirm(parsedAmount)}
           >
             {busy ? 'Processing…' : 'Buy with diamonds'}

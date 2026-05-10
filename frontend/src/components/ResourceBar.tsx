@@ -212,6 +212,7 @@ export function ResourceBar({ planetId, planetLabel }: ResourceBarProps) {
       />
       <ResourceDiamondPurchaseDialog
         open={purchaseOpen}
+        planetId={selectedPlanetId ?? null}
         resourceId={purchaseResourceId}
         diamondBalance={diamondBalance ?? 0}
         busy={purchaseBusy}
