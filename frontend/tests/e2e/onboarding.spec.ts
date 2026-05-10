@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test('onboarding overlay can be skipped for later', async ({ page }) => {
   const userId = 'e2e-user-1';
-  const systemId = 'e2e-system-1';
+  const systemId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
   const planetId = 'e2e-planet-1';
   const nowIso = new Date().toISOString();
 
@@ -14,6 +14,7 @@ test('onboarding overlay can be skipped for later', async ({ page }) => {
     createdAt: nowIso,
     premiumUntil: null,
     powerScore: 0,
+    diamonds: 0,
     tutorialStep: 0,
     tutorialCompletedAt: null as string | null,
     homeSystem: {
@@ -23,7 +24,8 @@ test('onboarding overlay can be skipped for later', async ({ page }) => {
       sectorX: 0,
       sectorY: 0,
       sectorZ: 0,
-      name: 'Home System',
+      shortTag: 'aaaa',
+      name: "rogue's system aaaa",
       seed: 42,
       planets: [
         {
@@ -32,7 +34,7 @@ test('onboarding overlay can be skipped for later', async ({ page }) => {
           biome: 'rocky',
           size: 12,
           slotCount: 2,
-          name: 'Prime',
+          name: 'aaaa-1',
           resources: [
             { planetId, resourceId: 'iron', amount: '1000', lastUpdateAt: nowIso, regenRate: '3600' },
             { planetId, resourceId: 'water', amount: '1000', lastUpdateAt: nowIso, regenRate: '0' },

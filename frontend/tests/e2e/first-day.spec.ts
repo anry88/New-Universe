@@ -5,7 +5,7 @@ test.setTimeout(90_000);
 test('first day flow on cosmic atlas layout', async ({ page }) => {
   page.on('console', msg => console.log('BROWSER:', msg.text()));
   const userId = 'e2e-user-first-day';
-  const systemId = 'e2e-system-first-day';
+  const systemId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
   const planetId = 'e2e-planet-first-day';
   const nowIso = new Date().toISOString();
   let queueReady = false;
@@ -23,6 +23,7 @@ test('first day flow on cosmic atlas layout', async ({ page }) => {
     createdAt: nowIso,
     premiumUntil: null,
     powerScore: 0,
+    diamonds: 0,
     tutorialStep: 4,
     tutorialCompletedAt: nowIso,
     homeSystem: {
@@ -32,7 +33,8 @@ test('first day flow on cosmic atlas layout', async ({ page }) => {
       sectorX: 0,
       sectorY: 0,
       sectorZ: 0,
-      name: 'Home System',
+      shortTag: 'aaaa',
+      name: "rogue's system aaaa",
       seed: 42,
       planets: [
         {
@@ -41,7 +43,7 @@ test('first day flow on cosmic atlas layout', async ({ page }) => {
           biome: 'rocky',
           size: 12,
           slotCount: 2,
-          name: 'Prime',
+          name: 'aaaa-1',
           resources: [
             { planetId, resourceId: 'iron', amount: '1000', lastUpdateAt: nowIso, regenRate: '1200', storageCap: '5000' },
             { planetId, resourceId: 'water', amount: '1000', lastUpdateAt: nowIso, regenRate: '300', storageCap: '5000' },
@@ -59,7 +61,7 @@ test('first day flow on cosmic atlas layout', async ({ page }) => {
     planets: [
       {
         id: planetId,
-        name: 'Prime',
+        name: 'aaaa-1',
         biome: 'rocky',
         size: 12,
         slotCount: 2,

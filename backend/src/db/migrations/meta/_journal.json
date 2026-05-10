@@ -162,6 +162,13 @@
       "when": 1778414863906,
       "tag": "0022_sturdy_cassandra_nova",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1779100000000,
+      "tag": "0023_home_system_display_names",
+      "breakpoints": true
     }
   ]
 }

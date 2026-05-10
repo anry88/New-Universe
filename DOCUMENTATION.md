@@ -123,6 +123,8 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 - `research.ts` — research DTOs, `ResearchRequirementRef`, `RESEARCH_BRANCH_LABELS_EN`, plus `ResourceId` union used by tech-tree costs and unlock messaging on both backend and frontend.
 - `market.ts` — market offer and order contracts shared between frontend market hooks and backend market routes.
 
+`shared/format/` holds locale-aware formatters — **`homeSystemNaming.ts`** templates EN/RU home-system titles and `{shortTag}-N` planet codes shared with world generation.
+
 `shared/config/` holds deterministic catalogs duplicated only when both backend and browser need identical numbers — today **`researchCatalog.ts`** (full tech tree + scaling notes), **`buildingResearchGates.ts`**, and **`tutorialRewards.ts`** (tutorial iron/water bundles + UI summaries).
 
 ## Local environment
