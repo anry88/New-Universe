@@ -28,6 +28,8 @@ export const BUILDINGS = {
     baseCost: {} as Record<string, number>,
     baseTimeSec: 0,
     category: 'base',
+    /** Mirrors seeded `building_types.max_per_planet`. */
+    maxPerPlanet: 1 as const,
   },
   mine: {
     deps: [{ typeId: 'command_center', level: 1 }],
@@ -84,6 +86,8 @@ export const BUILDINGS = {
     baseCost: { iron: 300, silicon: 600 },
     baseTimeSec: 1800,
     category: 'progress',
+    /** Mirrors seeded `building_types.max_global`. */
+    maxGlobal: 1 as const,
   },
   solar_plant: {
     deps: [{ typeId: 'command_center', level: 1 }],

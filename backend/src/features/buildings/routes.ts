@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify';
 import jwt from 'jsonwebtoken';
 import { env } from '../../lib/env.js';
 import { buildingService } from './service.js';
+import { BuildingOperationError } from './building-operation-error.js';
 import { BuildRequest, UpgradeRequest, DemolishRequest } from '@shared/types/buildings.js';
 
 import { db } from '../../db/index.js';
@@ -42,10 +43,19 @@ export async function buildingsRoutes(app: FastifyInstance) {
     try {
       const result = await buildingService.build(userId, planetId, typeId, slotIndex);
       return result;
-    } catch (err: any) {
+    } catch (err: unknown) {
+      if (err instanceof BuildingOperationError) {
+        return reply.status(400).send({
+          error: 'Bad Request',
+          message: err.message,
+          code: err.code,
+          details: err.details,
+        });
+      }
+      const e = err as { message?: string };
       return reply.status(400).send({
         error: 'Bad Request',
-        message: err.message,
+        message: e.message ?? 'Bad Request',
       });
     }
   });

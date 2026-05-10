@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { buildingService } from './service.js';
+import { BuildingOperationError } from './building-operation-error.js';
 import { db } from '../../db/index.js';
 import { users, systems, buildings } from '../../db/schema.js';
 import { generateHomeSystem } from '../world/home-system-generator.js';
@@ -62,6 +63,16 @@ describe('Building Service', () => {
     expect(building?.typeId).toBe('mine');
     expect(building?.slotIndex).toBe(1);
     expect(building?.queueAction).toBe('build');
+  });
+
+  it('should reject a second command center on the same planet', async () => {
+    try {
+      await buildingService.build(userId, planetId, 'command_center', 1);
+      expect.fail('expected BuildingOperationError');
+    } catch (err: unknown) {
+      expect(err).toBeInstanceOf(BuildingOperationError);
+      expect((err as BuildingOperationError).code).toBe('building_blocked_per_planet');
+    }
   });
 
   it('should fail if slot is occupied', async () => {

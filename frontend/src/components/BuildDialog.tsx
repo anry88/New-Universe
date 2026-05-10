@@ -1,5 +1,6 @@
-import React from 'react';
-import type { BuildingType } from '@shared/types/buildings';
+import React, { useState } from 'react';
+import type { BuildingType, BuildBlockedReason } from '@shared/types/buildings';
+import { formatBuildBlockedMessage } from '@shared/types/building-eligibility';
 import { resolveBuildingType } from './cosmic/buildings';
 import { getResourceSymbol } from './cosmic/resources';
 
@@ -9,6 +10,8 @@ interface BuildDialogProps {
   onClose: () => void;
   onAction: (typeId: string) => void;
   isProcessing: boolean;
+  /** Server/catalog-driven eligibility (grey-out + tap for reason). */
+  blockedReasonFor?: (typeId: string) => BuildBlockedReason | null;
   /**
    * Optional accent override — typically the active planet's biome accent.
    * Defaults to the cyan Atlas accent.
@@ -33,16 +36,24 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
   onClose,
   onAction,
   isProcessing,
+  blockedReasonFor,
   accent = '#5BD7FF',
   planetLabel,
 }) => {
+  const [explainedReason, setExplainedReason] = useState<BuildBlockedReason | null>(null);
+
   if (!isOpen) return null;
+
+  const lang: 'en' | 'ru' = 'en';
 
   return (
     <div
       className="bd-backdrop"
       role="presentation"
-      onClick={onClose}
+      onClick={() => {
+        setExplainedReason(null);
+        onClose();
+      }}
       style={{ '--accent': accent } as React.CSSProperties}
     >
       <div
@@ -63,20 +74,39 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
           </div>
         </div>
 
+        {explainedReason ? (
+          <div className="bd-block-hint" role="status" data-testid="build-block-reason">
+            <div className="bd-block-hint-text">{formatBuildBlockedMessage(explainedReason, lang)}</div>
+            <button type="button" className="bd-block-hint-ok" onClick={() => setExplainedReason(null)}>
+              OK
+            </button>
+          </div>
+        ) : null}
+
         <div className="bd-list">
           {types.map((type) => {
             const def = resolveBuildingType(type.id);
             const costs = Object.entries(type.baseCost);
             const minutes = Math.floor(type.baseTimeSec / 60);
             const seconds = type.baseTimeSec % 60;
+            const blocked = blockedReasonFor?.(type.id) ?? null;
+            const locked = Boolean(blocked);
             return (
               <button
                 key={type.id}
                 type="button"
-                className="bopt"
-                onClick={() => onAction(type.id)}
+                className={`bopt${locked ? ' locked' : ''}`}
+                onClick={() => {
+                  if (isProcessing) return;
+                  if (locked && blocked) {
+                    setExplainedReason(blocked);
+                    return;
+                  }
+                  onAction(type.id);
+                }}
                 disabled={isProcessing}
                 data-testid={`build-option-${type.id}`}
+                aria-disabled={locked || isProcessing}
               >
                 <div className="bopt-icon">
                   <def.Icon size={32} tone={accent} />
