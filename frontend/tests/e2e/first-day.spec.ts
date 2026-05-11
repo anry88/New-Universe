@@ -72,7 +72,7 @@ test('first day flow on cosmic atlas layout', async ({ page }) => {
           { planetId, resourceId: 'methane', amount: '400', lastUpdateAt: nowIso, regenRate: '0', storageCap: '5000' },
           { planetId, resourceId: 'tritium', amount: '50', lastUpdateAt: nowIso, regenRate: '0', storageCap: '5000' },
         ],
-        buildings: [],
+        buildings: [] as Array<Record<string, unknown>>,
       }
     ],
   };
@@ -129,6 +129,7 @@ test('first day flow on cosmic atlas layout', async ({ page }) => {
         {
           id: 'mine',
           name: { ru: 'Шахта', en: 'Mine' },
+          description: { ru: 'Добывает железо на выбранной планете.', en: 'Extracts iron on the selected planet.' },
           category: 'extraction',
           maxLevel: 20,
           deps: [],
@@ -155,6 +156,7 @@ test('first day flow on cosmic atlas layout', async ({ page }) => {
           ? [
               {
                 id: 'queue-item-1',
+                planetId,
                 buildingTypeId: 'mine',
                 level: 1,
                 queueAction: 'build',
@@ -173,20 +175,35 @@ test('first day flow on cosmic atlas layout', async ({ page }) => {
       return;
     }
     queueReady = true;
-    meUser.homeSystem.planets[0].buildings.push({
+    const queuedBuilding = {
       id: 'building-mine-1',
       planetId,
       typeId: 'mine',
       level: 1,
       slotIndex: 0,
       queueAction: 'build',
-    });
+    };
+    meUser.homeSystem.planets[0].buildings.push(queuedBuilding);
+    meUser.planets[0].buildings.push(queuedBuilding);
 
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       headers: corsHeaders,
       body: JSON.stringify({ success: true }),
+    });
+  });
+
+  await page.route(`**/resources/planets/${planetId}**`, async (route) => {
+    if (route.request().method() === 'OPTIONS') {
+      await route.fulfill({ status: 204, headers: corsHeaders, body: '' });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: corsHeaders,
+      body: JSON.stringify({ resources: meUser.homeSystem.planets[0].resources }),
     });
   });
 

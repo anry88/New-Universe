@@ -2661,14 +2661,16 @@
         "Документирована верификация (unit + ручной смок по списку из микротасок)"
       ],
       "files": [
-        "tasks/tasks.json"
+        "tasks/tasks.json",
+        "tasks/ROADMAP_P2_1_GAMEPLAY.md",
+        "tasks/ROADMAP_COVERAGE_MATRIX.md"
       ],
       "deps": [
         "P1.1-300"
       ],
-      "verify": "jq проверка: все id P2.1-4xx присутствуют; импорт issues при необходимости.",
-      "notes": "Не смешивать с EPIC-P2-POL: это отдельный пост-фазный контур исправлений.",
-      "prompt": "[TASK P2.1-400] [Эпик] Phase 2.1 — сводка и критерии готовности\n\nОПИСАНИЕ\nЗакрывает текущие проблемы игрового опыта после P1/P1.1: туториал, i18n, мир и экономика, постройки, UI-оболочка.\n\nACCEPTANCE CRITERIA\n  1. Все дочерние задачи P2.1-401…P2.1-418 выполнены или явно отменены с заменой\n  2. Документирована верификация (unit + ручной смок по списку из микротасок)\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - tasks/tasks.json\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  P1.1-300\n\nКАК ПРОВЕРИТЬ\n  jq '.tasks[].id|select(test(\"^P2.1-\"))' tasks/tasks.json\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Rollup-эпик для Project; микротаски разбивают работу по областям."
+      "verify": "jq проверка: все id P2.1-4xx присутствуют; ./scripts/ci-verify.sh; closing PR должен получить label run-e2e.",
+      "notes": "Не смешивать с EPIC-P2-POL: это отдельный пост-фазный контур исправлений. Rollup evidence ведётся в tasks/ROADMAP_P2_1_GAMEPLAY.md.",
+      "prompt": "[TASK P2.1-400] [Эпик] Phase 2.1 — сводка и критерии готовности\n\nОПИСАНИЕ\nЗакрывает текущие проблемы игрового опыта после P1/P1.1: туториал, i18n, мир и экономика, постройки, UI-оболочка.\n\nACCEPTANCE CRITERIA\n  1. Все дочерние задачи P2.1-401…P2.1-418 выполнены или явно отменены с заменой\n  2. Документирована верификация (unit + ручной смок по списку из микротасок)\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - tasks/tasks.json\n  - tasks/ROADMAP_P2_1_GAMEPLAY.md\n  - tasks/ROADMAP_COVERAGE_MATRIX.md\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  P1.1-300\n\nКАК ПРОВЕРИТЬ\n  jq '.tasks[].id|select(test(\"^P2.1-\"))' tasks/tasks.json\n  ./scripts/ci-verify.sh\n  closing PR должен получить label run-e2e.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Rollup-эпик для Project; микротаски разбивают работу по областям. Evidence ведётся в tasks/ROADMAP_P2_1_GAMEPLAY.md."
     },
     {
       "id": "P2.1-401",

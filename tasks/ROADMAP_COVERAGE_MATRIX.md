@@ -10,6 +10,7 @@ This document is a checkpoint for future planning reviews. It separates implemen
 | P1 | 37 | 0 | First playable solo MVP loop |
 | P1.1 | 10 | 10 | Cosmic Atlas redesign + post-audit fixes for P0/P1 (see `ROADMAP_P1_1_FIXES.md`) |
 | P2 | 25 | 22 | Solo expansion and balance validation |
+| P2.1 | 19 | 19 | Gameplay fixes, i18n, realtime completion, and UX polish (see `ROADMAP_P2_1_GAMEPLAY.md`) |
 | P3 | 9 | 6 | Multiplayer/social/economy foundations |
 | P4 | 9 | 9 | Production launch readiness |
 | P5 | 5 | 5 | Live operations after launch |
@@ -20,9 +21,16 @@ This document is a checkpoint for future planning reviews. It separates implemen
 |---|---|
 | MVP playable | P0/P1 issues closed, **P1.1 fix-epic closed (research/resources/onboarding bugs resolved)**, first-day E2E passes, Telegram auth works, resource/building/ship/expedition loop works |
 | Phase 2 complete | Colonization E2E passes, market flow passes, research levels 1-3 work, balance simulator and P2 regression suite pass |
+| Phase 2.1 complete | `P2.1-400` roll-up evidence is recorded in [`ROADMAP_P2_1_GAMEPLAY.md`](ROADMAP_P2_1_GAMEPLAY.md), all child issues `P2.1-401…418` are closed, default CI passes, and the closing PR runs the `run-e2e` browser smoke gate |
 | Phase 3 ready | Two-player visibility model is proven, alliance membership works, player market settlement is safe |
 | Launch ready | Staging deploy/rollback succeeds, backups restore, monitoring alerts fire, security checklist passes |
 | Live ops ready | Event framework works, content validation exists, balance review loop and support runbook are usable |
+
+## Phase 2.1 gameplay rollup gate (P2.1-400)
+
+Roll-up issue: [`P2.1-400`](https://github.com/anry88/New-Universe/issues/200). Evidence for dependency closure, child issue closure, automated verification, and manual smoke expectations lives in [`ROADMAP_P2_1_GAMEPLAY.md`](ROADMAP_P2_1_GAMEPLAY.md).
+
+This gate is separate from **P2-EPIC-POLISH**: Phase 2.1 verifies the corrected gameplay experience after the P1/P1.1 implementation pass, while P2 polish remains the broader balance/regression gate for Phase 2 expansion.
 
 ## Phase 2 polish epic gate (P2-EPIC-POLISH)
 
