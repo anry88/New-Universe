@@ -19,6 +19,4 @@ export const COLONY_BOOTSTRAP_CONFIG = {
   // Default storage capacity for newly initialized resources
   // In New Universe, Command Center L1 usually provides some base capacity.
   defaultStorageCap: 2000,
-  // Regen rate multiplier for richness (e.g. richness 2 * 10 = 20/h)
-  regenRateMultiplier: 10,
 };

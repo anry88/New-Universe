@@ -9,7 +9,7 @@ Each subfolder is a single feature and is wired into Fastify from `backend/src/i
 Planet infrastructure management.
 
 - **`routes.ts`** — registers `GET /types`, `POST /build`, `POST /upgrade`, `POST /demolish`, `POST /sync/:planetId`, `GET /queue`, **`POST /rush`**.
-- **`service.ts`** — handles building logic, costs, queueing, **`rushQueuedBuilding`**, demolish, and sync/finalize helpers. Construction requires an active settlement (capital Command Center or colony record), not just `discovered_planets`.
+- **`service.ts`** — handles building logic, costs, queueing, **`rushQueuedBuilding`**, demolish, sync/finalize helpers, and planet-aware production regen. Construction requires an active settlement (capital Command Center or colony record), not just `discovered_planets`, and extractor/feedstock buildings require matching deposits.
 - **`buildings.test.ts`**, **`rush.test.ts`**, etc. — integration tests for construction flows.
 
 ## `auth/`
@@ -66,11 +66,11 @@ Building construction and queue management. [Detailed documentation](./buildings
   3. Checks that the planet has a free slot (`buildingCount < planet.slotCount`).
   4. Ensures the build queue is not full (max 1 concurrent build without premium).
   5. Verifies all dependency buildings exist at the required level.
-  5a. Applies planet-specific gates (e.g. `refinery` requires an `oil` deposit row on that planet).
+  5a. Applies shared planet-specific gates: mines require metal deposits, drills require fluid/gas/ice deposits, and oil-pump/refinery chains require oil.
   6. Deducts resource costs via `spendResources` (from `features/resources/transactions.ts`).
   7. Creates a `buildings` row with `queueAction='build'` and `queueCompletesAt = now + baseTime`.
   8. Enqueues a BullMQ delayed job for completion (non-blocking; gracefully handles unavailable Redis).
-  9. On queue completion, **`finalizeBuildingConstruction`** recomputes **`planet_resources.regenRate`** for each produced `resourceId` by summing **`baseRate × level`** across **all** matching producers on the planet and **inserts** a `planet_resources` row the first time that resource appears (steel/electronics included).
+  9. On queue completion, **`finalizeBuildingConstruction`** recomputes **`planet_resources.regenRate`** for resources the completed building can actually produce on that planet by summing producer levels and **inserts** a `planet_resources` row the first time that resource appears (steel/electronics included).
 - **`service.test.ts`** — Vitest integration suite covering the full build flow: successful mine construction, free-slot exhaustion (via direct DB insert), queue limit enforcement, missing auth, unknown building type, and non-existent planet.
 
 ## `resources/`
@@ -178,7 +178,7 @@ Player colonies and settled planets.
 - **`colonies.ts`** — `ColonyService` singleton. Implements colonization rules: checks for discovery, protects foreign home systems, allows the player's own discovered home bodies to be settled by colonizer, enforces per-player limits (default 5), and inserts into the `colonies` table.
 - **`found-colony.ts`** — `foundColony(userId, shipId, planetId)` action module. Performs role validation, consumes the colonizer ship, establishes the colony, and builds the initial Command Center.
 - **`ownership.ts`** — settlement ownership helpers used by buildings/ships/workers to distinguish discovered planets from buildable settlements.
-- **`bootstrap.ts`** — `bootstrapColony(planetId, tx?)` action module. Initializes resources and regen rates for a new colony.
+- **`bootstrap.ts`** — `bootstrapColony(planetId, tx?)` action module. Initializes starting stock and known deposit rows for a new colony with `regenRate = 0` until extractors are built.
 - **`colonies.test.ts`** — integration tests for colonization rules.
 - **`found-colony.test.ts`** — integration tests for the founding flow.
 - **`bootstrap.test.ts`** — integration tests for economy initialization.

@@ -4,10 +4,10 @@ import { COLONY_BOOTSTRAP_CONFIG } from '../../config/colony-bootstrap.js';
 import { eq } from 'drizzle-orm';
 
 /**
- * Bootstraps a newly founded colony with initial resources and regen rates.
+ * Bootstraps a newly founded colony with initial resources and known deposits.
  * Acceptance criteria:
  * 1. New colony starts with configured minimal resources.
- * 2. Regen rates are initialized based on planet richness.
+ * 2. Regen rates start at 0; extractor buildings enable production later.
  * 3. Atomic execution within colonization transaction.
  */
 export async function bootstrapColony(planetId: string, tx?: any) {
@@ -32,26 +32,21 @@ export async function bootstrapColony(planetId: string, tx?: any) {
 
   for (const resourceId of allResourceIds) {
     const bootstrapData = bootstrapResources.find(r => r.resourceId === resourceId);
-    const richnessData = planetRichness.find((r: { resourceId: string; value: number }) => r.resourceId === resourceId);
-    
     // Starting stock from config, or 0
     const initialAmount = bootstrapData ? bootstrapData.amount : 0;
-    
-    // Regen rate = richness * multiplier (defined in config)
-    const regenRate = (richnessData ? richnessData.value : 0) * COLONY_BOOTSTRAP_CONFIG.regenRateMultiplier;
 
     // Use upsert to be idempotent (e.g. if bootstrap is re-run)
     await db.insert(planetResources).values({
       planetId,
       resourceId,
       amount: initialAmount.toString(),
-      regenRate: regenRate.toString(),
+      regenRate: '0',
       lastUpdateAt: new Date(),
     }).onConflictDoUpdate({
       target: [planetResources.planetId, planetResources.resourceId],
       set: {
         amount: initialAmount.toString(),
-        regenRate: regenRate.toString(),
+        regenRate: '0',
         lastUpdateAt: new Date(),
       }
     });

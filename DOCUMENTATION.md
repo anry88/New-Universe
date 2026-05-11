@@ -67,9 +67,9 @@ The bot entry point is `POST /webhook/telegram`. Incoming updates are dispatched
 `backend/src/db/index.ts` opens a `postgres-js` connection from `DATABASE_URL` and exposes a typed Drizzle client via `db`. The schema is split per domain under `backend/src/db/schema/` and re-exported from `backend/src/db/schema.ts`:
 
 - `users` — Telegram-linked player accounts, onboarding progression (`tutorial_step` exposed in code as `tutorialStepCompleted`, `tutorial_completed_at`), **`preferred_locale`** (`en`/`ru`, initialized from Telegram `language_code` on first login and editable in Profile), plus **`diamonds`** (premium currency for rush-build; starter grant on first registration via env `DIAMOND_STARTING_GRANT`).
-- `resources`, `richness`, `planet_resources` — universe resource catalog (24 seeded resources across tiers 1–4, including `oil`, `fuel`, `steel`, and `electronics`) and per-planet inventory. **`planet_resources.regenRate`** combines planetary richness with **building outputs** from `building_types.baseOutput` (`oil_pump` → `oil`, `refinery` → `fuel`, `smelter` → `steel`, `fabrication_bay` → `electronics`, mines/drills → ores/water); the NPC market is not required for those baselines.
+- `resources`, `richness`, `planet_resources` — universe resource catalog (24 seeded resources across tiers 1–4, including `oil`, `fuel`, `steel`, and `electronics`) and per-planet inventory. **`richness`** is the deposit source exposed to the client as `PlanetResource.richness`; new colonies initialize `planet_resources.regenRate = 0` until matching extraction buildings complete. Building completion updates **`planet_resources.regenRate`** from `building_types.baseOutput` (`oil_pump` → `oil`, `refinery` → `fuel`, `smelter` → `steel`, `fabrication_bay` → `electronics`, mines/drills → local deposits); the NPC market is not required for those baselines.
 - `systems`, `planets` — generated star systems and their planets, including biome and slot count.
-- `building_types`, `buildings` — building catalog and per-planet build queue rows. Catalog rows may set **`max_per_planet`** / **`max_global`** (nullable integers) so uniqueness rules such as one Command Center per planet or one Laboratory account-wide stay aligned between seeds, API payloads (`GET /buildings/types`), and UI eligibility (`shared/types/building-eligibility.ts`). Eligibility can take an optional **`dependencyBuildings`** snapshot so structures still in the initial build queue do not satisfy prerequisite levels until construction finishes.
+- `building_types`, `buildings` — building catalog and per-planet build queue rows. Catalog rows may set **`max_per_planet`** / **`max_global`** (nullable integers) so uniqueness rules such as one Command Center per planet or one Laboratory account-wide stay aligned between seeds, API payloads (`GET /buildings/types`), and UI eligibility (`shared/types/building-eligibility.ts`). Command Center upgrades use a non-empty `iron`/`carbon`/`silicon` `baseCost` with the normal upgrade multiplier. Eligibility can take an optional **`dependencyBuildings`** snapshot so structures still in the initial build queue do not satisfy prerequisite levels until construction finishes, and shared planet-resource gates prevent extractors/feedstock buildings on planets without matching deposits.
 - `research_branches`, `research_progress` — research tree definitions and per-user progress. Active rows expose derived `startedAt` through `/me` so progress bars can be computed exactly without schema changes.
 - `ship_types`, `ships` — ship catalog and player-owned ship instances. Active build rows expose derived `queueStartedAt` through `/me` and `/ships/queue`.
 - `discovered_planets`, `discovered_systems` — fog-of-war reveal records.
@@ -107,7 +107,7 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 - `pages/Market.tsx` — market UI for browsing buy/sell quotes, submitting NPC market orders, and tracking pending order ETA.
 - `pages/Research.tsx` — Cosmic Atlas tech tree (**levels 1–5** per branch, synced with `frontend/src/lib/tech-tree.ts` / `@shared/config/researchCatalog`); lab/prerequisite/resource gating (BuildDialog-style blocking copy), tier detail sheet, optimistic research starts, live countdown chips, and diamond rush for the active tier.
 - `pages/onboarding/Onboarding.tsx` — Cosmic tutorial overlay: step list with reward copy from `@shared/config/tutorialRewards`, periodic `POST /tutorial/sync`, **Continue** returns to Home without forcing `/onboarding` again until the player re-opens tutorial or completes it (`sessionStorage` + lifted App state).
-- `pages/PlanetDetail.tsx` — detailed planet screen with infrastructure slots, building construction, and upgrade dialogs; unsettled discovered planets show their survey data but keep building slots locked until colonization.
+- `pages/PlanetDetail.tsx` — detailed planet screen with infrastructure slots, building construction, and upgrade dialogs; unsettled discovered planets show their survey data but keep building slots locked until colonization. Build previews use `/me` resource richness plus shared eligibility helpers so useless planet/building combinations are disabled before the API call.
 - `components/ExpeditionDialog.tsx` — launch dialog for scouts, cargo, and colonizers. Colonizers require a discovered unsettled home-system planet target and reserve one-way fuel for settlement instead of behaving like return-trip scouts.
 - `components/ResourceBar.tsx` — displays planet resources with animated real-time regeneration.
 - `components/PlanetView.tsx` — shows the current focus planet overview.
@@ -115,21 +115,21 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 - `components/CargoTransferDialog.tsx` — interplanetary logistics interface for moving resources between colonies.
 - `components/Tutorial.tsx` — full-screen onboarding overlay UI used by `Onboarding.tsx`.
 - `components/BuildingSlot.tsx` — presentational component for an infrastructure slot.
-- `components/UpgradeDialog.tsx` & `components/BuildDialog.tsx` — dialogs for managing buildings.
+- `components/UpgradeDialog.tsx` & `components/BuildDialog.tsx` — dialogs for managing buildings; the build dialog groups options into localized category sections (energy, extraction, processing, logistics, shipbuilding, progress, special).
 
 ### Shared types and config
 
 `shared/types/` is the cross-cutting contract folder for backend ↔ frontend payloads:
 - `locale.ts` — supported-locale contract (`en`/`ru`), locale normalization, and `/me/preferences` payloads.
 - `user.ts` — `User` interface (`preferredLocale`, `diamonds`, onboarding fields, home system linkage).
-- `buildings.ts` — building types and construction requests.
+- `buildings.ts` — building types, construction requests, and structured build-block reasons including planet-resource/deposit failures.
 - `auth.ts` — `AuthResponse` interface.
 - `research.ts` — research DTOs, `RushResearchRequest` / `RushResearchResponse`, `ResearchRequirementRef`, `RESEARCH_BRANCH_LABELS_EN`, plus `ResourceId` union used by tech-tree costs and unlock messaging on both backend and frontend.
 - `diamonds.ts` — shared rush-pricing metadata and formula used by building, ship, and research rush previews.
 - `expeditions.ts` — expedition DTOs plus `ExpeditionResult` (`fuelRequired`, route distance/speed/timer data) shared by map/fleet countdown UI and backend launch records.
 - `ships.ts` — fleet DTOs including active build `queueStartedAt` for local ETA/progress rendering.
 - `market.ts` — market offer and order contracts shared between frontend market hooks and backend market routes.
-- `world.ts` — world DTOs including `Planet.isColonized`, which lets the frontend separate survey visibility from settlement ownership, plus active building `queueStartedAt`.
+- `world.ts` — world DTOs including `Planet.isColonized`, which lets the frontend separate survey visibility from settlement ownership, `PlanetResource.richness` for deposit-aware UI gates, plus active building `queueStartedAt`.
 
 `shared/format/` holds locale-aware and deterministic display helpers — **`homeSystemNaming.ts`** templates EN/RU home-system titles and `{shortTag}-N` planet codes shared with world generation; **`systemMapLayout.ts`** keeps the frontend orbital map and worker pass-by discovery on the same flat geometry, including biome orbit ordering, one-planet orbit slots, and sprite-size-based discovery radius.
 

@@ -4,7 +4,7 @@ import { buildingsRoutes } from './routes.js';
 import { authRoutes } from '../auth/routes.js';
 import { meRoutes } from '../me/routes.js';
 import { db } from '../../db/index.js';
-import { colonies, discoveredPlanets, planets, systems, buildings, planetResources } from '../../db/schema.js';
+import { colonies, discoveredPlanets, planets, systems, buildings, planetResources, richness } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 import { env } from '../../lib/env.js';
@@ -167,6 +167,10 @@ describe('Buildings Service - POST /buildings/build', () => {
       { planetId: colonyPlanet.id, resourceId: 'iron', amount: '1000', regenRate: '0' },
       { planetId: colonyPlanet.id, resourceId: 'carbon', amount: '1000', regenRate: '0' },
     ]);
+    await db.insert(richness).values([
+      { planetId: colonyPlanet.id, resourceId: 'iron', value: 2 },
+      { planetId: colonyPlanet.id, resourceId: 'carbon', value: 1 },
+    ]);
 
     const response = await app.inject({
       method: 'POST',
@@ -326,6 +330,123 @@ describe('Buildings Service - POST /buildings/build', () => {
     expect(body.message).toContain('Planet not found');
   });
 
+  it('blocks mines on planets without metal deposits', async () => {
+    const { app, token, userId } = await createTestUser();
+
+    const [neutralSystem] = await db.insert(systems).values({
+      isHome: false,
+      sectorX: 2,
+      sectorY: 2,
+      sectorZ: 0,
+      x: '200.00',
+      y: '200.00',
+      z: '0.00',
+      name: `Gas No Metals ${Math.random()}`,
+      seed: 789,
+    }).returning();
+
+    const [gasPlanet] = await db.insert(planets).values({
+      systemId: neutralSystem.id,
+      biome: 'gas_giant',
+      size: 18,
+      slotCount: 6,
+      name: `Gas Colony ${Math.random()}`,
+    }).returning();
+
+    await db.insert(colonies).values({
+      ownerId: userId,
+      planetId: gasPlanet.id,
+    });
+    await db.insert(buildings).values({
+      planetId: gasPlanet.id,
+      typeId: 'command_center',
+      level: 1,
+      slotIndex: 0,
+    });
+    await db.insert(richness).values([
+      { planetId: gasPlanet.id, resourceId: 'methane', value: 3 },
+    ]);
+    await db.insert(planetResources).values([
+      { planetId: gasPlanet.id, resourceId: 'iron', amount: '500', regenRate: '0' },
+      { planetId: gasPlanet.id, resourceId: 'methane', amount: '0', regenRate: '0' },
+    ]);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/buildings/build',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        planetId: gasPlanet.id,
+        typeId: 'mine',
+        slotIndex: 1,
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    const body = response.json();
+    expect(body.code).toBe('building_blocked_planet_resource');
+    expect(body.message).toContain('metal deposit');
+  });
+
+  it('blocks oil pumps on planets without oil deposits', async () => {
+    const { app, token, userId } = await createTestUser();
+
+    const [neutralSystem] = await db.insert(systems).values({
+      isHome: false,
+      sectorX: 3,
+      sectorY: 3,
+      sectorZ: 0,
+      x: '300.00',
+      y: '300.00',
+      z: '0.00',
+      name: `Dry Colony System ${Math.random()}`,
+      seed: 790,
+    }).returning();
+
+    const [dryPlanet] = await db.insert(planets).values({
+      systemId: neutralSystem.id,
+      biome: 'rocky',
+      size: 12,
+      slotCount: 8,
+      name: `Dry Colony ${Math.random()}`,
+    }).returning();
+
+    await db.insert(colonies).values({
+      ownerId: userId,
+      planetId: dryPlanet.id,
+    });
+    await db.insert(buildings).values({
+      planetId: dryPlanet.id,
+      typeId: 'command_center',
+      level: 2,
+      slotIndex: 0,
+    });
+    await db.insert(richness).values([
+      { planetId: dryPlanet.id, resourceId: 'iron', value: 2 },
+    ]);
+    await db.insert(planetResources).values([
+      { planetId: dryPlanet.id, resourceId: 'iron', amount: '99999', regenRate: '0' },
+      { planetId: dryPlanet.id, resourceId: 'silicon', amount: '99999', regenRate: '0' },
+      { planetId: dryPlanet.id, resourceId: 'carbon', amount: '99999', regenRate: '0' },
+    ]);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/buildings/build',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        planetId: dryPlanet.id,
+        typeId: 'oil_pump',
+        slotIndex: 1,
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    const body = response.json();
+    expect(body.code).toBe('building_blocked_planet_resource');
+    expect(body.message).toContain('oil deposit');
+  });
+
   it('should block refinery construction without an oil deposit on planet', async () => {
     const { app, token, userId } = await createTestUser();
 
@@ -342,11 +463,18 @@ describe('Buildings Service - POST /buildings/build', () => {
     await db
       .delete(planetResources)
       .where(eq(planetResources.planetId, userPlanet!.id));
+    await db
+      .delete(richness)
+      .where(eq(richness.planetId, userPlanet!.id));
 
     await db.insert(planetResources).values([
       { planetId: userPlanet!.id, resourceId: 'iron', amount: '99999', regenRate: '0' },
       { planetId: userPlanet!.id, resourceId: 'silicon', amount: '99999', regenRate: '0' },
       { planetId: userPlanet!.id, resourceId: 'steel', amount: '99999', regenRate: '0' },
+    ]);
+    await db.insert(richness).values([
+      { planetId: userPlanet!.id, resourceId: 'iron', value: 2 },
+      { planetId: userPlanet!.id, resourceId: 'silicon', value: 2 },
     ]);
 
     await db.insert(buildings).values([

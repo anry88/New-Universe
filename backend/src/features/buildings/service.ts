@@ -4,6 +4,7 @@ import {
   buildingTypes,
   planets,
   planetResources,
+  richness,
   notifications,
   users,
 } from '../../db/schema.js';
@@ -15,7 +16,13 @@ import { applyBuildTimeSeconds, getResearchEffectsForUser } from '../research/ef
 import { BUILDING_RESEARCH_GATES } from '../../config/research-unlocks.js';
 import { loadUserResearchLevels } from '../research/gates.js';
 import { logger } from '../../lib/logger.js';
-import { resolveBuildBlockedReason, formatBuildBlockedMessage } from '@shared/types/building-eligibility.js';
+import {
+  resolveBuildBlockedReason,
+  formatBuildBlockedMessage,
+  resolveBuildingProducedResourceIds,
+  resolveBuildingProductionRateForResource,
+  resolvePlanetResourceBlockedReason,
+} from '@shared/types/building-eligibility.js';
 import { BuildingOperationError } from './building-operation-error.js';
 import { countUserBuildingsOfType } from './count-user-buildings.js';
 import { BUILDING_TYPE_CATALOG_ROWS } from '../../db/seed/catalog-rows.js';
@@ -28,51 +35,96 @@ type BuildingOutput = {
 
 type BuildingTypeRow = InferSelectModel<typeof buildingTypes>;
 
-async function upsertProductionRegen(tx: any, planetId: string, resourceId: string): Promise<void> {
-  const buildingsOnPlanet = (await tx
-    .select({ typeId: buildings.typeId, level: buildings.level })
-    .from(buildings)
-    .where(eq(buildings.planetId, planetId))) as { typeId: string; level: number }[];
+async function loadPlanetDepositResourceIds(tx: any, planetId: string): Promise<string[]> {
+  const richnessRows = (await tx
+    .select({ resourceId: richness.resourceId })
+    .from(richness)
+    .where(eq(richness.planetId, planetId))) as { resourceId: string }[];
 
-  let totalRate = 0;
-  if (buildingsOnPlanet.length > 0) {
-    const typeIds = [...new Set(buildingsOnPlanet.map((b) => b.typeId))];
-    const typeRows: BuildingTypeRow[] =
-      typeIds.length > 0
-        ? await tx.select().from(buildingTypes).where(inArray(buildingTypes.id, typeIds))
-        : [];
-    const typeMap = new Map<string, BuildingTypeRow>(typeRows.map((t) => [t.id, t]));
+  const legacyRegenRows = (await tx
+    .select({ resourceId: planetResources.resourceId })
+    .from(planetResources)
+    .where(
+      and(
+        eq(planetResources.planetId, planetId),
+        sql`${planetResources.regenRate} > 0`,
+      ),
+    )) as { resourceId: string }[];
+
+  return [...new Set([...richnessRows, ...legacyRegenRows].map((row) => row.resourceId))];
+}
+
+async function recalculateProductionRegenForResources(
+  tx: any,
+  planetId: string,
+  resourceIds: string[],
+): Promise<void> {
+  const targetResourceIds = [...new Set(resourceIds)].filter(Boolean);
+  if (targetResourceIds.length === 0) return;
+
+  const planetDepositResourceIds = await loadPlanetDepositResourceIds(tx, planetId);
+  const buildingsOnPlanet = (await tx
+    .select({ typeId: buildings.typeId, level: buildings.level, queueAction: buildings.queueAction })
+    .from(buildings)
+    .where(eq(buildings.planetId, planetId))) as { typeId: string; level: number; queueAction: string | null }[];
+
+  const typeIds = [...new Set(buildingsOnPlanet.map((b) => b.typeId))];
+  const typeRows: BuildingTypeRow[] =
+    typeIds.length > 0
+      ? await tx.select().from(buildingTypes).where(inArray(buildingTypes.id, typeIds))
+      : [];
+  const typeMap = new Map<string, BuildingTypeRow>(typeRows.map((t) => [t.id, t]));
+
+  for (const resourceId of targetResourceIds) {
+    let totalRate = 0;
 
     for (const b of buildingsOnPlanet) {
+      if (b.queueAction === 'build' || b.level <= 0) continue;
       const bt = typeMap.get(b.typeId);
       if (!bt) continue;
-      const output = bt.baseOutput as BuildingOutput | Record<string, unknown>;
-      const rid = output.resourceId as string | undefined;
-      const br = output.baseRate as number | undefined;
-      if (rid === resourceId && typeof br === 'number') {
-        totalRate += br * b.level;
-      }
+      const output = bt.baseOutput as BuildingOutput;
+      totalRate += resolveBuildingProductionRateForResource({
+        typeId: b.typeId,
+        baseOutput: output,
+        planetResourceIds: planetDepositResourceIds,
+        resourceId,
+      }) * b.level;
+    }
+
+    const existing = await tx.query.planetResources.findFirst({
+      where: and(eq(planetResources.planetId, planetId), eq(planetResources.resourceId, resourceId)),
+    });
+
+    if (existing) {
+      await tx
+        .update(planetResources)
+        .set({ regenRate: totalRate.toFixed(4) })
+        .where(and(eq(planetResources.planetId, planetId), eq(planetResources.resourceId, resourceId)));
+    } else if (totalRate > 0) {
+      await tx.insert(planetResources).values({
+        planetId,
+        resourceId,
+        amount: '0',
+        regenRate: totalRate.toFixed(4),
+        lastUpdateAt: new Date(),
+      });
     }
   }
+}
 
-  const existing = await tx.query.planetResources.findFirst({
-    where: and(eq(planetResources.planetId, planetId), eq(planetResources.resourceId, resourceId)),
+async function recalculateProductionRegenForBuildingType(
+  tx: any,
+  planetId: string,
+  typeInfo: BuildingTypeRow,
+): Promise<void> {
+  const planetDepositResourceIds = await loadPlanetDepositResourceIds(tx, planetId);
+  const output = typeInfo.baseOutput as BuildingOutput | null;
+  const affectedResourceIds = resolveBuildingProducedResourceIds({
+    typeId: typeInfo.id,
+    baseOutput: output,
+    planetResourceIds: planetDepositResourceIds,
   });
-
-  if (existing) {
-    await tx
-      .update(planetResources)
-      .set({ regenRate: totalRate.toFixed(4) })
-      .where(and(eq(planetResources.planetId, planetId), eq(planetResources.resourceId, resourceId)));
-  } else if (totalRate > 0) {
-    await tx.insert(planetResources).values({
-      planetId,
-      resourceId,
-      amount: '0',
-      regenRate: totalRate.toFixed(4),
-      lastUpdateAt: new Date(),
-    });
-  }
+  await recalculateProductionRegenForResources(tx, planetId, affectedResourceIds);
 }
 
 export class BuildingService {
@@ -161,20 +213,17 @@ export class BuildingService {
       );
     }
 
-    if (typeId === 'refinery') {
-      const oilDeposit = await db.query.planetResources.findFirst({
-        where: and(eq(planetResources.planetId, planetId), eq(planetResources.resourceId, 'oil')),
-      });
-      if (!oilDeposit) {
-        throw new BuildingOperationError(
-          formatBuildBlockedMessage(
-            { code: 'building_blocked_planet_resource', details: { resourceId: 'oil' } },
-            'en',
-          ),
-          'building_blocked_planet_resource',
-          { resourceId: 'oil' },
-        );
-      }
+    const planetResourceBlocked = resolvePlanetResourceBlockedReason({
+      typeId,
+      planetResourceIds: await loadPlanetDepositResourceIds(db, planetId),
+    });
+
+    if (planetResourceBlocked) {
+      throw new BuildingOperationError(
+        formatBuildBlockedMessage(planetResourceBlocked, 'en'),
+        planetResourceBlocked.code,
+        planetResourceBlocked.details as Record<string, unknown>,
+      );
     }
 
     const costs = typeInfo.baseCost as Record<string, number>;
@@ -372,10 +421,7 @@ export class BuildingService {
     });
 
     if (bType?.baseOutput) {
-      const output = bType.baseOutput as BuildingOutput;
-      if (output.resourceId && typeof output.baseRate === 'number') {
-        await upsertProductionRegen(tx, building.planetId, output.resourceId);
-      }
+      await recalculateProductionRegenForBuildingType(tx, building.planetId, bType);
     }
 
     if (options.skipNotification) return;
@@ -577,12 +623,9 @@ export class BuildingService {
       // 2. Remove building
       await tx.delete(buildings).where(eq(buildings.id, buildingId));
 
-      // 3. Recalculate production regen for this resource (handles multiple producers / levels)
+      // 3. Recalculate production regen for affected resources (handles multiple producers / levels)
       if (typeInfo.baseOutput) {
-        const output = typeInfo.baseOutput as BuildingOutput;
-        if (output.resourceId && typeof output.baseRate === 'number') {
-          await upsertProductionRegen(tx, building.planetId, output.resourceId);
-        }
+        await recalculateProductionRegenForBuildingType(tx, building.planetId, typeInfo);
       }
     });
 

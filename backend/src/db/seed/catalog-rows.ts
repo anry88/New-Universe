@@ -74,7 +74,7 @@ export const BUILDING_TYPE_CATALOG_ROWS: BuildingCatalogRow[] = [
     maxGlobal: null,
     maxLevel: 20,
     deps: [],
-    baseCost: {},
+    baseCost: { iron: 80, carbon: 40, silicon: 10 },
     baseTimeSec: 600,
     baseOutput: {},
     energyConsumption: 0,

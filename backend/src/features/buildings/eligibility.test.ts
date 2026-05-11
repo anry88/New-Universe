@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { resolveBuildBlockedReason, formatBuildBlockedMessage } from '@shared/types/building-eligibility.js';
+import {
+  resolveBuildBlockedReason,
+  formatBuildBlockedMessage,
+  resolveBuildingProducedResourceIds,
+  resolveBuildingProductionRateForResource,
+  resolvePlanetResourceBlockedReason,
+} from '@shared/types/building-eligibility.js';
 import type { ResearchUnlockRequirement } from '@shared/config/buildingResearchGates.js';
 
 describe('resolveBuildBlockedReason', () => {
@@ -76,5 +82,42 @@ describe('resolveBuildBlockedReason', () => {
       researchGate: emptyGate,
     });
     expect(reason?.code).toBe('building_blocked_dependency');
+  });
+});
+
+describe('planet resource construction rules', () => {
+  it('blocks extractors when the planet has no matching deposit class', () => {
+    const mineReason = resolvePlanetResourceBlockedReason({
+      typeId: 'mine',
+      planetResourceIds: ['methane', 'water'],
+    });
+    expect(mineReason?.code).toBe('building_blocked_planet_resource');
+    expect(formatBuildBlockedMessage(mineReason!, 'en')).toContain('metal deposit');
+
+    const oilReason = resolvePlanetResourceBlockedReason({
+      typeId: 'oil_pump',
+      planetResourceIds: ['water', 'iron'],
+    });
+    expect(oilReason?.code).toBe('building_blocked_planet_resource');
+    expect(formatBuildBlockedMessage(oilReason!, 'en')).toContain('oil deposit');
+  });
+
+  it('maps extractor output to local deposits instead of fixed catalog ids', () => {
+    expect(
+      resolveBuildingProducedResourceIds({
+        typeId: 'mine',
+        baseOutput: { resourceId: 'iron', baseRate: 50 },
+        planetResourceIds: ['aluminum', 'copper', 'water'],
+      }),
+    ).toEqual(['aluminum', 'copper']);
+
+    expect(
+      resolveBuildingProductionRateForResource({
+        typeId: 'mine',
+        baseOutput: { resourceId: 'iron', baseRate: 50 },
+        planetResourceIds: ['aluminum', 'copper'],
+        resourceId: 'aluminum',
+      }),
+    ).toBe(25);
   });
 });

@@ -1,7 +1,13 @@
 import React, { useState } from 'react';
 import type { BuildingType, BuildBlockedReason } from '@shared/types/buildings';
 import { formatBuildBlockedMessage } from '@shared/types/building-eligibility';
-import { getBuildingCategory, resolveBuildingType } from './cosmic/buildings';
+import {
+  BUILDING_CATEGORY_ORDER,
+  getBuildingCategoryKey,
+  getBuildingCategoryLabel,
+  resolveBuildingType,
+  type BuildingCategoryKey,
+} from './cosmic/buildings';
 import { getResourceSymbol } from './cosmic/resources';
 import { useI18n } from '../lib/i18n';
 
@@ -60,6 +66,16 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
     }
     return a.baseTimeSec - b.baseTimeSec || a.name[locale].localeCompare(b.name[locale]);
   });
+  const groupedTypes = sortedTypes.reduce<Array<{ key: BuildingCategoryKey; types: BuildingType[] }>>((groups, type) => {
+    const key = getBuildingCategoryKey(type.id);
+    const group = groups.find((entry) => entry.key === key);
+    if (group) {
+      group.types.push(type);
+    } else {
+      groups.push({ key, types: [type] });
+    }
+    return groups;
+  }, []).sort((a, b) => BUILDING_CATEGORY_ORDER.indexOf(a.key) - BUILDING_CATEGORY_ORDER.indexOf(b.key));
   const producedNow = currentEnergy?.produced ?? 0;
   const consumedNow = currentEnergy?.consumed ?? 0;
   const netNow = producedNow - consumedNow;
@@ -107,92 +123,102 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
         ) : null}
 
         <div className="bd-list">
-          {sortedTypes.map((type) => {
-            const def = resolveBuildingType(type.id);
-            const costs = Object.entries(type.baseCost);
-            const minutes = Math.floor(type.baseTimeSec / 60);
-            const seconds = type.baseTimeSec % 60;
-            const blocked = blockedReasonFor?.(type.id) ?? null;
-            const locked = Boolean(blocked);
-            const output = type.baseOutput;
-            const projectedProduced = producedNow + (output.energy ?? 0);
-            const projectedConsumed = consumedNow + Math.max(0, type.energyConsumption ?? 0);
-            const projectedNet = projectedProduced - projectedConsumed;
-            return (
-              <button
-                key={type.id}
-                type="button"
-                className={`bopt${locked ? ' locked' : ''}`}
-                onClick={() => {
-                  if (isProcessing) return;
-                  if (locked && blocked) {
-                    setExplainedReason(blocked);
-                    return;
-                  }
-                  onAction(type.id);
-                }}
-                disabled={isProcessing}
-                data-testid={`build-option-${type.id}`}
-                aria-disabled={locked || isProcessing}
-              >
-                <div className="bopt-icon">
-                  <def.Icon size={32} tone={accent} />
-                </div>
-                <div>
-                  <div className="bopt-row">
-                    <span className="bopt-name">{type.name[locale]}</span>
-                    <span className="bopt-locked">{getBuildingCategory(type.id, locale).toUpperCase()}</span>
-                  </div>
-                  <div className="bopt-desc">{type.description[locale]}</div>
-                  <div className="bopt-stats">
-                    {output.resourceId && output.baseRate && (
-                      <span className="bstat">
-                        {t('build.yield')}: +{output.baseRate} {getResourceSymbol(output.resourceId)}/h
-                      </span>
-                    )}
-                    {output.cap && (
-                      <span className="bstat">
-                        {t('build.capacity')}: +{output.cap}
-                      </span>
-                    )}
-                    {output.energy && (
-                      <span className="bstat energy">
-                        {t('common.energy')}: +{output.energy}
-                      </span>
-                    )}
-                    {type.energyConsumption > 0 && (
-                      <span className="bstat neg">
-                        {t('build.usage')}: -{type.energyConsumption} E
-                      </span>
-                    )}
-                    {currentEnergy && (
-                      <span className={`bstat ${projectedNet < 0 ? 'neg' : 'energy'}`}>
-                        {t('build.netAfter')}: {projectedNet >= 0 ? '+' : ''}{projectedNet} E
-                      </span>
-                    )}
-                    {output.conversion && (
-                      <span className="bstat">
-                        {getResourceSymbol(output.conversion.from)} → {getResourceSymbol(output.conversion.to)} ({output.conversion.rate}/h)
-                      </span>
-                    )}
-                  </div>
-                  <div className="bopt-meta">
-                    <span className="bopt-cost">
-                      {costs.length === 0
-                        ? '—'
-                        : costs
-                            .map(([resId, amount]) => `${getResourceSymbol(resId)} ${amount}`)
-                            .join('  ·  ')}
-                    </span>
-                    <span className="bopt-time">
-                      {minutes > 0 ? `${minutes}m ${seconds.toString().padStart(2, '0')}s` : `${seconds}s`}
-                    </span>
-                  </div>
-                </div>
-                <span aria-hidden="true" style={{ color: 'var(--text-faint)' }}>›</span>
-              </button>
-            );
-          })}
+          {groupedTypes.map((group) => (
+            <section className="bd-category" key={group.key}>
+              <div className="bd-category-head">
+                <span className="bd-category-title">{getBuildingCategoryLabel(group.key, locale)}</span>
+                <span className="bd-category-count">{group.types.length}</span>
+              </div>
+              <div className="bd-category-list">
+                {group.types.map((type) => {
+                  const def = resolveBuildingType(type.id);
+                  const costs = Object.entries(type.baseCost);
+                  const minutes = Math.floor(type.baseTimeSec / 60);
+                  const seconds = type.baseTimeSec % 60;
+                  const blocked = blockedReasonFor?.(type.id) ?? null;
+                  const locked = Boolean(blocked);
+                  const output = type.baseOutput;
+                  const projectedProduced = producedNow + (output.energy ?? 0);
+                  const projectedConsumed = consumedNow + Math.max(0, type.energyConsumption ?? 0);
+                  const projectedNet = projectedProduced - projectedConsumed;
+                  return (
+                    <button
+                      key={type.id}
+                      type="button"
+                      className={`bopt${locked ? ' locked' : ''}`}
+                      onClick={() => {
+                        if (isProcessing) return;
+                        if (locked && blocked) {
+                          setExplainedReason(blocked);
+                          return;
+                        }
+                        onAction(type.id);
+                      }}
+                      disabled={isProcessing}
+                      data-testid={`build-option-${type.id}`}
+                      aria-disabled={locked || isProcessing}
+                    >
+                      <div className="bopt-icon">
+                        <def.Icon size={32} tone={accent} />
+                      </div>
+                      <div>
+                        <div className="bopt-row">
+                          <span className="bopt-name">{type.name[locale]}</span>
+                          <span className="bopt-locked">{getBuildingCategoryLabel(group.key, locale).toUpperCase()}</span>
+                        </div>
+                        <div className="bopt-desc">{type.description[locale]}</div>
+                        <div className="bopt-stats">
+                          {output.resourceId && output.baseRate && (
+                            <span className="bstat">
+                              {t('build.yield')}: +{output.baseRate} {getResourceSymbol(output.resourceId)}/h
+                            </span>
+                          )}
+                          {output.cap && (
+                            <span className="bstat">
+                              {t('build.capacity')}: +{output.cap}
+                            </span>
+                          )}
+                          {output.energy && (
+                            <span className="bstat energy">
+                              {t('common.energy')}: +{output.energy}
+                            </span>
+                          )}
+                          {type.energyConsumption > 0 && (
+                            <span className="bstat neg">
+                              {t('build.usage')}: -{type.energyConsumption} E
+                            </span>
+                          )}
+                          {currentEnergy && (
+                            <span className={`bstat ${projectedNet < 0 ? 'neg' : 'energy'}`}>
+                              {t('build.netAfter')}: {projectedNet >= 0 ? '+' : ''}{projectedNet} E
+                            </span>
+                          )}
+                          {output.conversion && (
+                            <span className="bstat">
+                              {getResourceSymbol(output.conversion.from)} → {getResourceSymbol(output.conversion.to)} ({output.conversion.rate}/h)
+                            </span>
+                          )}
+                        </div>
+                        <div className="bopt-meta">
+                          <span className="bopt-cost">
+                            {costs.length === 0
+                              ? '—'
+                              : costs
+                                  .map(([resId, amount]) => `${getResourceSymbol(resId)} ${amount}`)
+                                  .join('  ·  ')}
+                          </span>
+                          <span className="bopt-time">
+                            {minutes > 0 ? `${minutes}m ${seconds.toString().padStart(2, '0')}s` : `${seconds}s`}
+                          </span>
+                        </div>
+                      </div>
+                      <span aria-hidden="true" style={{ color: 'var(--text-faint)' }}>›</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
         </div>
       </div>
     </div>

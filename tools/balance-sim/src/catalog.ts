@@ -25,7 +25,7 @@ export const HOME_SYSTEM_PLANET_COUNT_MAX = 9;
 export const BUILDINGS = {
   command_center: {
     deps: [] as { typeId: string; level: number }[],
-    baseCost: {} as Record<string, number>,
+    baseCost: { iron: 80, carbon: 40, silicon: 10 } as Record<string, number>,
     baseTimeSec: 600,
     category: 'base',
     /** Mirrors seeded `building_types.max_per_planet`. */

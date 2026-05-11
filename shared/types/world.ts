@@ -4,6 +4,8 @@ export interface PlanetResource {
   amount: string;
   lastUpdateAt: string;
   regenRate: string;
+  /** Deposit richness for this resource on the planet; 0 means inventory only. */
+  richness?: number;
   storageCap: string;
 }
 

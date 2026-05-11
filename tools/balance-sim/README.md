@@ -17,7 +17,7 @@ Deterministic offline simulator for first-week economy progression (resources, b
 The simulator mirrors backend building upgrades:
 
 - Upgrade from level **L** → **L+1**: resource cost scales by **1.6^L** (per resource, rounded); build time scales by **1.8^L** × `baseTimeSec`, then research modifiers from `src/effects.ts`.
-- Command Center `baseTimeSec` matches seeds (`catalog.ts`); genesis home capital starts with a completed CC (see `home-system-generator`), and colonizer settlement creates the first completed CC on the target planet.
+- Command Center `baseTimeSec` and `baseCost` match seeds (`catalog.ts`); genesis home capital starts with a completed CC (see `home-system-generator`), and colonizer settlement creates the first completed CC on the target planet. Later CC upgrades spend the same basic resources as the backend (`iron`, `carbon`, `silicon`) through the normal **1.6^L** cost curve.
 
 ## Sync contract
 

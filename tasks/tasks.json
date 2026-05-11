@@ -103,6 +103,12 @@
       "description": "Пост-фазный эпик: рабочий туториал с наградами и фиксом UI, локализация RU/EN, именование системы и планет игрока, генерация домашней системы и туман войны, производственные цепочки ресурсов, синхрон построек и уведомлений, продажа зданий, ограничения построек и tech UX, премиум-ускорения, закреплённая навигация и исправление Home/Colonies."
     },
     {
+      "id": "EPIC-P2.2-BUILDING-ECONOMY",
+      "phase": 2.2,
+      "title": "Phase 2.2 — Building economy and planetary rules",
+      "description": "Отдельный пост-P2.1 эпик для экономики командного центра, категорий построек, правил доступности зданий по планетарным ресурсам и модели добычи колоний без скрытой пассивной генерации."
+    },
+    {
       "id": "EPIC-P3-MAP",
       "phase": 3,
       "title": "Phase 3 — Multiplayer common map"
@@ -3129,6 +3135,49 @@
       "verify": "Ручной смок с открытой игрой: короткие timers для build/research/ship/expedition/colonize завершаются сразу на UI без Telegram push; оффлайн worker всё ещё завершает и уведомляет. Автотесты backend + frontend fake timers.",
       "notes": "Не начинать с WebSocket, если polling/focused timer sync достаточно; главное — один серверный idempotent completion path и suppress notifications для active-session ack.",
       "prompt": "[TASK P2.1-418] Realtime таймеры и online-финализация игровых процессов\n\nОПИСАНИЕ\nЕдиная модель live countdown + online-finalization для зданий, исследований, постройки кораблей, экспедиций и колонизаций. Открытая игра показывает актуальное оставшееся время и шкалу прогресса, а по достижении readyAt/eta сразу синхронизирует и завершает процесс через API, не ожидая фонового worker. Worker остаётся оффлайн-фолбэком и должен пропускать уже завершённые процессы. Telegram push не отправляется для процессов, подтверждённых активной игровой сессией. Добавить rush/skip исследований за алмазы. Экспедиции/колонизации должны визуально показывать корабль в полёте туда или обратно без inline status labels на карте.\n\nACCEPTANCE CRITERIA\n  1. Live countdown/progress для зданий, исследований, ship build, экспедиций и колонизаций\n  2. Online completion через idempotent API сразу при readyAt/eta\n  3. Worker не дублирует завершение/notifications после online-sync\n  4. Активная сессия suppress Telegram push; оффлайн completion уведомляет\n  5. Building timer одинаков на слоте и bottom queue strip\n  6. Research rush/skip за алмазы с серверной валидацией и тестами\n  7. Ship build готовится на UI сразу после completion\n  8. Expedition/colonization ship interpolation туда/обратно; статус только в fleet list\n  9. Backend completion tests + frontend fake-timer tests\n\nЗАВИСИМОСТИ\n  P2.1-407, P2.1-414, P2.1-417, P2-COL-002, P2-RES-004, P1-171, P1-181\n\nКАК ПРОВЕРИТЬ\n  Ручной смок с короткими таймерами при открытой игре и оффлайн worker-сценарий; backend tests; frontend fake timers.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Предпочесть общий idempotent completion path и active-session ack; WebSocket не обязателен, если точный polling/timer sync закрывает UX."
+    },
+    {
+      "id": "P2.2-001",
+      "epic": "EPIC-P2.2-BUILDING-ECONOMY",
+      "size": "L",
+      "title": "Экономика и доступность зданий по планетам",
+      "description": "Уточнить экономику и UX строительства: апгрейды command_center должны иметь растущую стоимость в доступных базовых ресурсах (iron, carbon, silicon), каталог построек в UI должен быть сгруппирован по понятным категориям, бесполезные для планеты здания должны быть заблокированы до постановки в очередь, а новые колонии не должны получать пассивную добычу из richness без построенных добывающих зданий.",
+      "acceptance": [
+        "command_center больше не апгрейдится бесплатно: каждый уровень после 1 требует iron/carbon/silicon с монотонно растущей стоимостью; тесты покрывают успешный upgrade и отказ при нехватке ресурсов",
+        "Список доступных построек в BuildDialog/PlanetDetail сгруппирован по категориям: энергия, добыча, переработка, логистика/строительство кораблей, прогресс, специальные/особые; порядок категорий стабилен и локализован в RU/EN",
+        "Backend eligibility блокирует постройку зданий, которые не могут принести пользу на выбранной планете: mine требует металлический ресурс в richness/planet_resources, oil_pump требует oil, drill требует поддерживаемый fluid/gas/ice/water deposit, а другие deposit-bound здания используют явные правила вместо одной проверки biome",
+        "Frontend показывает те же причины блокировки до отправки build request и не даёт поставить бесполезное здание в очередь",
+        "Колонизированные планеты сохраняют richness/deposit rows, но planet_resources.regenRate для природных ресурсов после bootstrap равен 0 до завершения соответствующего добывающего здания; стартовый bootstrap остаётся одноразовым запасом, а не постоянной добычей",
+        "Завершение/снос добывающего здания пересчитывает regen только для ресурсов, которые реально производит это здание на этой планете",
+        "Документация backend/src/db/README.md, backend/src/features/buildings/README.md, backend/src/features/colonies/README.md, frontend/src/README.md и DOCUMENTATION.md обновлена под новую модель"
+      ],
+      "files": [
+        "backend/src/db/seed/catalog-rows.ts",
+        "backend/src/features/buildings/",
+        "backend/src/features/colonies/bootstrap.ts",
+        "backend/src/features/resources/",
+        "backend/src/workers/tick-buildings.ts",
+        "shared/types/building-eligibility.ts",
+        "frontend/src/components/BuildDialog.tsx",
+        "frontend/src/pages/PlanetDetail.tsx",
+        "frontend/src/locales/",
+        "DOCUMENTATION.md",
+        "backend/src/db/README.md",
+        "backend/src/features/buildings/README.md",
+        "backend/src/features/colonies/README.md",
+        "frontend/src/README.md"
+      ],
+      "deps": [
+        "P1-161",
+        "P1-162",
+        "P2-COL-002",
+        "P2.1-409",
+        "P2.1-411",
+        "P2.1-412"
+      ],
+      "verify": "Backend tests for building upgrade/eligibility/colony bootstrap pass; frontend build or focused BuildDialog tests pass; manual smoke: gas giant cannot build mine, oil-less planet cannot build oil_pump, new colony has zero passive regen until producer completion.",
+      "notes": "Keep the change in a dedicated worktree/branch. Prefer shared eligibility/category metadata so backend and frontend cannot drift. Avoid hidden passive production: richness describes deposits, production comes from completed buildings.",
+      "prompt": "[TASK P2.2-001] Экономика и доступность зданий по планетам\n\nОПИСАНИЕ\nУточнить экономику и UX строительства: апгрейды command_center должны иметь растущую стоимость в доступных базовых ресурсах (iron, carbon, silicon), каталог построек в UI должен быть сгруппирован по понятным категориям, бесполезные для планеты здания должны быть заблокированы до постановки в очередь, а новые колонии не должны получать пассивную добычу из richness без построенных добывающих зданий.\n\nACCEPTANCE CRITERIA\n  1. command_center больше не апгрейдится бесплатно: каждый уровень после 1 требует iron/carbon/silicon с монотонно растущей стоимостью; тесты покрывают успешный upgrade и отказ при нехватке ресурсов\n  2. Список доступных построек в BuildDialog/PlanetDetail сгруппирован по категориям: энергия, добыча, переработка, логистика/строительство кораблей, прогресс, специальные/особые; порядок категорий стабилен и локализован в RU/EN\n  3. Backend eligibility блокирует постройку зданий, которые не могут принести пользу на выбранной планете: mine требует металлический ресурс в richness/planet_resources, oil_pump требует oil, drill требует поддерживаемый fluid/gas/ice/water deposit, а другие deposit-bound здания используют явные правила вместо одной проверки biome\n  4. Frontend показывает те же причины блокировки до отправки build request и не даёт поставить бесполезное здание в очередь\n  5. Колонизированные планеты сохраняют richness/deposit rows, но planet_resources.regenRate для природных ресурсов после bootstrap равен 0 до завершения соответствующего добывающего здания; стартовый bootstrap остаётся одноразовым запасом, а не постоянной добычей\n  6. Завершение/снос добывающего здания пересчитывает regen только для ресурсов, которые реально производит это здание на этой планете\n  7. Документация backend/src/db/README.md, backend/src/features/buildings/README.md, backend/src/features/colonies/README.md, frontend/src/README.md и DOCUMENTATION.md обновлена под новую модель\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/seed/catalog-rows.ts\n  - backend/src/features/buildings/\n  - backend/src/features/colonies/bootstrap.ts\n  - backend/src/features/resources/\n  - backend/src/workers/tick-buildings.ts\n  - shared/types/building-eligibility.ts\n  - frontend/src/components/BuildDialog.tsx\n  - frontend/src/pages/PlanetDetail.tsx\n  - frontend/src/locales/\n  - DOCUMENTATION.md\n  - backend/src/db/README.md\n  - backend/src/features/buildings/README.md\n  - backend/src/features/colonies/README.md\n  - frontend/src/README.md\n\nЗАВИСИМОСТИ\n  P1-161, P1-162, P2-COL-002, P2.1-409, P2.1-411, P2.1-412\n\nКАК ПРОВЕРИТЬ\n  Backend tests for building upgrade/eligibility/colony bootstrap pass; frontend build or focused BuildDialog tests pass; manual smoke: gas giant cannot build mine, oil-less planet cannot build oil_pump, new colony has zero passive regen until producer completion.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Keep the change in a dedicated worktree/branch. Prefer shared eligibility/category metadata so backend and frontend cannot drift. Avoid hidden passive production: richness describes deposits, production comes from completed buildings."
     }
   ]
 }
