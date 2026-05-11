@@ -72,7 +72,6 @@ export async function checkVisibility(
       shipSectorZ: systems.sectorZ,
       sensorRange: shipTypes.sensorRange,
       shipTypeId: ships.typeId,
-      shipRole: shipTypes.role,
     })
     .from(ships)
     .innerJoin(shipTypes, eq(shipTypes.id, ships.typeId))
@@ -181,10 +180,12 @@ export async function checkVisibility(
     .filter((p: PlanetRow) => !alreadyKnownPlanets.has(p.id))
     .filter((p: PlanetRow) => {
       const sys = systemById.get(p.systemId);
-      if (!sys?.isHome || sys.ownerId !== ownerId) return true;
-      // Passive sensors now reveal bodies in your own home system IF you are using a recon ship.
-      // This satisfies "ships flying past undiscovered planets should discover them".
-      return (ship as any).shipRole === "recon";
+      // Never batch-insert undiscovered bodies in the player's own home system here:
+      // the home system lives in one sector cell, so planar sensors would reveal every
+      // orbit at once. Recon unlocks those planets only along the route corridor in
+      // `workers/tick-expeditions.ts` (`discoverHomePlanetsAlongRoute`).
+      if (sys?.isHome && sys.ownerId === ownerId) return false;
+      return true;
     });
 
   if (newSystems.length > 0) {
