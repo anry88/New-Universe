@@ -46,6 +46,8 @@ describe("Expeditions - POST /expeditions", () => {
     });
     const planet = await db.query.planets.findFirst({
       where: eq(planets.systemId, system!.id),
+    
+      orderBy: (p, { asc }) => asc(p.name),
     });
     return { system: system!, planet: planet! };
   }

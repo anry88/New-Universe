@@ -118,7 +118,9 @@ describe('foundColony', () => {
   it('rejects ships at different location', async () => {
     // Create another planet in the same system
     const [otherPlanet] = await db.insert(planets).values({
-      systemId: (await db.query.planets.findFirst({ where: eq(planets.id, targetPlanetId) }))!.systemId,
+      systemId: (await db.query.planets.findFirst({ where: eq(planets.id, targetPlanetId),
+      orderBy: (p, { asc }) => asc(p.name),
+    }))!.systemId,
       biome: 'rocky',
       size: 5,
       slotCount: 5,

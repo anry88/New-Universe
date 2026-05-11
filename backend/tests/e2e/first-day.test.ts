@@ -120,6 +120,8 @@ describe('E2E: First Day Flow', () => {
 
     const homePlanet = await db.query.planets.findFirst({
       where: eq(planets.systemId, homeSystem!.id),
+    
+      orderBy: (p, { asc }) => asc(p.name),
     });
     expect(homePlanet).toBeDefined();
     const planetId = homePlanet!.id;
@@ -264,6 +266,8 @@ describe('E2E: First Day Flow', () => {
     });
     const homePlanet = await db.query.planets.findFirst({
       where: eq(planets.systemId, homeSystem!.id),
+    
+      orderBy: (p, { asc }) => asc(p.name),
     });
     const planetId = homePlanet!.id;
 

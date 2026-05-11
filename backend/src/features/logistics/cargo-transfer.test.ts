@@ -102,7 +102,9 @@ describe('cargoTransfer', () => {
   it('rejects transfer to non-owned planet', async () => {
     // Create another user's planet
     const [foreignPlanet] = await db.insert(planets).values({
-      systemId: (await db.query.planets.findFirst({ where: eq(planets.id, originPlanetId) }))!.systemId,
+      systemId: (await db.query.planets.findFirst({ where: eq(planets.id, originPlanetId),
+      orderBy: (p, { asc }) => asc(p.name),
+    }))!.systemId,
       biome: 'rocky',
       size: 5,
       slotCount: 5,

@@ -177,21 +177,31 @@ export async function generateHomeSystem(userId: string, tx?: any) {
       .set({ name: systemDisplayEn })
       .where(eq(systems.id, system.id));
 
-    const biomePlan = planHomeBiomesOrdered();
-    if (biomePlan.length !== HOME_PLANET_COUNT) {
+    const biomeOrbitPlan = planHomeBiomesOrdered();
+    if (biomeOrbitPlan.length !== HOME_PLANET_COUNT) {
       throw new Error(
-        `generateHomeSystem: expected ${HOME_PLANET_COUNT} planets in biome plan, got ${biomePlan.length}`,
+        `generateHomeSystem: expected ${HOME_PLANET_COUNT} planets in biome plan, got ${biomeOrbitPlan.length}`,
       );
     }
-
-    const capitalIndex = biomePlan.indexOf('green');
-    if (capitalIndex === -1) {
+    if (!biomeOrbitPlan.includes('green')) {
       throw new Error('generateHomeSystem: capital green biome missing from plan');
     }
 
-    for (let i = 0; i < biomePlan.length; i++) {
-      const biomeType = biomePlan[i]!;
-      const isCapital = i === capitalIndex;
+    // Capital is inserted FIRST so existing call sites that look up "the
+    // first planet in the home system" (tests, tutorial bootstrap, queue
+    // checks) still hit the planet that owns the level-1 command center.
+    // The remaining 8 planets are inserted in biome-orbit order
+    // (volcanic → ice). The frontend renderer sorts visually by
+    // biome-orbit tier, so the *visual* layout still has green in the
+    // middle ring even though it is stored as `-1` in the database.
+    const insertionPlan: BiomeType[] = [
+      'green',
+      ...biomeOrbitPlan.filter((b) => b !== 'green'),
+    ];
+
+    for (let i = 0; i < insertionPlan.length; i++) {
+      const biomeType = insertionPlan[i]!;
+      const isCapital = biomeType === 'green';
       const sizeClass = BIOME_SIZE_CLASS[biomeType];
       const size = isCapital
         ? PLANET_SIZE_RANGE.medium.max
@@ -256,12 +266,25 @@ export async function generateHomeSystem(userId: string, tx?: any) {
         ];
         if (t3t4forbidden.includes(resId)) continue;
 
-        const resRichness = Math.max(1, Math.round(random() * 2 + 0.5));
+        // Most resources roll integer richness 1..3 (regen rate 10..30/h).
+        // Tritium is intentionally rarer — a starter system should be
+        // *able* to build a jump_ship without trading, but tritium should
+        // not flow as fast as iron. We keep the legacy float-richness
+        // band (0.3..0.8 → 3..8/h regen) for tritium.
+        let resRichness: number;
+        let storedRichness: number;
+        if (resId === 'tritium') {
+          resRichness = random() * 0.5 + 0.3; // 0.3..0.8
+          storedRichness = Math.max(1, Math.round(resRichness));
+        } else {
+          resRichness = random() * 2 + 0.5; // 0.5..2.5
+          storedRichness = Math.max(1, Math.round(resRichness));
+        }
 
         await database.insert(richness).values({
           planetId: planet.id,
           resourceId: resId,
-          value: resRichness,
+          value: storedRichness,
         });
 
         await database.insert(planetResources).values({

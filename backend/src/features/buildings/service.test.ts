@@ -72,6 +72,8 @@ describe('Buildings Service - POST /buildings/build', () => {
 
     const userPlanet = await db.query.planets.findFirst({
       where: eq(planets.systemId, userSystem!.id),
+    
+      orderBy: (p, { asc }) => asc(p.name),
     });
     expect(userPlanet).toBeDefined();
 
@@ -102,6 +104,8 @@ describe('Buildings Service - POST /buildings/build', () => {
     });
     const userPlanet = await db.query.planets.findFirst({
       where: eq(planets.systemId, userSystem!.id),
+    
+      orderBy: (p, { asc }) => asc(p.name),
     });
 
     // Fill all planet slots by inserting completed buildings directly (queueAction=null bypasses queue limit)
@@ -139,6 +143,8 @@ describe('Buildings Service - POST /buildings/build', () => {
     });
     const userPlanet = await db.query.planets.findFirst({
       where: eq(planets.systemId, userSystem!.id),
+    
+      orderBy: (p, { asc }) => asc(p.name),
     });
 
     const firstResponse = await app.inject({
@@ -194,6 +200,8 @@ describe('Buildings Service - POST /buildings/build', () => {
     });
     const userPlanet = await db.query.planets.findFirst({
       where: eq(planets.systemId, userSystem!.id),
+    
+      orderBy: (p, { asc }) => asc(p.name),
     });
 
     const response = await app.inject({
@@ -239,6 +247,8 @@ describe('Buildings Service - POST /buildings/build', () => {
     });
     const userPlanet = await db.query.planets.findFirst({
       where: eq(planets.systemId, userSystem!.id),
+    
+      orderBy: (p, { asc }) => asc(p.name),
     });
     expect(userPlanet).toBeDefined();
 
@@ -296,6 +306,8 @@ describe('Buildings Service - POST /buildings/build', () => {
     });
     const userPlanet = await db.query.planets.findFirst({
       where: eq(planets.systemId, userSystem!.id),
+    
+      orderBy: (p, { asc }) => asc(p.name),
     });
 
     // Manually insert a building that is "ready"
@@ -333,6 +345,8 @@ describe('Buildings Service - POST /buildings/build', () => {
     });
     const userPlanet = await db.query.planets.findFirst({
       where: eq(planets.systemId, userSystem!.id),
+    
+      orderBy: (p, { asc }) => asc(p.name),
     });
 
     // Manually insert a level 2 building

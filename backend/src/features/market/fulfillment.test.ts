@@ -47,7 +47,9 @@ async function createMarketTestUser() {
   });
   const planet = await db.query.planets.findFirst({
     where: eq(planets.systemId, system!.id),
-  });
+  
+    orderBy: (p, { asc }) => asc(p.name),
+    });
 
   await db
     .insert(researchProgress)

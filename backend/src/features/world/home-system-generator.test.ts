@@ -3,7 +3,6 @@ import {
   generateHomeSystem,
   HOME_PLANET_COUNT,
   MIN_HOME_CAPITAL_SLOT_COUNT,
-  planHomeBiomesOrdered,
 } from './home-system-generator.js';
 import { BIOME_ORBIT_TIER, HOME_SYSTEM_BASE_BIOMES } from './biomes.js';
 import { db } from '../../db/index.js';
@@ -42,12 +41,12 @@ describe('Home System Generator', () => {
     });
     expect(systemPlanets.length).toBe(HOME_PLANET_COUNT);
 
-    // The capital (green biome) is at the index where `green` falls in
-    // the biome-orbit plan (orbit tier 3). It is no longer planet 1.
-    const orderedPlan = planHomeBiomesOrdered();
-    const capitalIndex = orderedPlan.indexOf('green');
+    // The capital (green biome) is always inserted first so that
+    // existing call sites that pick "the home planet" by the lowest
+    // planet-name suffix keep working. Capital is `<tag>-1` and the
+    // remaining 8 planets are `<tag>-2..<tag>-9` in biome-orbit order.
     const capital = systemPlanets.find(
-      (p) => p.name === formatPlanetCode(shortTag, capitalIndex + 1),
+      (p) => p.name === formatPlanetCode(shortTag, 1),
     );
     expect(capital).toBeDefined();
     expect(capital!.biome).toBe('green');
@@ -66,10 +65,8 @@ describe('Home System Generator', () => {
     });
 
     const shortTag = homeSystemShortTag(systemId);
-    const orderedPlan2 = planHomeBiomesOrdered();
-    const capitalIndex2 = orderedPlan2.indexOf('green');
     const capital = systemPlanets.find(
-      (p) => p.name === formatPlanetCode(shortTag, capitalIndex2 + 1),
+      (p) => p.name === formatPlanetCode(shortTag, 1),
     );
     expect(capital).toBeDefined();
 
@@ -123,10 +120,8 @@ describe('Home System Generator', () => {
     });
 
     const shortTag = homeSystemShortTag(systemId);
-    const orderedPlan2 = planHomeBiomesOrdered();
-    const capitalIndex2 = orderedPlan2.indexOf('green');
     const capital = systemPlanets.find(
-      (p) => p.name === formatPlanetCode(shortTag, capitalIndex2 + 1),
+      (p) => p.name === formatPlanetCode(shortTag, 1),
     );
     expect(capital).toBeDefined();
 
@@ -150,10 +145,8 @@ describe('Home System Generator', () => {
       where: eq(planets.systemId, systemId),
     });
     const shortTag = homeSystemShortTag(systemId);
-    const orderedPlan2 = planHomeBiomesOrdered();
-    const capitalIndex2 = orderedPlan2.indexOf('green');
     const capital = systemPlanets.find(
-      (p) => p.name === formatPlanetCode(shortTag, capitalIndex2 + 1),
+      (p) => p.name === formatPlanetCode(shortTag, 1),
     );
     expect(capital).toBeDefined();
     const cc = await db.query.buildings.findFirst({
@@ -166,7 +159,7 @@ describe('Home System Generator', () => {
     expect(cc!.queueCompletesAt).toBeNull();
   });
 
-  it('orders planets by biome orbit tier (inner → outer)', async () => {
+  it('orders non-capital planets by biome orbit tier (inner → outer)', async () => {
     const [user] = await db.insert(users).values({
       tgId: BigInt(Math.floor(Math.random() * 1000000000)),
       tgUsername: 'testuser_orbits',
@@ -176,11 +169,10 @@ describe('Home System Generator', () => {
     const systemPlanets = await db.query.planets.findMany({
       where: eq(planets.systemId, systemId),
     });
-    const shortTag = homeSystemShortTag(systemId);
 
-    // Planets are named `<tag>-1, <tag>-2, ...` in the order the
-    // generator inserted them, which is the biome-orbit order. So the
-    // numeric suffix matches the orbit ring number from the star outward.
+    // Planets are named `<tag>-1, <tag>-2, ...` in insertion order:
+    // `-1` is the capital (always green), and `-2..-9` are the eight
+    // remaining planets sorted by biome orbit tier (volcanic → ice).
     const byIndex = systemPlanets
       .map((p) => {
         const m = p.name?.match(/-(\d+)$/);
@@ -188,16 +180,20 @@ describe('Home System Generator', () => {
       })
       .sort((a, b) => a.idx - b.idx);
 
+    expect(byIndex[0]!.planet.biome).toBe('green'); // capital first
+    const nonCapital = byIndex.slice(1);
+
     let prevTier = 0;
-    for (const { planet } of byIndex) {
-      const tier = BIOME_ORBIT_TIER[planet.biome as keyof typeof BIOME_ORBIT_TIER];
+    for (const { planet } of nonCapital) {
+      const tier =
+        BIOME_ORBIT_TIER[planet.biome as keyof typeof BIOME_ORBIT_TIER];
       expect(tier).toBeGreaterThanOrEqual(prevTier);
       prevTier = tier;
     }
 
-    // Inner planet must be volcanic (tier 1); outermost ice (tier 6).
-    expect(byIndex[0]!.planet.biome).toBe('volcanic');
-    expect(byIndex[byIndex.length - 1]!.planet.biome).toBe('ice');
+    // Inner non-capital must be volcanic (tier 1); outermost ice (tier 6).
+    expect(nonCapital[0]!.planet.biome).toBe('volcanic');
+    expect(nonCapital[nonCapital.length - 1]!.planet.biome).toBe('ice');
   });
 
   it('gives every starter system enough tritium to build a jump_ship', async () => {

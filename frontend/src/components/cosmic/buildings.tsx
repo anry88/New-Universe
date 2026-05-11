@@ -18,6 +18,7 @@ export type BuildingTypeId =
   | 'oil_pump'
   | 'smelter'
   | 'refinery'
+  | 'fabrication_bay'
   | 'spaceport'
   | 'shipyard'
   | 'lab'
@@ -160,6 +161,29 @@ export const IconShipyard: React.FC<BuildingIconProps> = ({ size, tone }) => (
   </Icon>
 );
 
+/**
+ * Fabrication bay — electronics workshop. Stylized as a clean-room building
+ * with a chip motif (squared antenna pins on a die).
+ */
+export const IconFabricationBay: React.FC<BuildingIconProps> = ({ size, tone }) => (
+  <Icon size={size} tone={tone}>
+    <rect x="12" y="22" width="40" height="28" rx="1" fill={tone ?? '#5BD7FF'} fillOpacity="0.12" />
+    <rect x="22" y="30" width="20" height="14" rx="1" />
+    <path d="M22 34 L18 34" />
+    <path d="M22 40 L18 40" />
+    <path d="M42 34 L46 34" />
+    <path d="M42 40 L46 40" />
+    <path d="M28 30 L28 26" />
+    <path d="M36 30 L36 26" />
+    <path d="M28 44 L28 48" />
+    <path d="M36 44 L36 48" />
+    <circle cx="32" cy="37" r="1.6" fill={tone ?? '#5BD7FF'} />
+    <path d="M12 22 L20 14 L44 14 L52 22" />
+    <path d="M20 14 L20 22" />
+    <path d="M44 14 L44 22" />
+  </Icon>
+);
+
 export const IconLab: React.FC<BuildingIconProps> = ({ size, tone }) => (
   <Icon size={size} tone={tone}>
     <path d="M26 10 L38 10" />
@@ -210,12 +234,13 @@ export interface BuildingDef {
 
 export const BUILDING_BY_TYPE: Record<BuildingTypeId, BuildingDef> = {
   command_center: { Icon: IconCommandCenter, label: 'Command Center', cat: 'Core' },
-  mine: { Icon: IconMine, label: 'Mine', cat: 'Extraction' },
-  drill: { Icon: IconDrill, label: 'Deep Drill', cat: 'Extraction' },
+  mine: { Icon: IconMine, label: 'Metals Mine', cat: 'Extraction' },
+  drill: { Icon: IconDrill, label: 'Fluid Extractor', cat: 'Extraction' },
   storage: { Icon: IconStorage, label: 'Storage', cat: 'Logistics' },
   oil_pump: { Icon: IconOilPump, label: 'Oil Pump', cat: 'Extraction' },
   smelter: { Icon: IconSmelter, label: 'Smelter', cat: 'Production' },
   refinery: { Icon: IconRefinery, label: 'Refinery', cat: 'Production' },
+  fabrication_bay: { Icon: IconFabricationBay, label: 'Fabrication Bay', cat: 'Production' },
   spaceport: { Icon: IconSpaceport, label: 'Spaceport', cat: 'Fleet' },
   shipyard: { Icon: IconShipyard, label: 'Shipyard', cat: 'Fleet' },
   lab: { Icon: IconLab, label: 'Research Lab', cat: 'Science' },
@@ -225,16 +250,31 @@ export const BUILDING_BY_TYPE: Record<BuildingTypeId, BuildingDef> = {
 
 /**
  * Map any backend building type id (including legacy frontend aliases) to a
- * known catalog entry. Falls back to the Mine icon for safety.
+ * known catalog entry.
+ *
+ * IMPORTANT: never silently fall back to a real catalog entry like `mine` —
+ * that was the source of a long-standing bug where fabrication_bay (and
+ * any other un-registered building) rendered as a Mine in the UI. We now
+ * return a placeholder definition that uses the storage icon and the raw
+ * type id as label, so missing icons are visible at a glance instead of
+ * masquerading as something else.
  */
 export function resolveBuildingType(typeId: string | undefined | null): BuildingDef {
   const v = (typeId || '').toLowerCase();
   if (v in BUILDING_BY_TYPE) return BUILDING_BY_TYPE[v as BuildingTypeId];
-  // Aliases for legacy / synonym ids (hyphenated/underscore-combined lab spellings and `laboratory`).
+  // Aliases for legacy / synonym ids.
   if (/^research[_-]?lab$/i.test(v) || v === 'laboratory') return BUILDING_BY_TYPE.lab;
   if (v === 'depot' || v === 'warehouse') return BUILDING_BY_TYPE.storage;
-  if (v === 'factory') return BUILDING_BY_TYPE.smelter;
-  return BUILDING_BY_TYPE.mine;
+  if (v === 'factory' || v === 'electronics_factory') return BUILDING_BY_TYPE.fabrication_bay;
+  if (typeof console !== 'undefined') {
+    // eslint-disable-next-line no-console
+    console.warn(`[buildings] unknown building typeId="${typeId}" — rendered as placeholder`);
+  }
+  return {
+    Icon: IconStorage,
+    label: typeId || 'Unknown',
+    cat: 'Unknown',
+  };
 }
 
 export interface BuildingIconByTypeProps extends BuildingIconProps {
