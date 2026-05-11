@@ -35,9 +35,8 @@ import type { Ship } from "@shared/types/ships";
 import type { Expedition } from "@shared/types/expeditions";
 import {
   buildSystemMapLayouts,
+  buildSystemMapOrbitGuideRadii,
   sectorDeltaToSystemMapPoint,
-  SYSTEM_MAP_ORBIT_BASE,
-  SYSTEM_MAP_ORBIT_STEP,
   SYSTEM_MAP_WORLD_UNITS_PER_LY,
 } from "@shared/format/systemMapLayout";
 import { BIOME_META, PlanetSvg, resolveBiome } from "./planets";
@@ -85,6 +84,10 @@ const DISPLAY_SCALE_FACTOR = 0.3;
 
 /** Below this drag distance (CSS px), a one-finger gesture counts as a tap for expedition aiming. */
 const EXPEDITION_TAP_THRESHOLD_PX = 14;
+
+function isDiscoveredPlanet(planet: Planet): boolean {
+  return planet.isDiscovered !== false;
+}
 
 function clientToWorldCoords(
   container: HTMLElement,
@@ -148,7 +151,7 @@ export function CosmicSystemRenderer({
 
   const layouts = useMemo<PlanetLayout[]>(() => {
     const seed = Number(system?.seed) || 1;
-    const planets = system?.planets ?? [];
+    const planets = (system?.planets ?? []).filter(isDiscoveredPlanet);
     const planetById = new Map(planets.map((planet) => [planet.id, planet]));
     return buildSystemMapLayouts(planets, seed).map((layout) => ({
       ...layout,
@@ -173,17 +176,8 @@ export function CosmicSystemRenderer({
   );
 
   const orbitRadii = useMemo(() => {
-    const maxOrbitRadius = Math.max(
-      SYSTEM_MAP_ORBIT_BASE,
-      ...layouts.map((layout) => layout.orbitRadius),
-    );
-    const orbitCount =
-      Math.ceil((maxOrbitRadius - SYSTEM_MAP_ORBIT_BASE) / SYSTEM_MAP_ORBIT_STEP) + 1;
-    return Array.from(
-      { length: Math.max(1, orbitCount) },
-      (_, index) => SYSTEM_MAP_ORBIT_BASE + index * SYSTEM_MAP_ORBIT_STEP,
-    );
-  }, [layouts]);
+    return buildSystemMapOrbitGuideRadii(system?.planets ?? []);
+  }, [system?.planets]);
 
   const visibleOuterRadius = useMemo(
     () =>
@@ -522,8 +516,7 @@ export function CosmicSystemRenderer({
 
           {/* Planets */}
           {layouts.map((l) => {
-            const isDiscovered = l.planet.isDiscovered !== false;
-            const biome = resolveBiome(isDiscovered ? l.planet.biome : "unknown");
+            const biome = resolveBiome(l.planet.biome);
             const meta = BIOME_META[biome];
             const isSelected =
               l.planet.id === selectedId ||
@@ -537,7 +530,7 @@ export function CosmicSystemRenderer({
                 onClick={(e) => {
                   e.stopPropagation();
                   if (expeditionPick?.onPickPlanet) {
-                    if (isDiscovered) expeditionPick.onPickPlanet(l.planet.id);
+                    expeditionPick.onPickPlanet(l.planet.id);
                     return;
                   }
                   setSelectedId(l.planet.id);
@@ -582,7 +575,7 @@ export function CosmicSystemRenderer({
                     textShadow: "0 1px 2px rgba(0,0,0,0.8)",
                   }}
                 >
-                  {(isDiscovered ? (l.planet.name || "?") : "?").toUpperCase()}
+                  {(l.planet.name || "?").toUpperCase()}
                 </div>
               </button>
             );

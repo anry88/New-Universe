@@ -1,0 +1,20 @@
+import { describe, expect, it } from 'vitest';
+import {
+  buildSystemMapOrbitGuideRadii,
+  SYSTEM_MAP_ORBIT_BASE,
+  SYSTEM_MAP_ORBIT_STEP,
+} from '@shared/format/systemMapLayout';
+
+describe('system map layout helpers', () => {
+  it('does not expand orbit guides for obfuscated unknown home planets', () => {
+    const radii = buildSystemMapOrbitGuideRadii([
+      { id: 'capital', name: 'abcd-1', biome: 'green', size: 22 },
+      { id: 'hidden-1', name: 'Unknown Planet', biome: 'unknown', size: 0 },
+      { id: 'hidden-2', name: 'Unknown Planet', biome: 'unknown', size: 0 },
+      { id: 'hidden-3', name: 'Unknown Planet', biome: 'unknown', size: 0 },
+    ]);
+
+    expect(radii).toHaveLength(9);
+    expect(radii.at(-1)).toBe(SYSTEM_MAP_ORBIT_BASE + 8 * SYSTEM_MAP_ORBIT_STEP);
+  });
+});

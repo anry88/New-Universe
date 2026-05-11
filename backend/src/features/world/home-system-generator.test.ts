@@ -187,6 +187,16 @@ describe('Home System Generator', () => {
 
     expect(byIndex[0]!.planet.biome).toBe('green'); // capital first
     const nonCapital = byIndex.slice(1);
+    expect(nonCapital.map(({ planet }) => planet.biome)).toEqual([
+      'volcanic',
+      'volcanic',
+      'rocky',
+      'rocky',
+      'ocean',
+      'gas_giant',
+      'ice',
+      'ice',
+    ]);
 
     let prevTier = 0;
     for (const { planet } of nonCapital) {
@@ -201,7 +211,7 @@ describe('Home System Generator', () => {
     expect(nonCapital[nonCapital.length - 1]!.planet.biome).toBe('ice');
   });
 
-  it('keeps extreme starter biomes rare and removes frozen biomass deposits', async () => {
+  it('keeps extreme starter biomes bounded and removes frozen biomass deposits', async () => {
     const [user] = await db.insert(users).values({
       tgId: BigInt(Math.floor(Math.random() * 1000000000)),
       tgUsername: 'testuser_biome_balance',
@@ -212,16 +222,18 @@ describe('Home System Generator', () => {
       where: eq(planets.systemId, systemId),
     });
 
-    expect(systemPlanets.filter((p) => p.biome === 'volcanic')).toHaveLength(1);
-    expect(systemPlanets.filter((p) => p.biome === 'ice')).toHaveLength(1);
-    expect(systemPlanets.filter((p) => p.biome === 'rocky').length).toBeGreaterThanOrEqual(3);
+    expect(systemPlanets).toHaveLength(HOME_PLANET_COUNT);
+    expect(systemPlanets.filter((p) => p.biome === 'volcanic')).toHaveLength(2);
+    expect(systemPlanets.filter((p) => p.biome === 'ice')).toHaveLength(2);
+    expect(systemPlanets.filter((p) => p.biome === 'rocky')).toHaveLength(2);
 
-    const icePlanet = systemPlanets.find((p) => p.biome === 'ice');
-    expect(icePlanet).toBeDefined();
-    const iceRichness = await db.query.richness.findMany({
-      where: eq(richness.planetId, icePlanet!.id),
-    });
-    expect(iceRichness.map((row) => row.resourceId)).not.toContain('biomass');
+    const icePlanets = systemPlanets.filter((p) => p.biome === 'ice');
+    for (const icePlanet of icePlanets) {
+      const iceRichness = await db.query.richness.findMany({
+        where: eq(richness.planetId, icePlanet.id),
+      });
+      expect(iceRichness.map((row) => row.resourceId)).not.toContain('biomass');
+    }
   });
 
   it('covers local exit resources across the starter system', async () => {
@@ -317,25 +329,31 @@ describe('Home System Generator', () => {
 
   it('lays out discovered planets visually from hot inner worlds to cold outer worlds', async () => {
     const planetsForLayout = [
-      { id: 'ice', name: 'x-8', biome: 'ice', size: 26 },
+      { id: 'ice-a', name: 'x-8', biome: 'ice', size: 26 },
+      { id: 'ice-b', name: 'x-9', biome: 'ice', size: 28 },
       { id: 'capital', name: 'x-1', biome: 'green', size: 22 },
-      { id: 'volcanic', name: 'x-2', biome: 'volcanic', size: 12 },
+      { id: 'volcanic-a', name: 'x-2', biome: 'volcanic', size: 12 },
+      { id: 'volcanic-b', name: 'x-3', biome: 'volcanic', size: 14 },
       { id: 'gas', name: 'x-7', biome: 'gas_giant', size: 36 },
       { id: 'ocean', name: 'x-6', biome: 'ocean', size: 22 },
-      { id: 'rocky', name: 'x-3', biome: 'rocky', size: 14 },
+      { id: 'rocky-a', name: 'x-4', biome: 'rocky', size: 14 },
+      { id: 'rocky-b', name: 'x-5', biome: 'rocky', size: 15 },
     ];
 
     const layouts = buildSystemMapLayouts(planetsForLayout, 123);
     expect(layouts.map((layout) => layout.id)).toEqual([
-      'volcanic',
-      'rocky',
+      'volcanic-a',
+      'volcanic-b',
+      'rocky-a',
+      'rocky-b',
       'ocean',
       'capital',
       'gas',
-      'ice',
+      'ice-a',
+      'ice-b',
     ]);
     expect(layouts.find((layout) => layout.id === 'capital')!.orbitRadius).toBe(
-      SYSTEM_MAP_ORBIT_BASE + 3 * SYSTEM_MAP_ORBIT_STEP,
+      SYSTEM_MAP_ORBIT_BASE + 5 * SYSTEM_MAP_ORBIT_STEP,
     );
     expect(layouts.find((layout) => layout.id === 'capital')!.orbitRadius).toBeGreaterThan(
       layouts.find((layout) => layout.id === 'ocean')!.orbitRadius,
@@ -349,7 +367,7 @@ describe('Home System Generator', () => {
     expect(capitalOnlyLayout.x).toBeCloseTo(capitalLayout.x, 8);
     expect(capitalOnlyLayout.y).toBeCloseTo(capitalLayout.y, 8);
     expect(layouts.find((layout) => layout.id === 'gas')!.spriteSize).toBeGreaterThan(
-      layouts.find((layout) => layout.id === 'rocky')!.spriteSize,
+      layouts.find((layout) => layout.id === 'rocky-a')!.spriteSize,
     );
   });
 });

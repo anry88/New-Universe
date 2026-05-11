@@ -32,24 +32,25 @@ import {
 export const MIN_HOME_CAPITAL_SLOT_COUNT = 22;
 
 /**
- * Fixed at 8 planets so every new player gets the full starter resource
+ * Fixed at 9 planets so every new player gets the full starter resource
  * surface without making rare/extreme worlds common.
  */
-export const HOME_PLANET_COUNT = 8;
+export const HOME_PLANET_COUNT = 9;
 
 /**
  * Planned starter layout (orbit inner → outer). One slot per biome below
  * is one planet on its own orbit. Capital is always green and pre-built
  * with a command_center + auto-discovered for the player.
  *
- *   tier 1 — volcanic (single hot sulfur/copper world)
+ *   tier 1 — volcanic (hot sulfur/copper world)
+ *   tier 1 — volcanic (hot titanium/sulfur reserve)
  *   tier 2 — rocky    (iron/copper/aluminum belt)
  *   tier 2 — rocky    (silicon/carbon/titanium belt)
- *   tier 2 — rocky    (neutral mineral reserve)
  *   tier 3 — ocean    (water/biomass)
  *   tier 4 — green    ★ capital (habitable, deeper safe orbit)
  *   tier 5 — gas_giant (methane/tritium)
  *   tier 6 — ice      (ice/water outer body; no biomass)
+ *   tier 6 — ice      (ice/tritium outer reserve; no biomass)
  */
 interface HomePlanetOrbitPlanEntry {
   biome: BiomeType;
@@ -63,16 +64,16 @@ export const HOME_PLANET_ORBIT_PLAN: readonly HomePlanetOrbitPlanEntry[] = [
     resources: ['sulfur', 'iron', 'copper'],
   },
   {
+    biome: 'volcanic',
+    resources: ['sulfur', 'copper', 'titanium'],
+  },
+  {
     biome: 'rocky',
     resources: ['iron', 'copper', 'aluminum'],
   },
   {
     biome: 'rocky',
     resources: ['silicon', 'carbon', 'titanium'],
-  },
-  {
-    biome: 'rocky',
-    resources: ['iron', 'silicon', 'carbon'],
   },
   {
     biome: 'ocean',
@@ -90,6 +91,10 @@ export const HOME_PLANET_ORBIT_PLAN: readonly HomePlanetOrbitPlanEntry[] = [
   {
     biome: 'ice',
     resources: ['ice', 'water'],
+  },
+  {
+    biome: 'ice',
+    resources: ['ice', 'water', 'tritium'],
   },
 ] as const;
 

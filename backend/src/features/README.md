@@ -132,7 +132,7 @@ Procedural world generation primitives and visibility checks. Contains the home-
 - **`home-system-generator.ts`** — exports `generateHomeSystem(userId, tx?)`, **`MIN_HOME_CAPITAL_SLOT_COUNT`** (minimum building slots on planet 1 / capital), deterministic PRNG helpers `hashString` / `createRandom`, and English-canonical `systems.name` plus `{shortTag}-N` planet codes via `@shared/format/homeSystemNaming`.
   - Uses `tx` from auth or opens `db.transaction`; idempotent when a home `systems` row already exists.
   - Seeds sector coords `[-500,500]`, system `seed`, `name = "Home System <userId-prefix>"`.
-  - Generates **8** planets from the fixed `HOME_PLANET_ORBIT_PLAN`: one volcanic inner world, three rocky/neutral resource worlds, ocean world, green capital in a deeper habitable orbit, gas giant, and one outer ice world.
+  - Generates **9** planets from the fixed `HOME_PLANET_ORBIT_PLAN`: two volcanic inner worlds, two rocky resource worlds, ocean world, green capital in a deeper habitable orbit, gas giant, and two outer ice worlds.
   - Capital (planet index 0): biome **`green`**, larger size, **`slotCount ≥ MIN_HOME_CAPITAL_SLOT_COUNT`** for early tutorial + shipyard chain.
   - Other planets: sizes follow biome size classes; non-capital resources are hand-authored per orbit so titanium/tritium/ice/sulfur/copper/aluminum exist locally while rare/extreme biomes stay rare.
   - Filters forbidden tier-3/tier-4 richness ids; seeds `richness` + `planet_resources`; planet 0 gets `command_center` + **only planet 0** in `discovered_planets` (other home bodies stay locked until a recon expedition route passes through their system-map visibility corridor — see `visibility.ts` / `workers/tick-expeditions.ts`).
@@ -141,7 +141,7 @@ Procedural world generation primitives and visibility checks. Contains the home-
 - **`sector-generator.ts`** — exports `generateSystemsInSector(sector, targetCount?)` which lazily generates missing systems within a sector. Uses the sector's seed for deterministic generation, respects the 12-system maximum per sector, ensures minimum 50-unit distance between systems, and distributes planet biomes by GDD weights (`getBiomeByWeight`, `generateSystemPosition`). Systems in the common pool have `ownerId=null` and `isHome=false`.
 - **`visibility.ts`** — exports `checkVisibility(shipId, tx?, overrideCoords?)` which resolves the ship's sensor-augmented range, finds candidate systems in an **XY bounding square**, applies **planar** sector distance (Z ignored), skips **foreign** home systems, and inserts new `discovered_systems` / `discovered_planets` rows. **Does not auto-insert undiscovered planets that belong to the player's own home system**; home bodies unlock from the flat route-corridor scan in `workers/tick-expeditions.ts`.
 - **`visibility.test.ts`** — Vitest coverage for range, deduping, foreign-home suppression, discovery batches, 3D distance, and **locked home bodies staying hidden from passive sensors**.
-- **`home-system-generator.test.ts`** — Vitest coverage for determinism, starter resource coverage, **full home biome set + capital slots**, one volcanic/one ice starter rarity, visual orbit sorting, size spread, and tier restrictions.
+- **`home-system-generator.test.ts`** — Vitest coverage for determinism, starter resource coverage, **full home biome set + capital slots**, fixed 9-planet starter composition, visual orbit sorting, size spread, and tier restrictions.
 
 ## `research/`
 

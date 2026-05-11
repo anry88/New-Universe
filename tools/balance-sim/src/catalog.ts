@@ -19,8 +19,8 @@ export const HOME_SYSTEM_BASE_BIOME_IDS = [
 ] as const;
 
 /** Mirrors fixed home genesis planet count (`generateHomeSystem`). */
-export const HOME_SYSTEM_PLANET_COUNT_MIN = 8;
-export const HOME_SYSTEM_PLANET_COUNT_MAX = 8;
+export const HOME_SYSTEM_PLANET_COUNT_MIN = 9;
+export const HOME_SYSTEM_PLANET_COUNT_MAX = 9;
 
 export const BUILDINGS = {
   command_center: {
