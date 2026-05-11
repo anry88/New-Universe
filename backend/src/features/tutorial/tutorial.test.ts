@@ -101,9 +101,9 @@ describe('tutorial sync', () => {
       shipId: scout.id,
       type: 'scout',
       originPlanetId: planet.id,
-      targetX: 1,
-      targetY: 1,
-      targetZ: 1,
+      targetX: "1",
+      targetY: "1",
+      targetZ: "1",
       eta: new Date(Date.now() + 60_000),
     });
 

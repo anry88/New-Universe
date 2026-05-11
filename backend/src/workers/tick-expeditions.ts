@@ -55,29 +55,33 @@ export function calculateExpeditionPosition(
   const originY = Number(originSystem.sectorY);
   const originZ = Number(originSystem.sectorZ);
 
+  const tX = Number(targetX);
+  const tY = Number(targetY);
+  const tZ = Number(targetZ);
+
   if (status === "in_flight") {
     const startTimeMs = etaMs - durationMs;
     if (nowMs <= startTimeMs) return { x: originX, y: originY, z: originZ };
-    if (nowMs >= etaMs) return { x: targetX, y: targetY, z: targetZ };
+    if (nowMs >= etaMs) return { x: tX, y: tY, z: tZ };
 
     const progress = (nowMs - startTimeMs) / durationMs;
     return {
-      x: originX + (targetX - originX) * progress,
-      y: originY + (targetY - originY) * progress,
-      z: originZ + (targetZ - originZ) * progress,
+      x: originX + (tX - originX) * progress,
+      y: originY + (tY - originY) * progress,
+      z: originZ + (tZ - originZ) * progress,
     };
   } else if (status === "returning") {
     // For 'returning', we assume it started returning at eta - durationMs
     const returnStartTimeMs = etaMs - durationMs;
     if (nowMs <= returnStartTimeMs)
-      return { x: targetX, y: targetY, z: targetZ };
+      return { x: tX, y: tY, z: tZ };
     if (nowMs >= etaMs) return { x: originX, y: originY, z: originZ };
 
     const progress = (nowMs - returnStartTimeMs) / durationMs;
     return {
-      x: targetX + (originX - targetX) * progress,
-      y: targetY + (originY - targetY) * progress,
-      z: targetZ + (originZ - targetZ) * progress,
+      x: tX + (originX - tX) * progress,
+      y: tY + (originY - tY) * progress,
+      z: tZ + (originZ - tZ) * progress,
     };
   }
 

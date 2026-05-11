@@ -88,9 +88,9 @@ describe('Cargo Route Worker', () => {
       type: 'cargo_transfer',
       originPlanetId: originPlanetId,
       targetPlanetId: targetPlanetId,
-      targetX: 1,
-      targetY: 1,
-      targetZ: 1,
+      targetX: "1",
+      targetY: "1",
+      targetZ: "1",
       status: 'in_flight',
       eta: new Date(),
       result: {

@@ -122,9 +122,9 @@ export async function launchCargoTransfer(
         type: 'cargo_transfer',
         originPlanetId: ship.locationPlanetId,
         targetPlanetId: target.id,
-        targetX: target.x,
-        targetY: target.y,
-        targetZ: target.z,
+        targetX: target.x.toString(),
+        targetY: target.y.toString(),
+        targetZ: target.z.toString(),
         status: 'in_flight',
         eta,
         result: {
