@@ -47,7 +47,7 @@ The `tools/` folder hosts offline agents (not bundled into Docker images). Today
 
 - **Repeat Queue**: Uses BullMQ's repeatable jobs to "tick" game logic every 30 seconds.
 - **`tick-buildings`**: Completes construction/upgrades and updates resource regen rates.
-- **`tick-expeditions`**: The most complex worker; it interpolates ship positions in 3D space during travel and performs real-time fog-of-war visibility checks.
+- **`tick-expeditions`**: The most complex worker; it interpolates ship positions on the **sector XY plane** during travel (Z stays at the origin system’s sector Z for fog-of-war) and performs real-time visibility checks.
 - **`tick-ships`**: Finalizes ship production.
 - **`notifications`**: Processes pending notifications from the database and sends them to Telegram via the Bot API every minute, respecting a 20 msgs/min per user rate limit.
 - **`cargo-routes`**: Completes interplanetary resource transfers triggered from the API; handles atomicity, idempotency, and resource delivery.

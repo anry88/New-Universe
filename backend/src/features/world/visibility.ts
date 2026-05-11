@@ -46,7 +46,7 @@ interface PlanetRow {
 /**
  * Check visibility for a ship at its current position.
  *
- * Finds all systems (and their planets) within Euclidean distance of
+ * Finds all systems (and their planets) within planar (sector X/Y) distance of
  * `ship.sensorRange` that are not yet discovered by the ship's owner.
  * Skips foreign home systems (someone else's home system is never visible).
  *
@@ -120,8 +120,6 @@ export async function checkVisibility(
         sql`${systems.sectorX} <= ${Math.ceil(shipSectorX + range)}`,
         sql`${systems.sectorY} >= ${Math.floor(shipSectorY - range)}`,
         sql`${systems.sectorY} <= ${Math.ceil(shipSectorY + range)}`,
-        sql`${systems.sectorZ} >= ${Math.floor(shipSectorZ - range)}`,
-        sql`${systems.sectorZ} <= ${Math.ceil(shipSectorZ + range)}`,
       ),
     )) as SystemRow[];
 
@@ -131,8 +129,7 @@ export async function checkVisibility(
     }
     const dx = Number(sys.sectorX) - Number(shipSectorX);
     const dy = Number(sys.sectorY) - Number(shipSectorY);
-    const dz = Number(sys.sectorZ) - Number(shipSectorZ);
-    return Math.sqrt(dx * dx + dy * dy + dz * dz) <= range;
+    return Math.hypot(dx, dy) <= range;
   });
 
   if (visibleSystems.length === 0) return [];

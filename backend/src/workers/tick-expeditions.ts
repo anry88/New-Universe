@@ -34,7 +34,7 @@ export function calculateExpeditionPosition(
   originSystem: { sectorX: number; sectorY: number; sectorZ: number },
   now: Date,
 ) {
-  const { targetX, targetY, targetZ, eta, result, status } = expedition;
+  const { targetX, targetY, eta, result, status } = expedition;
   if (!result || typeof result !== "object") return { x: 0, y: 0, z: 0 };
 
   const { distance, speed, engineFactor } = result as any;
@@ -57,31 +57,30 @@ export function calculateExpeditionPosition(
 
   const tX = Number(targetX);
   const tY = Number(targetY);
-  const tZ = Number(targetZ);
 
   if (status === "in_flight") {
     const startTimeMs = etaMs - durationMs;
     if (nowMs <= startTimeMs) return { x: originX, y: originY, z: originZ };
-    if (nowMs >= etaMs) return { x: tX, y: tY, z: tZ };
+    if (nowMs >= etaMs) return { x: tX, y: tY, z: originZ };
 
     const progress = (nowMs - startTimeMs) / durationMs;
     return {
-      x: Math.trunc(originX + (tX - originX) * progress),
-      y: Math.trunc(originY + (tY - originY) * progress),
-      z: Math.trunc(originZ + (tZ - originZ) * progress),
+      x: originX + (tX - originX) * progress,
+      y: originY + (tY - originY) * progress,
+      z: originZ,
     };
   } else if (status === "returning") {
     // For 'returning', we assume it started returning at eta - durationMs
     const returnStartTimeMs = etaMs - durationMs;
     if (nowMs <= returnStartTimeMs)
-      return { x: tX, y: tY, z: tZ };
+      return { x: tX, y: tY, z: originZ };
     if (nowMs >= etaMs) return { x: originX, y: originY, z: originZ };
 
     const progress = (nowMs - returnStartTimeMs) / durationMs;
     return {
-      x: Math.trunc(tX + (originX - tX) * progress),
-      y: Math.trunc(tY + (originY - tY) * progress),
-      z: Math.trunc(tZ + (originZ - tZ) * progress),
+      x: tX + (originX - tX) * progress,
+      y: tY + (originY - tY) * progress,
+      z: originZ,
     };
   }
 

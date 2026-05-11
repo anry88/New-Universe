@@ -248,11 +248,12 @@ export async function launchExpedition(
     resolvedTargetPlanetId = targetPlanetId;
   }
 
-  const distance = Math.sqrt(
-    Math.pow(targetX - Number(shipRow.originX), 2) +
-      Math.pow(targetY - Number(shipRow.originY), 2) +
-      Math.pow(targetZ - Number(shipRow.originZ), 2),
-  );
+  // Galactic travel is modeled on the sector XY plane only so map routes, fuel,
+  // ETA, and expedition ticks stay aligned with the 2D system map / corridor
+  // discovery logic (which never used Z in layout space).
+  const ox = Number(shipRow.originX);
+  const oy = Number(shipRow.originY);
+  const distance = Math.hypot(targetX - ox, targetY - oy);
   const travelDistance = resolvedTargetPlanetId
     ? Math.max(1, distance)
     : distance;
