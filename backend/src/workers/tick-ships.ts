@@ -2,10 +2,55 @@ import { Worker } from 'bullmq';
 import { db } from '../db/index.js';
 import { ships, notifications } from '../db/schema.js';
 
-import { eq } from 'drizzle-orm';
+import { and, eq, isNotNull, lte } from 'drizzle-orm';
 
 import { logger } from '../lib/logger.js';
 import { env } from '../lib/env.js';
+
+export async function completeShipBuildJob(
+  shipId: string,
+  planetId: string | null,
+  now: Date = new Date(),
+): Promise<boolean> {
+  const [completedShip] = await db
+    .update(ships)
+    .set({ status: 'idle', queueCompletesAt: null })
+    .where(
+      and(
+        eq(ships.id, shipId),
+        eq(ships.status, 'building'),
+        isNotNull(ships.queueCompletesAt),
+        lte(ships.queueCompletesAt, now),
+      ),
+    )
+    .returning({
+      id: ships.id,
+      ownerId: ships.ownerId,
+      typeId: ships.typeId,
+    });
+
+  if (!completedShip) {
+    logger.info({ shipId, planetId }, 'Ship build completion skipped; already finalized or not due');
+    return false;
+  }
+
+  await db.insert(notifications).values({
+    userId: completedShip.ownerId,
+    type: 'ship_done',
+    payload: {
+      shipId,
+      typeId: completedShip.typeId,
+      planetId,
+    },
+  });
+
+  logger.info(
+    { shipId, planetId, newStatus: 'idle', userId: completedShip.ownerId },
+    'Ship construction completed',
+  );
+
+  return true;
+}
 
 export async function createShipsWorker(): Promise<Worker> {
   const Redis = (await import('ioredis')).default as unknown as new (...args: any[]) => any;
@@ -21,41 +66,7 @@ export async function createShipsWorker(): Promise<Worker> {
 
       logger.info({ shipId, planetId, jobId: job.id }, 'Completing ship build');
 
-      await db
-        .update(ships)
-        .set({ status: 'idle', queueCompletesAt: null })
-        .where(eq(ships.id, shipId));
-
-      // Fetch user ID to send notification
-      const ship = await db.query.ships.findFirst({
-        where: eq(ships.id, shipId),
-        with: {
-          planet: {
-            with: {
-              system: true,
-            },
-          },
-        },
-      });
-
-      if (ship?.ownerId) {
-        await db.insert(notifications).values({
-          userId: ship.ownerId,
-          type: 'ship_done',
-          payload: {
-            shipId,
-            typeId: ship.typeId,
-            planetId,
-          },
-        });
-      }
-
-      logger.info(
-        { shipId, planetId, newStatus: 'idle', userId: ship?.ownerId },
-        'Ship construction completed',
-      );
-
-
+      await completeShipBuildJob(shipId, planetId ?? null);
     },
     { connection },
   );

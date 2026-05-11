@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import type { ResearchDefinition } from '@shared/types/research';
+import { timerSnapshot } from '../lib/timers';
 
 export type TechTreeNodeVisualState = 'completed' | 'active' | 'pending' | 'locked';
 
@@ -10,6 +11,8 @@ export interface TechTreeNodeProps {
   tierDefinition?: ResearchDefinition;
   /** When visual === active — ISO date string */
   completesAt?: string | null;
+  /** Server-derived tier start timestamp for exact progress fill. */
+  startedAt?: string | null;
   /** Total scheduled duration for this tier (seconds), for progress fill */
   durationSec?: number;
 }
@@ -23,6 +26,7 @@ export function TechTreeNode({
   visual,
   tierDefinition,
   completesAt,
+  startedAt,
   durationSec,
 }: TechTreeNodeProps) {
   const [remainingMs, setRemainingMs] = useState(0);
@@ -39,10 +43,15 @@ export function TechTreeNode({
     return () => window.clearInterval(id);
   }, [visual, completesAt]);
 
-  const progressPct =
-    visual === 'active' && completesAt && durationSec
-      ? Math.min(100, Math.max(0, 100 - (remainingMs / (durationSec * 1000)) * 100))
-      : 0;
+  const snapshot =
+    visual === 'active' && completesAt
+      ? timerSnapshot({
+          completesAt,
+          startedAt,
+          totalDurationSec: durationSec,
+        })
+      : null;
+  const progressPct = snapshot?.progressPct ?? 0;
 
   const cls =
     'tech-node' +

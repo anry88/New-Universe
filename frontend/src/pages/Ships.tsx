@@ -14,6 +14,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import type { Ship } from "@shared/types/ships";
 import type { Building, Planet } from "@shared/types/world";
 import { getResourceSymbol } from "../components/cosmic/resources";
+import { timerSnapshot } from "../lib/timers";
 
 const SHIP_CLASS_TAG: Record<string, string> = {
   scout: "SCOUT",
@@ -343,15 +344,14 @@ export function ShipsPage() {
               const isIdle = effectiveStatus === "idle";
               const isBuilding = effectiveStatus === "building";
               const activeExpedition = activeExpeditionByShipId.get(ship.id);
-              const etaSec = queueItem
-                ? Math.max(
-                    0,
-                    Math.ceil(
-                      (new Date(queueItem.queueCompletesAt).getTime() - now) /
-                        1000,
-                    ),
-                  )
+              const buildTimer = queueItem
+                ? timerSnapshot({
+                    completesAt: queueItem.queueCompletesAt,
+                    startedAt: queueItem.queueStartedAt,
+                    nowMs: now,
+                  })
                 : null;
+              const etaSec = buildTimer?.remainingSec ?? null;
               const expeditionEtaSec = activeExpedition
                 ? Math.max(
                     0,
@@ -401,21 +401,35 @@ export function ShipsPage() {
                             : "IN TRANSIT"}
                     </button>
                     {isBuilding && queueItem ? (
-                      <button
-                        type="button"
-                        className="cosmic-cta"
-                        onClick={() => rushShip.mutate(ship.id)}
-                        disabled={rushShip.isPending}
-                        style={{
-                          marginTop: 6,
-                          padding: "6px 12px",
-                          fontSize: 11,
-                        }}
-                      >
-                        {rushShip.isPending
-                          ? "RUSHING..."
-                          : `◆ ${queueItem.rushCost ?? 0} RUSH BUILD`}
-                      </button>
+                      <>
+                        {buildTimer ? (
+                          <div className="qstrip-bar" style={{ marginTop: 8 }}>
+                            <div
+                              className="qstrip-fill"
+                              style={{
+                                width: `${buildTimer.progressPct}%`,
+                                background: "#5BD7FF",
+                                boxShadow: "0 0 6px #5BD7FF",
+                              }}
+                            />
+                          </div>
+                        ) : null}
+                        <button
+                          type="button"
+                          className="cosmic-cta"
+                          onClick={() => rushShip.mutate(ship.id)}
+                          disabled={rushShip.isPending}
+                          style={{
+                            marginTop: 6,
+                            padding: "6px 12px",
+                            fontSize: 11,
+                          }}
+                        >
+                          {rushShip.isPending
+                            ? "RUSHING..."
+                            : `◆ ${queueItem.rushCost ?? 0} RUSH BUILD`}
+                        </button>
+                      </>
                     ) : null}
                   </div>
                   <div className="ship-stats">

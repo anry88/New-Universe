@@ -72,6 +72,50 @@ describe('processCompletedResearch', () => {
     expect(notes.filter((n) => n.type === 'research_done').length).toBe(1);
   });
 
+  it('can complete one online user without creating a Telegram notification', async () => {
+    const [otherUser] = await db
+      .insert(users)
+      .values({
+        tgId: BigInt(Math.floor(Math.random() * 1_000_000_000)),
+        tgUsername: `rescomp_other_${Date.now()}_${Math.random()}`,
+      })
+      .returning();
+
+    await db.insert(researchProgress).values([
+      {
+        userId,
+        branch: 'mining',
+        level: 0,
+        completesAt: new Date(Date.now() - 60_000),
+      },
+      {
+        userId: otherUser.id,
+        branch: 'mining',
+        level: 0,
+        completesAt: new Date(Date.now() - 60_000),
+      },
+    ]);
+
+    await processCompletedResearch(db, { userId, skipNotification: true });
+
+    const row = await db.query.researchProgress.findFirst({
+      where: and(eq(researchProgress.userId, userId), eq(researchProgress.branch, 'mining')),
+    });
+    expect(row?.level).toBe(1);
+    expect(row?.completesAt).toBeNull();
+
+    const otherRow = await db.query.researchProgress.findFirst({
+      where: and(eq(researchProgress.userId, otherUser.id), eq(researchProgress.branch, 'mining')),
+    });
+    expect(otherRow?.level).toBe(0);
+    expect(otherRow?.completesAt).not.toBeNull();
+
+    const notes = await db.query.notifications.findMany({
+      where: eq(notifications.userId, userId),
+    });
+    expect(notes.filter((n) => n.type === 'research_done')).toHaveLength(0);
+  });
+
   it('ignores research still in the future', async () => {
     await db.insert(researchProgress).values({
       userId,

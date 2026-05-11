@@ -1,11 +1,12 @@
 import Fastify from 'fastify';
 import { describe, expect, it } from 'vitest';
 import { shipsRoutes } from './routes.js';
+import { syncReadyShips } from './build.js';
 import { authRoutes } from '../auth/routes.js';
 import { meRoutes } from '../me/routes.js';
 import { db } from '../../db/index.js';
-import { planets, systems, buildings, ships, planetResources, resources } from '../../db/schema.js';
-import { eq, and } from 'drizzle-orm';
+import { planets, systems, buildings, ships, planetResources, resources, notifications } from '../../db/schema.js';
+import { eq, and, sql } from 'drizzle-orm';
 import crypto from 'crypto';
 import { env } from '../../lib/env.js';
 
@@ -282,5 +283,67 @@ describe('Ship Building - POST /ships/build', () => {
     expect(response.statusCode).toBe(400);
     const body = response.json();
     expect(body.error).toContain('not enough');
+  });
+
+  it('syncs only the current user ready ships and suppresses stale pending notifications', async () => {
+    const { userId } = await createTestUser();
+    const other = await createTestUser();
+    const planetId = await getHomePlanetId(userId);
+    const otherPlanetId = await getHomePlanetId(other.userId);
+
+    const [readyShip] = await db
+      .insert(ships)
+      .values({
+        ownerId: userId,
+        typeId: 'scout',
+        locationPlanetId: planetId,
+        status: 'building',
+        queueCompletesAt: new Date(Date.now() - 1000),
+        cargoJson: {},
+        fuel: '0',
+      })
+      .returning();
+
+    const [otherReadyShip] = await db
+      .insert(ships)
+      .values({
+        ownerId: other.userId,
+        typeId: 'scout',
+        locationPlanetId: otherPlanetId,
+        status: 'building',
+        queueCompletesAt: new Date(Date.now() - 1000),
+        cargoJson: {},
+        fuel: '0',
+      })
+      .returning();
+
+    await db.insert(notifications).values({
+      userId,
+      type: 'ship_done',
+      payload: { shipId: readyShip.id },
+    });
+
+    await syncReadyShips(userId, { skipNotifications: true });
+
+    const updated = await db.query.ships.findFirst({ where: eq(ships.id, readyShip.id) });
+    expect(updated?.status).toBe('idle');
+    expect(updated?.queueCompletesAt).toBeNull();
+
+    const untouched = await db.query.ships.findFirst({ where: eq(ships.id, otherReadyShip.id) });
+    expect(untouched?.status).toBe('building');
+    expect(untouched?.queueCompletesAt).not.toBeNull();
+
+    const pendingNotes = await db
+      .select()
+      .from(notifications)
+      .where(
+        and(
+          eq(notifications.userId, userId),
+          eq(notifications.type, 'ship_done'),
+          sql`(${notifications.payload} ->> 'shipId') = ${readyShip.id}`,
+          eq(notifications.pending, true),
+        ),
+      );
+    expect(pendingNotes).toHaveLength(0);
   });
 });

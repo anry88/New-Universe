@@ -9,10 +9,23 @@ export interface ResearchProgress {
   branch: string;
   level: number;
   completesAt: string | null;
+  startedAt?: string | null;
 }
 
 export interface StartResearchRequest {
   branch: string;
+}
+
+export interface RushResearchRequest {
+  branch: string;
+}
+
+export interface RushResearchResponse {
+  success: boolean;
+  cost: number;
+  diamondsRemaining: number;
+  branch: string;
+  level: number;
 }
 
 /** Serializable reference for UI copy when an action is blocked by research */

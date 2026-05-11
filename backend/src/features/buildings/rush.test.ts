@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { buildingService } from './service.js';
 import { BuildingOperationError } from './building-operation-error.js';
 import { db } from '../../db/index.js';
-import { users, buildings } from '../../db/schema.js';
+import { users, buildings, notifications } from '../../db/schema.js';
 import { generateHomeSystem } from '../world/home-system-generator.js';
 import { eq } from 'drizzle-orm';
 import { rushDiamondCost, rushRemainingSeconds } from '../../lib/diamonds.js';
@@ -62,6 +62,11 @@ describe('rushQueuedBuilding', () => {
     });
     expect(updated?.queueAction).toBeNull();
     expect(updated?.queueCompletesAt).toBeNull();
+
+    const notes = await db.query.notifications.findMany({
+      where: eq(notifications.userId, userId),
+    });
+    expect(notes.filter((note) => note.type === 'building_done')).toHaveLength(0);
   });
 
   it('throws BuildingOperationError when balance is too low', async () => {

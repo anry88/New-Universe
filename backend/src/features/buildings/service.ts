@@ -451,7 +451,7 @@ export class BuildingService {
         }
       }
 
-      await this.finalizeBuildingConstruction(tx, buildingId);
+      await this.finalizeBuildingConstruction(tx, buildingId, { skipNotification: true });
 
       const userAfter = await tx.query.users.findFirst({
         where: eq(users.id, userId),

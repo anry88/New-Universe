@@ -5,6 +5,7 @@ export interface Ship {
   locationPlanetId: string | null;
   status: string;
   queueCompletesAt?: string | null;
+  queueStartedAt?: string | null;
   cargoJson: Record<string, number>;
   fuel: string;
 }
@@ -15,6 +16,7 @@ export interface ShipQueueItem {
   typeId: string;
   status: string;
   queueCompletesAt: string;
+  queueStartedAt?: string | null;
   rushCost?: number;
 }
 

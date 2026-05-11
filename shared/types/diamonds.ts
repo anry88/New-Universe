@@ -1,6 +1,11 @@
 /**
  * Client/server-shared rush pricing formula (must stay aligned with `backend/src/lib/diamonds.ts`).
  */
+export interface RushPricing {
+  diamondsPerMinute: number;
+  maxPerAction: number | null;
+}
+
 export function estimateRushDiamondCost(
   remainingSec: number,
   diamondsPerMinute: number,

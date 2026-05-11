@@ -8,8 +8,16 @@ import { invalidateResearchEffectsCache } from './effects.js';
  */
 export async function processCompletedResearch(
   database: typeof import('../../db/index.js').db,
+  options: { userId?: string; skipNotification?: boolean; now?: Date } = {},
 ): Promise<void> {
-  const now = new Date();
+  const now = options.now ?? new Date();
+  const dueConditions = [
+    isNotNull(researchProgress.completesAt),
+    lte(researchProgress.completesAt, now),
+  ];
+  if (options.userId) {
+    dueConditions.push(eq(researchProgress.userId, options.userId));
+  }
 
   const due = await database
     .select({
@@ -18,7 +26,7 @@ export async function processCompletedResearch(
       completesAt: researchProgress.completesAt,
     })
     .from(researchProgress)
-    .where(and(isNotNull(researchProgress.completesAt), lte(researchProgress.completesAt, now)));
+    .where(and(...dueConditions));
 
   for (const row of due) {
     await database.transaction(async (tx) => {
@@ -46,14 +54,16 @@ export async function processCompletedResearch(
 
       invalidateResearchEffectsCache(updated.userId);
 
-      await tx.insert(notifications).values({
-        userId: updated.userId,
-        type: 'research_done',
-        payload: {
-          branch: updated.branch,
-          level: updated.level,
-        },
-      });
+      if (!options.skipNotification) {
+        await tx.insert(notifications).values({
+          userId: updated.userId,
+          type: 'research_done',
+          payload: {
+            branch: updated.branch,
+            level: updated.level,
+          },
+        });
+      }
     });
   }
 }

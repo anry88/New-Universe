@@ -1,7 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import React, { useEffect, useState } from 'react';
 import { useMe } from '../hooks/useMe';
-import { useStartResearch } from '../hooks/useResearch';
+import { useRushResearch, useStartResearch } from '../hooks/useResearch';
 import { TECH_TREE_DATA, BRANCHES, RESEARCH_MAX_LEVEL, type TechTreeEntry } from '../lib/tech-tree';
 import { evaluateResearchEligibility } from '../lib/research-eligibility';
 import { ResourceBar } from '../components/ResourceBar';
@@ -12,6 +11,8 @@ import { ChevronLeft, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getResourceSymbol } from '../components/cosmic/resources';
 import { resolveBuildingType } from '../components/cosmic/buildings';
+import { estimateRushDiamondCost } from '@shared/types/diamonds';
+import { formatTimerDuration, timerSnapshot } from '../lib/timers';
 
 const BRANCH_COLORS: Record<string, string> = {
   mining: '#C7A582',
@@ -60,7 +61,7 @@ const TIER_LEVELS = Array.from({ length: RESEARCH_MAX_LEVEL }, (_, i) => (i + 1)
 export function ResearchPage() {
   const { data: meData } = useMe();
   const startResearch = useStartResearch();
-  const queryClient = useQueryClient();
+  const rushResearch = useRushResearch();
   const navigate = useNavigate();
   const [panel, setPanel] = useState<DetailPanel>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -75,22 +76,6 @@ export function ResearchPage() {
   });
   const labLevel = labBuilding?.level ?? 0;
 
-  const activeResearch = useMemo(
-    () =>
-      meData?.research?.find((r) => r.completesAt && new Date(r.completesAt) > new Date()) ?? null,
-    [meData?.research],
-  );
-
-  useEffect(() => {
-    if (!activeResearch?.completesAt) return;
-    const ms = new Date(activeResearch.completesAt).getTime() - Date.now();
-    if (ms <= 0) return;
-    const t = window.setTimeout(() => {
-      queryClient.invalidateQueries({ queryKey: ['me'] });
-    }, ms + 800);
-    return () => window.clearTimeout(t);
-  }, [activeResearch?.completesAt, queryClient]);
-
   const handleStart = async (def: TechTreeEntry) => {
     if (!homePlanetId) return;
     setActionError(null);
@@ -103,6 +88,17 @@ export function ResearchPage() {
       setPanel(null);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Could not start research';
+      setActionError(msg);
+    }
+  };
+
+  const handleRush = async (branch: string) => {
+    setActionError(null);
+    try {
+      await rushResearch.mutateAsync(branch);
+      setPanel(null);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Could not rush research';
       setActionError(msg);
     }
   };
@@ -200,6 +196,7 @@ export function ResearchPage() {
                           visual={vis}
                           tierDefinition={tierDef}
                           completesAt={progress?.completesAt}
+                          startedAt={progress?.startedAt}
                           durationSec={vis === 'active' && tierDef ? dur : undefined}
                         />
                       </button>
@@ -236,9 +233,13 @@ export function ResearchPage() {
           research={meData?.research}
           planetResources={homePlanetResources}
           startResearch={startResearch}
+          rushResearch={rushResearch}
+          diamondBalance={meData?.diamonds ?? 0}
+          rushPricing={meData?.rushPricing ?? null}
           error={actionError}
           onClose={() => setPanel(null)}
           onStart={() => handleStart(panel.def)}
+          onRush={() => handleRush(panel.def.branch)}
         />
       )}
 
@@ -275,9 +276,13 @@ interface TierDetailSheetProps {
   research: import('@shared/types/user').User['research'];
   planetResources: import('@shared/types/world').PlanetResource[] | undefined;
   startResearch: ReturnType<typeof useStartResearch>;
+  rushResearch: ReturnType<typeof useRushResearch>;
+  diamondBalance: number;
+  rushPricing: import('@shared/types/diamonds').RushPricing | null;
   error: string | null;
   onClose: () => void;
   onStart: () => void;
+  onRush: () => void;
 }
 
 function TierDetailSheet({
@@ -286,11 +291,48 @@ function TierDetailSheet({
   research,
   planetResources,
   startResearch,
+  rushResearch,
+  diamondBalance,
+  rushPricing,
   error,
   onClose,
   onStart,
+  onRush,
 }: TierDetailSheetProps) {
   const eligibility = evaluateResearchEligibility(def, labLevel, research, planetResources);
+  const activeProgress =
+    research?.find(
+      (row) =>
+        row.branch === def.branch &&
+        row.level === def.level - 1 &&
+        row.completesAt &&
+        new Date(row.completesAt).getTime() > Date.now(),
+    ) ?? null;
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    if (!activeProgress?.completesAt) return;
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [activeProgress?.completesAt]);
+
+  const activeTimer = activeProgress?.completesAt
+    ? timerSnapshot({
+        completesAt: activeProgress.completesAt,
+        startedAt: activeProgress.startedAt,
+        totalDurationSec: def.timeSec,
+        nowMs: now,
+      })
+    : null;
+  const rushCost =
+    activeTimer && rushPricing
+      ? estimateRushDiamondCost(
+          activeTimer.remainingSec,
+          rushPricing.diamondsPerMinute,
+          rushPricing.maxPerAction,
+        )
+      : 0;
+  const canRush = Boolean(activeTimer && rushPricing) && diamondBalance >= rushCost;
 
   return (
     <div className="bd-backdrop" onClick={onClose}>
@@ -316,7 +358,26 @@ function TierDetailSheet({
             <div className="tech-effect-body">{formatEffectLines(def.effects)}</div>
           </div>
 
-          {!eligibility.ok && (
+          {activeTimer && (
+            <div className="tech-effect-block">
+              <div className="tech-effect-label">Active research</div>
+              <div className="tech-effect-body">
+                {formatTimerDuration(activeTimer.remainingSec)} remaining
+              </div>
+              <div className="qstrip-bar" style={{ marginTop: 8 }}>
+                <div
+                  className="qstrip-fill"
+                  style={{
+                    width: `${activeTimer.progressPct}%`,
+                    background: 'var(--accent)',
+                    boxShadow: '0 0 6px var(--accent)',
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {!activeTimer && !eligibility.ok && (
             <div className="tech-lock-block">
               <div className="tech-effect-label">Blocked</div>
               {eligibility.labMessage && <p className="tech-lock-line">{eligibility.labMessage}</p>}
@@ -363,12 +424,28 @@ function TierDetailSheet({
 
           <button
             type="button"
-            onClick={onStart}
-            disabled={startResearch.isPending || !eligibility.ok}
+            onClick={activeTimer ? onRush : onStart}
+            disabled={
+              activeTimer
+                ? rushResearch.isPending || !canRush
+                : startResearch.isPending || !eligibility.ok
+            }
             className="cosmic-cta"
             style={{ width: '100%', padding: '14px', marginTop: 8 }}
           >
-            {startResearch.isPending ? 'Starting…' : eligibility.ok ? 'Initiate Research' : 'Locked'}
+            {activeTimer
+              ? rushResearch.isPending
+                ? 'Rushing…'
+                : !rushPricing
+                  ? 'Syncing price…'
+                  : canRush
+                  ? `◆ ${rushCost} Finish now`
+                  : `Need ◆ ${rushCost}`
+              : startResearch.isPending
+                ? 'Starting…'
+                : eligibility.ok
+                  ? 'Initiate Research'
+                  : 'Locked'}
           </button>
         </div>
       </div>

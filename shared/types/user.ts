@@ -2,6 +2,7 @@ import type { HomeSystem, Planet } from './world.js';
 import type { Ship } from './ships.js';
 import type { Expedition } from './expeditions.js';
 import type { ResearchProgress } from './research.js';
+import type { RushPricing } from './diamonds.js';
 
 export interface User {
   id: string;
@@ -20,4 +21,5 @@ export interface User {
   ships?: Ship[];
   expeditions?: Expedition[];
   research?: ResearchProgress[];
+  rushPricing?: RushPricing;
 }

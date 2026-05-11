@@ -5,10 +5,11 @@ import { meRoutes } from '../features/me/routes.js';
 import { buildingsRoutes } from '../features/buildings/routes.js';
 import { shipsRoutes } from '../features/ships/routes.js';
 import { db } from '../db/index.js';
-import { planets, systems, ships, buildings, resources, planetResources } from '../db/schema.js';
+import { planets, systems, ships, buildings, resources, planetResources, notifications } from '../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import crypto from 'crypto';
 import { env } from '../lib/env.js';
+import { completeShipBuildJob } from './tick-ships.js';
 
 describe('Tick Ships Worker', () => {
   const botToken = env.TELEGRAM_BOT_TOKEN;
@@ -176,5 +177,31 @@ describe('Tick Ships Worker', () => {
     expect(updated!.locationPlanetId).toBe(planetId);
     expect(updated!.typeId).toBe('scout');
     expect(updated!.fuel).toBe('0.00');
+  });
+
+  it('does not create a notification when the ship was already finalized online', async () => {
+    const { userId } = await createTestUser();
+    const planetId = await getHomePlanetId(userId);
+
+    const [inserted] = await db
+      .insert(ships)
+      .values({
+        ownerId: userId,
+        typeId: 'scout',
+        locationPlanetId: planetId,
+        status: 'idle',
+        queueCompletesAt: null,
+        cargoJson: {},
+        fuel: '0',
+      })
+      .returning();
+
+    const completed = await completeShipBuildJob(inserted.id, planetId);
+    expect(completed).toBe(false);
+
+    const notes = await db.query.notifications.findMany({
+      where: eq(notifications.userId, userId),
+    });
+    expect(notes.filter((note) => note.type === 'ship_done')).toHaveLength(0);
   });
 });

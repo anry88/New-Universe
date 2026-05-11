@@ -39,7 +39,7 @@ The `tools/` folder hosts offline agents (not bundled into Docker images). Today
 - Logging: Pino instance from `lib/logger.ts`, switched to `pino-pretty` in development.
 - Request IDs: every incoming request gets a UUID via `middleware/request-id.ts` and the ID is exposed under the `requestId` log key.
 - Sentry: `lib/sentry.ts` is imported as the very first module to capture early-startup errors; it stays disabled when `SENTRY_DSN` is empty.
-- Routes: `/health` (`routes/health.ts`), `/webhook/telegram` (`routes/bot.ts`), `/auth/telegram` (`features/auth/routes.ts`), `/me` (`features/me/routes.ts`), `/buildings/*` including **`POST /buildings/rush`** (`features/buildings/routes.ts`), `/resources/convert` (`features/resources/routes.ts`), `/ships/build`, `/ships/queue`, **`POST /ships/rush`** (`features/ships/routes.ts`), `/expeditions` (`features/expeditions/routes.ts`), `/expeditions/jump` (`features/expeditions/routes.ts`), `/research/start` (`features/research/routes.ts`), `/tutorial/sync` (`features/tutorial/routes.ts`), `/market/offers` (`routes/market.ts`), `/market/orders` (`routes/market.ts`), `/market/orders/:orderId/cancel` (`routes/market.ts`), `/multiplayer/sectors/:sx/:sy/:sz/presence` (`routes/multiplayer.ts`).
+- Routes: `/health` (`routes/health.ts`), `/webhook/telegram` (`routes/bot.ts`), `/auth/telegram` (`features/auth/routes.ts`), `/me` (`features/me/routes.ts`; active-session sync finalizes due timers before returning state), `/buildings/*` including **`POST /buildings/rush`** (`features/buildings/routes.ts`), `/resources/convert` (`features/resources/routes.ts`), `/ships/build`, `/ships/queue`, **`POST /ships/rush`** (`features/ships/routes.ts`), `/expeditions` (`features/expeditions/routes.ts`), `/expeditions/jump` (`features/expeditions/routes.ts`), `/research/start`, **`POST /research/rush`** (`features/research/routes.ts`), `/tutorial/sync` (`features/tutorial/routes.ts`), `/market/offers` (`routes/market.ts`), `/market/orders` (`routes/market.ts`), `/market/orders/:orderId/cancel` (`routes/market.ts`), `/multiplayer/sectors/:sx/:sy/:sz/presence` (`routes/multiplayer.ts`).
 
 ### Workers
 
@@ -47,11 +47,11 @@ The `tools/` folder hosts offline agents (not bundled into Docker images). Today
 
 - **Repeat Queue**: Uses BullMQ's repeatable jobs to "tick" game logic every 30 seconds.
 - **`tick-buildings`**: Completes construction/upgrades and updates resource regen rates.
-- **`tick-expeditions`**: The most complex worker; it interpolates ship positions on the **sector XY plane** during travel (Z stays at the origin system’s sector Z for fog-of-war), performs real-time visibility checks with planet-size discovery radii, and turns one-way colonizer arrivals into settled colonies with a completed Command Center.
-- **`tick-ships`**: Finalizes ship production.
+- **`tick-expeditions`**: The most complex worker; it interpolates ship positions on the **sector XY plane** during travel (Z stays at the origin system’s sector Z for fog-of-war), performs real-time visibility checks with planet-size discovery radii, and turns one-way colonizer arrivals into settled colonies with a completed Command Center. The same `processExpeditions({ userId, skipNotifications })` path powers online `/me` sync for due arrivals without Telegram pushes.
+- **`tick-ships`**: Finalizes ship production. Jobs update only still-building due rows and skip notification creation when the ship was already completed by online sync.
 - **`notifications`**: Processes pending notifications from the database and sends them to Telegram via the Bot API every minute, respecting a 20 msgs/min per user rate limit.
 - **`cargo-routes`**: Completes interplanetary resource transfers triggered from the API; handles atomicity, idempotency, and resource delivery.
-- **`research`**: Applies finished lab timers (`research_progress.completes_at`), bumps completed tier levels once, triggers effect-cache invalidation hooks, and queues `research_done` notifications.
+- **`research`**: Applies finished lab timers (`research_progress.completes_at`), bumps completed tier levels once, triggers effect-cache invalidation hooks, and queues `research_done` notifications only for offline/worker completions.
 - **`market`**: Every ~15 seconds runs `processNpcMarketFulfillment` to settle open NPC orders (sell: credits iron once inventory fits; buy: delivers purchased goods after `delivery_ready_at`, clamps to storage caps, refunds unused iron).
 
 
@@ -70,8 +70,8 @@ The bot entry point is `POST /webhook/telegram`. Incoming updates are dispatched
 - `resources`, `richness`, `planet_resources` — universe resource catalog (24 seeded resources across tiers 1–4, including `oil`, `fuel`, `steel`, and `electronics`) and per-planet inventory. **`planet_resources.regenRate`** combines planetary richness with **building outputs** from `building_types.baseOutput` (`oil_pump` → `oil`, `refinery` → `fuel`, `smelter` → `steel`, `fabrication_bay` → `electronics`, mines/drills → ores/water); the NPC market is not required for those baselines.
 - `systems`, `planets` — generated star systems and their planets, including biome and slot count.
 - `building_types`, `buildings` — building catalog and per-planet build queue rows. Catalog rows may set **`max_per_planet`** / **`max_global`** (nullable integers) so uniqueness rules such as one Command Center per planet or one Laboratory account-wide stay aligned between seeds, API payloads (`GET /buildings/types`), and UI eligibility (`shared/types/building-eligibility.ts`). Eligibility can take an optional **`dependencyBuildings`** snapshot so structures still in the initial build queue do not satisfy prerequisite levels until construction finishes.
-- `research_branches`, `research_progress` — research tree definitions and per-user progress.
-- `ship_types`, `ships` — ship catalog and player-owned ship instances.
+- `research_branches`, `research_progress` — research tree definitions and per-user progress. Active rows expose derived `startedAt` through `/me` so progress bars can be computed exactly without schema changes.
+- `ship_types`, `ships` — ship catalog and player-owned ship instances. Active build rows expose derived `queueStartedAt` through `/me` and `/ships/queue`.
 - `discovered_planets`, `discovered_systems` — fog-of-war reveal records.
 - `expeditions` — scheduled expedition jobs with `eta` / `status` index.
 - `notifications` — push notification log with `pending` and `sentAt` tracking.
@@ -97,19 +97,19 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 `frontend/src/main.tsx` is the only entry point. It depends on `@telegram-apps/sdk-react` for Telegram launch parameters, theme, and viewport, and renders `App.tsx`. 
 - `lib/api.ts` — a unified fetch client that automatically sends the session token in the `Authorization` header and the Telegram `initDataRaw` in the `X-Telegram-Init-Data` header.
 - `hooks/useAuth.ts` — manages the auth flow and session token.
-- `hooks/useMe.ts` — uses TanStack Query to fetch and cache the current player state from `GET /me`, polling while ships are moving so expedition countdowns and completed trails clear without a manual refresh.
+- `hooks/useMe.ts` — uses TanStack Query to fetch and cache the current player state from `GET /me`; countdowns tick locally and the hook schedules one refetch at the nearest due building/research/ship/expedition timestamp.
 - `pages/SectorMap.tsx` — Phase 3 sector radar: queries `GET /multiplayer/sectors/:sx/:sy/:sz/presence` and renders markers via `components/pixi/SectorRenderer.tsx` (PixiJS scatter plot; foreign actors shown with summary visibility).
 - `hooks/useColonies.ts` — manages the collection of player-owned planets and tracks the focal planet across the UI via a dedicated Zustand store; discovered-but-unsettled planets are excluded until a colonizer arrives.
 - `pages/Home.tsx` — main game screen with resource bar, tab bar, and navigation; inactive-tutorial shortcut uses **`tutorial-launcher`** CSS so it sits below the resource bar (no overlap).
 - `pages/Colonies.tsx` — lists all owned planets with their resources and status, allowing focal planet switching and initiating cargo transfers.
 - `pages/Market.tsx` — market UI for browsing buy/sell quotes, submitting NPC market orders, and tracking pending order ETA.
-- `pages/Research.tsx` — Cosmic Atlas tech tree (**levels 1–5** per branch, synced with `frontend/src/lib/tech-tree.ts` / `@shared/config/researchCatalog`); lab/prerequisite/resource gating (BuildDialog-style blocking copy), tier detail sheet, optimistic research starts, live countdown chips.
+- `pages/Research.tsx` — Cosmic Atlas tech tree (**levels 1–5** per branch, synced with `frontend/src/lib/tech-tree.ts` / `@shared/config/researchCatalog`); lab/prerequisite/resource gating (BuildDialog-style blocking copy), tier detail sheet, optimistic research starts, live countdown chips, and diamond rush for the active tier.
 - `pages/onboarding/Onboarding.tsx` — Cosmic tutorial overlay: step list with reward copy from `@shared/config/tutorialRewards`, periodic `POST /tutorial/sync`, **Continue** returns to Home without forcing `/onboarding` again until the player re-opens tutorial or completes it (`sessionStorage` + lifted App state).
 - `pages/PlanetDetail.tsx` — detailed planet screen with infrastructure slots, building construction, and upgrade dialogs; unsettled discovered planets show their survey data but keep building slots locked until colonization.
 - `components/ExpeditionDialog.tsx` — launch dialog for scouts, cargo, and colonizers. Colonizers require a discovered unsettled home-system planet target and reserve one-way fuel for settlement instead of behaving like return-trip scouts.
 - `components/ResourceBar.tsx` — displays planet resources with animated real-time regeneration.
 - `components/PlanetView.tsx` — shows the current focus planet overview.
-- `components/BuildQueue.tsx` — displays the current build queue with countdown timers.
+- `components/BuildQueue.tsx` — displays the current build queue with countdown timers and progress from server-derived `queueStartedAt`; syncs due builds at completion rather than polling `/me` every second.
 - `components/CargoTransferDialog.tsx` — interplanetary logistics interface for moving resources between colonies.
 - `components/Tutorial.tsx` — full-screen onboarding overlay UI used by `Onboarding.tsx`.
 - `components/BuildingSlot.tsx` — presentational component for an infrastructure slot.
@@ -121,10 +121,12 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 - `user.ts` — `User` interface (`diamonds`, onboarding fields, home system linkage).
 - `buildings.ts` — building types and construction requests.
 - `auth.ts` — `AuthResponse` interface.
-- `research.ts` — research DTOs, `ResearchRequirementRef`, `RESEARCH_BRANCH_LABELS_EN`, plus `ResourceId` union used by tech-tree costs and unlock messaging on both backend and frontend.
+- `research.ts` — research DTOs, `RushResearchRequest` / `RushResearchResponse`, `ResearchRequirementRef`, `RESEARCH_BRANCH_LABELS_EN`, plus `ResourceId` union used by tech-tree costs and unlock messaging on both backend and frontend.
+- `diamonds.ts` — shared rush-pricing metadata and formula used by building, ship, and research rush previews.
 - `expeditions.ts` — expedition DTOs plus `ExpeditionResult` (`fuelRequired`, route distance/speed/timer data) shared by map/fleet countdown UI and backend launch records.
+- `ships.ts` — fleet DTOs including active build `queueStartedAt` for local ETA/progress rendering.
 - `market.ts` — market offer and order contracts shared between frontend market hooks and backend market routes.
-- `world.ts` — world DTOs including `Planet.isColonized`, which lets the frontend separate survey visibility from settlement ownership.
+- `world.ts` — world DTOs including `Planet.isColonized`, which lets the frontend separate survey visibility from settlement ownership, plus active building `queueStartedAt`.
 
 `shared/format/` holds locale-aware and deterministic display helpers — **`homeSystemNaming.ts`** templates EN/RU home-system titles and `{shortTag}-N` planet codes shared with world generation; **`systemMapLayout.ts`** keeps the frontend orbital map and worker pass-by discovery on the same flat geometry, including biome orbit ordering and sprite-size-based discovery radius.
 
