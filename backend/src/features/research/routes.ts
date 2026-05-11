@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import { env } from '../../lib/env.js';
 import { db } from '../../db/index.js';
 import { researchProgress, buildings, planets, systems } from '../../db/schema.js';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, desc, isNull } from 'drizzle-orm';
 import { getResearchDef } from './data.js';
 import { spendResources } from '../resources/transactions.js';
 
@@ -54,14 +54,41 @@ export async function researchRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: 'Research level not found' });
     }
 
-    // Check requirements: Research Lab
-    const labReq = def.requirements.buildings?.find((b: { typeId: string; level: number }) => b.typeId === 'lab');
+    // Check requirements: Research Lab.
+    //
+    // The lab is `maxGlobal: 1` — at most one across the player's empire —
+    // so the lab is not necessarily on the same planet the request comes
+    // from. We look up any *completed* lab on any of the user's planets
+    // and use its level. Two important details:
+    //
+    //   * `queueAction IS NOT NULL` excludes labs that are still being
+    //     built or upgraded (the building row exists with `level=N` while
+    //     queued, which used to falsely satisfy this gate).
+    //   * If the player has somehow ended up with two lab rows (e.g.
+    //     migration artefacts), we use the highest-level one.
+    const labReq = def.requirements.buildings?.find(
+      (b: { typeId: string; level: number }) => b.typeId === 'lab',
+    );
     if (labReq) {
-      const lab = await db.query.buildings.findFirst({
-        where: and(eq(buildings.planetId, planetId), eq(buildings.typeId, 'lab')),
-      });
-      if (!lab || lab.level < labReq.level) {
-        return reply.status(400).send({ error: `Research Lab level ${labReq.level} required` });
+      const labs = await db
+        .select({ level: buildings.level })
+        .from(buildings)
+        .innerJoin(planets, eq(planets.id, buildings.planetId))
+        .innerJoin(systems, eq(systems.id, planets.systemId))
+        .where(
+          and(
+            eq(systems.ownerId, userId),
+            eq(buildings.typeId, 'lab'),
+            isNull(buildings.queueAction),
+          ),
+        )
+        .orderBy(desc(buildings.level))
+        .limit(1);
+      const labLevel = labs[0]?.level ?? 0;
+      if (labLevel < labReq.level) {
+        return reply
+          .status(400)
+          .send({ error: `Research Lab level ${labReq.level} required` });
       }
     }
 

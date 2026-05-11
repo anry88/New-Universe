@@ -96,7 +96,8 @@ describe('ColonyService', () => {
   it('enforces colony limit', async () => {
     // Find the system ID of the "Other" system
     const system = await db.query.planets.findFirst({
-        where: eq(planets.id, otherPlanetId)
+        where: eq(planets.id, otherPlanetId),
+        orderBy: (p, { asc }) => asc(p.name),
     });
     const systemId = system!.systemId;
 

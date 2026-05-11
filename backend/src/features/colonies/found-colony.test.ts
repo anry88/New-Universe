@@ -118,7 +118,9 @@ describe('foundColony', () => {
   it('rejects ships at different location', async () => {
     // Create another planet in the same system
     const [otherPlanet] = await db.insert(planets).values({
-      systemId: (await db.query.planets.findFirst({ where: eq(planets.id, targetPlanetId) }))!.systemId,
+      systemId: (await db.query.planets.findFirst({ where: eq(planets.id, targetPlanetId),
+      orderBy: (p, { asc }) => asc(p.name),
+    }))!.systemId,
       biome: 'rocky',
       size: 5,
       slotCount: 5,
@@ -141,15 +143,16 @@ describe('foundColony', () => {
     });
     expect(ship).toBeUndefined();
 
-    // Verify initial building (Command Center L1 in queue)
+    // Verify initial building: Command Center L1 created *instantly*
+    // (the colonizer ship IS the command center on arrival — no queue).
     const commandCenter = await db.query.buildings.findFirst({
       where: and(eq(buildings.planetId, targetPlanetId), eq(buildings.typeId, 'command_center'))
     });
     expect(commandCenter).toBeDefined();
     expect(commandCenter!.level).toBe(1);
     expect(commandCenter!.slotIndex).toBe(0);
-    expect(commandCenter!.queueAction).toBe('build');
-    expect(commandCenter!.queueCompletesAt).toBeInstanceOf(Date);
+    expect(commandCenter!.queueAction).toBeNull();
+    expect(commandCenter!.queueCompletesAt).toBeNull();
   });
 
   it('rejects colonization if already colonized', async () => {

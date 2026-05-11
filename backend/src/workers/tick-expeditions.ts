@@ -9,7 +9,12 @@ import {
   systems,
   notifications,
   discoveredPlanets,
+  colonies,
+  buildings,
 } from "../db/schema.js";
+import { bootstrapColony } from "../features/colonies/bootstrap.js";
+import { checkColonizationGates } from "../features/colonies/colonization-rules.js";
+import { colonyService } from "../features/colonies/colonies.js";
 
 import { and, eq, inArray, or } from "drizzle-orm";
 
@@ -242,6 +247,28 @@ async function handleArrivalAtTarget(
     }
   }
 
+  // Colonizer arrivals are a special case: the ship is the seed for a new
+  // colony. On arrival at a discovered, eligible planet we consume the
+  // ship, plant a level-1 command_center instantly, bootstrap the colony,
+  // and complete the expedition (no return trip).
+  if (expedition.type === "colonizer" && expedition.targetPlanetId) {
+    const colonized = await autoColonizeAtTarget(expedition, tx);
+    if (colonized) {
+      await tx.delete(expeditions).where(eq(expeditions.id, expedition.id));
+      logger.info(
+        {
+          expeditionId: expedition.id,
+          shipId: expedition.shipId,
+          planetId: expedition.targetPlanetId,
+        },
+        "Colonizer arrived: planted command center and consumed ship",
+      );
+      return;
+    }
+    // Fall-through if colonization gates failed — start the return trip so
+    // the ship comes home rather than getting stuck in space.
+  }
+
   // Start return journey from the moment we SHOULD have arrived
   const arrivalTime = expedition.eta.getTime();
   const returnEta = new Date(arrivalTime + durationMs);
@@ -258,6 +285,94 @@ async function handleArrivalAtTarget(
     { expeditionId: expedition.id, shipId: expedition.shipId },
     "Expedition reached target, starting return journey",
   );
+}
+
+/**
+ * Performs in-flight colonization when a colonizer ship arrives at its
+ * target. Returns true if a colony was created, false if the planet was
+ * ineligible (in which case the caller should send the ship home).
+ *
+ * Mirrors `foundColony` but is callable inside an existing transaction.
+ */
+async function autoColonizeAtTarget(
+  expedition: typeof expeditions.$inferSelect,
+  tx: any,
+): Promise<boolean> {
+  if (!expedition.targetPlanetId) return false;
+
+  const [ship] = await tx
+    .select()
+    .from(ships)
+    .where(eq(ships.id, expedition.shipId))
+    .limit(1);
+  if (!ship) return false;
+
+  // Gate checks (research, distance, cooldown, planet eligibility). If
+  // any gate fails the colonizer turns around and flies home.
+  const gates = await checkColonizationGates(
+    ship.ownerId,
+    expedition.targetPlanetId,
+  );
+  if (!gates.allowed) {
+    logger.warn(
+      {
+        expeditionId: expedition.id,
+        shipId: expedition.shipId,
+        reason: gates.reason,
+      },
+      "Colonizer arrival blocked by gates, returning home",
+    );
+    return false;
+  }
+
+  const eligibility = await colonyService.canColonize(
+    ship.ownerId,
+    expedition.targetPlanetId,
+  );
+  if (!eligibility.allowed) {
+    logger.warn(
+      {
+        expeditionId: expedition.id,
+        shipId: expedition.shipId,
+        reason: eligibility.reason,
+      },
+      "Colonizer arrival blocked: planet ineligible, returning home",
+    );
+    return false;
+  }
+
+  // Consume the ship: the colonizer hull becomes the command center.
+  await tx.delete(ships).where(eq(ships.id, expedition.shipId));
+
+  // Create the colony.
+  await tx.insert(colonies).values({
+    ownerId: ship.ownerId,
+    planetId: expedition.targetPlanetId,
+  });
+
+  // Plant the command center at slot 0 instantly (no queue).
+  await tx.insert(buildings).values({
+    planetId: expedition.targetPlanetId,
+    typeId: "command_center",
+    level: 1,
+    slotIndex: 0,
+  });
+
+  // Bootstrap economy.
+  await bootstrapColony(expedition.targetPlanetId, tx);
+
+  // Notify the player.
+  await tx.insert(notifications).values({
+    userId: ship.ownerId,
+    type: "colony_founded",
+    payload: {
+      expeditionId: expedition.id,
+      planetId: expedition.targetPlanetId,
+      shipId: ship.id,
+    },
+  });
+
+  return true;
 }
 
 async function handleArrivalAtHome(

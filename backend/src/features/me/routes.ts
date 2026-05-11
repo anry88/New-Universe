@@ -11,7 +11,7 @@ import {
   expeditions,
   researchProgress,
 } from "../../db/schema.js";
-import { and, eq, inArray, or } from "drizzle-orm";
+import { and, asc, eq, inArray, or } from "drizzle-orm";
 import { syncTutorialProgress } from "../tutorial/service.js";
 import { homeSystemShortTag } from "@shared/format/homeSystemNaming.js";
 
@@ -66,6 +66,15 @@ export async function meRoutes(app: FastifyInstance) {
             with: {
               buildings: true,
             },
+            // Planet ids are random UUIDs, so the default query order is
+            // effectively random. The frontend treats `planets[0]` as the
+            // home/capital planet (e.g. for resource-bar context and the
+            // research lab lookup), and any other planet would surface
+            // wrong totals and break research gating. Planet names follow
+            // the `<tag>-<orbit>` convention (capital is always `-1`),
+            // so an ascending lexical order on `name` always puts the
+            // capital first.
+            orderBy: [asc(planets.name)],
           },
         },
       });
