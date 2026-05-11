@@ -1,4 +1,5 @@
 import { retrieveLaunchParams } from '@telegram-apps/sdk-react';
+import { getUiLocale } from './locale';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -23,6 +24,8 @@ export async function apiFetch<T>(
   const url = `${BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
   
   const headers = new Headers(options.headers);
+  headers.set('Accept-Language', getUiLocale());
+
   if (sessionToken) {
     headers.set('Authorization', `Bearer ${sessionToken}`);
   }

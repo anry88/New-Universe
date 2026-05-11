@@ -40,7 +40,7 @@ describe('Auth Routes', () => {
     await app.register(authRoutes, { prefix: '/auth' });
 
     const tgId = Math.floor(Math.random() * 100000000);
-    const tgUser = { id: tgId, first_name: 'New', username: 'newuser' };
+    const tgUser = { id: tgId, first_name: 'New', username: 'newuser', language_code: 'ru' };
     const initData = createValidInitData(tgUser);
 
     const response = await app.inject({
@@ -54,6 +54,7 @@ describe('Auth Routes', () => {
     expect(response.statusCode).toBe(200);
     const body = response.json();
     expect(body.user.tgId).toBe(tgId.toString());
+    expect(body.user.preferredLocale).toBe('ru');
     expect(body.user.diamonds).toBe(env.DIAMOND_STARTING_GRANT);
     expect(body.token).toBeDefined();
 
@@ -90,7 +91,8 @@ describe('Auth Routes', () => {
     expect(response.statusCode).toBe(200);
     const body = response.json();
     expect(body.user.tgId).toBe(tgId.toString());
-    
+    expect(body.user.preferredLocale).toBe('en');
+
     const userSystems = await db.query.systems.findMany({
       where: eq(systems.ownerId, body.user.id),
     });

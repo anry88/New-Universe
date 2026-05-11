@@ -5,7 +5,7 @@ Cross-cutting Fastify hooks and `preHandler` plugins. Everything in this folder 
 ## Files
 
 - **`request-id.ts`** — `generateRequestId(_req)` returns a UUID v4 from `uuid`. It is wired into Fastify via `genReqId: generateRequestId` in `backend/src/index.ts`, and the `requestIdLogLabel: 'requestId'` setting makes it appear in every log line for that request. Override this function only if you adopt an external trace-ID format (e.g. W3C Trace Context).
-- **`telegram-auth.ts`** — `telegramAuthMiddleware(request, reply)` is a Fastify `preHandler`. It rejects the request with `401 Unauthorized` and a JSON body in four cases:
+- **`telegram-auth.ts`** — `telegramAuthMiddleware(request, reply)` is a Fastify `preHandler`. It rejects the request with localized `401 Unauthorized` JSON (resolved from Telegram `language_code` when available, otherwise `Accept-Language`) in four cases:
   1. The `X-Telegram-Init-Data` header is missing or not a string.
   2. `validateTelegramInitData(initData, env.TELEGRAM_BOT_TOKEN)` returned `null` (bad hash).
   3. `isInitDataExpired(validatedData.auth_date)` is `true` (older than 1 hour).

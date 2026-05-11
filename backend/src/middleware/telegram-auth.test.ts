@@ -101,4 +101,20 @@ describe('telegramAuthMiddleware', () => {
     expect(response.statusCode).toBe(401);
     expect(response.json().message).toContain('Telegram initData expired');
   });
+
+  it('localizes auth errors from Accept-Language', async () => {
+    const app = Fastify();
+    app.get('/test', { preHandler: [telegramAuthMiddleware] }, async () => ({ ok: true }));
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/test',
+      headers: {
+        'accept-language': 'ru-RU,ru;q=0.9',
+      },
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(response.json().message).toContain('Отсутствует заголовок');
+  });
 });

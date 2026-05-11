@@ -13,13 +13,14 @@ const KIND_COLORS: Record<PresenceEntityKind, number> = {
 
 interface SectorRendererProps {
   entities: SectorPresenceEntity[];
+  emptyLabel: string;
 }
 
 /**
  * Lightweight Pixi scatter plot for sector-scale markers (multiplayer slice).
  * Maps world X/Y into view space while preserving relative distances within the sector.
  */
-export function SectorRenderer({ entities }: SectorRendererProps) {
+export function SectorRenderer({ entities, emptyLabel }: SectorRendererProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<PIXI.Application | null>(null);
 
@@ -55,7 +56,7 @@ export function SectorRenderer({ entities }: SectorRendererProps) {
 
       if (entities.length === 0) {
         const msg = new PIXI.Text({
-          text: 'No sector contacts',
+          text: emptyLabel,
           style: {
             fill: 0x94a3b8,
             fontSize: 13,
@@ -122,7 +123,7 @@ export function SectorRenderer({ entities }: SectorRendererProps) {
       app.destroy(true);
       appRef.current = null;
     };
-  }, [entities]);
+  }, [emptyLabel, entities]);
 
   return <div ref={wrapRef} style={{ width: '100%', height: '100%', minHeight: 280 }} />;
 }

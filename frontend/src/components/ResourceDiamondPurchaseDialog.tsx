@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getResourceLabel, getResourceSymbol } from './cosmic/resources';
 import { apiFetch } from '../lib/api';
+import { useI18n } from '../lib/i18n';
 
 interface ResourceDiamondPurchaseDialogProps {
   open: boolean;
@@ -21,6 +22,7 @@ export function ResourceDiamondPurchaseDialog({
   onClose,
   onConfirm,
 }: ResourceDiamondPurchaseDialogProps) {
+  const { locale, t } = useI18n();
   const [amount, setAmount] = useState('100');
   const parsedAmount = useMemo(() => Math.max(0, Math.floor(Number(amount))), [amount]);
   const [quote, setQuote] = useState<{ diamondsNeeded: number; unitsPerDiamond: number; tier: number } | null>(null);
@@ -64,23 +66,23 @@ export function ResourceDiamondPurchaseDialog({
 
   return (
     <div className="resource-inv-overlay" role="dialog" aria-modal="true" aria-labelledby="resource-buy-title">
-      <button type="button" className="resource-inv-backdrop" aria-label="Close" onClick={onClose} />
+      <button type="button" className="resource-inv-backdrop" aria-label={t('common.close')} onClick={onClose} />
       <div className="resource-inv-panel">
         <div className="resource-inv-head">
           <h2 id="resource-buy-title" className="resource-inv-title">
-            Buy {getResourceLabel(resourceId)}
+            {t('resources.buyTitle', { resource: getResourceLabel(resourceId, locale) })}
           </h2>
           <button type="button" className="resource-inv-close" onClick={onClose}>
             ✕
           </button>
         </div>
         <section className="resource-inv-section">
-          <div className="resource-inv-section-label">Purchase</div>
+          <div className="resource-inv-section-label">{t('resources.purchase')}</div>
           <div className="resource-inv-hint">
-            {getResourceSymbol(resourceId)} {getResourceLabel(resourceId)}
+            {getResourceSymbol(resourceId)} {getResourceLabel(resourceId, locale)}
           </div>
           <label className="resource-buy-input-wrap">
-            <span className="resource-inv-sub">Amount</span>
+            <span className="resource-inv-sub">{t('resources.amount')}</span>
             <input
               type="number"
               min={1}
@@ -91,13 +93,17 @@ export function ResourceDiamondPurchaseDialog({
               disabled={busy}
             />
           </label>
-          <div className="resource-inv-hint">Diamonds on account: ◆ {diamondBalance.toLocaleString()}</div>
+          <div className="resource-inv-hint">{t('resources.diamondBalance', { diamonds: diamondBalance.toLocaleString() })}</div>
           <div className="resource-inv-hint">
             {quoteLoading
-              ? 'Calculating price…'
+              ? t('resources.calculating')
               : quote
-                ? `Price now: ◆ ${quote.diamondsNeeded.toLocaleString()} (tier ${quote.tier}, ${quote.unitsPerDiamond} units/diamond)`
-                : 'Price unavailable'}
+                ? t('resources.priceNow', {
+                    diamonds: quote.diamondsNeeded.toLocaleString(),
+                    tier: quote.tier,
+                    units: quote.unitsPerDiamond,
+                  })
+                : t('resources.priceUnavailable')}
           </div>
           <button
             type="button"
@@ -105,7 +111,7 @@ export function ResourceDiamondPurchaseDialog({
             disabled={busy || parsedAmount <= 0 || !quote}
             onClick={() => onConfirm(parsedAmount)}
           >
-            {busy ? 'Processing…' : 'Buy with diamonds'}
+            {busy ? t('common.processing') : t('resources.buyWithDiamonds')}
           </button>
         </section>
       </div>

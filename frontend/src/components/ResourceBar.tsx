@@ -8,6 +8,7 @@ import { planetInventoryApiPath } from '../lib/resourceBarScope';
 import { ResourceInventoryDrawer, type InventoryRow } from './ResourceInventoryDrawer';
 import { ResourceDiamondPurchaseDialog } from './ResourceDiamondPurchaseDialog';
 import { useQueryClient } from '@tanstack/react-query';
+import { useI18n } from '../lib/i18n';
 
 interface ResourceBarProps {
   planetId?: string;
@@ -28,6 +29,7 @@ interface ResourceWithAmount extends PlanetResource {
  */
 export function ResourceBar({ planetId, planetLabel }: ResourceBarProps) {
   const { data: meData } = useMe();
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const diamondBalance = meData?.diamonds;
   const [resources, setResources] = useState<ResourceWithAmount[]>([]);
@@ -119,7 +121,7 @@ export function ResourceBar({ planetId, planetLabel }: ResourceBarProps) {
   const titlePlanet =
     planetLabel?.trim() ||
     meData?.homeSystem?.planets?.[0]?.name ||
-    'Planet';
+    t('colonies.planetSingular');
 
   const selectedPlanetId = planetId || meData?.homeSystem?.planets?.[0]?.id;
   const openPurchase = (resourceId: string) => {
@@ -150,7 +152,7 @@ export function ResourceBar({ planetId, planetLabel }: ResourceBarProps) {
       await queryClient.invalidateQueries({ queryKey: ['me'] });
       setPurchaseOpen(false);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Failed to buy resource');
+      alert(err instanceof Error ? err.message : t('resources.failedBuy'));
     } finally {
       setPurchaseBusy(false);
     }
@@ -177,7 +179,7 @@ export function ResourceBar({ planetId, planetLabel }: ResourceBarProps) {
             disabled
             aria-disabled="true"
           >
-            All
+            {t('common.all')}
           </button>
         </div>
       </>
@@ -199,7 +201,7 @@ export function ResourceBar({ planetId, planetLabel }: ResourceBarProps) {
           onClick={() => setInventoryOpen(true)}
           aria-expanded={inventoryOpen}
         >
-          All
+          {t('common.all')}
         </button>
       </div>
       <ResourceInventoryDrawer

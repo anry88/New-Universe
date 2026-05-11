@@ -5,16 +5,17 @@ This feature handles the retrieval of the current player's state. It is the prim
 ## Files
 
 - **`online-sync.ts`** — `syncDuePlayerState(userId)` is the active-session completion path used by `/me`. It finalizes due building queues, ship builds, research tiers, and expedition/colonization arrivals for the current user with notification suppression, then marks any stale pending completion notifications as read/non-pending so Telegram pushes are not sent after an online acknowledgement.
-- **`routes.ts`** — `meRoutes(app)` registers `GET /me`. 
+- **`routes.ts`** — `meRoutes(app)` registers `GET /me` and `PATCH /me/preferences`.
   - It requires a valid JWT in the `Authorization: Bearer <token>` header.
   - It validates the token using `JWT_SECRET` from the environment.
   - On success, it first runs `syncDuePlayerState(userId)`, then tutorial progression sync, then returns the full player state:
-    - `user`: the User object with `tgId` converted to string plus onboarding fields (`tutorialStep`, `tutorialCompletedAt`)
+    - `user`: the User object with `tgId` converted to string plus `preferredLocale` and onboarding fields (`tutorialStep`, `tutorialCompletedAt`)
     - `homeSystem`: the player's home system (includes derived **`shortTag`** from the system UUID for localized titles) with **`planets` filtered to `discovered_planets` rows for this user** (capital plus any bodies surveyed by scout); per-planet resources (lazy-computed amounts) and buildings (queue status plus server-derived `queueStartedAt`) follow that list
     - `ships`: list of player's ships with `queueStartedAt` when a build timer is active.
     - `expeditions`: list of active expeditions.
     - `research`: research progress rows with `startedAt` while a tier timer is active.
     - `rushPricing`: account-wide rush pricing metadata for live diamond-cost previews.
+  - `PATCH /me/preferences` accepts `{ preferredLocale: 'en' | 'ru' }`, updates `users.preferredLocale`, and returns the persisted locale for frontend refetch/sync.
 - **`me.test.ts`** — Vitest coverage for the `me` feature. It tests both authorized (with token) and unauthorized (missing token) access paths.
 
 ## Adding to player state

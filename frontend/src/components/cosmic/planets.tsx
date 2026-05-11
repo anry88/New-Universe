@@ -5,25 +5,28 @@
  * intrinsic palette per biome.
  */
 import React from 'react';
+import type { Locale } from '@shared/types/locale';
 
 export type Biome = 'rocky' | 'ocean' | 'gas_giant' | 'ice' | 'volcanic' | 'green' | 'anomaly' | 'unknown';
 
 export interface BiomeMeta {
   label: string;
+  labels: Record<Locale, string>;
   tag: string;
+  tags: Record<Locale, string>;
   accent: string;
   hue: number;
 }
 
 export const BIOME_META: Record<Biome, BiomeMeta> = {
-  rocky: { label: 'Rocky', tag: 'TERRESTRIAL', accent: '#C7A582', hue: 30 },
-  ocean: { label: 'Ocean', tag: 'AQUATIC', accent: '#7DD8E8', hue: 195 },
-  gas_giant: { label: 'Gas Giant', tag: 'ATMOSPHERIC', accent: '#E6C58A', hue: 38 },
-  ice: { label: 'Ice', tag: 'CRYOGENIC', accent: '#9BC6E0', hue: 210 },
-  volcanic: { label: 'Volcanic', tag: 'MAGMATIC', accent: '#FF6B2C', hue: 18 },
-  green: { label: 'Green', tag: 'BIOTIC', accent: '#9FE0B5', hue: 150 },
-  anomaly: { label: 'Anomaly', tag: 'EXOTIC', accent: '#E0B0FF', hue: 280 },
-  unknown: { label: 'Unknown', tag: 'UNIDENTIFIED', accent: '#96AFD2', hue: 210 },
+  rocky: { label: 'Rocky', labels: { en: 'Rocky', ru: 'Каменистая' }, tag: 'TERRESTRIAL', tags: { en: 'TERRESTRIAL', ru: 'ТВЕРДАЯ' }, accent: '#C7A582', hue: 30 },
+  ocean: { label: 'Ocean', labels: { en: 'Ocean', ru: 'Океаническая' }, tag: 'AQUATIC', tags: { en: 'AQUATIC', ru: 'ОКЕАН' }, accent: '#7DD8E8', hue: 195 },
+  gas_giant: { label: 'Gas Giant', labels: { en: 'Gas Giant', ru: 'Газовый гигант' }, tag: 'ATMOSPHERIC', tags: { en: 'ATMOSPHERIC', ru: 'АТМОСФЕРНАЯ' }, accent: '#E6C58A', hue: 38 },
+  ice: { label: 'Ice', labels: { en: 'Ice', ru: 'Ледяная' }, tag: 'CRYOGENIC', tags: { en: 'CRYOGENIC', ru: 'КРИО' }, accent: '#9BC6E0', hue: 210 },
+  volcanic: { label: 'Volcanic', labels: { en: 'Volcanic', ru: 'Вулканическая' }, tag: 'MAGMATIC', tags: { en: 'MAGMATIC', ru: 'МАГМА' }, accent: '#FF6B2C', hue: 18 },
+  green: { label: 'Green', labels: { en: 'Green', ru: 'Зеленая' }, tag: 'BIOTIC', tags: { en: 'BIOTIC', ru: 'БИО' }, accent: '#9FE0B5', hue: 150 },
+  anomaly: { label: 'Anomaly', labels: { en: 'Anomaly', ru: 'Аномалия' }, tag: 'EXOTIC', tags: { en: 'EXOTIC', ru: 'ЭКЗОТИКА' }, accent: '#E0B0FF', hue: 280 },
+  unknown: { label: 'Unknown', labels: { en: 'Unknown', ru: 'Неизвестно' }, tag: 'UNIDENTIFIED', tags: { en: 'UNIDENTIFIED', ru: 'НЕИЗВЕСТНО' }, accent: '#96AFD2', hue: 210 },
 };
 
 export interface PlanetSvgProps {
@@ -285,6 +288,14 @@ export function resolveBiome(value: string | undefined | null): Biome {
   if (v === 'exotic') return 'anomaly';
   if (v === 'unknown' || v === 'fog' || v === 'locked') return 'unknown';
   return 'rocky';
+}
+
+export function getBiomeLabel(value: string | undefined | null, locale: Locale = 'en'): string {
+  return BIOME_META[resolveBiome(value)].labels[locale];
+}
+
+export function getBiomeTag(value: string | undefined | null, locale: Locale = 'en'): string {
+  return BIOME_META[resolveBiome(value)].tags[locale];
 }
 
 export interface PlanetSvgByBiomeProps extends PlanetSvgProps {

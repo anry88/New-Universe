@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { getResourceSymbol } from './cosmic/resources';
 import type { MarketOffer, MarketSide } from '@shared/types/market';
+import { useI18n } from '../lib/i18n';
 
 interface ResourceBalance {
   resourceId: string;
@@ -33,6 +34,7 @@ export function MarketOrderDialog({
   onClose,
   onSubmit,
 }: MarketOrderDialogProps) {
+  const { t } = useI18n();
   const [resourceId, setResourceId] = useState<string>('');
   const [quantityInput, setQuantityInput] = useState<string>('100');
 
@@ -50,17 +52,17 @@ export function MarketOrderDialog({
 
   return (
     <div className="bd-backdrop" onClick={onClose}>
-      <div className="bd-sheet" role="dialog" aria-modal="true" aria-label="Create market order" onClick={(e) => e.stopPropagation()}>
+      <div className="bd-sheet" role="dialog" aria-modal="true" aria-label={t('market.order')} onClick={(e) => e.stopPropagation()}>
         <div className="bd-handle" />
         <div className="bd-head">
-          <div className="bd-tag">MARKET ORDER</div>
-          <div className="bd-title">{side === 'buy' ? 'Buy Resource' : 'Sell Resource'}</div>
-          <div className="bd-sub">Choose resource and quantity. Prices are from NPC utility market.</div>
+          <div className="bd-tag">{t('market.order').toUpperCase()}</div>
+          <div className="bd-title">{side === 'buy' ? t('market.buyResource') : t('market.sellResource')}</div>
+          <div className="bd-sub">{t('market.orderHelp')}</div>
         </div>
 
         <div className="bd-list" style={{ gap: 12 }}>
           <label style={{ display: 'grid', gap: 6 }}>
-            <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>Resource</span>
+            <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>{t('market.resource')}</span>
             <select
               value={selectedResourceId}
               onChange={(event) => setResourceId(event.target.value)}
@@ -75,7 +77,7 @@ export function MarketOrderDialog({
           </label>
 
           <label style={{ display: 'grid', gap: 6 }}>
-            <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>Quantity</span>
+            <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>{t('market.quantity')}</span>
             <input
               type="number"
               min={1}
@@ -91,16 +93,16 @@ export function MarketOrderDialog({
               <div className="bopt-icon">{getResourceSymbol(selectedOffer.resourceId)}</div>
               <div>
                 <div className="bopt-row">
-                  <span className="bopt-name">Price per unit</span>
+                  <span className="bopt-name">{t('market.pricePerUnit')}</span>
                   <span className="bopt-locked">{formatPrice(selectedOffer.pricePerUnit)} Fe</span>
                 </div>
                 <div className="bopt-meta">
                   <span className="bopt-cost">
-                    Total: {formatPrice((Number.isFinite(quantity) ? quantity : 0) * selectedOffer.pricePerUnit)} Fe
+                    {t('market.total')}: {formatPrice((Number.isFinite(quantity) ? quantity : 0) * selectedOffer.pricePerUnit)} Fe
                   </span>
                   {selectedBalance && (
                     <span className="bopt-time">
-                      Bal: {Math.floor(Number(selectedBalance.amount))}/{Math.floor(Number(selectedBalance.storageCap))}
+                      {t('market.balanceShort')}: {Math.floor(Number(selectedBalance.amount))}/{Math.floor(Number(selectedBalance.storageCap))}
                     </span>
                   )}
                 </div>
@@ -130,7 +132,7 @@ export function MarketOrderDialog({
               });
             }}
           >
-            {isSubmitting ? 'Submitting…' : side === 'buy' ? 'Place Buy Order' : 'Place Sell Order'}
+            {isSubmitting ? t('market.submitting') : side === 'buy' ? t('market.placeBuy') : t('market.placeSell')}
           </button>
         </div>
       </div>

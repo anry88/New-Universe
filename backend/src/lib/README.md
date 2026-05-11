@@ -20,6 +20,7 @@ Shared infrastructure used across features, middleware, and routes. Anything in 
   - `DIAMOND_RUSH_MAX_PER_ACTION` (integer ≥ 0, default `0`) — per-rush cap; `0` means uncapped.
   
   On validation failure the module logs the formatted Zod error and calls `process.exit(1)`. The exported `env` is the only place to read these variables; never read `process.env.X` from feature code.
+- **`i18n.ts`** — backend localization helpers for player-facing API errors. Exports `resolveRequestLocale(request, preferredLocale?)`, `apiErrorPayload(key, locale)`, and `sendLocalizedError(reply, request, statusCode, key, preferredLocale?)`; currently supports `en`/`ru` for auth/session/preference/internal error payloads and falls back to English.
 - **`logger.ts`** — exports a configured Pino instance:
   - Level comes from `env.LOG_LEVEL`.
   - `level` formatter uppercases label names so logs read `INFO`, `ERROR`, etc.

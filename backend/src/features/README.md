@@ -22,7 +22,7 @@ Telegram-Mini-App authentication. The route layer delegates everything to `authS
   - Returns the JSON `{ user, token }`.
 - **`service.ts`** — `AuthService.loginWithTelegram(telegramUser)`:
   - Looks up `users` by `tgId` (converted to `bigint`).
-  - If the user does not exist, opens a transaction (`db.transaction(...)`) and inserts the new row from `telegram.id`, `telegram.username`, `telegram.first_name`, seeds **`diamonds`** with `env.DIAMOND_STARTING_GRANT`, then immediately calls `generateHomeSystem(newUser.id, tx)` so registration plus world bootstrap commit atomically.
+  - If the user does not exist, opens a transaction (`db.transaction(...)`) and inserts the new row from `telegram.id`, `telegram.username`, `telegram.first_name`, initializes **`preferredLocale`** from Telegram `language_code` (`ru*` → `ru`, otherwise `en`), seeds **`diamonds`** with `env.DIAMOND_STARTING_GRANT`, then immediately calls `generateHomeSystem(newUser.id, tx)` so registration plus world bootstrap commit atomically.
   - Throws `'Failed to create or find user'` if neither lookup nor insert produced a row (defensive guard against a malformed transaction result).
   - Signs a JWT with `{ userId: user.id }` using `env.JWT_SECRET` and a 30-day expiry.
   - Returns `{ user: { ...user, tgId: user.tgId.toString() }, token }`. The `tgId` is converted to a string because BigInt does not survive JSON serialization.
@@ -52,7 +52,7 @@ Sector map visibility for Phase 3.
 
 Player state retrieval.
 
-- **`routes.ts`** — `meRoutes(app)` registers `GET /me`. Requires a valid JWT in the `Authorization: Bearer <token>` header. Returns the database user record mapped to the `User` shared type, obfuscates undiscovered home planets, annotates discovered planets with `isColonized` so the UI can distinguish mapped bodies from buildable settlements, and includes only the current user's active expeditions so stale/foreign trails never leak into the map UI.
+- **`routes.ts`** — `meRoutes(app)` registers `GET /me` and `PATCH /me/preferences`. Both require a valid JWT in the `Authorization: Bearer <token>` header. `GET /me` returns the database user record mapped to the `User` shared type (including `preferredLocale`), obfuscates undiscovered home planets, annotates discovered planets with `isColonized` so the UI can distinguish mapped bodies from buildable settlements, and includes only the current user's active expeditions so stale/foreign trails never leak into the map UI. `PATCH /me/preferences` accepts `{ preferredLocale }` (`en`/`ru`) and persists the player language preference for future sessions.
 - **`online-sync.ts`** — active-session completion service used by `GET /me`. It finalizes due buildings, research, ship builds, expeditions, and colonizer arrivals for the current user with notification suppression so Telegram pushes remain an offline fallback.
 
 ## `buildings/`

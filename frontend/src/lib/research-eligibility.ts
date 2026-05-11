@@ -1,4 +1,5 @@
 import type { ResearchDefinition, ResearchProgress, ResearchRequirementRef } from '@shared/types/research';
+import type { Locale } from '@shared/types/locale';
 
 export interface ResearchEligibility {
   ok: boolean;
@@ -11,6 +12,7 @@ export interface ResearchEligibility {
 function resourceAvailabilityMessage(
   cost: ResearchDefinition['cost'],
   planetResources: { resourceId: string; amount: string | number }[] | undefined,
+  locale: Locale,
 ): string | undefined {
   if (!planetResources?.length) return undefined;
   const have = new Map<string, number>();
@@ -21,7 +23,11 @@ function resourceAvailabilityMessage(
   for (const [rid, need] of Object.entries(cost)) {
     const stock = have.get(rid) ?? 0;
     if (stock < need) {
-      lines.push(`${rid}: need ${need}, have ${Math.floor(stock)}`);
+      lines.push(
+        locale === 'ru'
+          ? `${rid}: нужно ${need}, есть ${Math.floor(stock)}`
+          : `${rid}: need ${need}, have ${Math.floor(stock)}`,
+      );
     }
   }
   return lines.length ? lines.join(' · ') : undefined;
@@ -35,6 +41,7 @@ export function evaluateResearchEligibility(
   labLevel: number,
   researchRows: ResearchProgress[] | undefined,
   planetResources?: { resourceId: string; amount: string | number }[] | undefined,
+  locale: Locale = 'en',
 ): ResearchEligibility {
   const rows = researchRows ?? [];
   const missingResearch: ResearchRequirementRef[] = [];
@@ -42,7 +49,10 @@ export function evaluateResearchEligibility(
   const labReq = def.requirements.buildings?.find((b) => b.typeId === 'lab');
   let labMessage: string | undefined;
   if (labReq && labLevel < labReq.level) {
-    labMessage = `Laboratory level ${labReq.level} required (current L${labLevel})`;
+    labMessage =
+      locale === 'ru'
+        ? `Требуется лаборатория уровня ${labReq.level} (сейчас L${labLevel})`
+        : `Laboratory level ${labReq.level} required (current L${labLevel})`;
   }
 
   for (const req of def.requirements.research ?? []) {
@@ -53,7 +63,7 @@ export function evaluateResearchEligibility(
     }
   }
 
-  const resourceMessage = resourceAvailabilityMessage(def.cost, planetResources);
+  const resourceMessage = resourceAvailabilityMessage(def.cost, planetResources, locale);
 
   const ok = !labMessage && missingResearch.length === 0 && !resourceMessage;
   return { ok, labMessage, missingResearch, resourceMessage };

@@ -7,6 +7,7 @@ import { apiFetch } from '../lib/api';
 import { CosmicBottomNav } from '../components/cosmic/atoms';
 import { SectorRenderer } from '../components/pixi/SectorRenderer';
 import type { SectorPresencePayload } from '@shared/types/multiplayer';
+import { useI18n } from '../lib/i18n';
 
 function parseCoord(raw: string | null, fallback: number): number {
   if (raw === null || raw === '') return fallback;
@@ -22,6 +23,7 @@ export function SectorMapPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { data: meData, isLoading } = useMe();
+  const { t } = useI18n();
 
   const home = meData?.homeSystem;
 
@@ -70,9 +72,9 @@ export function SectorMapPage() {
   if (!home) {
     return (
       <div className="cosmic-screen" style={{ '--accent': '#5BD7FF', display: 'grid', placeItems: 'center' } as React.CSSProperties}>
-        <p style={{ color: 'var(--text-dim)' }}>No home system — cannot anchor sector map.</p>
+        <p style={{ color: 'var(--text-dim)' }}>{t('sector.noHome')}</p>
         <button type="button" className="cosmic-cta" style={{ marginTop: 12 }} onClick={() => navigate('/')}>
-          Home
+          {t('common.home')}
         </button>
       </div>
     );
@@ -107,7 +109,7 @@ export function SectorMapPage() {
       >
         <button
           type="button"
-          aria-label="Back"
+          aria-label={t('common.back')}
           onClick={() => navigate('/map')}
           style={{
             padding: 8,
@@ -134,10 +136,10 @@ export function SectorMapPage() {
           }}
         >
           <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 13, color: 'var(--text)' }}>
-            Sector map
+            {t('sector.title')}
           </div>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-faint)', marginTop: 4 }}>
-            Multiplayer radar · summary visibility for foreign actors
+            {t('sector.subtitle')}
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
             <label style={{ fontSize: 10, color: 'var(--text-dim)' }}>
@@ -207,7 +209,7 @@ export function SectorMapPage() {
                 padding: '6px 10px',
               }}
             >
-              Go
+              {t('common.go')}
             </button>
           </div>
         </div>
@@ -232,9 +234,9 @@ export function SectorMapPage() {
           </div>
         )}
         {isFetching && (
-          <div style={{ padding: '8px 16px', fontSize: 12, color: 'var(--text-dim)' }}>Scanning sector…</div>
+          <div style={{ padding: '8px 16px', fontSize: 12, color: 'var(--text-dim)' }}>{t('sector.scanning')}</div>
         )}
-        <SectorRenderer entities={data?.entities ?? []} />
+        <SectorRenderer entities={data?.entities ?? []} emptyLabel={t('sector.noContacts')} />
       </div>
 
       <div
@@ -257,7 +259,7 @@ export function SectorMapPage() {
           }}
         >
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.14em', color: 'var(--text-dim)' }}>
-            CYAN HOME · GREEN COLONY · ORANGE FOREIGN · BLUE FRIENDLY SHIP
+            {t('sector.legend')}
           </span>
         </div>
       </div>

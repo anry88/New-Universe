@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import type { BuildingType, BuildBlockedReason } from '@shared/types/buildings';
 import { formatBuildBlockedMessage } from '@shared/types/building-eligibility';
-import { resolveBuildingType } from './cosmic/buildings';
+import { getBuildingCategory, resolveBuildingType } from './cosmic/buildings';
 import { getResourceSymbol } from './cosmic/resources';
+import { useI18n } from '../lib/i18n';
 
 interface BuildDialogProps {
   types: BuildingType[];
@@ -46,10 +47,10 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
   currentEnergy,
 }) => {
   const [explainedReason, setExplainedReason] = useState<BuildBlockedReason | null>(null);
+  const { locale, t } = useI18n();
 
   if (!isOpen) return null;
 
-  const lang: 'en' | 'ru' = 'en';
   const sortedTypes = [...types].sort((a, b) => {
     const aGate = (a.deps ?? []).reduce((max, dep) => Math.max(max, dep.level), 0);
     const bGate = (b.deps ?? []).reduce((max, dep) => Math.max(max, dep.level), 0);
@@ -57,7 +58,7 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
     if ((a.deps?.length ?? 0) !== (b.deps?.length ?? 0)) {
       return (a.deps?.length ?? 0) - (b.deps?.length ?? 0);
     }
-    return a.baseTimeSec - b.baseTimeSec || a.name.en.localeCompare(b.name.en);
+    return a.baseTimeSec - b.baseTimeSec || a.name[locale].localeCompare(b.name[locale]);
   });
   const producedNow = currentEnergy?.produced ?? 0;
   const consumedNow = currentEnergy?.consumed ?? 0;
@@ -77,30 +78,30 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
         className="bd-sheet"
         role="dialog"
         aria-modal="true"
-        aria-label="Construct building"
+        aria-label={t('build.constructAria')}
         data-testid="build-dialog"
         onClick={(e) => e.stopPropagation()}
         style={{ '--accent': accent } as React.CSSProperties}
       >
         <div className="bd-handle" />
         <div className="bd-head">
-          <div className="bd-tag">SELECT INSTALLATION</div>
-          <div className="bd-title">Build on this slot</div>
+          <div className="bd-tag">{t('build.selectInstallation').toUpperCase()}</div>
+          <div className="bd-title">{t('build.constructAria')}</div>
           <div className="bd-sub">
-            {planetLabel ? `${planetLabel} · tap an option to start construction` : 'Tap an option to start construction'}
+            {planetLabel ? t('build.sheetSubtitlePlanet', { planet: planetLabel }) : t('build.sheetSubtitle')}
           </div>
           {currentEnergy ? (
             <div className="bd-sub" style={{ marginTop: 6 }}>
-              Energy now: +{producedNow} / -{consumedNow} (net {netNow >= 0 ? '+' : ''}{netNow})
+              {t('build.energyNow', { produced: producedNow, consumed: consumedNow, net: `${netNow >= 0 ? '+' : ''}${netNow}` })}
             </div>
           ) : null}
         </div>
 
         {explainedReason ? (
           <div className="bd-block-hint" role="status" data-testid="build-block-reason">
-            <div className="bd-block-hint-text">{formatBuildBlockedMessage(explainedReason, lang)}</div>
+            <div className="bd-block-hint-text">{formatBuildBlockedMessage(explainedReason, locale)}</div>
             <button type="button" className="bd-block-hint-ok" onClick={() => setExplainedReason(null)}>
-              OK
+              {t('build.ok')}
             </button>
           </div>
         ) : null}
@@ -139,34 +140,34 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
                 </div>
                 <div>
                   <div className="bopt-row">
-                    <span className="bopt-name">{type.name.en}</span>
-                    <span className="bopt-locked">{type.category.toUpperCase()}</span>
+                    <span className="bopt-name">{type.name[locale]}</span>
+                    <span className="bopt-locked">{getBuildingCategory(type.id, locale).toUpperCase()}</span>
                   </div>
-                  <div className="bopt-desc">{type.description.en}</div>
+                  <div className="bopt-desc">{type.description[locale]}</div>
                   <div className="bopt-stats">
                     {output.resourceId && output.baseRate && (
                       <span className="bstat">
-                        Yield: +{output.baseRate} {getResourceSymbol(output.resourceId)}/h
+                        {t('build.yield')}: +{output.baseRate} {getResourceSymbol(output.resourceId)}/h
                       </span>
                     )}
                     {output.cap && (
                       <span className="bstat">
-                        Capacity: +{output.cap}
+                        {t('build.capacity')}: +{output.cap}
                       </span>
                     )}
                     {output.energy && (
                       <span className="bstat energy">
-                        Energy: +{output.energy}
+                        {t('common.energy')}: +{output.energy}
                       </span>
                     )}
                     {type.energyConsumption > 0 && (
                       <span className="bstat neg">
-                        Usage: -{type.energyConsumption} E
+                        {t('build.usage')}: -{type.energyConsumption} E
                       </span>
                     )}
                     {currentEnergy && (
                       <span className={`bstat ${projectedNet < 0 ? 'neg' : 'energy'}`}>
-                        Net after build: {projectedNet >= 0 ? '+' : ''}{projectedNet} E
+                        {t('build.netAfter')}: {projectedNet >= 0 ? '+' : ''}{projectedNet} E
                       </span>
                     )}
                     {output.conversion && (

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useAuth } from './hooks/useAuth';
+import { useAuth, useAuthStore } from './hooks/useAuth';
 import { useMe } from './hooks/useMe';
 import { HomePage } from './pages/Home';
 import { PlanetDetailPage } from './pages/PlanetDetail';
@@ -13,6 +13,7 @@ import { MarketPage } from './pages/Market';
 import { OnboardingPage } from './pages/onboarding/Onboarding';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { I18nProvider, useI18n } from './lib/i18n';
 
 const queryClient = new QueryClient();
 
@@ -26,7 +27,9 @@ function readTutorialOverlayDismissed(): boolean {
 
 function AppContent() {
   const { login, isLoading: isAuthLoading, error: authError } = useAuth();
+  const authUser = useAuthStore((state) => state.user);
   const { data: meData, isLoading: isMeLoading } = useMe();
+  const { setLocale, t } = useI18n();
   const [tutorialHidden, setTutorialHidden] = useState(false);
   const [tutorialOverlayDismissed, setTutorialOverlayDismissed] = useState(readTutorialOverlayDismissed);
   const location = useLocation();
@@ -35,6 +38,13 @@ function AppContent() {
   useEffect(() => {
     login().catch(console.error);
   }, [login]);
+
+  useEffect(() => {
+    const preferredLocale = meData?.preferredLocale ?? authUser?.preferredLocale;
+    if (preferredLocale) {
+      setLocale(preferredLocale);
+    }
+  }, [authUser?.preferredLocale, meData?.preferredLocale, setLocale]);
 
   useEffect(() => {
     if (meData?.tutorialCompletedAt) {
@@ -59,7 +69,7 @@ function AppContent() {
   if (authError) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">
-        <p className="text-red-500">Auth failed: {authError.message}</p>
+        <p className="text-red-500">{t('app.authFailed', { message: authError.message })}</p>
       </div>
     );
   }
@@ -123,9 +133,11 @@ function AppContent() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AppContent />
-      </BrowserRouter>
+      <I18nProvider>
+        <BrowserRouter>
+          <AppContent />
+        </BrowserRouter>
+      </I18nProvider>
     </QueryClientProvider>
   );
 }

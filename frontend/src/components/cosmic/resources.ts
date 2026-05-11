@@ -2,36 +2,37 @@
  * Resource symbol mapping used by the Cosmic Atlas resource chip.
  * Falls back to the resource id (uppercased) for unknown ids.
  */
+import type { Locale } from '@shared/types/locale';
 
 interface ResourceMeta {
   symbol: string;
-  full?: string;
+  full?: Record<Locale, string>;
 }
 
 const RESOURCE_META: Record<string, ResourceMeta> = {
-  water: { symbol: 'H₂O', full: 'Water' },
-  iron: { symbol: 'Fe', full: 'Iron' },
-  silicon: { symbol: 'Si', full: 'Silicon' },
-  methane: { symbol: 'CH₄', full: 'Methane' },
-  tritium: { symbol: 'T₂', full: 'Tritium' },
-  carbon: { symbol: 'C', full: 'Carbon' },
-  copper: { symbol: 'Cu', full: 'Copper' },
-  aluminum: { symbol: 'Al', full: 'Aluminum' },
-  titanium: { symbol: 'Ti', full: 'Titanium' },
-  ice: { symbol: 'H₂O*', full: 'Ice' },
-  oil: { symbol: 'Oil', full: 'Oil' },
-  sulfur: { symbol: 'S', full: 'Sulfur' },
-  mercury: { symbol: 'Hg', full: 'Mercury' },
-  magnesium: { symbol: 'Mg', full: 'Magnesium' },
-  lead: { symbol: 'Pb', full: 'Lead' },
-  uranium: { symbol: 'U', full: 'Uranium' },
-  cobalt: { symbol: 'Co', full: 'Cobalt' },
-  silicon_carbide: { symbol: 'SiC', full: 'Silicon Carbide' },
-  antimatter: { symbol: 'Am', full: 'Antimatter' },
-  dark_matter: { symbol: 'Dm', full: 'Dark Matter' },
-  iridium: { symbol: 'Ir', full: 'Iridium' },
-  biomass: { symbol: 'Bio', full: 'Biomass' },
-  energy: { symbol: '⚡', full: 'Energy' },
+  water: { symbol: 'H₂O', full: { en: 'Water', ru: 'Вода' } },
+  iron: { symbol: 'Fe', full: { en: 'Iron', ru: 'Железо' } },
+  silicon: { symbol: 'Si', full: { en: 'Silicon', ru: 'Кремний' } },
+  methane: { symbol: 'CH₄', full: { en: 'Methane', ru: 'Метан' } },
+  tritium: { symbol: 'T₂', full: { en: 'Tritium', ru: 'Тритий' } },
+  carbon: { symbol: 'C', full: { en: 'Carbon', ru: 'Углерод' } },
+  copper: { symbol: 'Cu', full: { en: 'Copper', ru: 'Медь' } },
+  aluminum: { symbol: 'Al', full: { en: 'Aluminum', ru: 'Алюминий' } },
+  titanium: { symbol: 'Ti', full: { en: 'Titanium', ru: 'Титан' } },
+  ice: { symbol: 'H₂O*', full: { en: 'Ice', ru: 'Лед' } },
+  oil: { symbol: 'Oil', full: { en: 'Oil', ru: 'Нефть' } },
+  sulfur: { symbol: 'S', full: { en: 'Sulfur', ru: 'Сера' } },
+  mercury: { symbol: 'Hg', full: { en: 'Mercury', ru: 'Ртуть' } },
+  magnesium: { symbol: 'Mg', full: { en: 'Magnesium', ru: 'Магний' } },
+  lead: { symbol: 'Pb', full: { en: 'Lead', ru: 'Свинец' } },
+  uranium: { symbol: 'U', full: { en: 'Uranium', ru: 'Уран' } },
+  cobalt: { symbol: 'Co', full: { en: 'Cobalt', ru: 'Кобальт' } },
+  silicon_carbide: { symbol: 'SiC', full: { en: 'Silicon Carbide', ru: 'Карбид кремния' } },
+  antimatter: { symbol: 'Am', full: { en: 'Antimatter', ru: 'Антиматерия' } },
+  dark_matter: { symbol: 'Dm', full: { en: 'Dark Matter', ru: 'Темная материя' } },
+  iridium: { symbol: 'Ir', full: { en: 'Iridium', ru: 'Иридий' } },
+  biomass: { symbol: 'Bio', full: { en: 'Biomass', ru: 'Биомасса' } },
+  energy: { symbol: '⚡', full: { en: 'Energy', ru: 'Энергия' } },
 };
 
 export function getResourceSymbol(resourceId: string): string {
@@ -43,8 +44,8 @@ export function getResourceSymbol(resourceId: string): string {
     : resourceId.toUpperCase();
 }
 
-export function getResourceLabel(resourceId: string): string {
-  return RESOURCE_META[resourceId.toLowerCase()]?.full ?? resourceId;
+export function getResourceLabel(resourceId: string, locale: Locale = 'en'): string {
+  return RESOURCE_META[resourceId.toLowerCase()]?.full?.[locale] ?? resourceId;
 }
 
 /**

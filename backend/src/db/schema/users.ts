@@ -5,6 +5,7 @@ export const users = pgTable('users', {
   tgId: bigint('tg_id', { mode: 'bigint' }).unique().notNull(),
   tgUsername: text('tg_username'),
   tgFirstName: text('tg_first_name'),
+  preferredLocale: text('preferred_locale', { enum: ['en', 'ru'] }).notNull().default('en'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   premiumUntil: timestamp('premium_until'),
   powerScore: integer('power_score').default(0).notNull(),

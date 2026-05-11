@@ -1,6 +1,7 @@
 import React from 'react';
 import type { ResearchRequirementRef } from '@shared/types/research';
 import { RESEARCH_BRANCH_LABELS_EN } from '@shared/types/research';
+import { useI18n } from '../lib/i18n';
 
 export interface RequirementListProps {
   /** Human-readable title shown above the list */
@@ -25,6 +26,7 @@ export const RequirementList: React.FC<RequirementListProps> = ({
   missing,
   locale = 'en',
 }) => {
+  const { t } = useI18n();
   if (!missing.length) return null;
 
   return (
@@ -33,7 +35,7 @@ export const RequirementList: React.FC<RequirementListProps> = ({
       <ul className="req-list-items">
         {missing.map((req) => (
           <li key={`${req.branch}-${req.level}`}>
-            {branchLabel(req.branch, locale)} — level {req.level}
+            {branchLabel(req.branch, locale)} — {t('research.level', { level: req.level })}
           </li>
         ))}
       </ul>

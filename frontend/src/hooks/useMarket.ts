@@ -14,18 +14,28 @@ export interface PendingMarketOrder extends CreatedMarketOrder {
 
 const LOCAL_PENDING_ETA_SEC = 120;
 
-export function normalizeMarketError(error: unknown): string {
-  const message = error instanceof Error ? error.message : 'Failed to submit market order';
+const DEFAULT_MARKET_ERROR_TEXT: Record<string, string> = {
+  'market.errorSubmit': 'Failed to submit market order',
+  'market.errorStorage': 'Not enough storage capacity for this buy order.',
+  'market.errorResources': 'Insufficient resources for this order.',
+  'market.errorPriceMoved': 'Market price changed. Refresh offers and try again.',
+};
+
+export function normalizeMarketError(
+  error: unknown,
+  t: (key: string) => string = (key) => DEFAULT_MARKET_ERROR_TEXT[key] ?? key,
+): string {
+  const message = error instanceof Error ? error.message : t('market.errorSubmit');
   const normalized = message.toLowerCase();
 
   if (normalized.includes('storage')) {
-    return 'Not enough storage capacity for this buy order.';
+    return t('market.errorStorage');
   }
   if (normalized.includes('not enough')) {
-    return 'Insufficient resources for this order.';
+    return t('market.errorResources');
   }
   if (normalized.includes('price moved')) {
-    return 'Market price changed. Refresh offers and try again.';
+    return t('market.errorPriceMoved');
   }
 
   return message;
@@ -69,4 +79,3 @@ export function useCreateMarketOrder() {
     },
   });
 }
-
