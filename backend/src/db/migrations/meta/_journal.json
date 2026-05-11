@@ -176,6 +176,13 @@
       "when": 1778426099344,
       "tag": "0024_curvy_miek",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1778474544226,
+      "tag": "0025_heavy_starfox",
+      "breakpoints": true
     }
   ]
 }

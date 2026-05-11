@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, integer, jsonb, timestamp, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, numeric, jsonb, timestamp, index } from 'drizzle-orm/pg-core';
 import { ships } from './ships.js';
 import { planets } from './world.js';
 
@@ -7,9 +7,9 @@ export const expeditions = pgTable('expeditions', {
   shipId: uuid('ship_id').references(() => ships.id, { onDelete: 'cascade' }).notNull(),
   type: text('type').notNull(),
   originPlanetId: uuid('origin_planet_id').references(() => planets.id, { onDelete: 'cascade' }).notNull(),
-  targetX: integer('target_x').notNull(),
-  targetY: integer('target_y').notNull(),
-  targetZ: integer('target_z').notNull(),
+  targetX: numeric('target_x', { precision: 14, scale: 4 }).notNull(),
+  targetY: numeric('target_y', { precision: 14, scale: 4 }).notNull(),
+  targetZ: numeric('target_z', { precision: 14, scale: 4 }).notNull(),
   targetPlanetId: uuid('target_planet_id').references(() => planets.id, { onDelete: 'set null' }),
   status: text('status').notNull().default('queued'),
   eta: timestamp('eta').notNull(),
