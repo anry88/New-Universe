@@ -15,6 +15,7 @@ import type { Ship } from "@shared/types/ships";
 import type { Building, Planet } from "@shared/types/world";
 import { getResourceSymbol } from "../components/cosmic/resources";
 import { timerSnapshot } from "../lib/timers";
+import { useI18n } from "../lib/i18n";
 
 const SHIP_CLASS_TAG: Record<string, string> = {
   scout: "SCOUT",
@@ -46,6 +47,7 @@ export function ShipsPage() {
   const rushShip = useRushShip();
   const navigate = useNavigate();
   const location = useLocation();
+  const { locale, t } = useI18n();
   const [selectedShip, setSelectedShip] = useState<Ship | null>(null);
   const [selectedPlanetId, setSelectedPlanetId] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -99,10 +101,10 @@ export function ShipsPage() {
     if (!selectedPlanet) return;
     try {
       await buildShip.mutateAsync({ planetId: selectedPlanet.id, typeSlug });
-      alert("Ship added to shipyard queue.");
+      alert(t("ships.queueAdded"));
     } catch (err: unknown) {
       const message =
-        err instanceof Error ? err.message : "Failed to queue ship build";
+        err instanceof Error ? err.message : t("ships.queueFailed");
       alert(message);
     }
   };
@@ -138,16 +140,16 @@ export function ShipsPage() {
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <button
             type="button"
-            aria-label="Back"
+            aria-label={t("common.back")}
             onClick={() => navigate("/")}
             style={{ padding: 4, borderRadius: 999, color: "var(--text-dim)" }}
           >
             <ChevronLeft size={20} />
           </button>
           <div>
-            <div className="page-tag">FLEET COMMAND</div>
+            <div className="page-tag">{t("ships.command").toUpperCase()}</div>
             <div className="page-title">
-              {activeTab === "shipyard" ? "Shipyard" : "Fleet Roster"}
+              {activeTab === "shipyard" ? t("ships.shipyard") : t("ships.fleetRoster")}
             </div>
           </div>
         </div>
@@ -156,7 +158,7 @@ export function ShipsPage() {
             {activeTab === "shipyard" ? shipyardPlanets.length : ships.length}
           </div>
           <div className="ps-l">
-            {activeTab === "shipyard" ? "SHIPYARDS" : "VESSELS"}
+            {activeTab === "shipyard" ? t("ships.shipyards").toUpperCase() : t("ships.vessels").toUpperCase()}
           </div>
         </div>
       </div>
@@ -176,7 +178,7 @@ export function ShipsPage() {
           style={{ flex: 1, opacity: activeTab === "fleet" ? 1 : 0.65 }}
           onClick={() => navigate("/ships")}
         >
-          Fleet
+          {t("nav.fleet")}
         </button>
         <button
           type="button"
@@ -184,7 +186,7 @@ export function ShipsPage() {
           style={{ flex: 1, opacity: activeTab === "shipyard" ? 1 : 0.65 }}
           onClick={() => navigate("/ships?tab=shipyard")}
         >
-          Shipyard
+          {t("ships.shipyard")}
         </button>
       </div>
 
@@ -204,7 +206,7 @@ export function ShipsPage() {
                   borderRadius: 12,
                 }}
               >
-                NO SHIPYARD FOUND — BUILD SHIPYARD ON A PLANET FIRST
+                {t("ships.noShipyard").toUpperCase()}
               </div>
             ) : (
               <>
@@ -249,13 +251,13 @@ export function ShipsPage() {
                           type.id.slice(0, 6).toUpperCase()}
                       </div>
                       <div>
-                        <div className="ship-name">{type.name.en}</div>
+                        <div className="ship-name">{type.name[locale]}</div>
                         <div className="ship-loc">
-                          Build time: {Math.floor(type.buildTimeSec / 60)}m{" "}
+                          {t("ships.buildTime")}: {Math.floor(type.buildTimeSec / 60)}m{" "}
                           {type.buildTimeSec % 60}s
                         </div>
                         <div className="ship-loc">
-                          Cost:{" "}
+                          {t("common.cost")}:{" "}
                           {Object.entries(type.buildCost)
                             .map(
                               ([resourceId, amount]) =>
@@ -264,7 +266,7 @@ export function ShipsPage() {
                             .join(" · ")}
                         </div>
                         <div className="ship-loc">
-                          Requires: {requirements || "None"}
+                          {t("ships.requires")}: {requirements || t("common.none")}
                         </div>
                         <button
                           type="button"
@@ -292,19 +294,19 @@ export function ShipsPage() {
                           }}
                         >
                           {buildShip.isPending
-                            ? "QUEUING..."
+                            ? t("ships.queuing").toUpperCase()
                             : canBuild
-                              ? "BUILD SHIP"
-                              : "LOCKED"}
+                              ? t("ships.buildShip").toUpperCase()
+                              : t("common.locked").toUpperCase()}
                         </button>
                       </div>
                       <div className="ship-stats">
                         <div className="ship-stat">
-                          <span>HP</span>
+                          <span>{t("ships.hp")}</span>
                           <b>{type.armor}</b>
                         </div>
                         <div className="ship-stat">
-                          <span>SPD</span>
+                          <span>{t("ships.speed")}</span>
                           <b>{type.speed}</b>
                         </div>
                       </div>
@@ -329,7 +331,7 @@ export function ShipsPage() {
                   borderRadius: 12,
                 }}
               >
-                NO SHIPS — OPEN SHIPYARD TAB TO START BUILDING
+                {t("ships.noShips").toUpperCase()}
               </div>
             )}
 
@@ -363,20 +365,24 @@ export function ShipsPage() {
               const expeditionLeg =
                 activeExpedition?.status === "returning"
                   ? "Returning"
-                  : "Outbound";
+                  : t("ships.outbound");
+              const expeditionLegLabel =
+                activeExpedition?.status === "returning"
+                  ? t("ships.returning")
+                  : expeditionLeg;
               const shipLocation = isIdle
-                ? `Orbit · ${origin.sectorX}:${origin.sectorY}:${origin.sectorZ}`
+                ? `${t("ships.orbit")} · ${origin.sectorX}:${origin.sectorY}:${origin.sectorZ}`
                 : isBuilding
-                  ? `Under construction${etaSec != null ? ` · ETA ${formatDuration(etaSec)}` : ""}`
+                  ? `${t("ships.underConstruction")}${etaSec != null ? ` · ETA ${formatDuration(etaSec)}` : ""}`
                   : activeExpedition && expeditionEtaSec != null
-                    ? `In transit · ${expeditionLeg} · ETA ${formatDuration(expeditionEtaSec)}`
-                    : `In transit · syncing route`;
+                    ? `${t("ships.inTransit")} · ${expeditionLegLabel} · ETA ${formatDuration(expeditionEtaSec)}`
+                    : `${t("ships.inTransit")} · ${t("ships.syncingRoute")}`;
               return (
                 <div key={ship.id} className="ship-row">
                   <div className="ship-cls">{cls}</div>
                   <div>
                     <div className="ship-name">
-                      {type?.name?.en ?? ship.typeId}
+                      {type?.name?.[locale] ?? ship.typeId}
                     </div>
                     <div className="ship-loc">{shipLocation}</div>
                     <button
@@ -393,12 +399,12 @@ export function ShipsPage() {
                       }}
                     >
                       {isIdle
-                        ? "SEND MISSION"
+                        ? t("ships.sendMission").toUpperCase()
                         : isBuilding
-                          ? "BUILDING"
+                          ? t("ships.building").toUpperCase()
                           : expeditionEtaSec != null
                             ? `ETA ${formatDuration(expeditionEtaSec)}`
-                            : "IN TRANSIT"}
+                            : t("ships.inTransit").toUpperCase()}
                     </button>
                     {isBuilding && queueItem ? (
                       <>
@@ -426,19 +432,19 @@ export function ShipsPage() {
                           }}
                         >
                           {rushShip.isPending
-                            ? "RUSHING..."
-                            : `◆ ${queueItem.rushCost ?? 0} RUSH BUILD`}
+                            ? t("ships.rushing").toUpperCase()
+                            : `◆ ${queueItem.rushCost ?? 0} ${t("ships.rushBuild").toUpperCase()}`}
                         </button>
                       </>
                     ) : null}
                   </div>
                   <div className="ship-stats">
                     <div className="ship-stat">
-                      <span>HP</span>
+                      <span>{t("ships.hp")}</span>
                       <b>{type?.armor ?? 0}</b>
                     </div>
                     <div className="ship-stat">
-                      <span>SPD</span>
+                      <span>{t("ships.speed")}</span>
                       <b>{type?.speed ?? 0}</b>
                     </div>
                   </div>

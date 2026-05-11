@@ -8,6 +8,7 @@ import { MarketOrderDialog } from '../components/MarketOrderDialog';
 import { useCreateMarketOrder, useMarketOffers, usePendingMarketOrders, normalizeMarketError } from '../hooks/useMarket';
 import { useMe } from '../hooks/useMe';
 import type { MarketOffer, MarketSide } from '@shared/types/market';
+import { useI18n } from '../lib/i18n';
 
 function formatEta(submittedAt: string, etaSec: number): string {
   const elapsed = Math.max(0, Math.floor((Date.now() - new Date(submittedAt).getTime()) / 1000));
@@ -19,6 +20,7 @@ function formatEta(submittedAt: string, etaSec: number): string {
 
 export function MarketPage() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const { data: meData } = useMe();
   const offersQuery = useMarketOffers();
   const createOrder = useCreateMarketOrder();
@@ -50,27 +52,27 @@ export function MarketPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button
             type="button"
-            aria-label="Back"
+            aria-label={t('common.back')}
             onClick={() => navigate('/')}
             style={{ padding: 4, borderRadius: 999, color: 'var(--text-dim)' }}
           >
             <ChevronLeft size={20} />
           </button>
           <div>
-            <div className="page-tag">UTILITY MARKET</div>
-            <div className="page-title">Market</div>
+            <div className="page-tag">{t('market.tag').toUpperCase()}</div>
+            <div className="page-title">{t('market.title')}</div>
           </div>
         </div>
         <div className="page-stat">
           <div className="ps-v">{groupedOffers.length}</div>
-          <div className="ps-l">RESOURCES</div>
+          <div className="ps-l">{t('market.resources').toUpperCase()}</div>
         </div>
       </div>
 
       <div className="cosmic-scroll">
         <div style={{ display: 'grid', gap: 10, paddingBottom: 20 }}>
-          {offersQuery.isLoading && <div className="ship-row">Loading market prices…</div>}
-          {offersQuery.isError && <div className="ship-row">Failed to load market prices.</div>}
+          {offersQuery.isLoading && <div className="ship-row">{t('market.loading')}</div>}
+          {offersQuery.isError && <div className="ship-row">{t('market.loadFailed')}</div>}
 
           {groupedOffers.map(([resourceId, pair]) => (
             <div key={resourceId} className="ship-row">
@@ -78,7 +80,7 @@ export function MarketPage() {
               <div>
                 <div className="ship-name">{resourceId.toUpperCase()}</div>
                 <div className="ship-loc">
-                  Buy: {pair.buy?.pricePerUnit.toFixed(2) ?? '—'} Fe · Sell: {pair.sell?.pricePerUnit.toFixed(2) ?? '—'} Fe
+                  {t('market.buy')}: {pair.buy?.pricePerUnit.toFixed(2) ?? '—'} Fe · {t('market.sell')}: {pair.sell?.pricePerUnit.toFixed(2) ?? '—'} Fe
                 </div>
               </div>
               <div className="ship-stats">
@@ -91,7 +93,7 @@ export function MarketPage() {
                     setDialogSide('buy');
                   }}
                 >
-                  BUY
+                  {t('market.buy').toUpperCase()}
                 </button>
                 <button
                   type="button"
@@ -102,28 +104,28 @@ export function MarketPage() {
                     setDialogSide('sell');
                   }}
                 >
-                  SELL
+                  {t('market.sell').toUpperCase()}
                 </button>
               </div>
             </div>
           ))}
 
           <div className="section-head">
-            <div className="section-title">PENDING ORDERS</div>
+            <div className="section-title">{t('market.pendingOrders').toUpperCase()}</div>
           </div>
-          {pendingOrders.length === 0 && <div className="ship-row">No pending market orders.</div>}
+          {pendingOrders.length === 0 && <div className="ship-row">{t('market.noPending')}</div>}
           {pendingOrders.map((order) => (
             <div key={order.id} className="ship-row">
               <div className="ship-cls">{order.side.toUpperCase()}</div>
               <div>
                 <div className="ship-name">{order.resourceId.toUpperCase()}</div>
                 <div className="ship-loc">
-                  Qty {order.requestedQty} · ETA {formatEta(order.submittedAt, order.etaSec)}
+                  {t('market.qtyEta', { qty: order.requestedQty, eta: formatEta(order.submittedAt, order.etaSec) })}
                 </div>
               </div>
               <div className="ship-stats">
                 <div className="ship-stat">
-                  <span>Status</span>
+                  <span>{t('common.status')}</span>
                   <b>{order.status}</b>
                 </div>
               </div>
@@ -145,7 +147,7 @@ export function MarketPage() {
         onClose={() => setDialogSide(null)}
         onSubmit={async (payload) => {
           if (!homePlanetId) {
-            setDialogError('Home planet not found. Reload /me and try again.');
+            setDialogError(t('market.homeMissing'));
             return;
           }
           try {
@@ -156,7 +158,7 @@ export function MarketPage() {
             });
             setDialogSide(null);
           } catch (error) {
-            setDialogError(normalizeMarketError(error));
+            setDialogError(normalizeMarketError(error, t));
           }
         }}
       />

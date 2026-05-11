@@ -1,4 +1,4 @@
-import { FastifyInstance } from "fastify";
+import { FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import jwt from "jsonwebtoken";
 import { env } from "../../lib/env.js";
 import { db } from "../../db/index.js";
@@ -23,43 +23,57 @@ import {
 } from "../timers.js";
 import { getResearchDef } from "../research/data.js";
 import { rushPricingMeta } from "../../lib/diamonds.js";
+import { sendLocalizedError } from "../../lib/i18n.js";
+import {
+  isSupportedLocale,
+  type UpdatePreferredLocaleRequest,
+  type UpdatePreferredLocaleResponse,
+} from "@shared/types/locale.js";
+
+type UserRow = typeof users.$inferSelect;
+
+function readBearerToken(request: FastifyRequest): string | null {
+  const authHeader = request.headers.authorization;
+  return authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+}
+
+async function loadSessionUser(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<UserRow | null> {
+  const token = readBearerToken(request);
+
+  if (!token) {
+    sendLocalizedError(reply, request, 401, "missingSessionToken");
+    return null;
+  }
+
+  let payload: { userId: string };
+  try {
+    payload = jwt.verify(token, env.JWT_SECRET) as { userId: string };
+  } catch {
+    sendLocalizedError(reply, request, 401, "invalidSessionToken");
+    return null;
+  }
+
+  const user = await db.query.users.findFirst({
+    where: eq(users.id, payload.userId),
+  });
+
+  if (!user) {
+    sendLocalizedError(reply, request, 401, "userNotFound");
+    return null;
+  }
+
+  return user;
+}
 
 export async function meRoutes(app: FastifyInstance) {
   app.get("/", async (request, reply) => {
-    const authHeader = request.headers.authorization;
-    const token = authHeader?.startsWith("Bearer ")
-      ? authHeader.slice(7)
-      : null;
-
-    if (!token) {
-      return reply.status(401).send({
-        error: "Unauthorized",
-        message: "Missing session token",
-      });
-    }
-
-    let payload: { userId: string };
-    try {
-      payload = jwt.verify(token, env.JWT_SECRET) as { userId: string };
-    } catch {
-      return reply.status(401).send({
-        error: "Unauthorized",
-        message: "Invalid or expired session token",
-      });
-    }
+    const user = await loadSessionUser(request, reply);
+    if (!user) return;
 
     try {
-      const user = await db.query.users.findFirst({
-        where: eq(users.id, payload.userId),
-      });
-
-      if (!user) {
-        return reply.status(401).send({
-          error: "Unauthorized",
-          message: "User not found",
-        });
-      }
-
       await syncDuePlayerState(user.id);
 
       const [buildingTypeRows, shipTypeRows, researchEffects] = await Promise.all([
@@ -282,10 +296,32 @@ export async function meRoutes(app: FastifyInstance) {
       return reply.send({ user: userObj });
     } catch (err) {
       request.log.error(err, "Error fetching player state");
-      return reply.status(500).send({
-        error: "Internal Server Error",
-        message: "Failed to fetch player state",
-      });
+      return sendLocalizedError(reply, request, 500, "internalServerError", user.preferredLocale);
     }
+  });
+
+  app.patch("/preferences", async (request, reply) => {
+    const user = await loadSessionUser(request, reply);
+    if (!user) return;
+
+    const body = request.body as Partial<UpdatePreferredLocaleRequest> | null;
+    if (!isSupportedLocale(body?.preferredLocale)) {
+      return sendLocalizedError(
+        reply,
+        request,
+        400,
+        "invalidPreferredLocale",
+        user.preferredLocale,
+      );
+    }
+
+    await db
+      .update(users)
+      .set({ preferredLocale: body.preferredLocale })
+      .where(eq(users.id, user.id));
+
+    return reply.send({
+      preferredLocale: body.preferredLocale,
+    } satisfies UpdatePreferredLocaleResponse);
   });
 }

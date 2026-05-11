@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { apiFetch } from '../lib/api';
-import { resolveBuildingType } from './cosmic/buildings';
+import { getBuildingLabel } from './cosmic/buildings';
 import { QueueStrip } from './cosmic/atoms';
 import { useQueryClient } from '@tanstack/react-query';
 import { useMe } from '../hooks/useMe';
 import type { RushBuildResponse } from '@shared/types/buildings';
 import { estimateRushDiamondCost } from '@shared/types/diamonds';
 import { timerSnapshot } from '../lib/timers';
+import { useI18n } from '../lib/i18n';
 
 interface BuildQueueItem {
   id: string;
@@ -45,6 +46,7 @@ export function BuildQueue({ planetId }: BuildQueueProps) {
   const queryClient = useQueryClient();
   const syncingRef = useRef<string | null>(null);
   const { data: meData } = useMe();
+  const { locale, t } = useI18n();
 
   const fetchQueue = async () => {
     try {
@@ -121,9 +123,8 @@ export function BuildQueue({ planetId }: BuildQueueProps) {
     nowMs: now,
   });
 
-  const def = resolveBuildingType(head.buildingTypeId);
-  const verb = head.queueAction === 'build' ? 'Building' : 'Upgrading';
-  const title = `${def.label} · ${verb} L${head.level}`;
+  const verb = head.queueAction === 'build' ? t('build.queueBuilding') : t('build.queueUpgrading');
+  const title = `${getBuildingLabel(head.buildingTypeId, locale)} · ${verb} L${head.level}`;
 
   const rushCost =
     rushPricing != null

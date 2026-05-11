@@ -72,6 +72,7 @@ describe("Me Routes", () => {
     expect(response.statusCode).toBe(200);
     const body = response.json();
     expect(body.user.tgId).toBe(tgId.toString());
+    expect(body.user.preferredLocale).toBe("en");
     expect(body.user.ships).toBeDefined();
     expect(Array.isArray(body.user.ships)).toBe(true);
     expect(body.user.expeditions).toBeDefined();
@@ -88,6 +89,51 @@ describe("Me Routes", () => {
     });
 
     expect(response.statusCode).toBe(401);
+  });
+
+  it("updates preferred locale for the active user", async () => {
+    const app = Fastify();
+    await app.register(authRoutes, { prefix: "/auth" });
+    await app.register(meRoutes, { prefix: "/me" });
+
+    const tgId = Math.floor(Math.random() * 100000000);
+    const tgUser = { id: tgId, first_name: "Locale", username: "localeuser" };
+    const initData = createValidInitData(tgUser);
+
+    const loginResponse = await app.inject({
+      method: "POST",
+      url: "/auth/telegram",
+      headers: {
+        "x-telegram-init-data": initData,
+      },
+    });
+
+    const { token } = loginResponse.json();
+
+    const updateResponse = await app.inject({
+      method: "PATCH",
+      url: "/me/preferences",
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+      payload: {
+        preferredLocale: "ru",
+      },
+    });
+
+    expect(updateResponse.statusCode).toBe(200);
+    expect(updateResponse.json().preferredLocale).toBe("ru");
+
+    const meResponse = await app.inject({
+      method: "GET",
+      url: "/me",
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    });
+
+    expect(meResponse.statusCode).toBe(200);
+    expect(meResponse.json().user.preferredLocale).toBe("ru");
   });
 
   it("returns only the current user active expeditions", async () => {

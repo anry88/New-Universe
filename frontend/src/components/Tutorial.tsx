@@ -1,7 +1,10 @@
 import {
   TUTORIAL_COMPLETION_REWARD_SUMMARY_EN,
+  TUTORIAL_COMPLETION_REWARD_SUMMARY_RU,
   TUTORIAL_STEP_REWARD_SUMMARY_EN,
+  TUTORIAL_STEP_REWARD_SUMMARY_RU,
 } from '@shared/config/tutorialRewards';
+import { useI18n } from '../lib/i18n';
 
 type TutorialStep = {
   id: number;
@@ -28,6 +31,12 @@ export function Tutorial({
   completed,
   currentHint,
 }: TutorialProps) {
+  const { locale, t } = useI18n();
+  const stepRewards =
+    locale === 'ru' ? TUTORIAL_STEP_REWARD_SUMMARY_RU : TUTORIAL_STEP_REWARD_SUMMARY_EN;
+  const completionReward =
+    locale === 'ru' ? TUTORIAL_COMPLETION_REWARD_SUMMARY_RU : TUTORIAL_COMPLETION_REWARD_SUMMARY_EN;
+
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/90 text-white">
       <div className="mx-auto flex h-full max-w-2xl flex-col gap-4 p-6">
@@ -35,11 +44,11 @@ export function Tutorial({
           {currentHint}
         </div>
         <div className="rounded-xl border border-cyan-500/40 bg-slate-900/80 p-4">
-          <h1 className="text-xl font-bold">Onboarding tutorial</h1>
+          <h1 className="text-xl font-bold">{t('tutorial.title')}</h1>
           <p className="mt-2 text-sm text-slate-300">
             {completed
-              ? `Tutorial completed. Final bonus: ${TUTORIAL_COMPLETION_REWARD_SUMMARY_EN}`
-              : 'Complete each objective — rewards credit as milestones sync from the server.'}
+              ? t('tutorial.completed', { reward: completionReward })
+              : t('tutorial.progress')}
           </p>
         </div>
 
@@ -56,19 +65,19 @@ export function Tutorial({
                     <span>{step.title}</span>
                   </div>
                   <span className={step.done ? 'text-emerald-300' : 'text-slate-400'}>
-                    {step.done ? 'Done' : 'Pending'}
+                    {step.done ? t('common.done') : t('common.pending')}
                   </span>
                 </div>
                 {step.id >= 1 && step.id <= 4 && (
                   <p className="text-xs leading-snug text-slate-400">
-                    Reward: {TUTORIAL_STEP_REWARD_SUMMARY_EN[step.id] ?? '—'}
+                    {t('tutorial.reward', { reward: stepRewards[step.id] ?? '—' })}
                   </p>
                 )}
               </li>
             ))}
           </ul>
           <p className="mt-4 border-t border-slate-700 pt-3 text-xs text-slate-500">
-            Completion bonus (expedition active): {TUTORIAL_COMPLETION_REWARD_SUMMARY_EN}
+            {t('tutorial.completionBonus', { reward: completionReward })}
           </p>
         </div>
 
@@ -79,7 +88,7 @@ export function Tutorial({
               onClick={onSkip}
               className="rounded-lg border border-slate-500 px-4 py-2 text-sm hover:bg-slate-800"
             >
-              Skip for now
+              {t('tutorial.skip')}
             </button>
           )}
           <button
@@ -87,7 +96,7 @@ export function Tutorial({
             onClick={completed ? onClose : onContinue}
             className="rounded-lg bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-400"
           >
-            {completed ? 'Back to game' : 'Continue'}
+            {completed ? t('common.backToGame') : t('common.continue')}
           </button>
         </div>
       </div>

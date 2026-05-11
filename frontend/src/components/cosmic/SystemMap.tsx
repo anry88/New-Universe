@@ -39,9 +39,10 @@ import {
   sectorDeltaToSystemMapPoint,
   SYSTEM_MAP_WORLD_UNITS_PER_LY,
 } from "@shared/format/systemMapLayout";
-import { BIOME_META, PlanetSvg, resolveBiome } from "./planets";
+import { BIOME_META, PlanetSvg, getBiomeTag, resolveBiome } from "./planets";
 import { SunSvg } from "./sun";
 import { FoundColonyDialog } from "../FoundColonyDialog";
+import { useI18n } from "../../lib/i18n";
 
 /** When set, the map is used to pick a sector jump vector from the home star: tap = set course, drag = pan. */
 export interface ExpeditionPickConfig {
@@ -133,6 +134,7 @@ export function CosmicSystemRenderer({
   ownedPlanetIds,
   expeditionPick,
 }: CosmicSystemRendererProps) {
+  const { locale, t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 0.3 });
   const [now, setNow] = useState(Date.now());
@@ -860,7 +862,7 @@ export function CosmicSystemRenderer({
             pointerEvents: "none",
           }}
         >
-          NO PLANETS IN THIS SYSTEM
+          {t("map.noPlanets").toUpperCase()}
         </div>
       )}
 
@@ -897,11 +899,11 @@ export function CosmicSystemRenderer({
                 boxShadow: "0 0 6px #5BFFA9",
               }}
             />
-            Idle ship
+            {t("map.idleShip")}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{ width: 7, height: 2, background: "#F4B84A" }} />
-            Expedition trail
+            {t("map.expeditionTrail")}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <span
@@ -912,7 +914,7 @@ export function CosmicSystemRenderer({
                 borderRadius: "50%",
               }}
             />
-            Orbit
+            {t("map.orbit")}
           </div>
         </div>
       ) : null}
@@ -938,7 +940,7 @@ export function CosmicSystemRenderer({
           pointerEvents: "auto",
         }}
       >
-        RESET · {(transform.scale / DISPLAY_SCALE_FACTOR).toFixed(2)}×
+        {t("map.resetZoom", { scale: (transform.scale / DISPLAY_SCALE_FACTOR).toFixed(2) }).toUpperCase()}
       </button>
 
       {/* Selected planet info card */}
@@ -972,7 +974,7 @@ export function CosmicSystemRenderer({
               marginBottom: 4,
             }}
           >
-            SELECTED · {BIOME_META[resolveBiome(selected.planet.isDiscovered !== false ? selected.planet.biome : "unknown")].tag}
+            {t("map.selected").toUpperCase()} · {getBiomeTag(selected.planet.isDiscovered !== false ? selected.planet.biome : "unknown", locale)}
           </div>
           <div
             style={{
@@ -982,7 +984,7 @@ export function CosmicSystemRenderer({
               marginBottom: 8,
             }}
           >
-            {selected.planet.isDiscovered !== false ? selected.planet.name : "Unmapped Planet"}
+            {selected.planet.isDiscovered !== false ? selected.planet.name : t("map.unmappedPlanet")}
           </div>
           <div
             style={{
@@ -996,7 +998,7 @@ export function CosmicSystemRenderer({
             }}
           >
             <span style={{ color: "var(--text-dim)", letterSpacing: "0.05em" }}>
-              Size
+              {t("map.size")}
             </span>
             <b style={{ color: "var(--text)", fontWeight: 600 }}>
               {selected.planet.isDiscovered !== false ? selected.planet.size : "???"}
@@ -1014,7 +1016,7 @@ export function CosmicSystemRenderer({
             }}
           >
             <span style={{ color: "var(--text-dim)", letterSpacing: "0.05em" }}>
-              Slots
+              {t("planet.slots")}
             </span>
             <b style={{ color: "var(--text)", fontWeight: 600 }}>
               {selected.planet.isDiscovered !== false ? (selected.planet.buildings?.length ?? 0) : 0} /{" "}
@@ -1045,10 +1047,10 @@ export function CosmicSystemRenderer({
             }}
           >
             {selected.planet.isDiscovered === false
-              ? "Discovery Required"
+              ? t("map.discoveryRequired")
               : ownedPlanetIds.has(selected.planet.id)
-                ? "Open planet"
-                : "Send colonizer"}
+                ? t("map.openPlanet")
+                : t("map.sendColonizer")}
           </button>
         </div>
       )}

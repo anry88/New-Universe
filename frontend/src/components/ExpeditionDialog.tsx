@@ -14,6 +14,7 @@ import {
 import { useState, useMemo, useCallback } from "react";
 import { CosmicBackground } from "./cosmic/atoms";
 import { CosmicSystemRenderer } from "./cosmic/SystemMap";
+import { useI18n } from "../lib/i18n";
 
 interface ExpeditionDialogProps {
   ship: Ship;
@@ -33,6 +34,7 @@ export function ExpeditionDialog({
   onClose,
 }: ExpeditionDialogProps) {
   const { data: meData } = useMe();
+  const { locale, t } = useI18n();
   const [target, setTarget] = useState({
     x: originX + 10,
     y: originY + 10,
@@ -224,12 +226,12 @@ export function ExpeditionDialog({
                 color: "var(--text)",
               }}
             >
-              Expedition Launch
+              {t("expedition.title")}
             </div>
             <div
               style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 2 }}
             >
-              {shipType.name.en}{" "}
+              {shipType.name[locale]}{" "}
               <span style={{ fontFamily: "var(--font-mono)", opacity: 0.75 }}>
                 · {ship.id.slice(0, 8)}
               </span>
@@ -239,7 +241,7 @@ export function ExpeditionDialog({
         <button
           type="button"
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t("common.close")}
           style={{
             padding: 10,
             borderRadius: 999,
@@ -289,7 +291,7 @@ export function ExpeditionDialog({
               fontSize: 13,
             }}
           >
-            Loading system…
+            {t("expedition.loadingSystem")}
           </div>
         )}
       </div>
@@ -312,12 +314,12 @@ export function ExpeditionDialog({
           }}
         >
           <strong style={{ color: "var(--text)" }}>
-            {isColonizer ? "Select target planet" : "Pick a route point"}
+            {isColonizer ? t("expedition.selectTarget") : t("expedition.pickRoute")}
           </strong>{" "}
           —{" "}
           {isColonizer
-            ? "choose a discovered world for colonizer deployment."
-            : "the scout flies through the flat system plane and scans along the way. Hidden planets stay unmapped until they enter the scout visibility corridor."}
+            ? t("expedition.selectTargetHelp")
+            : t("expedition.pickRouteHelp")}
         </div>
 
         <div
@@ -348,7 +350,7 @@ export function ExpeditionDialog({
                 fontSize: 9,
               }}
             >
-              TARGET SECTOR
+              {t("expedition.targetSector").toUpperCase()}
             </span>
             <div style={{ color: "var(--accent)", marginTop: 4 }}>
               [{target.x}, {target.y}, {target.z}]
@@ -373,7 +375,7 @@ export function ExpeditionDialog({
                 fontSize: 9,
               }}
             >
-              Δ FROM HOME
+              {t("expedition.deltaFromHome").toUpperCase()}
             </span>
             <div style={{ color: "var(--text)", marginTop: 4 }}>
               [{sectorDx >= 0 ? "+" : ""}
@@ -400,7 +402,7 @@ export function ExpeditionDialog({
               fontWeight: 700,
             }}
           >
-            MISSION SUMMARY
+            {t("expedition.summary").toUpperCase()}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div
@@ -419,7 +421,7 @@ export function ExpeditionDialog({
                   fontSize: 13,
                 }}
               >
-                <Box size={16} style={{ opacity: 0.85 }} /> Distance
+                <Box size={16} style={{ opacity: 0.85 }} /> {t("expedition.distance")}
               </div>
               <span
                 style={{
@@ -450,7 +452,7 @@ export function ExpeditionDialog({
                   fontSize: 13,
                 }}
               >
-                <Timer size={16} style={{ opacity: 0.85 }} /> One-way ETA
+                <Timer size={16} style={{ opacity: 0.85 }} /> {t("expedition.oneWayEta")}
               </div>
               <span
                 style={{
@@ -486,8 +488,8 @@ export function ExpeditionDialog({
                     fontSize: 13,
                   }}
                 >
-                  <Fuel size={16} style={{ opacity: 0.85 }} /> Fuel (
-                  {isColonizer && targetPlanetId ? "one-way" : "round-trip"} est.)
+                  <Fuel size={16} style={{ opacity: 0.85 }} /> {t("expedition.fuel")} (
+                  {isColonizer && targetPlanetId ? t("expedition.oneWay") : t("expedition.roundTrip")} {t("expedition.estimate")})
                 </div>
                 <span
                   style={{
@@ -499,7 +501,7 @@ export function ExpeditionDialog({
                 >
                   {recommendedFuel}{" "}
                   <span style={{ fontSize: 11, color: "var(--text-faint)" }}>
-                    / {fuelAvailable} avail.
+                    / {fuelAvailable} {t("expedition.availableShort")}
                   </span>
                 </span>
               </div>
@@ -511,15 +513,12 @@ export function ExpeditionDialog({
                   lineHeight: 1.45,
                 }}
               >
-                Required:{" "}
-                <strong style={{ color: "var(--text)" }}>
-                  {recommendedFuel}
-                </strong>{" "}
-                units (
-                {isColonizer && targetPlanetId ? "1" : "2"}×{" "}
-                {effectiveDistance.toFixed(1)} ly ×{" "}
-                {Number(shipType.fuelConsumption).toFixed(2)} / ly). The server
-                reserves this automatically.
+                {t("expedition.requiredFuel", {
+                  fuel: recommendedFuel,
+                  legs: isColonizer && targetPlanetId ? 1 : 2,
+                  distance: effectiveDistance.toFixed(1),
+                  consumption: Number(shipType.fuelConsumption).toFixed(2),
+                })}
               </div>
               {shortOnFuel ? (
                 <div
@@ -541,8 +540,7 @@ export function ExpeditionDialog({
                     style={{ flexShrink: 0, marginTop: 2 }}
                   />
                   <span>
-                    Required fuel exceeds stored fuel. Gather fuel or shorten
-                    the route.
+                    {t("expedition.shortFuel")}
                   </span>
                 </div>
               ) : null}
@@ -578,18 +576,18 @@ export function ExpeditionDialog({
           }}
         >
           {launch.isPending ? (
-            "Preparing…"
+            t("expedition.preparing")
           ) : isColonizer && !targetPlanetId ? (
             <>
-              <Target size={20} /> SELECT PLANET
+              <Target size={20} /> {t("expedition.selectPlanet").toUpperCase()}
             </>
           ) : launchBlocked ? (
             <>
-              <Target size={20} /> INSUFFICIENT FUEL
+              <Target size={20} /> {t("expedition.insufficientFuel").toUpperCase()}
             </>
           ) : (
             <>
-              <Send size={20} /> COMMENCE MISSION
+              <Send size={20} /> {t("expedition.commence").toUpperCase()}
             </>
           )}
         </button>

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import type { ResearchDefinition } from '@shared/types/research';
 import { timerSnapshot } from '../lib/timers';
+import { useI18n } from '../lib/i18n';
 
 export type TechTreeNodeVisualState = 'completed' | 'active' | 'pending' | 'locked';
 
@@ -29,6 +30,7 @@ export function TechTreeNode({
   startedAt,
   durationSec,
 }: TechTreeNodeProps) {
+  const { locale, t } = useI18n();
   const [remainingMs, setRemainingMs] = useState(0);
 
   useEffect(() => {
@@ -67,8 +69,8 @@ export function TechTreeNode({
         : {};
 
   const title =
-    tierDefinition?.description?.en ??
-    (visual === 'locked' ? 'Requirements not met' : `Tier ${level}`);
+    tierDefinition?.description?.[locale] ??
+    (visual === 'locked' ? t('research.requirementsNotMet') : t('research.tier', { level }));
 
   return (
     <div
@@ -76,7 +78,7 @@ export function TechTreeNode({
       style={style}
       title={title}
       role="img"
-      aria-label={`Tier ${level} ${visual}`}
+      aria-label={`${t('research.tier', { level })} ${visual}`}
     >
       <span style={{ position: 'relative', zIndex: 1 }}>{level}</span>
       {visual === 'active' && remainingMs > 0 && (

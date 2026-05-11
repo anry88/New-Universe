@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { apiFetch, setSessionToken } from '../lib/api';
+import { persistUiLocale } from '../lib/locale';
 import type { AuthResponse } from '@shared/types/auth';
 import type { User } from '@shared/types/user';
 
@@ -26,6 +27,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         method: 'POST',
       });
       setSessionToken(response.token);
+      persistUiLocale(response.user.preferredLocale);
       set({
         token: response.token,
         user: response.user,

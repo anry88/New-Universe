@@ -6,6 +6,7 @@ import { Planet } from '@shared/types/world';
 import { apiFetch } from '../lib/api';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { X, Package, Truck, AlertTriangle } from 'lucide-react';
+import { useI18n } from '../lib/i18n';
 
 interface CargoTransferDialogProps {
   originPlanet: Planet;
@@ -14,6 +15,7 @@ interface CargoTransferDialogProps {
 
 export function CargoTransferDialog({ originPlanet, onClose }: CargoTransferDialogProps) {
   const queryClient = useQueryClient();
+  const { locale, t } = useI18n();
   const { data: meData } = useMe();
   const { planets } = useColonies();
   const { data: shipTypes } = useShipTypes();
@@ -47,16 +49,16 @@ export function CargoTransferDialog({ originPlanet, onClose }: CargoTransferDial
       onClose();
     },
     onError: (err: Error) => {
-      setError(err.message || 'Transfer failed');
+      setError(err.message || t('cargo.transferFailed'));
     }
   });
 
   const handleTransfer = () => {
     setError(null);
-    if (!selectedShipId) return setError('Select a ship');
-    if (!targetPlanetId) return setError('Select target planet');
-    if (totalCargo <= 0) return setError('Add resources to transfer');
-    if (totalCargo > capacity) return setError('Cargo exceeds capacity');
+    if (!selectedShipId) return setError(t('cargo.selectShipError'));
+    if (!targetPlanetId) return setError(t('cargo.selectTargetError'));
+    if (totalCargo <= 0) return setError(t('cargo.addResourcesError'));
+    if (totalCargo > capacity) return setError(t('cargo.capacityError'));
 
     transferMutation.mutate({
       shipId: selectedShipId,
@@ -88,7 +90,7 @@ export function CargoTransferDialog({ originPlanet, onClose }: CargoTransferDial
         <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-800/50">
           <div className="flex items-center gap-2 text-cyan-400 font-bold uppercase tracking-wider text-sm">
             <Truck className="w-5 h-5" />
-            Cargo Transfer
+            {t('cargo.title')}
           </div>
           <button onClick={onClose} className="p-1 hover:bg-slate-700 rounded-lg text-slate-400 transition-colors">
             <X className="w-6 h-6" />
@@ -98,7 +100,7 @@ export function CargoTransferDialog({ originPlanet, onClose }: CargoTransferDial
         <div className="p-4 overflow-y-auto space-y-6 flex-1">
           {/* Ship Selection */}
           <section>
-            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-tighter mb-2">Select Transport Ship</label>
+            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-tighter mb-2">{t('cargo.selectShip')}</label>
             <div className="grid gap-2">
               {availableShips.length > 0 ? (
                 availableShips.map(ship => {
@@ -114,18 +116,18 @@ export function CargoTransferDialog({ originPlanet, onClose }: CargoTransferDial
                       }`}
                     >
                       <div className="text-left">
-                        <div className="text-sm font-bold text-slate-200">{type?.name.en || 'Unknown Ship'}</div>
-                        <div className="text-[10px] text-slate-400">ID: {ship.id.slice(0, 8)}</div>
+                        <div className="text-sm font-bold text-slate-200">{type?.name[locale] || t('cargo.unknownShip')}</div>
+                        <div className="text-[10px] text-slate-400">{t('cargo.shipId', { id: ship.id.slice(0, 8) })}</div>
                       </div>
                       <div className="text-right">
-                        <div className="text-xs text-cyan-400 font-medium">Cap: {type?.cargo || 0}</div>
+                        <div className="text-xs text-cyan-400 font-medium">{t('cargo.capacity', { capacity: type?.cargo || 0 })}</div>
                       </div>
                     </button>
                   );
                 })
               ) : (
                 <div className="text-center p-6 bg-slate-800/30 rounded-xl border border-dashed border-slate-700">
-                  <p className="text-xs text-slate-500">No idle ships on this planet</p>
+                  <p className="text-xs text-slate-500">{t('cargo.noIdleShips')}</p>
                 </div>
               )}
             </div>
@@ -133,13 +135,13 @@ export function CargoTransferDialog({ originPlanet, onClose }: CargoTransferDial
 
           {/* Target Planet */}
           <section>
-            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-tighter mb-2">Destination</label>
+            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-tighter mb-2">{t('cargo.destination')}</label>
             <select
               value={targetPlanetId}
               onChange={(e) => setTargetPlanetId(e.target.value)}
               className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-cyan-500 transition-colors"
             >
-              <option value="">Select colony...</option>
+              <option value="">{t('cargo.selectColony')}</option>
               {targetPlanets.map(p => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
@@ -148,7 +150,7 @@ export function CargoTransferDialog({ originPlanet, onClose }: CargoTransferDial
 
           {/* Resource Selection */}
           <section>
-            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-tighter mb-2">Load Cargo</label>
+            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-tighter mb-2">{t('cargo.load')}</label>
             <div className="space-y-2">
               {originPlanet.resources?.map(res => (
                 <div key={res.resourceId} className="flex items-center gap-3 p-2 bg-slate-800/30 rounded-xl border border-slate-700/50">
@@ -158,7 +160,7 @@ export function CargoTransferDialog({ originPlanet, onClose }: CargoTransferDial
                   <div className="flex-1">
                     <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider mb-1">
                       <span className="text-slate-400">{res.resourceId}</span>
-                      <span className="text-slate-500">Available: {Math.floor(Number(res.amount))}</span>
+                      <span className="text-slate-500">{t('cargo.available', { amount: Math.floor(Number(res.amount)) })}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <input
@@ -196,7 +198,7 @@ export function CargoTransferDialog({ originPlanet, onClose }: CargoTransferDial
         {/* Footer */}
         <div className="p-4 bg-slate-800/30 border-t border-slate-800">
           <div className="flex justify-between items-center mb-4 px-1">
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Payload</div>
+            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{t('cargo.totalPayload')}</div>
             <div className={`text-sm font-bold ${totalCargo > capacity ? 'text-red-400' : 'text-cyan-400'}`}>
               {totalCargo} / {capacity}
             </div>
@@ -207,7 +209,7 @@ export function CargoTransferDialog({ originPlanet, onClose }: CargoTransferDial
             disabled={transferMutation.isPending || !selectedShipId || !targetPlanetId || totalCargo <= 0 || totalCargo > capacity}
             className="w-full bg-cyan-500 hover:bg-cyan-400 disabled:bg-slate-700 disabled:text-slate-500 text-slate-950 font-bold py-3 rounded-xl transition-all shadow-[0_4px_20px_rgba(6,182,212,0.2)]"
           >
-            {transferMutation.isPending ? 'Launching...' : 'Initiate Transfer'}
+            {transferMutation.isPending ? t('cargo.launching') : t('cargo.initiate')}
           </button>
         </div>
       </div>

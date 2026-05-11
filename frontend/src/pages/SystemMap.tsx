@@ -5,6 +5,7 @@ import { CosmicSystemRenderer } from '../components/cosmic/SystemMap';
 import { CosmicBottomNav } from '../components/cosmic/atoms';
 import { ChevronLeft } from 'lucide-react';
 import { formatHomeSystemTitleForUser } from '../lib/homeSystemTitle';
+import { useI18n } from '../lib/i18n';
 
 /**
  * Galaxy / system map — Cosmic Atlas chrome around the existing PixiJS
@@ -15,6 +16,7 @@ import { formatHomeSystemTitleForUser } from '../lib/homeSystemTitle';
 export function SystemMapPage() {
   const { data: meData, isLoading } = useMe();
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   if (isLoading) {
     return (
@@ -30,14 +32,14 @@ export function SystemMapPage() {
     return (
       <div className="cosmic-screen" style={{ '--accent': '#5BD7FF', display: 'grid', placeItems: 'center' } as React.CSSProperties}>
         <div style={{ textAlign: 'center', color: 'var(--text-dim)' }}>
-          <p style={{ marginBottom: 16 }}>No home system found.</p>
+          <p style={{ marginBottom: 16 }}>{t('map.noHome')}</p>
           <button
             type="button"
             onClick={() => navigate('/')}
             className="cosmic-cta"
             style={{ padding: '8px 14px' }}
           >
-            Go Back
+            {t('common.goBack')}
           </button>
         </div>
       </div>
@@ -72,7 +74,7 @@ export function SystemMapPage() {
       >
         <button
           type="button"
-          aria-label="Back"
+          aria-label={t('common.back')}
           onClick={() => navigate('/')}
           style={{
             padding: 8,
@@ -110,7 +112,7 @@ export function SystemMapPage() {
               marginTop: 2,
             }}
           >
-            SECTOR {home.sectorX}:{home.sectorY}:{home.sectorZ}
+            {t('map.sector').toUpperCase()} {home.sectorX}:{home.sectorY}:{home.sectorZ}
           </div>
         </div>
 
@@ -133,7 +135,7 @@ export function SystemMapPage() {
             backdropFilter: 'blur(8px)',
           }}
         >
-          Sector
+          {t('map.sector')}
         </button>
       </div>
 

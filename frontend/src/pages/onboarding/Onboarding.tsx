@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Tutorial } from '../../components/Tutorial';
 import { useMe } from '../../hooks/useMe';
 import { apiFetch } from '../../lib/api';
+import { useI18n } from '../../lib/i18n';
 
 interface OnboardingPageProps {
   onSkip: () => void;
@@ -15,6 +16,7 @@ interface OnboardingPageProps {
 export function OnboardingPage({ onSkip, onContinueToGame, onEnter }: OnboardingPageProps) {
   const navigate = useNavigate();
   const { data: meData, refetch } = useMe();
+  const { t } = useI18n();
 
   useEffect(() => {
     onEnter?.();
@@ -25,17 +27,17 @@ export function OnboardingPage({ onSkip, onContinueToGame, onEnter }: Onboarding
 
   const steps = useMemo(
     () => [
-      { id: 0, title: 'Welcome', done: true },
-      { id: 1, title: 'Build first mine', done: tutorialStep >= 1 },
-      { id: 2, title: 'Build storage', done: tutorialStep >= 2 },
-      { id: 3, title: 'Build scout', done: tutorialStep >= 3 },
-      { id: 4, title: 'Send first expedition', done: tutorialStep >= 4 },
+      { id: 0, title: t('tutorial.welcome'), done: true },
+      { id: 1, title: t('tutorial.firstMine'), done: tutorialStep >= 1 },
+      { id: 2, title: t('tutorial.storage'), done: tutorialStep >= 2 },
+      { id: 3, title: t('tutorial.scout'), done: tutorialStep >= 3 },
+      { id: 4, title: t('tutorial.expedition'), done: tutorialStep >= 4 },
     ],
-    [tutorialStep],
+    [tutorialStep, t],
   );
   const currentHint = completed
-    ? 'Tutorial completed. Rewards were delivered at each milestone.'
-    : `Current objective: ${steps.find((step) => !step.done)?.title ?? 'Welcome'}`;
+    ? t('tutorial.completedHint')
+    : t('tutorial.currentObjective', { objective: steps.find((step) => !step.done)?.title ?? t('tutorial.welcome') });
 
   const closeTutorial = () => {
     navigate('/');

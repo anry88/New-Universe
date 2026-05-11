@@ -5,6 +5,7 @@ import { BuildQueue } from '../components/BuildQueue';
 import { CosmicBottomNav } from '../components/cosmic/atoms';
 import { useColonies } from '../hooks/useColonies';
 import { useMe } from '../hooks/useMe';
+import { useI18n } from '../lib/i18n';
 
 /**
  * Home — the landing screen of the Telegram mini-app.
@@ -21,6 +22,7 @@ interface HomePageProps {
 export function HomePage({ onOpenTutorial }: HomePageProps) {
   const { data: meData } = useMe();
   const { focalPlanetId, focalPlanet } = useColonies();
+  const { t } = useI18n();
   return (
     <div className="cosmic-screen" style={{ '--accent': '#5BD7FF' } as React.CSSProperties}>
       {!meData?.tutorialCompletedAt && (
@@ -30,7 +32,7 @@ export function HomePage({ onOpenTutorial }: HomePageProps) {
             onClick={onOpenTutorial}
             className="rounded-md border border-cyan-400/60 bg-slate-900/80 px-3 py-1 text-xs text-cyan-200 hover:bg-slate-800"
           >
-            Tutorial
+            {t('tutorial.launch')}
           </button>
         </div>
       )}

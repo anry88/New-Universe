@@ -1,4 +1,5 @@
 import { getResourceLabel, getResourceSymbol } from './cosmic/resources';
+import { useI18n } from '../lib/i18n';
 
 export interface InventoryRow {
   resourceId: string;
@@ -28,10 +29,11 @@ export function ResourceInventoryDrawer({
   diamondBalance,
   onResourceClick,
 }: ResourceInventoryDrawerProps) {
+  const { locale, t } = useI18n();
   if (!open) return null;
 
   const sorted = [...rows].sort((a, b) =>
-    getResourceLabel(a.resourceId).localeCompare(getResourceLabel(b.resourceId)),
+    getResourceLabel(a.resourceId, locale).localeCompare(getResourceLabel(b.resourceId, locale)),
   );
 
   return (
@@ -42,11 +44,11 @@ export function ResourceInventoryDrawer({
       aria-labelledby="resource-inv-title"
       data-testid="resource-inventory-drawer"
     >
-      <button type="button" className="resource-inv-backdrop" aria-label="Close" onClick={onClose} />
+      <button type="button" className="resource-inv-backdrop" aria-label={t('common.close')} onClick={onClose} />
       <div className="resource-inv-panel">
         <div className="resource-inv-head">
           <h2 id="resource-inv-title" className="resource-inv-title">
-            All resources
+            {t('resources.all')}
           </h2>
           <button type="button" className="resource-inv-close" onClick={onClose}>
             ✕
@@ -54,7 +56,7 @@ export function ResourceInventoryDrawer({
         </div>
 
         <section className="resource-inv-section">
-          <div className="resource-inv-section-label">Planet stockpile</div>
+          <div className="resource-inv-section-label">{t('resources.stockpile')}</div>
           <div className="resource-inv-hint">{planetTitle}</div>
           <ul className="resource-inv-list">
             {sorted.map((r) => {
@@ -66,9 +68,9 @@ export function ResourceInventoryDrawer({
                     <div className="resource-inv-row-main">
                       <span className="resource-inv-sym">{getResourceSymbol(r.resourceId)}</span>
                       <div className="resource-inv-meta">
-                        <span className="resource-inv-name">{getResourceLabel(r.resourceId)}</span>
+                        <span className="resource-inv-name">{getResourceLabel(r.resourceId, locale)}</span>
                         <span className="resource-inv-sub">
-                          {r.ratePerHour > 0 ? `+${Math.round(r.ratePerHour)}/h` : '—'} · cap{' '}
+                          {r.ratePerHour > 0 ? `+${Math.round(r.ratePerHour)}/h` : '—'} · {t('common.cap')}{' '}
                           {Math.floor(r.cap).toLocaleString()}
                         </span>
                       </div>
@@ -84,7 +86,7 @@ export function ResourceInventoryDrawer({
                       className="resource-inv-buy-btn"
                       onClick={() => onResourceClick?.(r.resourceId)}
                     >
-                      Buy with diamonds
+                      {t('resources.buyWithDiamonds')}
                     </button>
                   )}
                 </li>
@@ -95,15 +97,15 @@ export function ResourceInventoryDrawer({
 
         {diamondBalance !== undefined && (
           <section className="resource-inv-section resource-inv-section--account">
-            <div className="resource-inv-section-label">Account (global)</div>
+            <div className="resource-inv-section-label">{t('resources.account')}</div>
             <div className="resource-inv-account-row">
               <span className="resource-inv-sym" aria-hidden>
                 ◆
               </span>
-              <span className="resource-inv-name">Diamonds</span>
+              <span className="resource-inv-name">{t('resources.diamonds')}</span>
               <span className="resource-inv-amt">{diamondBalance.toLocaleString()}</span>
             </div>
-            <p className="resource-inv-footnote">Premium currency — not stored on individual planets.</p>
+            <p className="resource-inv-footnote">{t('resources.footnote')}</p>
           </section>
         )}
       </div>

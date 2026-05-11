@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import { env } from '../../lib/env.js';
 import { TelegramUser } from '../../lib/telegram.js';
 import { generateHomeSystem } from '../world/home-system-generator.js';
+import { normalizeLocale } from '@shared/types/locale.js';
 
 export class AuthService {
   async loginWithTelegram(telegramUser: TelegramUser) {
@@ -21,6 +22,7 @@ export class AuthService {
             tgId,
             tgUsername: telegramUser.username,
             tgFirstName: telegramUser.first_name,
+            preferredLocale: normalizeLocale(telegramUser.language_code),
             diamonds: env.DIAMOND_STARTING_GRANT,
           }).returning();
 

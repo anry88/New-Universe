@@ -40,3 +40,13 @@ export const TUTORIAL_STEP_REWARD_SUMMARY_EN: Record<number, string> = {
 
 export const TUTORIAL_COMPLETION_REWARD_SUMMARY_EN =
   '+145 Iron, +40 Water when the tutorial arc completes (expedition active)';
+
+export const TUTORIAL_STEP_REWARD_SUMMARY_RU: Record<number, string> = {
+  1: '+10 железа, +15 воды после синхронизации первой шахты',
+  2: '+15 железа, +15 воды после постройки склада',
+  3: '+15 железа, +15 воды, когда разведчик будет готов',
+  4: '+15 железа, +15 воды после запуска экспедиции',
+};
+
+export const TUTORIAL_COMPLETION_REWARD_SUMMARY_RU =
+  '+145 железа, +40 воды после завершения обучающей цепочки (экспедиция активна)';

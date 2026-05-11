@@ -5,13 +5,16 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
 ## Layout
 
 - `lib/` — shared infrastructure (API client, store, Sentry init, helpers).
-  - **`api.ts`** — `apiFetch` wrapper for authenticated JSON calls.
+  - **`api.ts`** — `apiFetch` wrapper for authenticated JSON calls; sends `Accept-Language` from the persisted UI locale.
+  - **`i18n.tsx`** — React i18n provider/hook. Exports `I18nProvider`, `useI18n`, and `translate`; loads `locales/en.json` + `locales/ru.json`, persists locale changes, and performs simple `{param}` interpolation.
+  - **`locale.ts`** — locale persistence/resolution helpers (`readStoredLocale`, `persistUiLocale`, `getUiLocale`, `normalizeUiLocale`) backed by `@shared/types/locale`.
+  - **`locale.test.ts`** — unit coverage for locale normalization (`en` fallback, Telegram/Accept-Language `ru` detection).
   - **`timers.ts`** — `timerSnapshot()` and `formatTimerDuration()` for local countdown/progress rendering from server timestamps without polling `/me` every second.
   - **`timers.test.ts`** — fake-clock coverage for remaining-time, derived-start, and due-state progress math.
   - **`systemMapLayout.test.ts`** — Vitest coverage for shared home-system map guide rings, specifically ensuring obfuscated `unknown` planets from `/me` do not expand the rendered orbit count.
   - **`resourceBarScope.ts`** — `planetInventoryApiPath(planetId)` for `GET /resources/planets/:id` (resource top bar + inventory).
   - **`homeSystemTitle.ts`** — `formatHomeSystemTitleForUser()` builds localized home-system banners from `/me` (`@shared/format/homeSystemNaming`).
-  - **`uiLocale.ts`** — `getUiLocale()` (`en`/`ru`) from `localStorage` / `navigator` until full i18n owns persistence (P2.1-402).
+  - **`uiLocale.ts`** — compatibility re-export for `getUiLocale()` and `UiLocale`; new code should import from `locale.ts` / `i18n.tsx`.
   - **`sentry.ts`** — Sentry browser init.
   - **`tech-tree.ts`**, **`research-eligibility.ts`** — research UI helpers and tests.
 - `hooks/` — custom React hooks.
@@ -24,7 +27,7 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
 - `pages/` — page-level components routed by `react-router-dom`.
   - **`Home.tsx`** — main game screen with resource bar, planet view, build queue, and bottom tab bar.
   - **`Colonies.tsx`** — lists all owned planets with their resources and status, allowing focal planet switching and initiating cargo transfers.
-  - **`Profile.tsx`** — player profile card with sector/system details, controlled-planet count based only on settled planets, and a `RESUME TUTORIAL` action when onboarding is not completed yet.
+  - **`Profile.tsx`** — player profile card with sector/system details, controlled-planet count based only on settled planets, an EN/RU language switch backed by `PATCH /me/preferences`, and a `RESUME TUTORIAL` action when onboarding is not completed yet.
   - `onboarding/` — first-session onboarding tutorial pages. See [`pages/onboarding/README.md`](./pages/onboarding/README.md).
     - **`Onboarding.tsx`** — 5-step tutorial overlay (welcome → mine → storage → scout → expedition); polls `POST /tutorial/sync`; wires **Continue** to dismiss full-screen gate via App/sessionStorage so Home stays playable without redirect loops.
   - **`PlanetDetail.tsx`** — detailed planet view with building slots and upgrade options; derives construction eligibility from `GET /buildings/types` limits plus live `/me` planets/research via `@shared/types/building-eligibility`, and keeps merely discovered planets read-only until `/me` marks them `isColonized`.
@@ -36,7 +39,7 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
 - `components/` — reusable presentational components.
   - `pixi/` — canvas-based rendering components using PixiJS.
     - **`SystemRenderer.tsx`** — top-down system map renderer. Handles orbits, planets, star, and ship markers with pan/zoom logic.
-    - **`SectorRenderer.tsx`** — compact Pixi scatter plot for multiplayer sector markers (`PresenceEntityKind` colors); receives `SectorPresenceEntity[]` from the presence API.
+    - **`SectorRenderer.tsx`** — compact Pixi scatter plot for multiplayer sector markers (`PresenceEntityKind` colors); receives `SectorPresenceEntity[]` plus localized empty-state copy from the presence page.
   - **`ResourceBar.tsx`** — planet-scoped top chips (`planetInventoryApiPath` when `planetId` is set), RAF smoothing, **`user.diamonds`** on `CosmicTopBar` (four resources + diamond chip when balance is defined), optional `planetLabel`, and **All** opening `ResourceInventoryDrawer`. Clicking a resource chip opens diamond purchase flow (`POST /resources/buy-with-diamonds`) for the current planet.
   - **`ResourceInventoryDrawer.tsx`** — full planet stockpile list (sorted by label) plus account-wide diamonds in **Account (global)** when `/me` returns `user.diamonds`; each resource row has `Buy with diamonds` action using the same purchase flow as top chips.
   - **`ResourceDiamondPurchaseDialog.tsx`** — right-panel purchase sheet for resource amount input + buy confirmation; shared entrypoint for top-bar and inventory clicks.
@@ -53,6 +56,7 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
   - **`RequirementList.tsx`** — compact list of missing `{ branch, level }` research prerequisites for gated UI actions; uses `RESEARCH_BRANCH_LABELS_EN` from `@shared/types/research`.
   - **`TechTreeNode.tsx`** — single-tier chip for Cosmic `tech-node` styles: completed/active countdown/pending/locked visuals using `timerSnapshot()` so progress can use server `startedAt`.
   - **`Tutorial.tsx`** — reusable full-screen onboarding overlay with step list, per-step reward blurbs from `@shared/config/tutorialRewards`, **Continue** (back to game without skip), **Skip for now**, and **Back to game** when complete.
+- `locales/` — flat EN/RU dictionaries used by `lib/i18n.tsx`; see [`locales/README.md`](./locales/README.md).
 - `assets/` — static assets imported by Vite (currently empty).
 
 The folders above are reserved by `AGENTS.md` (`Engineering Rules` → "Keep frontend state and API calls in clear `lib/`, `pages/`, and `components/` boundaries"). Create them as soon as a feature needs them and document new files here.
@@ -67,7 +71,7 @@ The folders above are reserved by `AGENTS.md` (`Engineering Rules` → "Keep fro
   5. Imports `mockEnv.ts` so the dev environment is patched before `App` renders.
   6. Calls `miniApp.ready()` to tell the Telegram client that the Mini App finished loading.
   7. Renders `<App />` into `#root` inside `React.StrictMode`.
-- **`App.tsx`** — current placeholder UI. Reads launch params with `useLaunchParams`, theme params with `useSignal(themeParams.state)`, and dark-mode flag with `useSignal(themeParams.isDark)`. Renders a Tailwind welcome card with the player's Telegram username (or `firstName`, falling back to `'DevUser'`), platform string, and theme label, plus a placeholder "Enter the Game" button. Replace this component when implementing real navigation.
+- **`App.tsx`** — application shell. Wraps React Query, `I18nProvider`, and `BrowserRouter`, runs Telegram login, syncs the active locale from `/auth/telegram` or `/me`, guards first-session onboarding, and routes Home, maps, research, fleet, market, colonies, profile, and planet detail pages.
 - **`mockEnv.ts`** — runs in local `DEV` and in E2E preview mode (`VITE_E2E_MOCK_TELEGRAM=1`). Calls `retrieveLaunchParams()`; if it throws (i.e. we are running in a plain browser without Telegram), it constructs a deterministic fake `initDataRaw` and theme via `mockTelegramEnv` so the SDK behaves as if it were inside Telegram. The mocked user (`Andrew Rogue`, `id: 99281932`) is a stable fixture; do not commit additional users without coordinating with the auth-test fixtures.
 - **`index.css`** — Tailwind base/components/utilities entry imported by `main.tsx`; keeps modal backdrops/sheets (`.bd-backdrop` / `.bd-sheet`) above the fixed bottom nav so research/build/market dialogs remain clickable on mobile.
 - **`dummy.test.ts`** — a Vitest sanity test that asserts a trivial expression. Replace with real tests as features land.
@@ -81,7 +85,10 @@ The folders above are reserved by `AGENTS.md` (`Engineering Rules` → "Keep fro
 - **`research-eligibility.ts`** — `evaluateResearchEligibility` mirrors `/research/start` lab + prerequisite checks for UI lock copy; optional `planetResources` adds resource-shortage messaging aligned with server deductions.
 - **`timers.ts`** — pure local timer helpers for countdown/progress snapshots and compact duration labels. Network synchronization stays in hooks (`useMe`, `useShipQueue`) and fires at due timestamps, not every UI tick.
 - **`timers.test.ts`** — Vitest coverage for exact timestamp progress, derived start fallback, and due-state clamping.
-- **`api.ts`** — Unified fetch client. Automatically injects `X-Telegram-Init-Data` from the SDK and `Authorization: Bearer <token>` when a session is active.
+- **`api.ts`** — Unified fetch client. Automatically injects `X-Telegram-Init-Data` from the SDK, `Authorization: Bearer <token>` when a session is active, and `Accept-Language` from the persisted UI locale.
+- **`i18n.tsx`** — React locale context/provider over the EN/RU JSON dictionaries, with persisted locale switching and `t(key, params?)`.
+- **`locale.ts`** — reads/writes the persisted UI locale (`nu_preferred_locale`, plus legacy `ui_locale`) and normalizes Telegram/header values through the shared locale contract.
+- **`locale.test.ts`** — Vitest coverage for `normalizeLocale`.
 - **`sentry.ts`** — initializes `@sentry/react` only when `import.meta.env.VITE_SENTRY_DSN` is present.
  Uses `browserTracingIntegration` and `replayIntegration` with `replaysSessionSampleRate: 0.1` and `replaysOnErrorSampleRate: 1.0`, sets `tracesSampleRate: 1.0`, and reports `import.meta.env.MODE` as the environment. The module exports the `Sentry` namespace so error-boundary or `Sentry.captureException` calls can import directly from here.
 

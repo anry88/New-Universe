@@ -1,8 +1,9 @@
 import React from 'react';
 import type { Building } from '@shared/types/world';
 import type { BuildingType } from '@shared/types/buildings';
-import { resolveBuildingType } from './cosmic/buildings';
+import { getBuildingCategory, resolveBuildingType } from './cosmic/buildings';
 import { getResourceSymbol } from './cosmic/resources';
+import { useI18n } from '../lib/i18n';
 
 interface UpgradeDialogProps {
   building?: Building;
@@ -34,6 +35,7 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
   isProcessing,
   accent = '#5BD7FF',
 }) => {
+  const { locale, t } = useI18n();
   if (!isOpen || !building || !typeInfo) return null;
 
   const def = resolveBuildingType(typeInfo.id);
@@ -57,16 +59,16 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
         className="bd-sheet"
         role="dialog"
         aria-modal="true"
-        aria-label={`Upgrade ${typeInfo.name.en}`}
+        aria-label={t('build.upgradeAria', { name: typeInfo.name[locale] })}
         onClick={(e) => e.stopPropagation()}
         style={{ '--accent': accent } as React.CSSProperties}
       >
         <div className="bd-handle" />
         <div className="bd-head">
-          <div className="bd-tag">UPGRADE INSTALLATION</div>
-          <div className="bd-title">{typeInfo.name.en}</div>
+          <div className="bd-tag">{t('build.upgradeInstallation').toUpperCase()}</div>
+          <div className="bd-title">{typeInfo.name[locale]}</div>
           <div className="bd-sub">
-            Level {building.level} → {building.level + 1} · {def.cat}
+            L{building.level} → L{building.level + 1} · {getBuildingCategory(typeInfo.id, locale)}
           </div>
         </div>
 
@@ -77,10 +79,10 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
             </div>
             <div>
               <div className="bopt-row">
-                <span className="bopt-name">Upgrade to L{building.level + 1}</span>
-                <span className="bopt-locked">{def.cat.toUpperCase()}</span>
+                <span className="bopt-name">{t('build.upgradeTo', { level: building.level + 1 })}</span>
+                <span className="bopt-locked">{getBuildingCategory(typeInfo.id, locale).toUpperCase()}</span>
               </div>
-              <div className="bopt-desc">{typeInfo.description.en}</div>
+              <div className="bopt-desc">{typeInfo.description[locale]}</div>
               
               <div className="bopt-stats">
                 {(() => {
@@ -92,22 +94,22 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
                     <>
                       {output.resourceId && output.baseRate && (
                         <span className="bstat">
-                          Yield: {output.baseRate * curLvl} → {output.baseRate * nextLvl} {getResourceSymbol(output.resourceId)}/h
+                          {t('build.yield')}: {output.baseRate * curLvl} → {output.baseRate * nextLvl} {getResourceSymbol(output.resourceId)}/h
                         </span>
                       )}
                       {output.cap && (
                         <span className="bstat">
-                          Capacity: {output.cap * curLvl} → {output.cap * nextLvl}
+                          {t('build.capacity')}: {output.cap * curLvl} → {output.cap * nextLvl}
                         </span>
                       )}
                       {output.energy && (
                         <span className="bstat energy">
-                          Energy: {output.energy * curLvl} → {output.energy * nextLvl}
+                          {t('common.energy')}: {output.energy * curLvl} → {output.energy * nextLvl}
                         </span>
                       )}
                       {typeInfo.energyConsumption > 0 && (
                         <span className="bstat neg">
-                          Usage: -{typeInfo.energyConsumption} E
+                          {t('build.usage')}: -{typeInfo.energyConsumption} E
                         </span>
                       )}
                       {output.conversion && (
@@ -143,7 +145,7 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
             className="cosmic-cta"
             style={{ width: '100%', padding: '14px', marginTop: '8px' }}
           >
-            {isProcessing ? 'Processing…' : `Upgrade to L${building.level + 1}`}
+            {isProcessing ? t('common.processing') : t('build.upgradeTo', { level: building.level + 1 })}
           </button>
 
           {typeInfo.id === 'shipyard' && onOpenShipyard && (
@@ -154,7 +156,7 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
               className="cosmic-cta"
               style={{ width: '100%', padding: '12px', marginTop: '10px' }}
             >
-              Open Ship Construction
+              {t('build.openShipConstruction')}
             </button>
           )}
 
@@ -173,7 +175,7 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
               fontSize: '0.8rem',
             }}
           >
-            {isProcessing ? 'Processing…' : 'Demolish Installation'}
+            {isProcessing ? t('common.processing') : t('build.demolish')}
           </button>
         </div>
       </div>

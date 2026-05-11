@@ -9,6 +9,7 @@
  * API versions still resolve to catalog entries.
  */
 import React from 'react';
+import type { Locale } from '@shared/types/locale';
 
 export type BuildingTypeId =
   | 'command_center'
@@ -229,23 +230,25 @@ export const IconSolarPlant: React.FC<BuildingIconProps> = ({ size, tone }) => (
 export interface BuildingDef {
   Icon: React.FC<BuildingIconProps>;
   label: string;
+  labels: Record<Locale, string>;
   cat: string;
+  cats: Record<Locale, string>;
 }
 
 export const BUILDING_BY_TYPE: Record<BuildingTypeId, BuildingDef> = {
-  command_center: { Icon: IconCommandCenter, label: 'Command Center', cat: 'Core' },
-  mine: { Icon: IconMine, label: 'Metals Mine', cat: 'Extraction' },
-  drill: { Icon: IconDrill, label: 'Fluid Extractor', cat: 'Extraction' },
-  storage: { Icon: IconStorage, label: 'Storage', cat: 'Logistics' },
-  oil_pump: { Icon: IconOilPump, label: 'Oil Pump', cat: 'Extraction' },
-  smelter: { Icon: IconSmelter, label: 'Smelter', cat: 'Production' },
-  refinery: { Icon: IconRefinery, label: 'Refinery', cat: 'Production' },
-  fabrication_bay: { Icon: IconFabricationBay, label: 'Fabrication Bay', cat: 'Production' },
-  spaceport: { Icon: IconSpaceport, label: 'Spaceport', cat: 'Fleet' },
-  shipyard: { Icon: IconShipyard, label: 'Shipyard', cat: 'Fleet' },
-  lab: { Icon: IconLab, label: 'Research Lab', cat: 'Science' },
-  cryo_factory: { Icon: IconCryoFactory, label: 'Cryo Factory', cat: 'Production' },
-  solar_plant: { Icon: IconSolarPlant, label: 'Solar Plant', cat: 'Energy' },
+  command_center: { Icon: IconCommandCenter, label: 'Command Center', labels: { en: 'Command Center', ru: 'Командный центр' }, cat: 'Core', cats: { en: 'Core', ru: 'Ядро' } },
+  mine: { Icon: IconMine, label: 'Metals Mine', labels: { en: 'Metals Mine', ru: 'Шахта' }, cat: 'Extraction', cats: { en: 'Extraction', ru: 'Добыча' } },
+  drill: { Icon: IconDrill, label: 'Fluid Extractor', labels: { en: 'Fluid Extractor', ru: 'Экстрактор' }, cat: 'Extraction', cats: { en: 'Extraction', ru: 'Добыча' } },
+  storage: { Icon: IconStorage, label: 'Storage', labels: { en: 'Storage', ru: 'Склад' }, cat: 'Logistics', cats: { en: 'Logistics', ru: 'Логистика' } },
+  oil_pump: { Icon: IconOilPump, label: 'Oil Pump', labels: { en: 'Oil Pump', ru: 'Нефтекачка' }, cat: 'Extraction', cats: { en: 'Extraction', ru: 'Добыча' } },
+  smelter: { Icon: IconSmelter, label: 'Smelter', labels: { en: 'Smelter', ru: 'Завод' }, cat: 'Production', cats: { en: 'Production', ru: 'Производство' } },
+  refinery: { Icon: IconRefinery, label: 'Refinery', labels: { en: 'Refinery', ru: 'НПЗ' }, cat: 'Production', cats: { en: 'Production', ru: 'Производство' } },
+  fabrication_bay: { Icon: IconFabricationBay, label: 'Fabrication Bay', labels: { en: 'Fabrication Bay', ru: 'Цех электроники' }, cat: 'Production', cats: { en: 'Production', ru: 'Производство' } },
+  spaceport: { Icon: IconSpaceport, label: 'Spaceport', labels: { en: 'Spaceport', ru: 'Космопорт' }, cat: 'Fleet', cats: { en: 'Fleet', ru: 'Флот' } },
+  shipyard: { Icon: IconShipyard, label: 'Shipyard', labels: { en: 'Shipyard', ru: 'Верфь' }, cat: 'Fleet', cats: { en: 'Fleet', ru: 'Флот' } },
+  lab: { Icon: IconLab, label: 'Research Lab', labels: { en: 'Research Lab', ru: 'Лаборатория' }, cat: 'Science', cats: { en: 'Science', ru: 'Наука' } },
+  cryo_factory: { Icon: IconCryoFactory, label: 'Cryo Factory', labels: { en: 'Cryo Factory', ru: 'Криозавод' }, cat: 'Production', cats: { en: 'Production', ru: 'Производство' } },
+  solar_plant: { Icon: IconSolarPlant, label: 'Solar Plant', labels: { en: 'Solar Plant', ru: 'Солнечная станция' }, cat: 'Energy', cats: { en: 'Energy', ru: 'Энергия' } },
 };
 
 /**
@@ -267,14 +270,23 @@ export function resolveBuildingType(typeId: string | undefined | null): Building
   if (v === 'depot' || v === 'warehouse') return BUILDING_BY_TYPE.storage;
   if (v === 'factory' || v === 'electronics_factory') return BUILDING_BY_TYPE.fabrication_bay;
   if (typeof console !== 'undefined') {
-    // eslint-disable-next-line no-console
     console.warn(`[buildings] unknown building typeId="${typeId}" — rendered as placeholder`);
   }
   return {
     Icon: IconStorage,
     label: typeId || 'Unknown',
+    labels: { en: typeId || 'Unknown', ru: typeId || 'Неизвестно' },
     cat: 'Unknown',
+    cats: { en: 'Unknown', ru: 'Неизвестно' },
   };
+}
+
+export function getBuildingLabel(typeId: string | undefined | null, locale: Locale = 'en'): string {
+  return resolveBuildingType(typeId).labels[locale];
+}
+
+export function getBuildingCategory(typeId: string | undefined | null, locale: Locale = 'en'): string {
+  return resolveBuildingType(typeId).cats[locale];
 }
 
 export interface BuildingIconByTypeProps extends BuildingIconProps {

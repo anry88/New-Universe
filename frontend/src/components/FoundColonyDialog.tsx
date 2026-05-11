@@ -3,6 +3,7 @@ import { apiFetch } from '../lib/api';
 import { ColonizationRequirements } from './ColonizationRequirements';
 import { Rocket, Loader2 } from 'lucide-react';
 import { Ship } from '@shared/types/ships';
+import { useI18n } from '../lib/i18n';
 
 interface FoundColonyDialogProps {
   isOpen: boolean;
@@ -35,6 +36,7 @@ export const FoundColonyDialog: React.FC<FoundColonyDialogProps> = ({
   planet,
   onSuccess,
 }) => {
+  const { t } = useI18n();
   const [data, setData] = useState<EligibilityResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isFounding, setIsFounding] = useState(false);
@@ -70,7 +72,7 @@ export const FoundColonyDialog: React.FC<FoundColonyDialogProps> = ({
       const colonizer = ships.find(s => s.locationPlanetId === planet.id && s.status === 'idle');
       
       if (!colonizer) {
-        throw new Error('No idle colonizer ship at this planet');
+        throw new Error(t('colonize.noIdleShip'));
       }
 
       await apiFetch('/colonies/found', {
@@ -98,10 +100,10 @@ export const FoundColonyDialog: React.FC<FoundColonyDialogProps> = ({
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-xl font-display font-bold text-white tracking-tight">
-                COLONIZE
+                {t('colonize.title').toUpperCase()}
               </h2>
               <p className="text-xs text-slate-400 font-mono uppercase tracking-widest mt-1">
-                Establish new base on {planet.name}
+                {t('colonize.establishOn', { planet: planet.name })}
               </p>
             </div>
             <div className="p-3 bg-blue-500/10 rounded-xl text-blue-400">
@@ -112,7 +114,7 @@ export const FoundColonyDialog: React.FC<FoundColonyDialogProps> = ({
           {isLoading ? (
             <div className="py-12 flex flex-col items-center justify-center gap-4 text-slate-500">
               <Loader2 className="w-8 h-8 animate-spin" />
-              <span className="text-xs font-mono uppercase tracking-widest">Checking Gates...</span>
+              <span className="text-xs font-mono uppercase tracking-widest">{t('colonize.checking')}</span>
             </div>
           ) : error && !data ? (
             <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
@@ -137,7 +139,7 @@ export const FoundColonyDialog: React.FC<FoundColonyDialogProps> = ({
                   onClick={onClose}
                   className="flex-1 py-3 rounded-xl bg-slate-800 text-slate-300 font-semibold text-sm hover:bg-slate-700 transition-colors"
                 >
-                  ABORT
+                  {t('common.abort').toUpperCase()}
                 </button>
                 <button
                   type="button"
@@ -155,7 +157,7 @@ export const FoundColonyDialog: React.FC<FoundColonyDialogProps> = ({
                   ) : (
                     <Rocket className="w-4 h-4" />
                   )}
-                  {isFounding ? 'ESTABLISHING...' : 'FOUND COLONY'}
+                  {isFounding ? t('colonize.founding').toUpperCase() : t('colonize.found').toUpperCase()}
                 </button>
               </div>
             </div>

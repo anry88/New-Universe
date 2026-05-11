@@ -13,6 +13,7 @@ import { getResourceSymbol } from '../components/cosmic/resources';
 import { resolveBuildingType } from '../components/cosmic/buildings';
 import { estimateRushDiamondCost } from '@shared/types/diamonds';
 import { formatTimerDuration, timerSnapshot } from '../lib/timers';
+import { useI18n } from '../lib/i18n';
 
 const BRANCH_COLORS: Record<string, string> = {
   mining: '#C7A582',
@@ -42,13 +43,13 @@ function tierVisual(
   return 'locked';
 }
 
-function formatEffectLines(effects: TechTreeEntry['effects']): string {
-  if (!effects.length) return 'Passive branch progression';
+function formatEffectLines(effects: TechTreeEntry['effects'], t: (key: string, params?: Record<string, string | number>) => string): string {
+  if (!effects.length) return t('research.passive');
   return effects
     .map((e) => {
       const label = e.target;
       if (e.multiplier < 1) {
-        return `${label}: ×${e.multiplier.toFixed(2)} (reduction)`;
+        return `${label}: x${e.multiplier.toFixed(2)} (${t('research.reduction')})`;
       }
       const pct = Math.round((e.multiplier - 1) * 100);
       return `${label}: +${pct}%`;
@@ -63,6 +64,7 @@ export function ResearchPage() {
   const startResearch = useStartResearch();
   const rushResearch = useRushResearch();
   const navigate = useNavigate();
+  const { locale, t } = useI18n();
   const [panel, setPanel] = useState<DetailPanel>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -87,7 +89,7 @@ export function ResearchPage() {
       });
       setPanel(null);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Could not start research';
+      const msg = e instanceof Error ? e.message : t('research.couldNotStart');
       setActionError(msg);
     }
   };
@@ -98,7 +100,7 @@ export function ResearchPage() {
       await rushResearch.mutateAsync(branch);
       setPanel(null);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Could not rush research';
+      const msg = e instanceof Error ? e.message : t('research.couldNotRush');
       setActionError(msg);
     }
   };
@@ -113,20 +115,20 @@ export function ResearchPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button
             type="button"
-            aria-label="Back"
+            aria-label={t('common.back')}
             onClick={() => navigate('/')}
             style={{ padding: 4, borderRadius: 999, color: 'var(--text-dim)' }}
           >
             <ChevronLeft size={20} />
           </button>
           <div>
-            <div className="page-tag">RESEARCH LAB · L{labLevel}</div>
-            <div className="page-title">Tech Tree</div>
+            <div className="page-tag">{t('research.labTag', { level: labLevel }).toUpperCase()}</div>
+            <div className="page-title">{t('research.title')}</div>
           </div>
         </div>
         <div className="page-stat">
           <div className="ps-v">{meData?.research?.filter((r) => (r.level ?? 0) > 0).length ?? 0}</div>
-          <div className="ps-l">ACTIVE</div>
+          <div className="ps-l">{t('research.active').toUpperCase()}</div>
         </div>
       </div>
 
@@ -165,14 +167,14 @@ export function ResearchPage() {
                 >
                   <div className="tech-name" style={{ color: 'var(--text)' }}>
                     <span className="tech-dot" style={{ background: accent, color: accent }} />
-                    {branch.name.en}
+                    {branch.name[locale]}
                   </div>
                   <div className="tech-lvl">
                     {Math.min(completedLevel, RESEARCH_MAX_LEVEL)}
                     <span className="tech-max"> / {RESEARCH_MAX_LEVEL}</span>
                   </div>
                 </div>
-                <div className="tech-branch-desc">{branch.description.en}</div>
+                <div className="tech-branch-desc">{branch.description[locale]}</div>
                 <div className="tech-nodes">
                   {TIER_LEVELS.map((level) => {
                     const tierDef = TECH_TREE_DATA.find((t) => t.branch === branch.id && t.level === level);
@@ -183,7 +185,7 @@ export function ResearchPage() {
                         key={level}
                         type="button"
                         className="tech-node-hitbox"
-                        aria-label={`Tier ${level} details`}
+                        aria-label={t('research.tierDetails', { level })}
                         disabled={!tierDef}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -215,7 +217,7 @@ export function ResearchPage() {
                 </div>
                 {completedLevel > 0 && tierDefForCompleted(branch.id, completedLevel) && (
                   <div className="tech-effect-line">
-                    Applied: {formatEffectLines(tierDefForCompleted(branch.id, completedLevel)!.effects)}
+                    {t('research.applied', { effects: formatEffectLines(tierDefForCompleted(branch.id, completedLevel)!.effects, t) })}
                   </div>
                 )}
               </div>
@@ -249,13 +251,13 @@ export function ResearchPage() {
             <div className="bd-handle" />
             <div className="bd-head" style={{ display: 'flex', justifyContent: 'space-between' }}>
               <div>
-                <div className="bd-tag">BRANCH COMPLETE</div>
+                <div className="bd-tag">{t('research.branchComplete').toUpperCase()}</div>
                 <div className="bd-title">
-                  {BRANCHES.find((b) => b.id === panel.branchId)?.name.en ?? panel.branchId}
+                  {BRANCHES.find((b) => b.id === panel.branchId)?.name[locale] ?? panel.branchId}
                 </div>
-                <div className="bd-sub">All {RESEARCH_MAX_LEVEL} tiers researched.</div>
+                <div className="bd-sub">{t('research.allTiers', { count: RESEARCH_MAX_LEVEL })}</div>
               </div>
-              <button type="button" aria-label="Close" onClick={() => setPanel(null)} style={{ color: 'var(--text-faint)' }}>
+              <button type="button" aria-label={t('common.close')} onClick={() => setPanel(null)} style={{ color: 'var(--text-faint)' }}>
                 <X size={18} />
               </button>
             </div>
@@ -299,7 +301,8 @@ function TierDetailSheet({
   onStart,
   onRush,
 }: TierDetailSheetProps) {
-  const eligibility = evaluateResearchEligibility(def, labLevel, research, planetResources);
+  const { locale, t } = useI18n();
+  const eligibility = evaluateResearchEligibility(def, labLevel, research, planetResources, locale);
   const activeProgress =
     research?.find(
       (row) =>
@@ -340,29 +343,29 @@ function TierDetailSheet({
         <div className="bd-handle" />
         <div className="bd-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
-            <div className="bd-tag">RESEARCH</div>
-            <div className="bd-title">{def.name.en}</div>
+            <div className="bd-tag">{t('research.active').toUpperCase()}</div>
+            <div className="bd-title">{def.name[locale]}</div>
             <div className="bd-sub">
-              Level {def.level} · {def.branch}
+              {t('research.levelBranch', { level: def.level, branch: def.branch })}
             </div>
           </div>
-          <button type="button" aria-label="Close" onClick={onClose} style={{ color: 'var(--text-faint)' }}>
+          <button type="button" aria-label={t('common.close')} onClick={onClose} style={{ color: 'var(--text-faint)' }}>
             <X size={18} />
           </button>
         </div>
         <div className="bd-list">
-          <p style={{ color: 'var(--text-dim)', fontSize: 13, lineHeight: 1.5, margin: 0 }}>{def.description.en}</p>
+          <p style={{ color: 'var(--text-dim)', fontSize: 13, lineHeight: 1.5, margin: 0 }}>{def.description[locale]}</p>
 
           <div className="tech-effect-block">
-            <div className="tech-effect-label">Effects on completion</div>
-            <div className="tech-effect-body">{formatEffectLines(def.effects)}</div>
+            <div className="tech-effect-label">{t('research.effects')}</div>
+            <div className="tech-effect-body">{formatEffectLines(def.effects, t)}</div>
           </div>
 
           {activeTimer && (
             <div className="tech-effect-block">
-              <div className="tech-effect-label">Active research</div>
+              <div className="tech-effect-label">{t('research.activeResearch')}</div>
               <div className="tech-effect-body">
-                {formatTimerDuration(activeTimer.remainingSec)} remaining
+                {t('research.remaining', { time: formatTimerDuration(activeTimer.remainingSec) })}
               </div>
               <div className="qstrip-bar" style={{ marginTop: 8 }}>
                 <div
@@ -379,15 +382,15 @@ function TierDetailSheet({
 
           {!activeTimer && !eligibility.ok && (
             <div className="tech-lock-block">
-              <div className="tech-effect-label">Blocked</div>
+              <div className="tech-effect-label">{t('research.blocked')}</div>
               {eligibility.labMessage && <p className="tech-lock-line">{eligibility.labMessage}</p>}
               {eligibility.resourceMessage && (
                 <p className="tech-lock-line" data-testid="research-block-resources">
-                  Need resources: {eligibility.resourceMessage}
+                  {t('research.needResources', { resources: eligibility.resourceMessage })}
                 </p>
               )}
               {eligibility.missingResearch.length > 0 && (
-                <RequirementList title="Research prerequisites" missing={eligibility.missingResearch} locale="en" />
+                <RequirementList title={t('research.prerequisites')} missing={eligibility.missingResearch} locale={locale} />
               )}
             </div>
           )}
@@ -401,7 +404,7 @@ function TierDetailSheet({
             </div>
             <div>
               <div className="bopt-row">
-                <span className="bopt-name">Cost</span>
+                <span className="bopt-name">{t('common.cost')}</span>
                 <span className="bopt-locked">L{def.level}</span>
               </div>
               <div className="bopt-meta">
@@ -435,17 +438,17 @@ function TierDetailSheet({
           >
             {activeTimer
               ? rushResearch.isPending
-                ? 'Rushing…'
+                ? t('research.rushing')
                 : !rushPricing
-                  ? 'Syncing price…'
+                  ? t('common.syncingPrice')
                   : canRush
-                  ? `◆ ${rushCost} Finish now`
-                  : `Need ◆ ${rushCost}`
+                  ? t('research.finishNow', { cost: rushCost })
+                  : t('research.needDiamonds', { cost: rushCost })
               : startResearch.isPending
-                ? 'Starting…'
+                ? t('research.starting')
                 : eligibility.ok
-                  ? 'Initiate Research'
-                  : 'Locked'}
+                  ? t('research.initiate')
+                  : t('common.locked')}
           </button>
         </div>
       </div>

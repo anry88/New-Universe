@@ -8,9 +8,10 @@
  */
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { BIOME_META, PlanetSvg, Stars, resolveBiome } from './planets';
-import { resolveBuildingType } from './buildings';
+import { BIOME_META, PlanetSvg, Stars, getBiomeLabel, getBiomeTag, resolveBiome } from './planets';
+import { getBuildingCategory, getBuildingLabel, resolveBuildingType } from './buildings';
 import { getResourceSymbol } from './resources';
+import { useI18n } from '../../lib/i18n';
 
 // --- Resource chip ---------------------------------------------------------
 
@@ -22,6 +23,7 @@ export interface ResourceChipData {
 }
 
 export const ResourceChip: React.FC<{ data: ResourceChipData; onClick?: (resourceId: string) => void }> = ({ data, onClick }) => {
+  const { t } = useI18n();
   const pct = data.cap > 0 ? Math.min(100, Math.round((data.amount / data.cap) * 100)) : 0;
   const near = pct > 85;
   const clickable = typeof onClick === 'function';
@@ -31,7 +33,7 @@ export const ResourceChip: React.FC<{ data: ResourceChipData; onClick?: (resourc
       className={'rchip' + (clickable ? ' rchip-clickable' : '')}
       onClick={() => onClick?.(data.resourceId)}
       disabled={!clickable}
-      title={clickable ? 'Buy this resource with diamonds' : undefined}
+      title={clickable ? t('resources.buyWithDiamonds') : undefined}
     >
       <div className="rchip-row">
         <span className="rchip-sym">{getResourceSymbol(data.resourceId)}</span>
@@ -58,15 +60,17 @@ export const CosmicTopBar: React.FC<{ resources: ResourceChipData[]; diamonds?: 
   resources,
   diamonds,
   onResourceClick,
-}) => (
-  <div className="cosmic-topbar" data-testid="cosmic-topbar">
+}) => {
+  const { t } = useI18n();
+  return (
+    <div className="cosmic-topbar" data-testid="cosmic-topbar">
     <div
       className={
         'cosmic-topbar-inner' + (diamonds !== undefined ? ' cosmic-topbar-inner--with-diamonds' : '')
       }
     >
       {diamonds !== undefined && (
-        <div className="diamond-chip" data-testid="diamond-balance" title="Diamonds">
+        <div className="diamond-chip" data-testid="diamond-balance" title={t('resources.diamonds')}>
           <span className="diamond-chip-sym" aria-hidden>
             ◆
           </span>
@@ -80,7 +84,8 @@ export const CosmicTopBar: React.FC<{ resources: ResourceChipData[]; diamonds?: 
       </div>
     </div>
   </div>
-);
+  );
+};
 
 // --- Planet portrait -------------------------------------------------------
 
@@ -99,6 +104,7 @@ export const PlanetPortrait: React.FC<PlanetPortraitProps> = ({
   slots,
   slotsUsed,
 }) => {
+  const { locale, t } = useI18n();
   const b = resolveBiome(biome);
   const meta = BIOME_META[b];
   const cls = b === 'gas_giant' ? 'III' : b === 'anomaly' ? 'X' : 'II';
@@ -118,19 +124,19 @@ export const PlanetPortrait: React.FC<PlanetPortraitProps> = ({
       <div>
         <div className="ph-tag" style={{ color: meta.accent }}>
           <span className="dot" style={{ background: meta.accent }} />
-          {meta.tag} · CLASS {cls}
+          {getBiomeTag(b, locale)} · {t('planet.class').toUpperCase()} {cls}
         </div>
         <div className="ph-name">{name}</div>
         <div className="ph-sub">
           <span>
-            SIZE <b>{size}</b>
+            {t('planet.size').toUpperCase()} <b>{size}</b>
           </span>
           <span className="sep">·</span>
           <span>
-            SLOTS <b>{slotsUsed}/{slots}</b>
+            {t('planet.slots').toUpperCase()} <b>{slotsUsed}/{slots}</b>
           </span>
           <span className="sep">·</span>
-          <span>{meta.label}</span>
+          <span>{getBiomeLabel(b, locale)}</span>
         </div>
       </div>
     </div>
@@ -161,11 +167,12 @@ export interface BuildSlotProps {
 }
 
 export const BuildSlot: React.FC<BuildSlotProps> = ({ slot, biomeAccent, onClick }) => {
+  const { locale, t } = useI18n();
   if (!slot.typeId) {
     return (
       <button type="button" className="slot empty" onClick={onClick} data-testid={`slot-${slot.idx}`}>
         <div className="slot-plus">+</div>
-        <div className="slot-empty-label">EMPTY</div>
+        <div className="slot-empty-label">{t('build.empty').toUpperCase()}</div>
       </button>
     );
   }
@@ -180,10 +187,10 @@ export const BuildSlot: React.FC<BuildSlotProps> = ({ slot, biomeAccent, onClick
       <div className="slot-icon">
         <def.Icon size={32} tone={biomeAccent} />
       </div>
-      <div className="slot-name">{def.label}</div>
+      <div className="slot-name">{getBuildingLabel(slot.typeId, locale)}</div>
       <div className="slot-lvl">
         <span className="lvl-pill">L{slot.level ?? 1}</span>
-        <span className="lvl-cat">{def.cat.toUpperCase()}</span>
+        <span className="lvl-cat">{getBuildingCategory(slot.typeId, locale).toUpperCase()}</span>
       </div>
       {slot.building && (
         <div className="slot-progress">
@@ -215,8 +222,14 @@ export interface PlanetRailProps {
 }
 
 export const PlanetRail: React.FC<PlanetRailProps> = ({ planets, current, onSelect }) => (
-  <div className="rail" data-testid="planet-rail">
-    {planets.map((p) => {
+  <PlanetRailInner planets={planets} current={current} onSelect={onSelect} />
+);
+
+const PlanetRailInner: React.FC<PlanetRailProps> = ({ planets, current, onSelect }) => {
+  const { locale } = useI18n();
+  return (
+    <div className="rail" data-testid="planet-rail">
+      {planets.map((p) => {
       const b = resolveBiome(p.biome);
       const active = p.id === current;
       return (
@@ -230,12 +243,13 @@ export const PlanetRail: React.FC<PlanetRailProps> = ({ planets, current, onSele
             <PlanetSvg biome={b} size={42} uid={p.id} />
           </div>
           <div className="rail-name">{p.name.split(' ')[0]}</div>
-          <div className="rail-tag">{BIOME_META[b].label}</div>
+          <div className="rail-tag">{getBiomeLabel(b, locale)}</div>
         </button>
       );
     })}
-  </div>
-);
+    </div>
+  );
+};
 
 // --- Queue strip -----------------------------------------------------------
 
@@ -262,6 +276,7 @@ export const QueueStrip: React.FC<QueueStripProps> = ({
   rushBusy,
   onRush,
 }) => {
+  const { t } = useI18n();
   if (hidden) return null;
   const showRush =
     typeof rushCost === 'number' &&
@@ -293,9 +308,9 @@ export const QueueStrip: React.FC<QueueStripProps> = ({
             data-testid="queue-rush-button"
             disabled={cantAfford || rushBusy}
             onClick={onRush}
-            title={cantAfford ? 'Not enough diamonds' : `Spend ${rushCost} diamonds to finish now`}
+            title={cantAfford ? t('build.notEnoughDiamonds') : t('build.rushTitle', { cost: rushCost })}
           >
-            {rushBusy ? '…' : `◆ ${rushCost} Rush`}
+            {rushBusy ? '…' : `◆ ${rushCost} ${t('build.rush')}`}
           </button>
         )}
       </div>
@@ -308,13 +323,13 @@ export const QueueStrip: React.FC<QueueStripProps> = ({
 export type CosmicNavId = 'planets' | 'ships' | 'map' | 'tech' | 'market' | 'profile';
 
 const NAV_ITEMS: { id: CosmicNavId | 'home'; label: string; route: string; icon: 'planet' | 'ship' | 'map' | 'tech' | 'market' | 'user' | 'home' }[] = [
-  { id: 'home', label: 'Home', route: '/', icon: 'home' },
-  { id: 'planets', label: 'Colonies', route: '/colonies', icon: 'planet' },
-  { id: 'ships', label: 'Fleet', route: '/ships', icon: 'ship' },
-  { id: 'map', label: 'Galaxy', route: '/map', icon: 'map' },
-  { id: 'tech', label: 'Tech', route: '/research', icon: 'tech' },
-  { id: 'market', label: 'Market', route: '/market', icon: 'market' },
-  { id: 'profile', label: 'You', route: '/profile', icon: 'user' },
+  { id: 'home', label: 'nav.home', route: '/', icon: 'home' },
+  { id: 'planets', label: 'nav.colonies', route: '/colonies', icon: 'planet' },
+  { id: 'ships', label: 'nav.fleet', route: '/ships', icon: 'ship' },
+  { id: 'map', label: 'nav.galaxy', route: '/map', icon: 'map' },
+  { id: 'tech', label: 'nav.tech', route: '/research', icon: 'tech' },
+  { id: 'market', label: 'nav.market', route: '/market', icon: 'market' },
+  { id: 'profile', label: 'nav.profile', route: '/profile', icon: 'user' },
 ];
 
 const NavIcon: React.FC<{ kind: 'planet' | 'ship' | 'map' | 'tech' | 'market' | 'user' | 'home'; active: boolean }> = ({
@@ -388,6 +403,7 @@ const NavIcon: React.FC<{ kind: 'planet' | 'ship' | 'map' | 'tech' | 'market' | 
 export const CosmicBottomNav: React.FC<{ active?: CosmicNavId | 'home' }> = ({ active }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useI18n();
   // Auto-detect active tab from current route if not provided.
   const detected: CosmicNavId | 'home' =
     active ??
@@ -416,7 +432,7 @@ export const CosmicBottomNav: React.FC<{ active?: CosmicNavId | 'home' }> = ({ a
           data-testid={`bnav-${n.id}`}
         >
           <NavIcon kind={n.icon} active={n.id === detected} />
-          <span className="bnav-label">{n.label}</span>
+          <span className="bnav-label">{t(n.label)}</span>
           {n.id === detected && <span className="bnav-mark" />}
         </button>
       ))}
@@ -448,6 +464,6 @@ export const CosmicBackground: React.FC<CosmicBackgroundProps> = ({
 
 // --- Helpers ---------------------------------------------------------------
 
-export { BIOME_META, resolveBiome, Stars, type Biome } from './planets';
-export { resolveBuildingType, BuildingIcon } from './buildings';
+export { BIOME_META, getBiomeLabel, getBiomeTag, resolveBiome, Stars, type Biome } from './planets';
+export { getBuildingCategory, getBuildingLabel, resolveBuildingType, BuildingIcon } from './buildings';
 export { getResourceSymbol, getResourceLabel } from './resources';

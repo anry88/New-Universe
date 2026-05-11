@@ -11,6 +11,7 @@ import {
   BIOME_META,
   CosmicBackground,
   CosmicBottomNav,
+  getBiomeLabel,
   PlanetPortrait,
   PlanetRail,
   resolveBiome,
@@ -22,6 +23,7 @@ import { BUILDING_RESEARCH_GATES } from '@shared/config/buildingResearchGates';
 import { ChevronLeft } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatHomeSystemTitleForUser } from '../lib/homeSystemTitle';
+import { useI18n } from '../lib/i18n';
 
 /**
  * PlanetDetail — Cosmic Atlas (P1.1 redesign).
@@ -33,6 +35,7 @@ export function PlanetDetailPage() {
   const queryParams = useMemo(() => new URLSearchParams(search), [search]);
   const queryClient = useQueryClient();
   const { data: meData } = useMe();
+  const { locale, t } = useI18n();
 
   const [buildingTypes, setBuildingTypes] = useState<BuildingType[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
@@ -145,7 +148,7 @@ export function PlanetDetailPage() {
         className="cosmic-screen"
         style={{ '--accent': '#5BD7FF', alignItems: 'center', justifyContent: 'center' } as React.CSSProperties}
       >
-        <p style={{ color: 'var(--text-dim)' }}>Planet not found…</p>
+        <p style={{ color: 'var(--text-dim)' }}>{t('planet.notFound')}</p>
       </div>
     );
   }
@@ -202,7 +205,7 @@ export function PlanetDetailPage() {
       });
       setSelectedSlot(null);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to start building';
+      const message = err instanceof Error ? err.message : t('build.failedStart');
       alert(message);
       queryClient.setQueryData(['me'], previousMeData);
     } finally {
@@ -235,7 +238,7 @@ export function PlanetDetailPage() {
       });
       setSelectedBuilding(null);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to start upgrade';
+      const message = err instanceof Error ? err.message : t('build.failedUpgrade');
       alert(message);
       queryClient.setQueryData(['me'], previousMeData);
     } finally {
@@ -245,7 +248,7 @@ export function PlanetDetailPage() {
   };
 
   const handleDemolish = async (buildingId: string) => {
-    if (!window.confirm('Are you sure you want to demolish this building? You will only get 50% of the resources back.')) {
+    if (!window.confirm(t('build.confirmDemolish'))) {
       return;
     }
 
@@ -259,7 +262,7 @@ export function PlanetDetailPage() {
       });
       setSelectedBuilding(null);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to demolish building';
+      const message = err instanceof Error ? err.message : t('build.failedDemolish');
       alert(message);
       queryClient.setQueryData(['me'], previousMeData);
     } finally {
@@ -272,7 +275,7 @@ export function PlanetDetailPage() {
     ? buildingTypes.find((t) => t.id === selectedBuilding.typeId)
     : undefined;
 
-  const systemName = meData ? formatHomeSystemTitleForUser(meData) : 'Home System';
+  const systemName = meData ? formatHomeSystemTitleForUser(meData) : t('planet.homeSystem');
   const sectorTag = meData?.homeSystem
     ? `${meData.homeSystem.sectorX ?? 0}:${meData.homeSystem.sectorY ?? 0}:${meData.homeSystem.sectorZ ?? 0}`
     : '';
@@ -295,7 +298,7 @@ export function PlanetDetailPage() {
         >
           <button
             type="button"
-            aria-label="Back"
+            aria-label={t('common.back')}
             onClick={() => navigate(-1)}
             style={{
               padding: 6,
@@ -330,9 +333,9 @@ export function PlanetDetailPage() {
 
           <div className="slots-section">
             <div className="section-head">
-              <div className="section-title">INSTALLATIONS</div>
+              <div className="section-title">{t('build.installations').toUpperCase()}</div>
               <div className="section-count">
-                {usedSlots}/{slotCount} slots
+                {usedSlots}/{slotCount} {t('common.slots')}
               </div>
             </div>
             {isColonized ? (
@@ -363,7 +366,7 @@ export function PlanetDetailPage() {
                   textTransform: 'uppercase',
                 }}
               >
-                Colonizer required before installations unlock
+                {t('build.colonizerRequired')}
               </div>
             )}
           </div>
@@ -383,7 +386,7 @@ export function PlanetDetailPage() {
         isProcessing={isProcessing}
         blockedReasonFor={blockedReasonForType}
         accent={accent}
-        planetLabel={`${planet.name} · ${BIOME_META[biome].label}`}
+        planetLabel={`${planet.name} · ${getBiomeLabel(biome, locale)}`}
         currentEnergy={currentEnergy}
       />
 
