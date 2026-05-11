@@ -3,7 +3,7 @@
  * Ported from `design-bundle/project/art.jsx`. All icons share a 64×64 viewBox,
  * thin 1.5px strokes, two-tone fills tinted by `tone`.
  *
- * The set covers the 10 building types defined in the backend catalog
+ * The set covers the building types defined in the backend catalog
  * (`backend/src/db/seed/building-types.ts`). Aliases map older payload spellings
  * (e.g. hyphenated lab ids, `laboratory`, legacy energy plant names) so mixed
  * API versions still resolve to catalog entries.
@@ -235,20 +235,68 @@ export interface BuildingDef {
   cats: Record<Locale, string>;
 }
 
+export type BuildingCategoryKey =
+  | 'energy'
+  | 'extraction'
+  | 'processing'
+  | 'logistics'
+  | 'shipbuilding'
+  | 'progress'
+  | 'special'
+  | 'unknown';
+
+export const BUILDING_CATEGORY_ORDER: BuildingCategoryKey[] = [
+  'energy',
+  'extraction',
+  'processing',
+  'logistics',
+  'shipbuilding',
+  'progress',
+  'special',
+  'unknown',
+];
+
+export const BUILDING_CATEGORY_LABELS: Record<BuildingCategoryKey, Record<Locale, string>> = {
+  energy: { en: 'Energy', ru: 'Энергия' },
+  extraction: { en: 'Extraction', ru: 'Добыча' },
+  processing: { en: 'Processing', ru: 'Переработка' },
+  logistics: { en: 'Logistics', ru: 'Логистика' },
+  shipbuilding: { en: 'Shipbuilding', ru: 'Строительство кораблей' },
+  progress: { en: 'Progress', ru: 'Прогресс' },
+  special: { en: 'Special', ru: 'Особые' },
+  unknown: { en: 'Unknown', ru: 'Неизвестно' },
+};
+
+const BUILDING_CATEGORY_BY_TYPE: Record<BuildingTypeId, BuildingCategoryKey> = {
+  command_center: 'special',
+  mine: 'extraction',
+  drill: 'extraction',
+  storage: 'logistics',
+  oil_pump: 'extraction',
+  smelter: 'processing',
+  refinery: 'processing',
+  fabrication_bay: 'processing',
+  spaceport: 'shipbuilding',
+  shipyard: 'shipbuilding',
+  lab: 'progress',
+  cryo_factory: 'special',
+  solar_plant: 'energy',
+};
+
 export const BUILDING_BY_TYPE: Record<BuildingTypeId, BuildingDef> = {
-  command_center: { Icon: IconCommandCenter, label: 'Command Center', labels: { en: 'Command Center', ru: 'Командный центр' }, cat: 'Core', cats: { en: 'Core', ru: 'Ядро' } },
-  mine: { Icon: IconMine, label: 'Metals Mine', labels: { en: 'Metals Mine', ru: 'Шахта' }, cat: 'Extraction', cats: { en: 'Extraction', ru: 'Добыча' } },
-  drill: { Icon: IconDrill, label: 'Fluid Extractor', labels: { en: 'Fluid Extractor', ru: 'Экстрактор' }, cat: 'Extraction', cats: { en: 'Extraction', ru: 'Добыча' } },
-  storage: { Icon: IconStorage, label: 'Storage', labels: { en: 'Storage', ru: 'Склад' }, cat: 'Logistics', cats: { en: 'Logistics', ru: 'Логистика' } },
-  oil_pump: { Icon: IconOilPump, label: 'Oil Pump', labels: { en: 'Oil Pump', ru: 'Нефтекачка' }, cat: 'Extraction', cats: { en: 'Extraction', ru: 'Добыча' } },
-  smelter: { Icon: IconSmelter, label: 'Smelter', labels: { en: 'Smelter', ru: 'Завод' }, cat: 'Production', cats: { en: 'Production', ru: 'Производство' } },
-  refinery: { Icon: IconRefinery, label: 'Refinery', labels: { en: 'Refinery', ru: 'НПЗ' }, cat: 'Production', cats: { en: 'Production', ru: 'Производство' } },
-  fabrication_bay: { Icon: IconFabricationBay, label: 'Fabrication Bay', labels: { en: 'Fabrication Bay', ru: 'Цех электроники' }, cat: 'Production', cats: { en: 'Production', ru: 'Производство' } },
-  spaceport: { Icon: IconSpaceport, label: 'Spaceport', labels: { en: 'Spaceport', ru: 'Космопорт' }, cat: 'Fleet', cats: { en: 'Fleet', ru: 'Флот' } },
-  shipyard: { Icon: IconShipyard, label: 'Shipyard', labels: { en: 'Shipyard', ru: 'Верфь' }, cat: 'Fleet', cats: { en: 'Fleet', ru: 'Флот' } },
-  lab: { Icon: IconLab, label: 'Research Lab', labels: { en: 'Research Lab', ru: 'Лаборатория' }, cat: 'Science', cats: { en: 'Science', ru: 'Наука' } },
-  cryo_factory: { Icon: IconCryoFactory, label: 'Cryo Factory', labels: { en: 'Cryo Factory', ru: 'Криозавод' }, cat: 'Production', cats: { en: 'Production', ru: 'Производство' } },
-  solar_plant: { Icon: IconSolarPlant, label: 'Solar Plant', labels: { en: 'Solar Plant', ru: 'Солнечная станция' }, cat: 'Energy', cats: { en: 'Energy', ru: 'Энергия' } },
+  command_center: { Icon: IconCommandCenter, label: 'Command Center', labels: { en: 'Command Center', ru: 'Командный центр' }, cat: 'Special', cats: BUILDING_CATEGORY_LABELS.special },
+  mine: { Icon: IconMine, label: 'Metals Mine', labels: { en: 'Metals Mine', ru: 'Шахта' }, cat: 'Extraction', cats: BUILDING_CATEGORY_LABELS.extraction },
+  drill: { Icon: IconDrill, label: 'Fluid Extractor', labels: { en: 'Fluid Extractor', ru: 'Экстрактор' }, cat: 'Extraction', cats: BUILDING_CATEGORY_LABELS.extraction },
+  storage: { Icon: IconStorage, label: 'Storage', labels: { en: 'Storage', ru: 'Склад' }, cat: 'Logistics', cats: BUILDING_CATEGORY_LABELS.logistics },
+  oil_pump: { Icon: IconOilPump, label: 'Oil Pump', labels: { en: 'Oil Pump', ru: 'Нефтекачка' }, cat: 'Extraction', cats: BUILDING_CATEGORY_LABELS.extraction },
+  smelter: { Icon: IconSmelter, label: 'Smelter', labels: { en: 'Smelter', ru: 'Завод' }, cat: 'Processing', cats: BUILDING_CATEGORY_LABELS.processing },
+  refinery: { Icon: IconRefinery, label: 'Refinery', labels: { en: 'Refinery', ru: 'НПЗ' }, cat: 'Processing', cats: BUILDING_CATEGORY_LABELS.processing },
+  fabrication_bay: { Icon: IconFabricationBay, label: 'Fabrication Bay', labels: { en: 'Fabrication Bay', ru: 'Цех электроники' }, cat: 'Processing', cats: BUILDING_CATEGORY_LABELS.processing },
+  spaceport: { Icon: IconSpaceport, label: 'Spaceport', labels: { en: 'Spaceport', ru: 'Космопорт' }, cat: 'Shipbuilding', cats: BUILDING_CATEGORY_LABELS.shipbuilding },
+  shipyard: { Icon: IconShipyard, label: 'Shipyard', labels: { en: 'Shipyard', ru: 'Верфь' }, cat: 'Shipbuilding', cats: BUILDING_CATEGORY_LABELS.shipbuilding },
+  lab: { Icon: IconLab, label: 'Research Lab', labels: { en: 'Research Lab', ru: 'Лаборатория' }, cat: 'Progress', cats: BUILDING_CATEGORY_LABELS.progress },
+  cryo_factory: { Icon: IconCryoFactory, label: 'Cryo Factory', labels: { en: 'Cryo Factory', ru: 'Криозавод' }, cat: 'Special', cats: BUILDING_CATEGORY_LABELS.special },
+  solar_plant: { Icon: IconSolarPlant, label: 'Solar Plant', labels: { en: 'Solar Plant', ru: 'Солнечная станция' }, cat: 'Energy', cats: BUILDING_CATEGORY_LABELS.energy },
 };
 
 /**
@@ -287,6 +335,15 @@ export function getBuildingLabel(typeId: string | undefined | null, locale: Loca
 
 export function getBuildingCategory(typeId: string | undefined | null, locale: Locale = 'en'): string {
   return resolveBuildingType(typeId).cats[locale];
+}
+
+export function getBuildingCategoryKey(typeId: string | undefined | null): BuildingCategoryKey {
+  const v = (typeId || '').toLowerCase();
+  return v in BUILDING_CATEGORY_BY_TYPE ? BUILDING_CATEGORY_BY_TYPE[v as BuildingTypeId] : 'unknown';
+}
+
+export function getBuildingCategoryLabel(categoryKey: BuildingCategoryKey, locale: Locale = 'en'): string {
+  return BUILDING_CATEGORY_LABELS[categoryKey][locale];
 }
 
 export interface BuildingIconByTypeProps extends BuildingIconProps {

@@ -18,7 +18,7 @@ import {
 } from '../components/cosmic/atoms';
 import type { Building, Planet } from '@shared/types/world';
 import type { BuildingType, BuildBlockedReason, ConstructionStatus, DemolishStatus } from '@shared/types/buildings';
-import { resolveBuildBlockedReason } from '@shared/types/building-eligibility';
+import { resolveBuildBlockedReason, resolvePlanetResourceBlockedReason } from '@shared/types/building-eligibility';
 import { BUILDING_RESEARCH_GATES } from '@shared/config/buildingResearchGates';
 import { ChevronLeft } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -102,27 +102,34 @@ export function PlanetDetailPage() {
       if (!typeRow || !planet) return null;
       const planetBuilt =
         planet.buildings?.map((b) => ({ typeId: b.typeId, level: b.level })) ?? [];
+      const dependencyBuildings =
+        planet.buildings
+          ?.filter((b) => b.queueAction !== 'build')
+          .map((b) => ({ typeId: b.typeId, level: b.level })) ?? [];
       const blocked = resolveBuildBlockedReason({
         typeId: typeRow.id,
         deps: typeRow.deps ?? [],
         maxPerPlanet: typeRow.maxPerPlanet ?? null,
         maxGlobal: typeRow.maxGlobal ?? null,
         planetBuildings: planetBuilt,
+        dependencyBuildings,
         globalCountForType: globalTypeCounts[typeRow.id] ?? 0,
         researchLevels,
         researchGate: BUILDING_RESEARCH_GATES[typeRow.id],
       });
       if (blocked) return blocked;
 
-      if (typeRow.id === 'refinery') {
-        const hasOilDeposit = (planet.resources ?? []).some((res) => res.resourceId === 'oil');
-        if (!hasOilDeposit) {
-          return {
-            code: 'building_blocked_planet_resource',
-            details: { resourceId: 'oil' },
-          };
-        }
-      }
+      const resourceRows = planet.resources ?? [];
+      const hasRichnessData = resourceRows.some((res) => typeof res.richness === 'number');
+      const planetResourceIds = hasRichnessData
+        ? resourceRows.filter((res) => (res.richness ?? 0) > 0).map((res) => res.resourceId)
+        : resourceRows.map((res) => res.resourceId);
+      const planetBlocked = resolvePlanetResourceBlockedReason({
+        typeId: typeRow.id,
+        planetResourceIds,
+      });
+      if (planetBlocked) return planetBlocked;
+
       return null;
     },
     [buildingTypes, planet, globalTypeCounts, researchLevels],

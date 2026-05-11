@@ -38,7 +38,7 @@ describe('bootstrapColony', () => {
     ]);
   });
 
-  it('correctly initializes resources and regen rates', async () => {
+  it('correctly initializes resources without passive regen', async () => {
     await bootstrapColony(targetPlanetId);
 
     const resources = await db
@@ -46,19 +46,19 @@ describe('bootstrapColony', () => {
       .from(planetResources)
       .where(eq(planetResources.planetId, targetPlanetId));
 
-    // Iron should have amount from config and regen = 2 * multiplier
+    // Iron should have amount from config and no passive regen until a mine is built.
     const iron = resources.find(r => r.resourceId === 'iron');
     const ironBootstrap = COLONY_BOOTSTRAP_CONFIG.resources.find(r => r.resourceId === 'iron');
     expect(iron).toBeDefined();
     expect(Number(iron!.amount)).toBe(ironBootstrap!.amount);
-    expect(Number(iron!.regenRate)).toBe(2 * COLONY_BOOTSTRAP_CONFIG.regenRateMultiplier);
+    expect(Number(iron!.regenRate)).toBe(0);
 
-    // Silicon should have amount from config and regen = 1 * multiplier
+    // Silicon should have amount from config and no passive regen until extraction exists.
     const silicon = resources.find(r => r.resourceId === 'silicon');
     const siliconBootstrap = COLONY_BOOTSTRAP_CONFIG.resources.find(r => r.resourceId === 'silicon');
     expect(silicon).toBeDefined();
     expect(Number(silicon!.amount)).toBe(siliconBootstrap!.amount);
-    expect(Number(silicon!.regenRate)).toBe(1 * COLONY_BOOTSTRAP_CONFIG.regenRateMultiplier);
+    expect(Number(silicon!.regenRate)).toBe(0);
 
     // Fuel should have amount from config and regen = 0 (missing in richness)
     const fuel = resources.find(r => r.resourceId === 'fuel');

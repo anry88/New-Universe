@@ -392,10 +392,11 @@ Verification that documentation stays in sync:
   - `Phase 0 Setup`: `phase:P0`
   - `Phase 1 Core`: `phase:P1`
   - `Phase 1.1 Post-fixes`: `phase:P1.1`
-  - `Roadmap P0-P5`: `phase:P0,P1,P1.1,P2,P2.1,P3,P4,P5`
-  - `Roadmap P2-P5`: `phase:P2,P2.1,P3,P4,P5`
-  - `Phase 2 Expansion`: `phase:P2,P2.1`
+  - `Roadmap P0-P5`: `phase:P0,P1,P1.1,P2,P2.1,P2.2,P3,P4,P5`
+  - `Roadmap P2-P5`: `phase:P2,P2.1,P2.2,P3,P4,P5`
+  - `Phase 2 Expansion`: `phase:P2,P2.1,P2.2`
   - `Phase 2.1 Gameplay`: `phase:P2.1`
+  - `Phase 2.2 Building Economy`: `phase:P2.2`
   - `Phase 3 Multiplayer`: `phase:P3`
   - `Launch Readiness`: `phase:P4`
   - `Live Ops`: `phase:P5`
@@ -407,7 +408,7 @@ Verification that documentation stays in sync:
   - `QA`: `area:QA`
 - Project fields:
   - `Status`: `Backlog`, `Ready`, `In Progress`, `Review`, `Blocked`, `Done`
-  - `Phase`: `P0`, `P1`, `P1.1`, `P2`, `P2.1`, `P3`, `P4`, `P5` (опции совпадают с `tasks/tasks.json` → `epics[].phase`)
+  - `Phase`: `P0`, `P1`, `P1.1`, `P2`, `P2.1`, `P2.2`, `P3`, `P4`, `P5` (опции совпадают с `tasks/tasks.json` → `epics[].phase`)
   - `Epic`: one of the `EPIC-*` ids from `tasks/tasks.json`
   - `Size`: `S`, `M`, `L`, `XL`
   - `Work Type`: `Epic`, `Infra`, `Schema`, `API`, `Worker`, `UI`, `Test`, `Bot`, `Docs`, `Feature`, `Chore`, `Spike`, `Deploy`, `Ops`, `Security`, `Analytics`, `Monetization`, `Live Ops`, `Content`, `Balance`, `Support`
@@ -418,7 +419,7 @@ Verification that documentation stays in sync:
   - `Depends On`: comma-separated task ids
 - Issue labels use:
   - `epic:<EPIC_ID>`
-  - `phase:P0`, `phase:P1`, `phase:P1.1`, `phase:P2`, `phase:P2.1`, `phase:P3`, `phase:P4`, `phase:P5`
+  - `phase:P0`, `phase:P1`, `phase:P1.1`, `phase:P2`, `phase:P2.1`, `phase:P2.2`, `phase:P3`, `phase:P4`, `phase:P5`
   - `size:S`, `size:M`, `size:L`, `size:XL`
 - Before creating anything in GitHub, search existing issues by task ID.
 - If continuing a partially completed import or task setup, use idempotent behavior.

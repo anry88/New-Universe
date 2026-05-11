@@ -47,7 +47,7 @@ export type BuildBlockedReason =
     }
   | {
       code: 'building_blocked_planet_resource';
-      details: { resourceId: string };
+      details: { resourceId: string; acceptedResourceIds?: string[] };
     };
 
 export interface BuildRequest {

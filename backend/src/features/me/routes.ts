@@ -7,6 +7,7 @@ import {
   systems,
   discoveredPlanets,
   planets,
+  richness,
   ships,
   expeditions,
   researchProgress,
@@ -257,7 +258,15 @@ export async function meRoutes(app: FastifyInstance) {
           if (planet.isDiscovered === false) {
             return planet;
           }
-          const res = await computeCurrentResources(planet.id);
+          const [res, richnessRows] = await Promise.all([
+            computeCurrentResources(planet.id),
+            db.query.richness.findMany({
+              where: eq(richness.planetId, planet.id),
+            }),
+          ]);
+          const richnessByResourceId = new Map(
+            richnessRows.map((row) => [row.resourceId, row.value]),
+          );
           return {
             ...planet,
             isDiscovered: true,
@@ -265,6 +274,7 @@ export async function meRoutes(app: FastifyInstance) {
               ...r,
               amount: r.amount.toString(),
               regenRate: r.regenRate.toString(),
+              richness: richnessByResourceId.get(r.resourceId) ?? 0,
               storageCap: r.storageCap.toString(),
               lastUpdateAt: r.lastUpdateAt.toISOString(),
             })),

@@ -1090,6 +1090,34 @@ body {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  gap: 14px;
+}
+.bd-category {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.bd-category-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px;
+}
+.bd-category-title {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.bd-category-count {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-faint);
+}
+.bd-category-list {
+  display: flex;
+  flex-direction: column;
   gap: 6px;
 }
 .bopt {

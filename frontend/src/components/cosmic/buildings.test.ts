@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import { BUILDING_BY_TYPE, resolveBuildingType } from './buildings';
+import {
+  BUILDING_BY_TYPE,
+  BUILDING_CATEGORY_ORDER,
+  getBuildingCategoryKey,
+  getBuildingCategoryLabel,
+  resolveBuildingType,
+} from './buildings';
 
 describe('resolveBuildingType', () => {
   it('returns catalog entry for known ids', () => {
@@ -30,5 +36,26 @@ describe('resolveBuildingType', () => {
     expect(warn).toHaveBeenCalled();
 
     warn.mockRestore();
+  });
+});
+
+describe('building categories', () => {
+  it('maps catalog ids to stable grouped build-list categories', () => {
+    expect(BUILDING_CATEGORY_ORDER).toEqual([
+      'energy',
+      'extraction',
+      'processing',
+      'logistics',
+      'shipbuilding',
+      'progress',
+      'special',
+      'unknown',
+    ]);
+    expect(getBuildingCategoryKey('solar_plant')).toBe('energy');
+    expect(getBuildingCategoryKey('mine')).toBe('extraction');
+    expect(getBuildingCategoryKey('smelter')).toBe('processing');
+    expect(getBuildingCategoryKey('shipyard')).toBe('shipbuilding');
+    expect(getBuildingCategoryKey('command_center')).toBe('special');
+    expect(getBuildingCategoryLabel('shipbuilding', 'ru')).toBe('Строительство кораблей');
   });
 });

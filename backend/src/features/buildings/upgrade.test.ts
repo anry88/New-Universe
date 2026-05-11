@@ -245,4 +245,84 @@ describe('Building Upgrade - POST /buildings/upgrade', () => {
     const ironAfter = await getResourceAmount(planetId, 'iron');
     expect(ironAfter).toBeCloseTo(ironBefore - scaledIron, 1);
   });
+
+  it('charges basic resources for command center upgrades', async () => {
+    const { app, token, userId } = await createTestUser();
+    const planetId = await getHomePlanetId(userId);
+
+    const commandCenter = await db.query.buildings.findFirst({
+      where: and(
+        eq(buildings.planetId, planetId),
+        eq(buildings.typeId, 'command_center'),
+      ),
+    });
+    expect(commandCenter).toBeDefined();
+
+    const ironBefore = await getResourceAmount(planetId, 'iron');
+    const carbonBefore = await getResourceAmount(planetId, 'carbon');
+    const siliconBefore = await getResourceAmount(planetId, 'silicon');
+
+    const commandCenterType = await db.query.buildingTypes.findFirst({
+      where: eq(buildingTypes.id, 'command_center'),
+    });
+    const baseCost = commandCenterType!.baseCost as Record<string, number>;
+    expect(baseCost).toMatchObject({ iron: 80, carbon: 40, silicon: 10 });
+
+    const scaledCost = Object.fromEntries(
+      Object.entries(baseCost).map(([resourceId, amount]) => [
+        resourceId,
+        Math.floor(amount * Math.pow(1.6, commandCenter!.level)),
+      ]),
+    ) as Record<string, number>;
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/buildings/upgrade',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { buildingId: commandCenter!.id },
+    });
+
+    expect(response.statusCode).toBe(200);
+
+    expect(await getResourceAmount(planetId, 'iron')).toBeCloseTo(ironBefore - scaledCost.iron, 1);
+    expect(await getResourceAmount(planetId, 'carbon')).toBeCloseTo(carbonBefore - scaledCost.carbon, 1);
+    expect(await getResourceAmount(planetId, 'silicon')).toBeCloseTo(siliconBefore - scaledCost.silicon, 1);
+  });
+
+  it('rejects command center upgrades when basic resources are missing', async () => {
+    const { app, token, userId } = await createTestUser();
+    const planetId = await getHomePlanetId(userId);
+
+    const commandCenter = await db.query.buildings.findFirst({
+      where: and(
+        eq(buildings.planetId, planetId),
+        eq(buildings.typeId, 'command_center'),
+      ),
+    });
+    expect(commandCenter).toBeDefined();
+
+    for (const resourceId of ['iron', 'carbon', 'silicon']) {
+      await db.update(planetResources)
+        .set({ amount: '0', regenRate: '0', lastUpdateAt: new Date() })
+        .where(and(
+          eq(planetResources.planetId, planetId),
+          eq(planetResources.resourceId, resourceId),
+        ));
+    }
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/buildings/upgrade',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { buildingId: commandCenter!.id },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().message).toContain('not enough');
+
+    const updatedCommandCenter = await db.query.buildings.findFirst({
+      where: eq(buildings.id, commandCenter!.id),
+    });
+    expect(updatedCommandCenter?.queueAction).toBeNull();
+  });
 });

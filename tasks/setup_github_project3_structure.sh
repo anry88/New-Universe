@@ -231,6 +231,7 @@ area_for_epic() {
     EPIC-P1-QA) echo "QA" ;;
     EPIC-P1.1-FIX) echo "Frontend" ;;
     EPIC-P2.1-GAMEPLAY) echo "World" ;;
+    EPIC-P2.2-BUILDING-ECONOMY) echo "Buildings" ;;
     EPIC-P2-OUT) echo "Phase 2 Outline" ;;
     EPIC-P2-COL) echo "Colonization" ;;
     EPIC-P2-MKT) echo "Market" ;;
@@ -510,10 +511,11 @@ Recommended views to create in the GitHub UI:
 - Phase 0 Setup: filter `Phase:P0`
 - Phase 1 Core: filter `Phase:P1`
 - Phase 1.1 Post-fixes: filter `Phase:P1.1`
-- Roadmap P0-P5: table, filter `Phase:P0,P1,P1.1,P2,P2.1,P3,P4,P5`
-- Roadmap P2-P5: table, filter `Phase:P2,P2.1,P3,P4,P5`
-- Phase 2 Expansion: filter `Phase:P2,P2.1`
+- Roadmap P0-P5: table, filter `Phase:P0,P1,P1.1,P2,P2.1,P2.2,P3,P4,P5`
+- Roadmap P2-P5: table, filter `Phase:P2,P2.1,P2.2,P3,P4,P5`
+- Phase 2 Expansion: filter `Phase:P2,P2.1,P2.2`
 - Phase 2.1 Gameplay: filter `Phase:P2.1`
+- Phase 2.2 Building Economy: filter `Phase:P2.2`
 - Phase 3 Multiplayer: filter `Phase:P3`
 - Launch Readiness: filter `Phase:P4`
 - Live Ops: filter `Phase:P5`

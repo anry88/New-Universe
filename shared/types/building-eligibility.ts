@@ -1,11 +1,51 @@
-import type { BuildBlockedReason } from './buildings.js';
+import type { BuildBlockedReason, BuildingOutput } from './buildings.js';
 import type { ResearchUnlockRequirement } from '../config/buildingResearchGates.js';
+
+export const METAL_DEPOSIT_RESOURCE_IDS = [
+  'iron',
+  'copper',
+  'aluminum',
+  'titanium',
+  'mercury',
+  'magnesium',
+  'lead',
+  'uranium',
+  'cobalt',
+  'silicon_carbide',
+  'iridium',
+] as const;
+
+export const FLUID_DEPOSIT_RESOURCE_IDS = [
+  'water',
+  'methane',
+  'ice',
+  'oil',
+  'tritium',
+] as const;
+
+const METAL_DEPOSIT_SET = new Set<string>(METAL_DEPOSIT_RESOURCE_IDS);
+const FLUID_DEPOSIT_SET = new Set<string>(FLUID_DEPOSIT_RESOURCE_IDS);
 
 function researchLevel(levels: Map<string, number> | Record<string, number>, branch: string): number {
   if (levels instanceof Map) {
     return levels.get(branch) ?? 0;
   }
   return levels[branch] ?? 0;
+}
+
+function uniqueKnownResourceIds(resourceIds: Iterable<string>): string[] {
+  return [...new Set([...resourceIds].filter(Boolean))];
+}
+
+function resourceLabel(resourceId: string, lang: 'en' | 'ru'): string {
+  switch (resourceId) {
+    case 'metal':
+      return lang === 'ru' ? 'металлов' : 'metal';
+    case 'fluid_or_gas':
+      return lang === 'ru' ? 'воды, метана, льда или нефти' : 'water, methane, ice or oil';
+    default:
+      return resourceId;
+  }
 }
 
 /**
@@ -76,6 +116,105 @@ export function resolveBuildBlockedReason(input: {
   return null;
 }
 
+/**
+ * Planet-surface suitability gates for extractor/feedstock buildings.
+ * `planetResourceIds` should represent discovered deposits, not just cargo stock.
+ */
+export function resolvePlanetResourceBlockedReason(input: {
+  typeId: string;
+  planetResourceIds: Iterable<string>;
+}): BuildBlockedReason | null {
+  const resourceIds = new Set(uniqueKnownResourceIds(input.planetResourceIds));
+
+  if (input.typeId === 'mine') {
+    const hasMetalDeposit = [...resourceIds].some((resourceId) => METAL_DEPOSIT_SET.has(resourceId));
+    if (!hasMetalDeposit) {
+      return {
+        code: 'building_blocked_planet_resource',
+        details: {
+          resourceId: 'metal',
+          acceptedResourceIds: [...METAL_DEPOSIT_RESOURCE_IDS],
+        },
+      };
+    }
+  }
+
+  if (input.typeId === 'drill') {
+    const hasFluidDeposit = [...resourceIds].some((resourceId) => FLUID_DEPOSIT_SET.has(resourceId));
+    if (!hasFluidDeposit) {
+      return {
+        code: 'building_blocked_planet_resource',
+        details: {
+          resourceId: 'fluid_or_gas',
+          acceptedResourceIds: [...FLUID_DEPOSIT_RESOURCE_IDS],
+        },
+      };
+    }
+  }
+
+  if (input.typeId === 'oil_pump' || input.typeId === 'refinery') {
+    if (!resourceIds.has('oil')) {
+      return {
+        code: 'building_blocked_planet_resource',
+        details: { resourceId: 'oil', acceptedResourceIds: ['oil'] },
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Resolves the concrete resource ids a building can produce on a specific planet.
+ * Extractors use local deposits; processors keep their fixed catalog output.
+ */
+export function resolveBuildingProducedResourceIds(input: {
+  typeId: string;
+  baseOutput?: BuildingOutput | null;
+  planetResourceIds: Iterable<string>;
+}): string[] {
+  const resourceIds = uniqueKnownResourceIds(input.planetResourceIds);
+  const resourceSet = new Set(resourceIds);
+
+  if (input.typeId === 'mine') {
+    return resourceIds.filter((resourceId) => METAL_DEPOSIT_SET.has(resourceId));
+  }
+
+  if (input.typeId === 'drill') {
+    return resourceIds.filter((resourceId) => FLUID_DEPOSIT_SET.has(resourceId));
+  }
+
+  if (input.typeId === 'oil_pump') {
+    return resourceSet.has('oil') ? ['oil'] : [];
+  }
+
+  if (input.typeId === 'refinery') {
+    return resourceSet.has('oil') ? ['fuel'] : [];
+  }
+
+  const resourceId = input.baseOutput?.resourceId;
+  return resourceId && typeof input.baseOutput?.baseRate === 'number' ? [resourceId] : [];
+}
+
+export function resolveBuildingProductionRateForResource(input: {
+  typeId: string;
+  baseOutput?: BuildingOutput | null;
+  planetResourceIds: Iterable<string>;
+  resourceId: string;
+}): number {
+  const baseRate = input.baseOutput?.baseRate;
+  if (typeof baseRate !== 'number' || baseRate <= 0) return 0;
+
+  const producedResourceIds = resolveBuildingProducedResourceIds(input);
+  if (!producedResourceIds.includes(input.resourceId)) return 0;
+
+  if (input.typeId === 'mine' || input.typeId === 'drill') {
+    return baseRate / Math.max(1, producedResourceIds.length);
+  }
+
+  return baseRate;
+}
+
 export function formatBuildBlockedMessage(reason: BuildBlockedReason, lang: 'en' | 'ru'): string {
   switch (reason.code) {
     case 'building_blocked_per_planet':
@@ -96,8 +235,8 @@ export function formatBuildBlockedMessage(reason: BuildBlockedReason, lang: 'en'
         : `Requires research ${reason.details.branch} level ${reason.details.level}.`;
     case 'building_blocked_planet_resource':
       return lang === 'ru'
-        ? `На этой планете нет месторождения ресурса ${reason.details.resourceId}.`
-        : `This planet has no ${reason.details.resourceId} deposit.`;
+        ? `На этой планете нет подходящего месторождения: ${resourceLabel(reason.details.resourceId, lang)}.`
+        : `This planet has no ${resourceLabel(reason.details.resourceId, lang)} deposit.`;
     default:
       return lang === 'en' ? 'Cannot build.' : 'Строительство недоступно.';
   }

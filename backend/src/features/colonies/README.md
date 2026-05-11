@@ -15,7 +15,7 @@ Player colony and settlement management. Discovery only reveals a planet; a plan
   - Triggers the colony bootstrap flow.
 - **`bootstrap.ts`** — `bootstrapColony(planetId, tx?)` action module. Initializes the colony's economy:
   - Grants initial resource stock from `config/colony-bootstrap.ts`.
-  - Maps procedural planet richness to starting `regenRate` values.
+  - Creates `planet_resources` rows for known richness deposits, but leaves `regenRate = 0` until extractor buildings complete.
 - **`colonies.test.ts`** — Integration tests for generic colonization rules and limits.
 - **`found-colony.test.ts`** — Integration tests for the founding flow and ship consumption.
 - **`bootstrap.test.ts`** — Integration tests for economy initialization.
@@ -27,4 +27,4 @@ Player colony and settlement management. Discovery only reveals a planet; a plan
 3. **Limit**: Players have a default limit of 5 colonies (configurable via service).
 4. **Ship**: founding a colony requires a `colonizer` ship, which is consumed in the process.
 5. **Infrastructure**: Every new colony starts with a completed Command Center at level 1 on slot 0; the colonizer is consumed as that base hull.
-6. **Economy**: New colonies receive a one-time grant of basic resources (iron, silicon, etc.) to enable early development without home-world shipments.
+6. **Economy**: New colonies receive a one-time grant of basic resources (iron, silicon, etc.) to enable early development without home-world shipments, but they do not passively harvest deposits until the player builds matching extractor infrastructure.
