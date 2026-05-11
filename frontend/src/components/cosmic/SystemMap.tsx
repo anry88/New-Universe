@@ -172,6 +172,28 @@ export function CosmicSystemRenderer({
     [layouts, selectedId],
   );
 
+  const orbitRadii = useMemo(() => {
+    const maxOrbitRadius = Math.max(
+      SYSTEM_MAP_ORBIT_BASE,
+      ...layouts.map((layout) => layout.orbitRadius),
+    );
+    const orbitCount =
+      Math.ceil((maxOrbitRadius - SYSTEM_MAP_ORBIT_BASE) / SYSTEM_MAP_ORBIT_STEP) + 1;
+    return Array.from(
+      { length: Math.max(1, orbitCount) },
+      (_, index) => SYSTEM_MAP_ORBIT_BASE + index * SYSTEM_MAP_ORBIT_STEP,
+    );
+  }, [layouts]);
+
+  const visibleOuterRadius = useMemo(
+    () =>
+      Math.max(
+        ...orbitRadii,
+        ...layouts.map((layout) => layout.orbitRadius + layout.spriteSize / 2),
+      ) + 60,
+    [layouts, orbitRadii],
+  );
+
   // ----- Pan / pinch / wheel --------------------------------------------
 
   const dragState = useRef({
@@ -408,18 +430,16 @@ export function CosmicSystemRenderer({
   useEffect(() => {
     const el = containerRef.current;
     if (!el || layouts.length === 0) return;
-    const outerRadius =
-      SYSTEM_MAP_ORBIT_BASE + (layouts.length - 1) * SYSTEM_MAP_ORBIT_STEP + 60;
     const rect = el.getBoundingClientRect();
     const minSide = Math.min(rect.width, rect.height);
     if (minSide <= 0) return;
     const fitScale = Math.max(
       MIN_SCALE,
-      Math.min(MAX_SCALE, (minSide * 0.9) / (outerRadius * 2)),
+      Math.min(MAX_SCALE, (minSide * 0.9) / (visibleOuterRadius * 2)),
     );
     setTransform({ x: 0, y: 0, scale: fitScale });
     // run once per system
-  }, [layouts.length]);
+  }, [visibleOuterRadius]);
 
   // ----- Render ----------------------------------------------------------
 
@@ -470,15 +490,15 @@ export function CosmicSystemRenderer({
           }}
         >
           {/* Orbit rings */}
-          {layouts.map((l) => (
+          {orbitRadii.map((orbitRadius) => (
             <div
-              key={`orbit-${l.planet.id}`}
+              key={`orbit-${orbitRadius}`}
               style={{
                 position: "absolute",
-                left: -l.orbitRadius,
-                top: -l.orbitRadius,
-                width: l.orbitRadius * 2,
-                height: l.orbitRadius * 2,
+                left: -orbitRadius,
+                top: -orbitRadius,
+                width: orbitRadius * 2,
+                height: orbitRadius * 2,
                 border: "1.5px solid rgba(150,175,220,0.22)",
                 borderRadius: "50%",
                 pointerEvents: expeditionPick ? "none" : "auto",

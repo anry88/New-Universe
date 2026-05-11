@@ -17,7 +17,8 @@ export function ProfilePage() {
     ? `${homeSystem.sectorX}:${homeSystem.sectorY}:${homeSystem.sectorZ}`
     : 'Sector Data Initializing...';
 
-  const planetsCount = homeSystem?.planets?.length ?? 0;
+  const planetsCount =
+    user?.planets?.filter((planet) => planet.isColonized !== false).length ?? 0;
 
   return (
     <div className="cosmic-screen" style={{ '--accent': '#5BD7FF' } as React.CSSProperties}>

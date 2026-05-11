@@ -533,6 +533,117 @@ describe("Tick Expeditions Worker", () => {
     expect(discovery).toBeDefined();
   });
 
+  it("discovers locked home planets when a recon route passes near their rendered footprint", async () => {
+    const user = await createTestUser();
+
+    const [homeSystem] = await db
+      .insert(systems)
+      .values({
+        name: "Home Near Scout Test",
+        sectorX: 31,
+        sectorY: 32,
+        sectorZ: 33,
+        x: "0.00",
+        y: "0.00",
+        z: "0.00",
+        seed: 555,
+        ownerId: user.id,
+        isHome: true,
+      })
+      .returning();
+
+    const [capital] = await db
+      .insert(planets)
+      .values({
+        systemId: homeSystem.id,
+        name: "Capital",
+        biome: "green",
+        size: 22,
+        slotCount: 18,
+      })
+      .returning();
+
+    const [lockedTarget] = await db
+      .insert(planets)
+      .values({
+        systemId: homeSystem.id,
+        name: "Hidden Near Body",
+        biome: "rocky",
+        size: 12,
+        slotCount: 9,
+      })
+      .returning();
+
+    await db
+      .insert(discoveredPlanets)
+      .values({ userId: user.id, planetId: capital.id });
+
+    const layouts = buildSystemMapLayouts(
+      [
+        { id: capital.id, biome: capital.biome, size: capital.size },
+        {
+          id: lockedTarget.id,
+          biome: lockedTarget.biome,
+          size: lockedTarget.size,
+        },
+      ],
+      homeSystem.seed,
+    );
+    const originLayout = layouts.find((layout) => layout.id === capital.id)!;
+    const targetLayout = layouts.find(
+      (layout) => layout.id === lockedTarget.id,
+    )!;
+
+    const dx = targetLayout.x - originLayout.x;
+    const dy = targetLayout.y - originLayout.y;
+    const length = Math.hypot(dx, dy);
+    const offset = 60;
+    const routeEnd = {
+      x: targetLayout.x + (-dy / length) * offset,
+      y: targetLayout.y + (dx / length) * offset,
+    };
+    const sectorDx =
+      (routeEnd.x - originLayout.x) / SYSTEM_MAP_WORLD_UNITS_PER_LY;
+    const sectorDy =
+      (routeEnd.y - originLayout.y) / SYSTEM_MAP_WORLD_UNITS_PER_LY;
+
+    const [ship] = await db
+      .insert(ships)
+      .values({
+        ownerId: user.id,
+        typeId: "scout",
+        locationPlanetId: capital.id,
+        status: "moving",
+      })
+      .returning();
+
+    await db.insert(expeditions).values({
+      shipId: ship.id,
+      type: "scout",
+      originPlanetId: capital.id,
+      targetX: (homeSystem.sectorX + sectorDx).toString(),
+      targetY: (homeSystem.sectorY + sectorDy).toString(),
+      targetZ: homeSystem.sectorZ.toString(),
+      status: "in_flight",
+      eta: new Date(Date.now() - 1000),
+      result: {
+        distance: Math.max(1, Math.hypot(sectorDx, sectorDy)),
+        speed: 10,
+        engineFactor: 1,
+      },
+    });
+
+    await processExpeditions();
+
+    const discovery = await db.query.discoveredPlanets.findFirst({
+      where: and(
+        eq(discoveredPlanets.userId, user.id),
+        eq(discoveredPlanets.planetId, lockedTarget.id),
+      ),
+    });
+    expect(discovery).toBeDefined();
+  });
+
   it("settles a selected home planet when a colonizer arrives", async () => {
     const user = await createTestUser();
 
