@@ -556,10 +556,13 @@ export class BuildingService {
       },
     });
 
-    const typeIds = [...new Set([...
-      readyBuildings.map((b) => b.typeId),
-      operatingBuildings.map((b) => b.typeId),
-    ])];
+    const readyTypeIds = readyBuildings
+      .map((building) => building.typeId)
+      .filter((id): id is string => typeof id === 'string');
+    const operatingTypeIds = operatingBuildings
+      .map((building) => building.typeId)
+      .filter((id): id is string => typeof id === 'string');
+    const typeIds = [...new Set([...readyTypeIds, ...operatingTypeIds])];
     if (typeIds.length === 0) return;
 
     const buildingTypesRows = await db
