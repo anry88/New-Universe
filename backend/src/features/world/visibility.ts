@@ -1,10 +1,20 @@
-import { db as defaultDb } from '../../db/index.js';
-import { systems, planets, discoveredPlanets, discoveredSystems, ships, shipTypes } from '../../db/schema.js';
-import { eq, and, inArray, sql } from 'drizzle-orm';
-import { applySensorRange, getResearchEffectsForUser } from '../research/effects.js';
+import { db as defaultDb } from "../../db/index.js";
+import {
+  systems,
+  planets,
+  discoveredPlanets,
+  discoveredSystems,
+  ships,
+  shipTypes,
+} from "../../db/schema.js";
+import { eq, and, inArray, sql } from "drizzle-orm";
+import {
+  applySensorRange,
+  getResearchEffectsForUser,
+} from "../research/effects.js";
 
 export interface Discovery {
-  type: 'planet' | 'system';
+  type: "planet" | "system";
   id: string;
   name: string;
 }
@@ -54,22 +64,20 @@ export async function checkVisibility(
 ): Promise<Discovery[]> {
   const database = tx || defaultDb;
 
-  const [ship] = await database
+  const [ship] = (await database
     .select({
       ownerId: ships.ownerId,
       shipSectorX: systems.sectorX,
       shipSectorY: systems.sectorY,
       shipSectorZ: systems.sectorZ,
       sensorRange: shipTypes.sensorRange,
-      shipTypeId: ships.typeId,
-      shipRole: shipTypes.role,
     })
     .from(ships)
     .innerJoin(shipTypes, eq(shipTypes.id, ships.typeId))
     .leftJoin(planets, eq(planets.id, ships.locationPlanetId))
     .leftJoin(systems, eq(systems.id, planets.systemId))
     .where(eq(ships.id, shipId))
-    .limit(1) as ShipPosition[];
+    .limit(1)) as ShipPosition[];
 
   if (!ship || !ship.ownerId) {
     return [];
@@ -93,7 +101,7 @@ export async function checkVisibility(
     return [];
   }
 
-  const candidateSystems = await database
+  const candidateSystems = (await database
     .select({
       id: systems.id,
       name: systems.name,
@@ -113,7 +121,7 @@ export async function checkVisibility(
         sql`${systems.sectorZ} >= ${shipSectorZ - range}`,
         sql`${systems.sectorZ} <= ${shipSectorZ + range}`,
       ),
-    ) as SystemRow[];
+    )) as SystemRow[];
 
   const visibleSystems = candidateSystems.filter((sys: SystemRow) => {
     if (sys.isHome && sys.ownerId && sys.ownerId !== ownerId) {
@@ -129,7 +137,7 @@ export async function checkVisibility(
 
   const visibleSystemIds = visibleSystems.map((s: SystemRow) => s.id);
 
-  const existingSysRows = await database
+  const existingSysRows = (await database
     .select({ systemId: discoveredSystems.systemId })
     .from(discoveredSystems)
     .where(
@@ -137,18 +145,20 @@ export async function checkVisibility(
         eq(discoveredSystems.userId, ownerId),
         inArray(discoveredSystems.systemId, visibleSystemIds),
       ),
-    ) as { systemId: string }[];
-  const alreadyKnownSys = new Set(existingSysRows.map((r: { systemId: string }) => r.systemId));
+    )) as { systemId: string }[];
+  const alreadyKnownSys = new Set(
+    existingSysRows.map((r: { systemId: string }) => r.systemId),
+  );
 
-  const allPlanets = await database
+  const allPlanets = (await database
     .select({ id: planets.id, name: planets.name, systemId: planets.systemId })
     .from(planets)
-    .where(inArray(planets.systemId, visibleSystemIds)) as PlanetRow[];
+    .where(inArray(planets.systemId, visibleSystemIds))) as PlanetRow[];
 
   const allPlanetIds = allPlanets.map((p: PlanetRow) => p.id);
   const existingPlanetRows: { planetId: string }[] = [];
   if (allPlanetIds.length > 0) {
-    const rows = await database
+    const rows = (await database
       .select({ planetId: discoveredPlanets.planetId })
       .from(discoveredPlanets)
       .where(
@@ -156,37 +166,54 @@ export async function checkVisibility(
           eq(discoveredPlanets.userId, ownerId),
           inArray(discoveredPlanets.planetId, allPlanetIds),
         ),
-      ) as { planetId: string }[];
+      )) as { planetId: string }[];
     existingPlanetRows.push(...rows);
   }
-  const alreadyKnownPlanets = new Set(existingPlanetRows.map((r: { planetId: string }) => r.planetId));
+  const alreadyKnownPlanets = new Set(
+    existingPlanetRows.map((r: { planetId: string }) => r.planetId),
+  );
 
   const systemById = new Map(visibleSystems.map((s: SystemRow) => [s.id, s]));
 
-  const newSystems = visibleSystems.filter((sys: SystemRow) => !alreadyKnownSys.has(sys.id));
+  const newSystems = visibleSystems.filter(
+    (sys: SystemRow) => !alreadyKnownSys.has(sys.id),
+  );
   const newPlanets = allPlanets
     .filter((p: PlanetRow) => !alreadyKnownPlanets.has(p.id))
     .filter((p: PlanetRow) => {
       const sys = systemById.get(p.systemId);
       if (!sys?.isHome || sys.ownerId !== ownerId) return true;
-      // Passive sensors now reveal bodies in your own home system IF you are using a recon ship.
-      // This satisfies "ships flying past undiscovered planets should discover them".
-      return (ship as any).shipRole === 'recon';
+      return false;
     });
 
   if (newSystems.length > 0) {
-    await database.insert(discoveredSystems).values(
-      newSystems.map((sys: SystemRow) => ({ userId: ownerId, systemId: sys.id })),
-    );
+    await database
+      .insert(discoveredSystems)
+      .values(
+        newSystems.map((sys: SystemRow) => ({
+          userId: ownerId,
+          systemId: sys.id,
+        })),
+      );
   }
   if (newPlanets.length > 0) {
-    await database.insert(discoveredPlanets).values(
-      newPlanets.map((p: PlanetRow) => ({ userId: ownerId, planetId: p.id })),
-    );
+    await database
+      .insert(discoveredPlanets)
+      .values(
+        newPlanets.map((p: PlanetRow) => ({ userId: ownerId, planetId: p.id })),
+      );
   }
 
   return [
-    ...newSystems.map((sys: SystemRow) => ({ type: 'system' as const, id: sys.id, name: sys.name })),
-    ...newPlanets.map((p: PlanetRow) => ({ type: 'planet' as const, id: p.id, name: p.name })),
+    ...newSystems.map((sys: SystemRow) => ({
+      type: "system" as const,
+      id: sys.id,
+      name: sys.name,
+    })),
+    ...newPlanets.map((p: PlanetRow) => ({
+      type: "planet" as const,
+      id: p.id,
+      name: p.name,
+    })),
   ];
 }

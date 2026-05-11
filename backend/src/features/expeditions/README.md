@@ -5,13 +5,13 @@ Ship launch and expedition scheduling live here. The module accepts launch reque
 ## Files
 
 - **`routes.ts`** — `expeditionsRoutes(app)` registers:
-  - `POST /` — launches a standard expedition. Accepts `{ shipId, targetX, targetY, targetZ, fuelLoaded, cargoLoaded }`.
+  - `POST /` — launches a standard expedition to a route point. Accepts `{ shipId, targetX, targetY, targetZ, cargoLoaded }`; fuel is calculated and reserved server-side from route distance and ship fuel consumption. Legacy `fuelLoaded` is ignored as a client hint, and legacy `targetPlanetId` is only retained for recon-only compatibility paths.
   - `POST /jump` — performs an inter-sector jump. Accepts `{ shipId, targetSector: { x, y, z } }`.
 - **`launch.ts`** — `launchExpedition(userId, request)` performs the launch flow:
   - Loads the ship, its type, and current planet/system context.
   - Verifies the ship belongs to the caller and is `idle`.
   - Checks the ship is on a planet and that the ship can carry the requested cargo.
-  - Spends `fuelLoaded` from the launch planet via `spendResources`.
+  - Calculates round-trip fuel from route distance × `ship_types.fuel_consumption`, then spends that amount from the launch planet via `spendResources`.
   - Creates the expedition row with `status='in_flight'`, updates the ship to `moving`, and computes `eta = distance × 60 / speed × engine_factor` with the current neutral engine factor.
   - Enqueues a BullMQ delayed job at `eta` and returns the created expedition plus queue metadata.
 - **`jump.ts`** — `jumpShip(userId, request)` handles Jump Ship inter-sector jumps:

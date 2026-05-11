@@ -1,18 +1,20 @@
-import { FastifyInstance } from 'fastify';
-import jwt from 'jsonwebtoken';
-import { env } from '../../lib/env.js';
-import { launchExpedition } from './launch.js';
-import { jumpShip } from './jump.js';
+import { FastifyInstance } from "fastify";
+import jwt from "jsonwebtoken";
+import { env } from "../../lib/env.js";
+import { launchExpedition } from "./launch.js";
+import { jumpShip } from "./jump.js";
 
 export async function expeditionsRoutes(app: FastifyInstance) {
-  app.post('/jump', async (request, reply) => {
+  app.post("/jump", async (request, reply) => {
     const authHeader = request.headers.authorization;
-    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const token = authHeader?.startsWith("Bearer ")
+      ? authHeader.slice(7)
+      : null;
 
     if (!token) {
       return reply.status(401).send({
-        error: 'Unauthorized',
-        message: 'Missing session token',
+        error: "Unauthorized",
+        message: "Missing session token",
       });
     }
 
@@ -21,22 +23,19 @@ export async function expeditionsRoutes(app: FastifyInstance) {
       payload = jwt.verify(token, env.JWT_SECRET) as { userId: string };
     } catch {
       return reply.status(401).send({
-        error: 'Unauthorized',
-        message: 'Invalid or expired session token',
+        error: "Unauthorized",
+        message: "Invalid or expired session token",
       });
     }
 
-    const {
-      shipId,
-      targetSector,
-    } = request.body as {
+    const { shipId, targetSector } = request.body as {
       shipId?: string;
       targetSector?: { x: number; y: number; z: number };
     };
 
     if (!shipId || !targetSector) {
       return reply.status(400).send({
-        error: 'shipId and targetSector {x, y, z} are required',
+        error: "shipId and targetSector {x, y, z} are required",
       });
     }
 
@@ -55,14 +54,16 @@ export async function expeditionsRoutes(app: FastifyInstance) {
     });
   });
 
-  app.post('/', async (request, reply) => {
+  app.post("/", async (request, reply) => {
     const authHeader = request.headers.authorization;
-    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const token = authHeader?.startsWith("Bearer ")
+      ? authHeader.slice(7)
+      : null;
 
     if (!token) {
       return reply.status(401).send({
-        error: 'Unauthorized',
-        message: 'Missing session token',
+        error: "Unauthorized",
+        message: "Missing session token",
       });
     }
 
@@ -71,8 +72,8 @@ export async function expeditionsRoutes(app: FastifyInstance) {
       payload = jwt.verify(token, env.JWT_SECRET) as { userId: string };
     } catch {
       return reply.status(401).send({
-        error: 'Unauthorized',
-        message: 'Invalid or expired session token',
+        error: "Unauthorized",
+        message: "Invalid or expired session token",
       });
     }
 
@@ -99,11 +100,11 @@ export async function expeditionsRoutes(app: FastifyInstance) {
       targetX === undefined ||
       targetY === undefined ||
       targetZ === undefined ||
-      fuelLoaded === undefined ||
       cargoLoaded === undefined
     ) {
       return reply.status(400).send({
-        error: 'shipId, targetX, targetY, targetZ, fuelLoaded, and cargoLoaded are required',
+        error:
+          "shipId, targetX, targetY, targetZ, and cargoLoaded are required",
       });
     }
 

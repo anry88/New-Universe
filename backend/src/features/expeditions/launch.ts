@@ -1,5 +1,5 @@
-import { and, eq, sql } from 'drizzle-orm';
-import { db as defaultDb } from '../../db/index.js';
+import { and, eq, sql } from "drizzle-orm";
+import { db as defaultDb } from "../../db/index.js";
 import {
   expeditions,
   planetResources,
@@ -8,16 +8,20 @@ import {
   shipTypes,
   systems,
   discoveredPlanets,
-} from '../../db/schema.js';
-import { spendResources } from '../resources/transactions.js';
-import { applyShipSpeed, getResearchEffectsForUser } from '../research/effects.js';
+} from "../../db/schema.js";
+import { spendResources } from "../resources/transactions.js";
+import {
+  applyShipSpeed,
+  getResearchEffectsForUser,
+} from "../research/effects.js";
 
 export interface LaunchExpeditionRequest {
   shipId: string;
   targetX: number;
   targetY: number;
   targetZ: number;
-  fuelLoaded: number;
+  /** Deprecated client hint. Fuel is calculated server-side from distance and ship consumption. */
+  fuelLoaded?: number;
   cargoLoaded: number;
   /** When set, scout completes planetary survey of this body in the player's home system at arrival. */
   targetPlanetId?: string | null;
@@ -41,7 +45,9 @@ type ShipLaunchRow = {
   shipStatus: string;
   shipLocationPlanetId: string | null;
   shipTypeId: string;
+  shipRole: string;
   shipSpeed: string;
+  shipFuelConsumption: string;
   shipCargoCapacity: number;
   originX: number;
   originY: number;
@@ -50,7 +56,7 @@ type ShipLaunchRow = {
 };
 
 function isFiniteNumber(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value);
+  return typeof value === "number" && Number.isFinite(value);
 }
 
 async function getAvailableCargo(planetId: string, tx: any): Promise<number> {
@@ -64,17 +70,36 @@ async function getAvailableCargo(planetId: string, tx: any): Promise<number> {
   return Number(rows[0]?.total ?? 0);
 }
 
+function calculateRequiredFuel(
+  distance: number,
+  fuelConsumption: number,
+): number {
+  const perLy =
+    Number.isFinite(fuelConsumption) && fuelConsumption > 0
+      ? fuelConsumption
+      : 1;
+  return Math.max(1, Math.ceil(distance * 2 * perLy));
+}
+
 export async function launchExpedition(
   userId: string,
   request: LaunchExpeditionRequest,
 ): Promise<LaunchExpeditionResult> {
-  const { shipId, targetX, targetY, targetZ, fuelLoaded, cargoLoaded, targetPlanetId } = request;
+  const {
+    shipId,
+    targetX,
+    targetY,
+    targetZ,
+    fuelLoaded,
+    cargoLoaded,
+    targetPlanetId,
+  } = request;
 
   if (!shipId) {
     return {
       success: false,
       status: 400,
-      error: 'shipId is required',
+      error: "shipId is required",
     };
   }
 
@@ -82,21 +107,14 @@ export async function launchExpedition(
     !isFiniteNumber(targetX) ||
     !isFiniteNumber(targetY) ||
     !isFiniteNumber(targetZ) ||
-    !isFiniteNumber(fuelLoaded) ||
+    (fuelLoaded !== undefined && !isFiniteNumber(fuelLoaded)) ||
     !isFiniteNumber(cargoLoaded)
   ) {
     return {
       success: false,
       status: 400,
-      error: 'targetX, targetY, targetZ, fuelLoaded, and cargoLoaded must be numbers',
-    };
-  }
-
-  if (fuelLoaded <= 0) {
-    return {
-      success: false,
-      status: 400,
-      error: 'fuelLoaded must be greater than 0',
+      error:
+        "targetX, targetY, targetZ, optional fuelLoaded, and cargoLoaded must be numbers",
     };
   }
 
@@ -104,18 +122,20 @@ export async function launchExpedition(
     return {
       success: false,
       status: 400,
-      error: 'cargoLoaded must be 0 or greater',
+      error: "cargoLoaded must be 0 or greater",
     };
   }
 
-  const shipRows = await defaultDb
+  const shipRows = (await defaultDb
     .select({
       shipId: ships.id,
       shipOwnerId: ships.ownerId,
       shipStatus: ships.status,
       shipLocationPlanetId: ships.locationPlanetId,
       shipTypeId: ships.typeId,
+      shipRole: shipTypes.role,
       shipSpeed: shipTypes.speed,
+      shipFuelConsumption: shipTypes.fuelConsumption,
       shipCargoCapacity: shipTypes.cargo,
       originX: systems.sectorX,
       originY: systems.sectorY,
@@ -127,14 +147,14 @@ export async function launchExpedition(
     .leftJoin(planets, eq(planets.id, ships.locationPlanetId))
     .leftJoin(systems, eq(systems.id, planets.systemId))
     .where(eq(ships.id, shipId))
-    .limit(1) as ShipLaunchRow[];
+    .limit(1)) as ShipLaunchRow[];
 
   const shipRow = shipRows[0];
   if (!shipRow) {
     return {
       success: false,
       status: 404,
-      error: 'Ship not found',
+      error: "Ship not found",
     };
   }
 
@@ -142,15 +162,15 @@ export async function launchExpedition(
     return {
       success: false,
       status: 403,
-      error: 'Ship does not belong to you',
+      error: "Ship does not belong to you",
     };
   }
 
-  if (shipRow.shipStatus !== 'idle') {
+  if (shipRow.shipStatus !== "idle") {
     return {
       success: false,
       status: 400,
-      error: 'Ship must be idle before launch',
+      error: "Ship must be idle before launch",
     };
   }
 
@@ -158,7 +178,7 @@ export async function launchExpedition(
     return {
       success: false,
       status: 400,
-      error: 'Ship must be located on a player planet',
+      error: "Ship must be located on a player planet",
     };
   }
 
@@ -166,17 +186,17 @@ export async function launchExpedition(
     return {
       success: false,
       status: 400,
-      error: 'not enough cargo capacity',
+      error: "not enough cargo capacity",
     };
   }
 
   let resolvedTargetPlanetId: string | null = null;
   if (targetPlanetId) {
-    if (shipRow.shipTypeId !== 'scout') {
+    if (shipRow.shipRole !== "recon") {
       return {
         success: false,
         status: 400,
-        error: 'targetPlanetId is only supported for scout expeditions',
+        error: "targetPlanetId is only supported for recon expeditions",
       };
     }
 
@@ -186,7 +206,7 @@ export async function launchExpedition(
     });
 
     if (!targetPlanet?.system) {
-      return { success: false, status: 404, error: 'Target planet not found' };
+      return { success: false, status: 404, error: "Target planet not found" };
     }
 
     const sys = targetPlanet.system;
@@ -194,7 +214,7 @@ export async function launchExpedition(
       return {
         success: false,
         status: 400,
-        error: 'targetPlanetId must refer to a planet in your home system',
+        error: "targetPlanetId must refer to a planet in your home system",
       };
     }
 
@@ -206,18 +226,22 @@ export async function launchExpedition(
       return {
         success: false,
         status: 400,
-        error: 'targetSector must match the home system sector when targetPlanetId is set',
+        error:
+          "targetSector must match the home system sector when targetPlanetId is set",
       };
     }
 
     const already = await defaultDb.query.discoveredPlanets.findFirst({
-      where: and(eq(discoveredPlanets.userId, userId), eq(discoveredPlanets.planetId, targetPlanetId)),
+      where: and(
+        eq(discoveredPlanets.userId, userId),
+        eq(discoveredPlanets.planetId, targetPlanetId),
+      ),
     });
     if (already) {
       return {
         success: false,
         status: 400,
-        error: 'Planet is already surveyed',
+        error: "Planet is already surveyed",
       };
     }
 
@@ -229,32 +253,45 @@ export async function launchExpedition(
       Math.pow(targetY - Number(shipRow.originY), 2) +
       Math.pow(targetZ - Number(shipRow.originZ), 2),
   );
+  const travelDistance = resolvedTargetPlanetId
+    ? Math.max(1, distance)
+    : distance;
+  const fuelRequired = calculateRequiredFuel(
+    travelDistance,
+    Number(shipRow.shipFuelConsumption),
+  );
   const researchEffects = await getResearchEffectsForUser(userId, defaultDb);
   const speed = applyShipSpeed(Number(shipRow.shipSpeed), researchEffects);
   const engineFactor = 1;
-  const etaSeconds = Math.max(0, Math.ceil((distance * 60 / speed) * engineFactor));
+  const etaSeconds = Math.max(
+    0,
+    Math.ceil(((travelDistance * 60) / speed) * engineFactor),
+  );
   const eta = new Date(Date.now() + etaSeconds * 1000);
 
   return defaultDb.transaction(async (tx) => {
-    const availableCargo = await getAvailableCargo(shipRow.shipLocationPlanetId!, tx);
+    const availableCargo = await getAvailableCargo(
+      shipRow.shipLocationPlanetId!,
+      tx,
+    );
     if (availableCargo < cargoLoaded) {
       return {
         success: false,
         status: 400,
-        error: 'not enough cargo',
+        error: "not enough cargo",
       } satisfies LaunchExpeditionResult;
     }
 
     const fuelSpend = await spendResources(
       shipRow.shipLocationPlanetId!,
-      [{ resourceId: 'fuel', amount: fuelLoaded }],
+      [{ resourceId: "fuel", amount: fuelRequired }],
       tx,
     );
     if (!fuelSpend.success) {
       return {
         success: false,
         status: 400,
-        error: fuelSpend.error || 'not enough fuel',
+        error: fuelSpend.error || "not enough fuel",
       } satisfies LaunchExpeditionResult;
     }
 
@@ -268,12 +305,13 @@ export async function launchExpedition(
         targetY: Math.trunc(targetY),
         targetZ: Math.trunc(targetZ),
         targetPlanetId: resolvedTargetPlanetId,
-        status: 'in_flight',
+        status: "in_flight",
         eta,
         result: {
-          fuelLoaded,
+          fuelRequired,
           cargoLoaded,
-          distance,
+          distance: travelDistance,
+          requestedDistance: distance,
           speed,
           engineFactor,
         },
@@ -283,25 +321,32 @@ export async function launchExpedition(
     const [updatedShip] = await tx
       .update(ships)
       .set({
-        status: 'moving',
-        fuel: fuelLoaded.toFixed(2),
+        status: "moving",
         cargoJson: {
           loaded: cargoLoaded,
+          fuelRequired,
         },
       })
       .where(eq(ships.id, shipRow.shipId))
       .returning();
 
     try {
-      const { Queue: BullQueue } = await import('bullmq');
-      const Redis = (await import('ioredis')).default as unknown as new (...args: any[]) => any;
-      const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
-        maxRetriesPerRequest: null,
-        lazyConnect: true,
+      const { Queue: BullQueue } = await import("bullmq");
+      const Redis = (await import("ioredis")).default as unknown as new (
+        ...args: any[]
+      ) => any;
+      const redis = new Redis(
+        process.env.REDIS_URL || "redis://localhost:6379",
+        {
+          maxRetriesPerRequest: null,
+          lazyConnect: true,
+        },
+      );
+      const expeditionQueue = new BullQueue("expeditions", {
+        connection: redis,
       });
-      const expeditionQueue = new BullQueue('expeditions', { connection: redis });
       await expeditionQueue.add(
-        'arrive',
+        "arrive",
         {
           expeditionId: expedition.id,
           shipId: shipRow.shipId,
