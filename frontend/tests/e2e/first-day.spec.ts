@@ -156,6 +156,7 @@ test('first day flow on cosmic atlas layout', async ({ page }) => {
           ? [
               {
                 id: 'queue-item-1',
+                planetId,
                 buildingTypeId: 'mine',
                 level: 1,
                 queueAction: 'build',

@@ -126,6 +126,13 @@ test('colonization flow: eligibility and founding', async ({ page }) => {
       body: JSON.stringify({ resources: [] }),
     });
   });
+  await page.route('**/resources/planets/**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ resources: [] }),
+    });
+  });
 
   // Start test
   await page.goto('/map');
@@ -141,27 +148,16 @@ test('colonization flow: eligibility and founding', async ({ page }) => {
   await expect(page.getByTestId('selection-card')).toBeVisible();
   await expect(page.getByText(/SELECTED/i)).toBeVisible();
 
-  // Info card should appear with "Colonize" button
+  // Current Phase 2.1 map flow sends colonization setup through Fleet.
   await page.waitForSelector('[data-testid="colonize-button"]');
+  await expect(page.getByTestId('colonize-button')).toContainText(/Send colonizer/i);
   await page.evaluate(() => (document.querySelector('[data-testid="colonize-button"]') as HTMLElement).click());
-
-  // Dialog should appear
-  await expect(page.getByText(/Founding Requirements/i)).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByText(/Research/i)).toBeVisible();
-  await expect(page.getByText(/5 \/ 2/i)).toBeVisible();
-
-  // Click "FOUND COLONY"
-  const confirmBtn = page.getByTestId('found-colony-button');
-  await expect(confirmBtn).toBeEnabled();
-  await page.evaluate(() => (document.querySelector('[data-testid="found-colony-button"]') as HTMLElement).click());
-
-  // Verify dialog closes
-  await expect(page.getByText(/Founding Requirements/i)).toBeHidden({ timeout: 10_000 });
+  await expect(page).toHaveURL(/\/ships$/);
 });
 
-test('colonization flow: blocked attempt (cooldown)', async ({ page }) => {
-  const targetPlanetId = 'target-planet-cooldown';
-  const targetPlanetName = 'TARGET-COOLDOWN';
+test('system map: selected owned colony opens planet detail', async ({ page }) => {
+  const targetPlanetId = 'target-owned-colony';
+  const targetPlanetName = 'TARGET-OWNED';
   
   const user = {
     id: 'user-id',
@@ -192,11 +188,11 @@ test('colonization flow: blocked attempt (cooldown)', async ({ page }) => {
     research: [],
     planets: [
       {
-        id: 'home-planet',
-        name: 'Earth',
-        biome: 'green',
-        size: 15,
-        slotCount: 12,
+        id: targetPlanetId,
+        name: targetPlanetName,
+        biome: 'rocky',
+        size: 10,
+        slotCount: 8,
         resources: [],
         buildings: [],
       }
@@ -209,26 +205,11 @@ test('colonization flow: blocked attempt (cooldown)', async ({ page }) => {
   await page.route('**/me', async (route) => {
     await route.fulfill({ status: 200, body: JSON.stringify({ user }) });
   });
-
-  // Mock eligibility with cooldown
-  await page.route(`**/colonies/eligibility/${targetPlanetId}`, async (route) => {
+  await page.route('**/resources/planets/**', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({
-        eligibility: {
-          allowed: false,
-          reason: 'Colonization on cooldown',
-          details: {
-            currentColonies: 1,
-            maxColonies: 2,
-            cooldownRemainingSec: 3600,
-            requiredResearch: { branch: 'engineering', level: 2 },
-            currentResearch: 5,
-          }
-        },
-        rules: { foundingCost: {} }
-      }),
+      body: JSON.stringify({ resources: [] }),
     });
   });
 
@@ -241,11 +222,7 @@ test('colonization flow: blocked attempt (cooldown)', async ({ page }) => {
   await expect(page.getByText(/SELECTED/i)).toBeVisible();
 
   await page.waitForSelector('[data-testid="colonize-button"]');
+  await expect(page.getByTestId('colonize-button')).toContainText(/Open planet/i);
   await page.evaluate(() => (document.querySelector('[data-testid="colonize-button"]') as HTMLElement).click());
-
-  // FOUND COLONY should be disabled
-  const confirmBtn = page.getByTestId('found-colony-button');
-  await expect(confirmBtn).toBeDisabled({ timeout: 10_000 });
-  await expect(page.getByText(/60m \/ Ready/i)).toBeVisible();
-  await expect(page.getByText(/Colonization on cooldown/i)).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/planet/${targetPlanetId}`));
 });
