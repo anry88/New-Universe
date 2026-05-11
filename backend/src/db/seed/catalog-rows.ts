@@ -80,34 +80,48 @@ export const BUILDING_TYPE_CATALOG_ROWS: BuildingCatalogRow[] = [
     energyConsumption: 0,
   },
   {
+    // Metals-only surface mine. Pairs with `drill` (fluids/gases) below;
+    // the two were previously identical except for output — they are now
+    // semantically distinct buildings with different costs, deps and
+    // biome affinities.
     id: 'mine',
-    name: { ru: 'Шахта', en: 'Mine' },
+    name: { ru: 'Шахта', en: 'Metals Mine' },
     description: {
-      ru: 'Добывает базовые минералы из недр планеты. Эффективна для железа и углерода.',
-      en: 'Extracts basic minerals from the planet\'s interior. Effective for iron and carbon.',
+      ru: 'Открытая разработка твёрдых пород. Добывает металлы — железо, медь, алюминий — на каменистых и вулканических планетах.',
+      en: 'Open-pit metal extraction. Produces iron, copper and aluminum on rocky and volcanic planets.',
     },
     category: 'production',
     maxLevel: 30,
     deps: [{ typeId: 'command_center', level: 1 }],
-    baseCost: { iron: 100, silicon: 50 },
+    // Heavier upfront iron cost reflects building reinforced ore-haulers.
+    baseCost: { iron: 120, carbon: 40 },
     baseTimeSec: 300,
     baseOutput: { resourceId: 'iron', baseRate: 50 },
     energyConsumption: 10,
   },
   {
+    // Fluids/gases extractor. Previously named "Deep Drill" with the same
+    // cost/deps as `mine` — now reworked into a downstream-feeding fluid
+    // pipeline that produces water (default), methane or oil depending on
+    // the planet biome.
     id: 'drill',
-    name: { ru: 'Глубокий бур', en: 'Deep Drill' },
+    name: { ru: 'Газожидкостной экстрактор', en: 'Fluid Extractor' },
     description: {
-      ru: 'Глубокое бурение для добычи жидкостей и газов, таких как вода и метан.',
-      en: 'Deep drilling for extracting liquids and gases like water and methane.',
+      ru: 'Криогенные и газоконденсатные скважины. Качает воду, метан и нефть на океанических, ледяных и газовых планетах.',
+      en: 'Cryogenic and gas-condensate wells. Pumps water, methane and oil on ocean, ice and gas-giant planets.',
     },
     category: 'production',
     maxLevel: 30,
-    deps: [{ typeId: 'command_center', level: 1 }],
-    baseCost: { carbon: 100, silicon: 50 },
-    baseTimeSec: 300,
+    // Slightly different gate: needs a tier-1 solar plant (electronics for
+    // the condenser) so it cannot trivially overlap the mine.
+    deps: [
+      { typeId: 'command_center', level: 1 },
+      { typeId: 'solar_plant', level: 1 },
+    ],
+    baseCost: { silicon: 100, carbon: 80 },
+    baseTimeSec: 360,
     baseOutput: { resourceId: 'water', baseRate: 60 },
-    energyConsumption: 10,
+    energyConsumption: 14,
   },
   {
     id: 'storage',

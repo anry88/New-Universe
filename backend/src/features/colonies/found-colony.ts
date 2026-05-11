@@ -1,24 +1,33 @@
 import { db } from '../../db/index.js';
 import { colonies } from '../../db/schema/colonies.js';
 import { ships, shipTypes } from '../../db/schema/ships.js';
-import { buildings, buildingTypes } from '../../db/schema/buildings.js';
+import { buildings } from '../../db/schema/buildings.js';
 import { eq, and } from 'drizzle-orm';
 import { colonyService } from './colonies.js';
 import { bootstrapColony } from './bootstrap.js';
-import { COLONIZATION_RULES } from '../../config/colonization-rules.js';
 import { checkColonizationGates } from './colonization-rules.js';
-import { spendResources } from '../resources/transactions.js';
-import { systems } from '../../db/schema/world.js';
 
 /**
- * Service to found a new colony using a colonizer ship.
- * Acceptance criteria:
- * 1. Only colonizer ships can found a colony.
- * 2. Target planet must be discovered and outside protected foreign home systems.
- * 3. Player must satisfy all colonization gates (limit, cooldown, distance).
- * 4. Ship is consumed.
- * 5. Founding costs are deducted from the home planet.
- * 6. Founding creates a colony and a level 1 command center.
+ * Service to found a new colony from a colonizer ship that has arrived
+ * at the target planet.
+ *
+ * Game model (post P3-EPIC-STARTER-SYSTEM-REWORK):
+ *  - Discovery ≠ colonization. A discovered planet stays read-only until
+ *    a colonizer is delivered.
+ *  - On arrival the colonizer **is** the command center: the ship is
+ *    consumed and a level 1 command_center is created instantly at slot 0.
+ *  - No extra resources are deducted from the home planet — the
+ *    colonizer's build cost already paid for that step.
+ *  - The colony is bootstrapped (starting stock + regen rates) so the
+ *    player can begin building on the new planet immediately.
+ *
+ * Acceptance criteria (updated):
+ *  1. Only colonizer ships can found a colony.
+ *  2. Target planet must be discovered and outside protected foreign home systems.
+ *  3. Player must satisfy all colonization gates (limit, cooldown, distance).
+ *  4. Ship is consumed.
+ *  5. A level-1 command_center is created instantly (no queue).
+ *  6. Colony economy is bootstrapped.
  */
 export async function foundColony(userId: string, shipId: string, planetId: string) {
   // 1. Initial gates check (before transaction for efficiency)
@@ -28,33 +37,7 @@ export async function foundColony(userId: string, shipId: string, planetId: stri
   }
 
   return await db.transaction(async (tx) => {
-    // 2. Find home planet for resource deduction
-    const homeSystem = await tx.query.systems.findFirst({
-      where: and(eq(systems.ownerId, userId), eq(systems.isHome, true)),
-      with: {
-        planets: {
-          limit: 1,
-        }
-      }
-    });
-
-    if (!homeSystem || !homeSystem.planets?.[0]) {
-      throw new Error('Home planet not found');
-    }
-    const homePlanetId = homeSystem.planets[0].id;
-
-    // 3. Deduct costs
-    const resourceCosts = Object.entries(COLONIZATION_RULES.foundingCost).map(([resourceId, amount]) => ({
-      resourceId,
-      amount,
-    }));
-
-    const spendResult = await spendResources(homePlanetId, resourceCosts, tx);
-    if (!spendResult.success) {
-      throw new Error(`Insufficient resources on home planet: ${spendResult.error}`);
-    }
-
-    // 4. Validate ship
+    // 2. Validate ship
     const [ship] = await tx
       .select({
         id: ships.id,
@@ -85,17 +68,17 @@ export async function foundColony(userId: string, shipId: string, planetId: stri
       throw new Error('Ship is not at the target planet');
     }
 
-    // 5. Re-validate eligibility within transaction to prevent race conditions (especially colony limit)
-    // We already checked it once, but inside tx is safer for counters.
+    // 3. Re-validate eligibility within transaction to prevent race conditions
+    // (especially colony-count limits, which are racy under concurrent calls).
     const planetEligibility = await colonyService.canColonize(userId, planetId);
     if (!planetEligibility.allowed) {
       throw new Error(planetEligibility.reason || 'Cannot colonize this planet');
     }
 
-    // 3. Consume the ship (deleted to avoid duplication exploits)
+    // 4. Consume the ship (deleted to avoid duplication exploits)
     await tx.delete(ships).where(eq(ships.id, shipId));
 
-    // 4. Create the colony record
+    // 5. Create the colony record
     const [newColony] = await tx
       .insert(colonies)
       .values({
@@ -104,23 +87,17 @@ export async function foundColony(userId: string, shipId: string, planetId: stri
       })
       .returning();
 
-    // 5. Establish initial infrastructure (Command Center L1 in build queue)
-    const typeInfo = await tx.query.buildingTypes.findFirst({
-      where: eq(buildingTypes.id, 'command_center'),
-    });
-    const buildTimeSec = typeInfo?.baseTimeSec || 600;
-    const completesAt = new Date(Date.now() + buildTimeSec * 1000);
-
+    // 6. Instantly stand up a level-1 command_center. The colonizer ship
+    // **is** the command-center hull on arrival — there is no construction
+    // queue, no founding cost, and no waiting period.
     await tx.insert(buildings).values({
       planetId: planetId,
       typeId: 'command_center',
-      level: 1, // Will be finalized by worker
-      slotIndex: 0, // Always starts at first slot
-      queueAction: 'build',
-      queueCompletesAt: completesAt,
+      level: 1,
+      slotIndex: 0,
     });
 
-    // 6. Bootstrap economy (resources, storage, regen)
+    // 7. Bootstrap economy (starting stock, storage caps, regen rates)
     await bootstrapColony(planetId, tx);
 
     return newColony;
