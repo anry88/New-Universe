@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { checkVisibility } from './visibility.js';
-import { db } from '../../db/index.js';
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { checkVisibility } from "./visibility.js";
+import { db } from "../../db/index.js";
 import {
   systems,
   planets,
@@ -15,18 +15,18 @@ import {
   notifications,
   researchProgress,
   colonies,
-} from '../../db/schema.js';
+} from "../../db/schema.js";
 
-const TEST_SHIP_TYPE = 'test_scout';
-const TEST_CARGO_TYPE = 'test_cargo';
+const TEST_SHIP_TYPE = "test_scout";
+const TEST_CARGO_TYPE = "test_cargo";
 
-describe('Visibility Check Service', () => {
+describe("Visibility Check Service", () => {
   async function createTestUser(): Promise<string> {
     const [user] = await db
       .insert(users)
       .values({
         tgId: BigInt(Math.floor(Math.random() * 1000000000)),
-        tgUsername: 'visibility_test_user',
+        tgUsername: "visibility_test_user",
       })
       .returning();
     return user.id;
@@ -37,14 +37,14 @@ describe('Visibility Check Service', () => {
       .insert(shipTypes)
       .values({
         id: TEST_SHIP_TYPE,
-        name: { ru: 'Тестовый', en: 'Test Scout' },
-        role: 'recon',
+        name: { ru: "Тестовый", en: "Test Scout" },
+        role: "recon",
         hp: 10,
-        speed: '1.00',
+        speed: "1.00",
         cargo: 10,
         dps: 0,
         armor: 0,
-        fuelConsumption: '0.10',
+        fuelConsumption: "0.10",
         buildTimeSec: 10,
         buildCost: { iron: 1 },
         requiredBuildings: [],
@@ -59,14 +59,14 @@ describe('Visibility Check Service', () => {
       .insert(shipTypes)
       .values({
         id: TEST_CARGO_TYPE,
-        name: { ru: 'Грузовик', en: 'Test Cargo' },
-        role: 'logistics',
+        name: { ru: "Грузовик", en: "Test Cargo" },
+        role: "logistics",
         hp: 10,
-        speed: '1.00',
+        speed: "1.00",
         cargo: 100,
         dps: 0,
         armor: 0,
-        fuelConsumption: '0.10',
+        fuelConsumption: "0.10",
         buildTimeSec: 10,
         buildCost: { iron: 1 },
         requiredBuildings: [],
@@ -74,7 +74,7 @@ describe('Visibility Check Service', () => {
       })
       .onConflictDoUpdate({
         target: shipTypes.id,
-        set: { role: 'logistics' },
+        set: { role: "logistics" },
       });
   }
 
@@ -84,7 +84,12 @@ describe('Visibility Check Service', () => {
     sectorZ: number,
     ownerId?: string,
     isHome: boolean = false,
-  ): Promise<{ id: string; sectorX: number; sectorY: number; sectorZ: number }> {
+  ): Promise<{
+    id: string;
+    sectorX: number;
+    sectorY: number;
+    sectorZ: number;
+  }> {
     const [system] = await db
       .insert(systems)
       .values({
@@ -108,7 +113,7 @@ describe('Visibility Check Service', () => {
       .insert(planets)
       .values({
         systemId,
-        biome: 'rocky',
+        biome: "rocky",
         size: 10,
         slotCount: 8,
         name,
@@ -128,7 +133,7 @@ describe('Visibility Check Service', () => {
         ownerId: userId,
         typeId,
         locationPlanetId: planetId,
-        status: 'idle',
+        status: "idle",
       })
       .returning();
     return ship.id;
@@ -167,28 +172,28 @@ describe('Visibility Check Service', () => {
     await db.delete(users);
   });
 
-  it('discovers a planet in a nearby system within sensor range', async () => {
+  it("discovers a planet in a nearby system within sensor range", async () => {
     const userId = await createTestUser();
     const shipSystem = await createSystem(0, 0, 0);
-    const shipPlanetId = await createPlanet(shipSystem.id, 'Ship Planet');
+    const shipPlanetId = await createPlanet(shipSystem.id, "Ship Planet");
     const shipId = await createShip(userId, shipPlanetId);
 
     const targetSystem = await createSystem(25, 0, 0);
-    const targetPlanetId = await createPlanet(targetSystem.id, 'Target Planet');
+    const targetPlanetId = await createPlanet(targetSystem.id, "Target Planet");
 
     const discoveries = await checkVisibility(shipId);
 
     expect(discoveries.length).toBeGreaterThan(0);
     const planetDiscovery = discoveries.find((d) => d.id === targetPlanetId);
     expect(planetDiscovery).toBeDefined();
-    expect(planetDiscovery?.type).toBe('planet');
-    expect(planetDiscovery?.name).toBe('Target Planet');
+    expect(planetDiscovery?.type).toBe("planet");
+    expect(planetDiscovery?.name).toBe("Target Planet");
   });
 
-  it('does not discover a planet outside sensor range', async () => {
+  it("does not discover a planet outside sensor range", async () => {
     const userId = await createTestUser();
     const shipSystem = await createSystem(0, 0, 0);
-    const shipPlanetId = await createPlanet(shipSystem.id, 'Ship Planet');
+    const shipPlanetId = await createPlanet(shipSystem.id, "Ship Planet");
     const shipId = await createShip(userId, shipPlanetId);
 
     // Mark ship's own system as already discovered to isolate the far-system test
@@ -202,21 +207,21 @@ describe('Visibility Check Service', () => {
     });
 
     const farSystem = await createSystem(100, 0, 0);
-    await createPlanet(farSystem.id, 'Far Planet');
+    await createPlanet(farSystem.id, "Far Planet");
 
     const discoveries = await checkVisibility(shipId);
 
     expect(discoveries.length).toBe(0);
   });
 
-  it('does not duplicate discoveries on repeated calls', async () => {
+  it("does not duplicate discoveries on repeated calls", async () => {
     const userId = await createTestUser();
     const shipSystem = await createSystem(0, 0, 0);
-    const shipPlanetId = await createPlanet(shipSystem.id, 'Ship Planet');
+    const shipPlanetId = await createPlanet(shipSystem.id, "Ship Planet");
     const shipId = await createShip(userId, shipPlanetId);
 
     const targetSystem = await createSystem(15, 0, 0);
-    await createPlanet(targetSystem.id, 'Dupe Planet');
+    await createPlanet(targetSystem.id, "Dupe Planet");
 
     await checkVisibility(shipId);
     const secondBatch = await checkVisibility(shipId);
@@ -224,15 +229,18 @@ describe('Visibility Check Service', () => {
     expect(secondBatch.length).toBe(0);
   });
 
-  it('respects home system: foreign home system is not visible', async () => {
+  it("respects home system: foreign home system is not visible", async () => {
     const ownerId = await createTestUser();
     const foreignId = await createTestUser();
 
     const homeSystem = await createSystem(10, 0, 0, ownerId, true);
-    await createPlanet(homeSystem.id, 'Home Planet');
+    await createPlanet(homeSystem.id, "Home Planet");
 
     const shipSystem = await createSystem(0, 0, 0);
-    const shipPlanetId = await createPlanet(shipSystem.id, 'Foreign Ship Planet');
+    const shipPlanetId = await createPlanet(
+      shipSystem.id,
+      "Foreign Ship Planet",
+    );
     const shipId = await createShip(foreignId, shipPlanetId);
 
     // Pre-discover ship's own system so it doesn't appear in results
@@ -247,88 +255,90 @@ describe('Visibility Check Service', () => {
 
     const discoveries = await checkVisibility(shipId);
 
-    const systemDiscovery = discoveries.find((d) => d.type === 'system');
+    const systemDiscovery = discoveries.find((d) => d.type === "system");
     expect(systemDiscovery).toBeUndefined();
   });
 
-  it('discovers own home system', async () => {
+  it("discovers own home system", async () => {
     const userId = await createTestUser();
 
     const homeSystem = await createSystem(10, 0, 0, userId, true);
-    await createPlanet(homeSystem.id, 'Home Planet');
+    await createPlanet(homeSystem.id, "Home Planet");
 
     const shipPlanetId = await createPlanet(
       (await createSystem(0, 0, 0)).id,
-      'Ship Planet',
+      "Ship Planet",
     );
     const shipId = await createShip(userId, shipPlanetId);
 
     const discoveries = await checkVisibility(shipId);
 
-    const systemDiscovery = discoveries.find((d) => d.type === 'system');
+    const systemDiscovery = discoveries.find((d) => d.type === "system");
     expect(systemDiscovery).toBeDefined();
     expect(systemDiscovery?.id).toBe(homeSystem.id);
   });
 
-  it('discovers all planets in a newly visible system', async () => {
+  it("discovers all planets in a newly visible system", async () => {
     const userId = await createTestUser();
     const shipSystem = await createSystem(0, 0, 0);
-    const shipPlanetId = await createPlanet(shipSystem.id, 'Ship Planet');
+    const shipPlanetId = await createPlanet(shipSystem.id, "Ship Planet");
     const shipId = await createShip(userId, shipPlanetId);
 
     const targetSystem = await createSystem(20, 0, 0);
-    const planet1 = await createPlanet(targetSystem.id, 'Planet A');
-    const planet2 = await createPlanet(targetSystem.id, 'Planet B');
-    const planet3 = await createPlanet(targetSystem.id, 'Planet C');
+    const planet1 = await createPlanet(targetSystem.id, "Planet A");
+    const planet2 = await createPlanet(targetSystem.id, "Planet B");
+    const planet3 = await createPlanet(targetSystem.id, "Planet C");
 
     const discoveries = await checkVisibility(shipId);
 
     const planetIds = discoveries
-      .filter((d) => d.type === 'planet')
+      .filter((d) => d.type === "planet")
       .map((d) => d.id);
     expect(planetIds).toContain(planet1);
     expect(planetIds).toContain(planet2);
     expect(planetIds).toContain(planet3);
   });
 
-  it('discovers both system and its planets', async () => {
+  it("discovers both system and its planets", async () => {
     const userId = await createTestUser();
     const shipSystem = await createSystem(0, 0, 0);
-    const shipPlanetId = await createPlanet(shipSystem.id, 'Ship Planet');
+    const shipPlanetId = await createPlanet(shipSystem.id, "Ship Planet");
     const shipId = await createShip(userId, shipPlanetId);
 
     const targetSystem = await createSystem(18, 0, 0);
-    await createPlanet(targetSystem.id, 'Planet in Range');
+    await createPlanet(targetSystem.id, "Planet in Range");
 
     const discoveries = await checkVisibility(shipId);
 
     const systemDisc = discoveries.find(
-      (d) => d.type === 'system' && d.id === targetSystem.id,
+      (d) => d.type === "system" && d.id === targetSystem.id,
     );
     expect(systemDisc).toBeDefined();
 
     const planetDisc = discoveries.find(
-      (d) => d.type === 'planet' && d.name === 'Planet in Range',
+      (d) => d.type === "planet" && d.name === "Planet in Range",
     );
     expect(planetDisc).toBeDefined();
   });
 
-  it('returns empty array for missing or invalid ship', async () => {
-    const result = await checkVisibility('00000000-0000-0000-0000-000000000000');
+  it("returns empty array for missing or invalid ship", async () => {
+    const result = await checkVisibility(
+      "00000000-0000-0000-0000-000000000000",
+    );
     expect(result).toEqual([]);
   });
 
-  it('respects Euclidean distance in 3D', async () => {
+  it("respects Euclidean distance in 3D", async () => {
     const userId = await createTestUser();
     const shipSystem = await createSystem(0, 0, 0);
-    const shipPlanetId = await createPlanet(shipSystem.id, 'Ship Planet');
+    const shipPlanetId = await createPlanet(shipSystem.id, "Ship Planet");
     const shipId = await createShip(userId, shipPlanetId);
 
     const systemInside = await createSystem(10, 10, 10);
-    await createPlanet(systemInside.id, 'Inside Planet');
+    await createPlanet(systemInside.id, "Inside Planet");
 
     const systemOutside = await createSystem(20, 20, 20);
-    await createPlanet(systemOutside.id, 'Outside Planet');
+    await createPlanet(systemOutside.id, "Outside Planet");
 
     const distInside = Math.sqrt(10 * 10 + 10 * 10 + 10 * 10);
     const distOutside = Math.sqrt(20 * 20 + 20 * 20 + 20 * 20);
@@ -338,45 +348,49 @@ describe('Visibility Check Service', () => {
     const discoveries = await checkVisibility(shipId);
 
     const insideDisc = discoveries.find(
-      (d) => d.type === 'system' && d.id === systemInside.id,
+      (d) => d.type === "system" && d.id === systemInside.id,
     );
     expect(insideDisc).toBeDefined();
 
     const outsideDisc = discoveries.find(
-      (d) => d.type === 'system' && d.id === systemOutside.id,
+      (d) => d.type === "system" && d.id === systemOutside.id,
     );
     expect(outsideDisc).toBeUndefined();
   });
 
-  it('does not auto-discover locked planets in the player home system with regular ships', async () => {
+  it("does not auto-discover locked planets in the player home system with regular ships", async () => {
     const userId = await createTestUser();
     const home = await createSystem(5, 5, 5, userId, true);
-    const capitalId = await createPlanet(home.id, 'Capital');
-    const lockedId = await createPlanet(home.id, 'Locked Body');
+    const capitalId = await createPlanet(home.id, "Capital");
+    const lockedId = await createPlanet(home.id, "Locked Body");
 
     await db.insert(discoveredPlanets).values({ userId, planetId: capitalId });
 
     const shipId = await createShip(userId, capitalId, TEST_CARGO_TYPE);
 
     const discoveries = await checkVisibility(shipId);
-    const planetHits = discoveries.filter((d) => d.type === 'planet').map((d) => d.id);
+    const planetHits = discoveries
+      .filter((d) => d.type === "planet")
+      .map((d) => d.id);
 
     expect(planetHits).not.toContain(lockedId);
   });
 
-  it('auto-discovers locked planets in the player home system with recon ships', async () => {
+  it("does not auto-discover locked planets in the player home system with recon ships", async () => {
     const userId = await createTestUser();
     const home = await createSystem(5, 5, 5, userId, true);
-    const capitalId = await createPlanet(home.id, 'Capital');
-    const lockedId = await createPlanet(home.id, 'Locked Body');
+    const capitalId = await createPlanet(home.id, "Capital");
+    const lockedId = await createPlanet(home.id, "Locked Body");
 
     await db.insert(discoveredPlanets).values({ userId, planetId: capitalId });
 
     const shipId = await createShip(userId, capitalId, TEST_SHIP_TYPE);
 
     const discoveries = await checkVisibility(shipId);
-    const planetHits = discoveries.filter((d) => d.type === 'planet').map((d) => d.id);
+    const planetHits = discoveries
+      .filter((d) => d.type === "planet")
+      .map((d) => d.id);
 
-    expect(planetHits).toContain(lockedId);
+    expect(planetHits).not.toContain(lockedId);
   });
 });

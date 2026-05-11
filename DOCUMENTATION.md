@@ -90,14 +90,14 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 
 ### World generation
 
-`features/world/biomes.ts` defines the seven biome catalog (`rocky`, `ocean`, `gas_giant`, `ice`, `volcanic`, `green`, `anomaly`) plus **`HOME_SYSTEM_BASE_BIOMES`** — six starter biomes each guaranteed once per home system (`green`, `rocky`, `ocean`, `ice`, `gas_giant`, `volcanic`; **`anomaly` stays out of genesis**). `features/world/home-system-generator.ts` implements a deterministic per-user RNG (`hashString(userId-SERVER_SECRET)` + `mulberry32`-style PRNG) so a given player always gets the same home system: **6–7 planets**, capital always **`green`** with minimum slot budget (`MIN_HOME_CAPITAL_SLOT_COUNT`), tier-1 bundle on planet 1, tritium on planet 2, tier-3/tier-4 deposits forbidden in-home. Passive expedition visibility **does not** reveal locked home planets; `POST /expeditions` accepts optional **`targetPlanetId`** for scout surveys, and `tick-expeditions` inserts **`discovered_planets`** when the scout reaches the destination. `GET /me` lists only home planets the player has discovered so the API does not leak unscouted bodies.
+`features/world/biomes.ts` defines the seven biome catalog (`rocky`, `ocean`, `gas_giant`, `ice`, `volcanic`, `green`, `anomaly`) plus **`HOME_SYSTEM_BASE_BIOMES`** — six starter biomes each guaranteed once per home system (`green`, `rocky`, `ocean`, `ice`, `gas_giant`, `volcanic`; **`anomaly` stays out of genesis**). `features/world/home-system-generator.ts` implements a deterministic per-user RNG (`hashString(userId-SERVER_SECRET)` + `mulberry32`-style PRNG) so a given player always gets the same home system: **6–7 planets**, capital always **`green`** with minimum slot budget (`MIN_HOME_CAPITAL_SLOT_COUNT`), tier-1 bundle on planet 1, tritium on planet 2, tier-3/tier-4 deposits forbidden in-home. Passive sector visibility **does not** reveal locked home planets; `tick-expeditions` uses the shared flat map layout in `@shared/format/systemMapLayout` to reveal hidden home planets only when a recon route passes through their visibility corridor. `GET /me` lists only home planets the player has discovered and obfuscates undiscovered body details, while the frontend no longer renders hidden bodies at their real map positions.
 
 ### Frontend
 
 `frontend/src/main.tsx` is the only entry point. It depends on `@telegram-apps/sdk-react` for Telegram launch parameters, theme, and viewport, and renders `App.tsx`. 
 - `lib/api.ts` — a unified fetch client that automatically sends the session token in the `Authorization` header and the Telegram `initDataRaw` in the `X-Telegram-Init-Data` header.
 - `hooks/useAuth.ts` — manages the auth flow and session token.
-- `hooks/useMe.ts` — uses TanStack Query to fetch and cache the current player state from `GET /me`.
+- `hooks/useMe.ts` — uses TanStack Query to fetch and cache the current player state from `GET /me`, polling while ships are moving so expedition countdowns and completed trails clear without a manual refresh.
 - `pages/SectorMap.tsx` — Phase 3 sector radar: queries `GET /multiplayer/sectors/:sx/:sy/:sz/presence` and renders markers via `components/pixi/SectorRenderer.tsx` (PixiJS scatter plot; foreign actors shown with summary visibility).
 - `hooks/useColonies.ts` — manages the collection of player-owned planets and tracks the focal planet across the UI via a dedicated Zustand store.
 - `pages/Home.tsx` — main game screen with resource bar, tab bar, and navigation; inactive-tutorial shortcut uses **`tutorial-launcher`** CSS so it sits below the resource bar (no overlap).
@@ -121,9 +121,10 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 - `buildings.ts` — building types and construction requests.
 - `auth.ts` — `AuthResponse` interface.
 - `research.ts` — research DTOs, `ResearchRequirementRef`, `RESEARCH_BRANCH_LABELS_EN`, plus `ResourceId` union used by tech-tree costs and unlock messaging on both backend and frontend.
+- `expeditions.ts` — expedition DTOs plus `ExpeditionResult` (`fuelRequired`, route distance/speed/timer data) shared by map/fleet countdown UI and backend launch records.
 - `market.ts` — market offer and order contracts shared between frontend market hooks and backend market routes.
 
-`shared/format/` holds locale-aware formatters — **`homeSystemNaming.ts`** templates EN/RU home-system titles and `{shortTag}-N` planet codes shared with world generation.
+`shared/format/` holds locale-aware and deterministic display helpers — **`homeSystemNaming.ts`** templates EN/RU home-system titles and `{shortTag}-N` planet codes shared with world generation; **`systemMapLayout.ts`** keeps the frontend orbital map and worker pass-by discovery on the same flat geometry.
 
 `shared/config/` holds deterministic catalogs duplicated only when both backend and browser need identical numbers — today **`researchCatalog.ts`** (full tech tree + scaling notes), **`buildingResearchGates.ts`**, and **`tutorialRewards.ts`** (tutorial iron/water bundles + UI summaries).
 

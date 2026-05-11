@@ -1,3 +1,15 @@
+export interface ExpeditionResult {
+  fuelRequired?: number;
+  /** Deprecated legacy field from older launches; new launches use `fuelRequired`. */
+  fuelLoaded?: number;
+  cargoLoaded?: number;
+  distance?: number;
+  requestedDistance?: number;
+  speed?: number;
+  engineFactor?: number;
+  [key: string]: unknown;
+}
+
 export interface Expedition {
   id: string;
   shipId: string;
@@ -10,5 +22,5 @@ export interface Expedition {
   status: string;
   eta: string;
   returnedAt: string | null;
-  result: Record<string, unknown>;
+  result: ExpeditionResult;
 }

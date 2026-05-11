@@ -52,7 +52,7 @@ Sector map visibility for Phase 3.
 
 Player state retrieval.
 
-- **`routes.ts`** — `meRoutes(app)` registers `GET /me`. Requires a valid JWT in the `Authorization: Bearer <token>` header. Returns the database user record mapped to the `User` shared type.
+- **`routes.ts`** — `meRoutes(app)` registers `GET /me`. Requires a valid JWT in the `Authorization: Bearer <token>` header. Returns the database user record mapped to the `User` shared type, obfuscates undiscovered home planets, and includes only the current user's active expeditions so stale/foreign trails never leak into the map UI.
 
 ## `buildings/`
 
@@ -116,9 +116,9 @@ Market contracts and explicit order-state lifecycle rules.
 Ship launch and travel scheduling. [Detailed documentation](./expeditions/README.md).
 
 - **`routes.ts`** — `expeditionsRoutes(app)` registers:
-  - `POST /` — launches a standard expedition. Accepts `{ shipId, targetX, targetY, targetZ, fuelLoaded, cargoLoaded, targetPlanetId? }`. Optional **`targetPlanetId`** (scout-only) pins an in-home-system survey; coordinates must match the home system's sector.
+  - `POST /` — launches a standard expedition to a route point. Accepts `{ shipId, targetX, targetY, targetZ, cargoLoaded }`; fuel is calculated server-side from distance and ship fuel consumption. Legacy **`targetPlanetId`** remains accepted only for recon compatibility, but the normal UI sends scouts to route points and relies on pass-by visibility.
   - `POST /jump` — performs an inter-sector jump using a Jump Ship. Accepts `{ shipId, targetSector: { x, y, z } }`.
-- **`launch.ts`** — `launchExpedition(userId, request)` validates ship ownership and idle state, checks the launch planet has enough cargo stock, spends `fuelLoaded`, creates an `expeditions` row with `status='in_flight'` (stores **`targetPlanetId`** when surveying), updates the ship to `moving`, computes `eta = distance × 60 / speed × engine_factor`, and enqueues the delayed BullMQ job. Effective speed is resolved through `features/research/effects.ts`.
+- **`launch.ts`** — `launchExpedition(userId, request)` validates ship ownership and idle state, checks the launch planet has enough cargo stock, computes and spends required round-trip fuel, creates an `expeditions` row with `status='in_flight'`, updates the ship to `moving`, computes `eta = distance × 60 / speed × engine_factor`, and enqueues the delayed BullMQ job. Effective speed is resolved through `features/research/effects.ts`.
 - **`jump.ts`** — `jumpShip(userId, request)` handles specialized Jump Ship teleportation. Checks for Jump Drive research lvl 1+, deducts 50 fuel from the ship's internal tank, lazily generates the target sector/system, and moves the ship to the first planet of the target system. Updates discovery records.
 - **`launch.test.ts`** — Vitest integration suite covering the happy path, non-idle ship rejection, insufficient fuel, and missing auth.
 - **`jump.test.ts`** — Vitest integration suite for the jump feature.
@@ -134,11 +134,11 @@ Procedural world generation primitives and visibility checks. Contains the home-
   - Generates **6–7** planets; assigns biomes so **every `HOME_SYSTEM_BASE_BIOMES` entry appears at least once** (deterministic shuffle for planets 1–5 after the capital).
   - Capital (planet index 0): biome **`green`**, larger size, **`slotCount ≥ MIN_HOME_CAPITAL_SLOT_COUNT`** for early tutorial + shipyard chain.
   - Other planets: sizes/slots as before; resource rules unchanged — planet 0 gets the six starter resources (`water`, `iron`, `carbon`, `silicon`, `methane`, `oil`); planet 1 adds `tritium`; planet 2+ uses biome pools with optional rares.
-  - Filters forbidden tier-3/tier-4 richness ids; seeds `richness` + `planet_resources`; planet 0 gets `command_center` + **only planet 0** in `discovered_planets` (other home bodies stay locked until scout survey — see `visibility.ts` / expeditions).
+  - Filters forbidden tier-3/tier-4 richness ids; seeds `richness` + `planet_resources`; planet 0 gets `command_center` + **only planet 0** in `discovered_planets` (other home bodies stay locked until a recon expedition route passes through their system-map visibility corridor — see `visibility.ts` / `workers/tick-expeditions.ts`).
   - Returns the new `systems.id`.
 - **`sectors.ts`** — exports `getOrCreateSector(x, y, z)` which returns an existing sector or creates a new one with a deterministic seed. Used by jump and exploration features to lazily initialize world regions. The seed is computed via `hashString` of the coordinate triple, ensuring determinism across server restarts.
 - **`sector-generator.ts`** — exports `generateSystemsInSector(sector, targetCount?)` which lazily generates missing systems within a sector. Uses the sector's seed for deterministic generation, respects the 12-system maximum per sector, ensures minimum 50-unit distance between systems, and distributes planet biomes by GDD weights (`getBiomeByWeight`, `generateSystemPosition`). Systems in the common pool have `ownerId=null` and `isHome=false`.
-- **`visibility.ts`** — exports `checkVisibility(shipId, tx?, overrideCoords?)` which resolves the ship's sensor-augmented range, finds candidate systems in the cubic bounds, applies Euclidean distance, skips **foreign** home systems, and inserts new `discovered_systems` / `discovered_planets` rows. **Does not auto-insert undiscovered planets that belong to the player's own home system** (those unlock when a scout expedition with `targetPlanetId` completes — see `workers/tick-expeditions.ts`).
+- **`visibility.ts`** — exports `checkVisibility(shipId, tx?, overrideCoords?)` which resolves the ship's sensor-augmented range, finds candidate systems in the cubic bounds, applies Euclidean distance, skips **foreign** home systems, and inserts new `discovered_systems` / `discovered_planets` rows. **Does not auto-insert undiscovered planets that belong to the player's own home system**; home bodies unlock from the flat route-corridor scan in `workers/tick-expeditions.ts`.
 - **`visibility.test.ts`** — Vitest coverage for range, deduping, foreign-home suppression, discovery batches, 3D distance, and **locked home bodies staying hidden from passive sensors**.
 - **`home-system-generator.test.ts`** — Vitest coverage for determinism, resource/tritium contracts, **full home biome set + capital slots**, and tier restrictions.
 
