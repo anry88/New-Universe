@@ -1,13 +1,16 @@
 import Fastify from "fastify";
 import { and, eq } from "drizzle-orm";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { db } from "../../db/index.js";
 import {
   expeditions,
+  discoveredPlanets,
   planetResources,
   planets,
+  researchProgress,
   resources,
   ships,
+  shipTypes,
   systems,
   users,
 } from "../../db/schema.js";
@@ -15,8 +18,15 @@ import jwt from "jsonwebtoken";
 import { env } from "../../lib/env.js";
 import { generateHomeSystem } from "../world/home-system-generator.js";
 import { expeditionsRoutes } from "./routes.js";
+import { seedResources } from "../../db/seed/resources.js";
+import { seedShipTypes } from "../../db/seed/ship-types.js";
 
 describe("Expeditions - POST /expeditions", () => {
+  beforeAll(async () => {
+    await seedResources();
+    await seedShipTypes();
+  });
+
   async function createTestUser() {
     const app = Fastify();
     await app.register(expeditionsRoutes, { prefix: "/expeditions" });
@@ -103,6 +113,52 @@ describe("Expeditions - POST /expeditions", () => {
       .values({
         ownerId: userId,
         typeId: "scout",
+        locationPlanetId: planetId,
+        status: "idle",
+        cargoJson: {},
+        fuel: "0",
+      })
+      .returning();
+
+    return ship;
+  }
+
+  async function createIdleColonizer(userId: string, planetId: string) {
+    await db
+      .insert(shipTypes)
+      .values({
+        id: "colonizer",
+        name: { ru: "Колонизатор", en: "Colonizer" },
+        role: "colonization",
+        hp: 120,
+        speed: "1.00",
+        cargo: 1,
+        dps: 0,
+        armor: 0,
+        fuelConsumption: "1.50",
+        buildTimeSec: 10,
+        buildCost: { iron: 100 },
+        requiredBuildings: [],
+        sensorRange: 10,
+      })
+      .onConflictDoNothing();
+
+    await db
+      .insert(researchProgress)
+      .values([
+        { userId, branch: "engineering", level: 2 },
+        { userId, branch: "logistics", level: 1 },
+      ])
+      .onConflictDoUpdate({
+        target: [researchProgress.userId, researchProgress.branch],
+        set: { level: 2 },
+      });
+
+    const [ship] = await db
+      .insert(ships)
+      .values({
+        ownerId: userId,
+        typeId: "colonizer",
         locationPlanetId: planetId,
         status: "idle",
         cargoJson: {},
@@ -228,5 +284,67 @@ describe("Expeditions - POST /expeditions", () => {
     });
 
     expect(response.statusCode).toBe(401);
+  });
+
+  it("requires colonizer launches to target a discovered planet", async () => {
+    const { app, token, userId } = await createTestUser();
+    const { system, planet } = await getHomeContext(userId);
+
+    await ensureFuel(planet.id, 100);
+    const ship = await createIdleColonizer(userId, planet.id);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/expeditions",
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        shipId: ship.id,
+        targetX: system.sectorX,
+        targetY: system.sectorY,
+        targetZ: system.sectorZ,
+        cargoLoaded: 0,
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error).toContain("targetPlanetId");
+  });
+
+  it("launches a colonizer one-way to a selected discovered planet", async () => {
+    const { app, token, userId } = await createTestUser();
+    const { system, planet } = await getHomeContext(userId);
+
+    const targetPlanet = await db.query.planets.findFirst({
+      where: eq(planets.systemId, system.id),
+      orderBy: (p, { desc }) => desc(p.name),
+    });
+    expect(targetPlanet).toBeDefined();
+
+    await db
+      .insert(discoveredPlanets)
+      .values({ userId, planetId: targetPlanet!.id })
+      .onConflictDoNothing();
+    await ensureFuel(planet.id, 100);
+    const ship = await createIdleColonizer(userId, planet.id);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/expeditions",
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        shipId: ship.id,
+        targetX: system.sectorX,
+        targetY: system.sectorY,
+        targetZ: system.sectorZ,
+        targetPlanetId: targetPlanet!.id,
+        cargoLoaded: 0,
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.expedition.targetPlanetId).toBe(targetPlanet!.id);
+    expect(body.expedition.result.returnTrip).toBe(false);
+    expect(body.expedition.result.fuelRequired).toBe(2);
   });
 });

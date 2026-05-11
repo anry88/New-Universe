@@ -2,6 +2,7 @@ import { db } from '../../db/index.js';
 import { colonies } from '../../db/schema/colonies.js';
 import { planets, systems } from '../../db/schema/world.js';
 import { discoveredPlanets } from '../../db/schema/discovery.js';
+import { buildings } from '../../db/schema/buildings.js';
 import { eq, and, count } from 'drizzle-orm';
 
 export class ColonyService {
@@ -18,10 +19,11 @@ export class ColonyService {
     // 1. Check if planet exists and get its system info
     const [planetInfo] = await db
       .select({
-        id: planets.id,
-        systemId: planets.systemId,
-        isHome: systems.isHome,
-      })
+      id: planets.id,
+      systemId: planets.systemId,
+      isHome: systems.isHome,
+      systemOwnerId: systems.ownerId,
+    })
       .from(planets)
       .innerJoin(systems, eq(planets.systemId, systems.id))
       .where(eq(planets.id, planetId))
@@ -31,9 +33,10 @@ export class ColonyService {
       return { allowed: false, reason: 'Planet not found' };
     }
 
-    // 2. Protect home systems
-    if (planetInfo.isHome) {
-      return { allowed: false, reason: 'Cannot colonize home systems' };
+    // 2. Protect foreign home systems. Own home-system bodies can be
+    // settled after scout discovery; discovery alone must not unlock builds.
+    if (planetInfo.isHome && planetInfo.systemOwnerId !== userId) {
+      return { allowed: false, reason: 'Cannot colonize protected home systems' };
     }
 
     // 3. Check discovery
@@ -60,6 +63,21 @@ export class ColonyService {
       .limit(1);
 
     if (existing) {
+      return { allowed: false, reason: 'Planet already colonized' };
+    }
+
+    const [commandCenter] = await db
+      .select()
+      .from(buildings)
+      .where(
+        and(
+          eq(buildings.planetId, planetId),
+          eq(buildings.typeId, 'command_center'),
+        ),
+      )
+      .limit(1);
+
+    if (commandCenter) {
       return { allowed: false, reason: 'Planet already colonized' };
     }
 

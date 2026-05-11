@@ -57,6 +57,7 @@ export function PlanetDetailPage() {
   useEffect(() => {
     const slotParam = queryParams.get('slot');
     if (slotParam !== null && planet && buildingTypes.length > 0) {
+      if (planet.isColonized === false) return;
       const slotIndex = parseInt(slotParam, 10);
       if (!isNaN(slotIndex)) {
         const building = planet.buildings?.find((b) => b.slotIndex === slotIndex);
@@ -151,8 +152,10 @@ export function PlanetDetailPage() {
 
   const usedSlots = planet.buildings?.length ?? 0;
   const slotCount = planet.slotCount ?? 0;
+  const isColonized = planet.isColonized !== false;
 
   const handleSlotClick = (index: number, building?: Building) => {
+    if (!isColonized) return;
     // Update URL with slot param for deep-linking
     navigate(`/planet/${planetId}?slot=${index}`, { replace: true });
     
@@ -332,20 +335,37 @@ export function PlanetDetailPage() {
                 {usedSlots}/{slotCount} slots
               </div>
             </div>
-            <div className="slots-grid">
-              {Array.from({ length: slotCount }, (_, i) => {
-                const building = planet.buildings?.find((b) => b.slotIndex === i);
-                return (
-                  <BuildingSlot
-                    key={i}
-                    index={i}
-                    building={building}
-                    onClick={handleSlotClick}
-                    biomeAccent={accent}
-                  />
-                );
-              })}
-            </div>
+            {isColonized ? (
+              <div className="slots-grid">
+                {Array.from({ length: slotCount }, (_, i) => {
+                  const building = planet.buildings?.find((b) => b.slotIndex === i);
+                  return (
+                    <BuildingSlot
+                      key={i}
+                      index={i}
+                      building={building}
+                      onClick={handleSlotClick}
+                      biomeAccent={accent}
+                    />
+                  );
+                })}
+              </div>
+            ) : (
+              <div
+                style={{
+                  padding: '18px 14px',
+                  border: '1px dashed var(--line-strong)',
+                  borderRadius: 8,
+                  color: 'var(--text-dim)',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 11,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Colonizer required before installations unlock
+              </div>
+            )}
           </div>
         </div>
 

@@ -12,8 +12,8 @@ import {
 import { rushDiamondCost, rushPricingMeta, rushRemainingSeconds } from '../../lib/diamonds.js';
 
 import { db } from '../../db/index.js';
-import { buildings, planets, systems } from '../../db/schema.js';
-import { and, eq, isNotNull } from 'drizzle-orm';
+import { buildings, colonies, planets, systems } from '../../db/schema.js';
+import { and, eq, isNotNull, or } from 'drizzle-orm';
 
 export async function buildingsRoutes(app: FastifyInstance) {
   app.addHook('preHandler', async (request, reply) => {
@@ -126,9 +126,10 @@ export async function buildingsRoutes(app: FastifyInstance) {
       .from(buildings)
       .innerJoin(planets, eq(planets.id, buildings.planetId))
       .innerJoin(systems, eq(systems.id, planets.systemId))
+      .leftJoin(colonies, eq(colonies.planetId, planets.id))
       .where(
         and(
-          eq(systems.ownerId, userId),
+          or(eq(systems.ownerId, userId), eq(colonies.ownerId, userId)),
           isNotNull(buildings.queueAction),
           isNotNull(buildings.queueCompletesAt),
         ),

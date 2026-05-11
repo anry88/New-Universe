@@ -14,6 +14,7 @@ import {
   buildings,
   notifications,
   colonies,
+  researchProgress,
 } from "../db/schema.js";
 import { eq, and } from "drizzle-orm";
 import {
@@ -24,6 +25,8 @@ import {
   buildSystemMapLayouts,
   SYSTEM_MAP_WORLD_UNITS_PER_LY,
 } from "@shared/format/systemMapLayout.js";
+import { seedResources } from "../db/seed/resources.js";
+import { seedBuildingTypes } from "../db/seed/building-types.js";
 
 describe("Tick Expeditions Worker", () => {
   async function createTestUser() {
@@ -57,6 +60,28 @@ describe("Tick Expeditions Worker", () => {
       .onConflictDoUpdate({
         target: shipTypes.id,
         set: { sensorRange: 30 },
+      });
+
+    await db
+      .insert(shipTypes)
+      .values({
+        id: "colonizer",
+        name: { ru: "Колонизатор", en: "Colonizer" },
+        role: "colonization",
+        hp: 120,
+        speed: "10.00",
+        cargo: 1,
+        dps: 0,
+        armor: 0,
+        fuelConsumption: "1.50",
+        buildTimeSec: 10,
+        buildCost: { iron: 100 },
+        requiredBuildings: [],
+        sensorRange: 10,
+      })
+      .onConflictDoUpdate({
+        target: shipTypes.id,
+        set: { role: "colonization", sensorRange: 10 },
       });
   }
 
@@ -111,11 +136,14 @@ describe("Tick Expeditions Worker", () => {
     await db.delete(ships);
     await db.delete(buildings);
     await db.delete(notifications);
+    await db.delete(researchProgress);
     await db.delete(planetResources);
     await db.delete(richness);
     await db.delete(planets);
     await db.delete(systems);
     await db.delete(users);
+    await seedResources();
+    await seedBuildingTypes();
     await createTestShipType();
   });
 
@@ -437,17 +465,9 @@ describe("Tick Expeditions Worker", () => {
       (layout) => layout.id === lockedTarget.id,
     )!;
     const sectorDx =
-      Math.round(
-        (targetLayout.x - originLayout.x) / SYSTEM_MAP_WORLD_UNITS_PER_LY,
-      ) ||
-      Math.sign(targetLayout.x - originLayout.x) ||
-      1;
+      (targetLayout.x - originLayout.x) / SYSTEM_MAP_WORLD_UNITS_PER_LY;
     const sectorDy =
-      Math.round(
-        (targetLayout.y - originLayout.y) / SYSTEM_MAP_WORLD_UNITS_PER_LY,
-      ) ||
-      Math.sign(targetLayout.y - originLayout.y) ||
-      0;
+      (targetLayout.y - originLayout.y) / SYSTEM_MAP_WORLD_UNITS_PER_LY;
 
     const [ship] = await db
       .insert(ships)
@@ -484,5 +504,121 @@ describe("Tick Expeditions Worker", () => {
       ),
     });
     expect(discovery).toBeDefined();
+  });
+
+  it("settles a selected home planet when a colonizer arrives", async () => {
+    const user = await createTestUser();
+
+    await db.insert(researchProgress).values([
+      { userId: user.id, branch: "engineering", level: 2 },
+      { userId: user.id, branch: "logistics", level: 1 },
+    ]);
+
+    const [homeSystem] = await db
+      .insert(systems)
+      .values({
+        name: "Home Colonizer Test",
+        sectorX: 21,
+        sectorY: 22,
+        sectorZ: 23,
+        x: "0.00",
+        y: "0.00",
+        z: "0.00",
+        seed: 444,
+        ownerId: user.id,
+        isHome: true,
+      })
+      .returning();
+
+    const [capital] = await db
+      .insert(planets)
+      .values({
+        systemId: homeSystem.id,
+        name: "Capital",
+        biome: "green",
+        size: 22,
+        slotCount: 18,
+      })
+      .returning();
+
+    const [target] = await db
+      .insert(planets)
+      .values({
+        systemId: homeSystem.id,
+        name: "Target Colony",
+        biome: "rocky",
+        size: 12,
+        slotCount: 9,
+      })
+      .returning();
+
+    await db.insert(richness).values({
+      planetId: target.id,
+      resourceId: "iron",
+      value: 2,
+    });
+
+    await db.insert(discoveredPlanets).values([
+      { userId: user.id, planetId: capital.id },
+      { userId: user.id, planetId: target.id },
+    ]);
+
+    const [ship] = await db
+      .insert(ships)
+      .values({
+        ownerId: user.id,
+        typeId: "colonizer",
+        locationPlanetId: capital.id,
+        status: "moving",
+      })
+      .returning();
+
+    const [expedition] = await db
+      .insert(expeditions)
+      .values({
+        shipId: ship.id,
+        type: "colonizer",
+        originPlanetId: capital.id,
+        targetX: homeSystem.sectorX.toString(),
+        targetY: homeSystem.sectorY.toString(),
+        targetZ: homeSystem.sectorZ.toString(),
+        targetPlanetId: target.id,
+        status: "in_flight",
+        eta: new Date(Date.now() - 1000),
+        result: {
+          distance: 1,
+          speed: 10,
+          engineFactor: 1,
+          returnTrip: false,
+        },
+      })
+      .returning();
+
+    await processExpeditions();
+
+    const storedExpedition = await db.query.expeditions.findFirst({
+      where: eq(expeditions.id, expedition.id),
+    });
+    expect(storedExpedition).toBeUndefined();
+
+    const storedShip = await db.query.ships.findFirst({
+      where: eq(ships.id, ship.id),
+    });
+    expect(storedShip).toBeUndefined();
+
+    const colony = await db.query.colonies.findFirst({
+      where: and(eq(colonies.ownerId, user.id), eq(colonies.planetId, target.id)),
+    });
+    expect(colony).toBeDefined();
+
+    const commandCenter = await db.query.buildings.findFirst({
+      where: and(
+        eq(buildings.planetId, target.id),
+        eq(buildings.typeId, "command_center"),
+      ),
+    });
+    expect(commandCenter).toBeDefined();
+    expect(commandCenter!.level).toBe(1);
+    expect(commandCenter!.slotIndex).toBe(0);
   });
 });

@@ -13,6 +13,7 @@ export function useLaunchExpedition() {
       targetY: number;
       targetZ: number;
       cargoLoaded: number;
+      targetPlanetId?: string;
     }) =>
       apiFetch<{ expedition: Expedition; ship: Ship }>("/expeditions", {
         method: "POST",

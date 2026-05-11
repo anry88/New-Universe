@@ -6,7 +6,7 @@ Cross-package contracts shared between the Fastify backend (`backend/`) and the 
 
 - `format/` — small pure formatters shared by API and UI where duplication would drift.
   - **`homeSystemNaming.ts`** — `homeSystemShortTag`, `sanitizePlayerSlug`, `formatPlanetCode`, `formatHomeSystemDisplayName` (EN/RU templates for home system titles and `{shortTag}-N` planet codes).
-  - **`systemMapLayout.ts`** — deterministic flat home-system map layout helpers (`buildSystemMapLayouts`, `sectorDeltaToSystemMapPoint`, `distancePointToSegment`) shared by the frontend renderer and expedition worker so pass-by scout discovery uses the same route geometry as the UI.
+  - **`systemMapLayout.ts`** — deterministic flat home-system map layout helpers (`buildSystemMapLayouts`, `sectorDeltaToSystemMapPoint`, `distancePointToSegment`, `systemMapPlanetDiscoveryRadius`) shared by the frontend renderer and expedition worker so pass-by scout discovery uses the same route geometry and size-based planet footprint as the UI. Layout sorting follows biome orbit tier (hot volcanic inner worlds → cold ice outer worlds) for discovered planets.
 
 - `config/` — progression catalogs consumed by both Node and Vite bundles where duplication would drift (research gates for buildings; full tech tree).
     - **`buildingResearchGates.ts`** — `ResearchUnlockRequirement` plus `BUILDING_RESEARCH_GATES` (imported through `backend/src/config/research-unlocks.ts` on the API side and directly by Cosmic build previews).
@@ -16,7 +16,7 @@ Cross-package contracts shared between the Fastify backend (`backend/`) and the 
 - `types/` — TypeScript interfaces and Zod schemas for HTTP payloads, WebSocket events, and other cross-cutting structures.
     - **`user.ts`** — `User` interface including **`diamonds`** (premium balance), `homeSystem`, and onboarding fields (`tutorialStep`, `tutorialCompletedAt`).
     - **`auth.ts`** — `AuthResponse` for the login flow.
-    - **`world.ts`** — `PlanetResource`, `Building`, `Planet`, `HomeSystem` interfaces for world/planet state (`HomeSystem.shortTag` optional wire field from `/me`).
+    - **`world.ts`** — `PlanetResource`, `Building`, `Planet`, `HomeSystem` interfaces for world/planet state (`HomeSystem.shortTag` optional wire field from `/me`, `Planet.isColonized` distinguishes discovered read-only bodies from buildable settlements).
     - **`buildings.ts`** — `BuildingType` interface (including optional catalog limits), `BuildBlockedReason` unions, request/response types for construction, and **`RushBuildRequest` / `RushBuildResponse`** for `POST /buildings/rush`.
     - **`diamonds.ts`** — `estimateRushDiamondCost` mirrors backend rush pricing so the UI can tick countdown prices live alongside `GET /buildings/queue` **`rushPricing`** metadata (progressive curve `round((minutes^0.85) * rate)` with optional cap).
     - **`building-eligibility.ts`** — `resolveBuildBlockedReason` and `formatBuildBlockedMessage` for shared server/client validation messaging around construction gates (research → deps → per-planet/global caps). Optional `dependencyBuildings` narrows dependency checks when some rows are still in the initial build queue.

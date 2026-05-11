@@ -25,6 +25,8 @@ export interface Planet {
   slotCount: number;
   name: string;
   isDiscovered?: boolean;
+  /** True only after the planet has an active Command Center/capital or colony record. */
+  isColonized?: boolean;
   resources?: PlanetResource[];
   buildings?: Building[];
 }

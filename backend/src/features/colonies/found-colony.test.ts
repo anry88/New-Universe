@@ -126,6 +126,10 @@ describe('foundColony', () => {
       slotCount: 5,
       name: 'Other Planet' + Math.random(),
     }).returning();
+    await db.insert(discoveredPlanets).values({
+      userId,
+      planetId: otherPlanet.id,
+    }).onConflictDoNothing();
     
     await expect(foundColony(userId, colonizerShipId, otherPlanet.id)).rejects.toThrow('Ship is not at the target planet');
   });

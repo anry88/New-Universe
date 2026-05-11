@@ -4,6 +4,7 @@ export const SYSTEM_MAP_WORLD_UNITS_PER_LY = 40;
 
 export interface SystemMapPlanetInput {
   id: string;
+  name?: string | null;
   biome?: string | null;
   size?: number | null;
 }
@@ -23,10 +24,47 @@ export interface SystemMapPoint {
   y: number;
 }
 
+export const SYSTEM_MAP_BIOME_ORBIT_TIER: Record<string, number> = {
+  volcanic: 1,
+  rocky: 2,
+  green: 3,
+  ocean: 4,
+  gas_giant: 5,
+  ice: 6,
+  anomaly: 7,
+  unknown: 99,
+};
+
+const SYSTEM_MAP_BIOME_SPRITE_BASE: Record<string, number> = {
+  volcanic: 46,
+  rocky: 44,
+  green: 54,
+  ocean: 58,
+  gas_giant: 82,
+  ice: 64,
+  anomaly: 60,
+  unknown: 46,
+};
+
+function planetNameIndex(name?: string | null): number {
+  const match = name?.match(/-(\d+)$/);
+  return match ? Number.parseInt(match[1]!, 10) : Number.MAX_SAFE_INTEGER;
+}
+
 export function compareSystemMapPlanets(
   a: SystemMapPlanetInput,
   b: SystemMapPlanetInput,
 ): number {
+  const aBiome = a.biome ?? "unknown";
+  const bBiome = b.biome ?? "unknown";
+  const tierDelta =
+    (SYSTEM_MAP_BIOME_ORBIT_TIER[aBiome] ?? SYSTEM_MAP_BIOME_ORBIT_TIER.unknown) -
+    (SYSTEM_MAP_BIOME_ORBIT_TIER[bBiome] ?? SYSTEM_MAP_BIOME_ORBIT_TIER.unknown);
+  if (tierDelta !== 0) return tierDelta;
+
+  const indexDelta = planetNameIndex(a.name) - planetNameIndex(b.name);
+  if (indexDelta !== 0) return indexDelta;
+
   return a.id.localeCompare(b.id);
 }
 
@@ -54,13 +92,20 @@ export function buildSystemMapLayouts(
     const biome = planet.biome ?? "unknown";
     const size = planet.size ?? 10;
     const sizeFromBiome =
-      biome === "unknown" ? 60 : biome === "gas_giant" ? 70 : 52;
+      SYSTEM_MAP_BIOME_SPRITE_BASE[biome] ?? SYSTEM_MAP_BIOME_SPRITE_BASE.unknown;
+    const sizeFactor = Math.max(0.7, Math.min(1.55, size / 22));
     const spriteSize = Math.round(
-      sizeFromBiome * (0.85 + Math.min(0.6, size / 20)),
+      sizeFromBiome * sizeFactor,
     );
 
     return { id: planet.id, index, orbitRadius, angle, x, y, spriteSize };
   });
+}
+
+export function systemMapPlanetDiscoveryRadius(
+  planet: Pick<SystemMapPlanetLayout, "spriteSize">,
+): number {
+  return Math.max(30, Math.round(planet.spriteSize * 0.55));
 }
 
 export function sectorDeltaToSystemMapPoint(

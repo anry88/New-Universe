@@ -21,12 +21,16 @@ export function useColonies() {
 
   // Initialize focal planet if not set
   useEffect(() => {
-    if (meData?.planets && meData.planets.length > 0 && !focalPlanetId) {
-      setFocalPlanetId(meData.planets[0].id);
+    const settledPlanets =
+      meData?.planets?.filter((planet) => planet.isColonized !== false) ?? [];
+    if (settledPlanets.length > 0 && !focalPlanetId) {
+      setFocalPlanetId(settledPlanets[0].id);
     }
   }, [meData?.planets, focalPlanetId, setFocalPlanetId]);
 
-  const planets = (meData?.planets || []).filter((planet) => planet.isDiscovered !== false);
+  const planets = (meData?.planets || []).filter(
+    (planet) => planet.isDiscovered !== false && planet.isColonized !== false,
+  );
   const focalPlanet = planets.find((p) => p.id === focalPlanetId) || planets[0] || null;
 
   return {

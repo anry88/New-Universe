@@ -16,7 +16,6 @@ import {
   sanitizePlayerSlug,
 } from '@shared/format/homeSystemNaming.js';
 import {
-  BIOMES,
   BIOME_ORBIT_TIER,
   BIOME_SIZE_CLASS,
   BiomeType,
@@ -33,37 +32,69 @@ import {
 export const MIN_HOME_CAPITAL_SLOT_COUNT = 22;
 
 /**
- * Fixed at 9 planets so every new player gets a deterministic biome-rich
- * starter system in which the first planet alone is enough to bootstrap
- * discovery + colonization without trading.
+ * Fixed at 8 planets so every new player gets the full starter resource
+ * surface without making rare/extreme worlds common.
  */
-export const HOME_PLANET_COUNT = 9;
+export const HOME_PLANET_COUNT = 8;
 
 /**
  * Planned starter layout (orbit inner → outer). One slot per biome below
  * is one planet on its own orbit. Capital is always green and pre-built
  * with a command_center + auto-discovered for the player.
  *
- *   tier 1 — volcanic (metal/sulfur belt, hot)
- *   tier 1 — volcanic (uranium reserve, hot)
- *   tier 2 — rocky    (iron/copper belt)
- *   tier 2 — rocky    (silicon belt)
+ *   tier 1 — volcanic (single hot sulfur/copper world)
+ *   tier 2 — rocky    (iron/copper/aluminum belt)
+ *   tier 2 — rocky    (silicon/carbon/titanium belt)
  *   tier 3 — green    ★ capital (habitable)
+ *   tier 3 — rocky    (neutral mineral reserve)
  *   tier 4 — ocean    (water/biomass)
- *   tier 5 — gas_giant (methane)
- *   tier 6 — ice      (ice/mercury)
- *   tier 6 — ice      (ice/magnesium, outer body)
+ *   tier 5 — gas_giant (methane/tritium)
+ *   tier 6 — ice      (ice/water outer body; no biomass)
  */
+interface HomePlanetOrbitPlanEntry {
+  biome: BiomeType;
+  resources: readonly string[];
+  isCapital?: boolean;
+}
+
+export const HOME_PLANET_ORBIT_PLAN: readonly HomePlanetOrbitPlanEntry[] = [
+  {
+    biome: 'volcanic',
+    resources: ['sulfur', 'iron', 'copper'],
+  },
+  {
+    biome: 'rocky',
+    resources: ['iron', 'copper', 'aluminum'],
+  },
+  {
+    biome: 'rocky',
+    resources: ['silicon', 'carbon', 'titanium'],
+  },
+  {
+    biome: 'green',
+    resources: ['water', 'iron', 'carbon', 'silicon', 'methane', 'oil', 'biomass'],
+    isCapital: true,
+  },
+  {
+    biome: 'rocky',
+    resources: ['iron', 'silicon', 'carbon'],
+  },
+  {
+    biome: 'ocean',
+    resources: ['water', 'biomass', 'oil'],
+  },
+  {
+    biome: 'gas_giant',
+    resources: ['methane', 'tritium'],
+  },
+  {
+    biome: 'ice',
+    resources: ['ice', 'water'],
+  },
+] as const;
+
 export const HOME_PLANET_BIOME_PLAN: readonly BiomeType[] = [
-  'volcanic',
-  'volcanic',
-  'rocky',
-  'rocky',
-  'green',
-  'ocean',
-  'gas_giant',
-  'ice',
-  'ice',
+  ...HOME_PLANET_ORBIT_PLAN.map((entry) => entry.biome),
 ] as const;
 
 function createRandom(seed: number) {
@@ -177,31 +208,33 @@ export async function generateHomeSystem(userId: string, tx?: any) {
       .set({ name: systemDisplayEn })
       .where(eq(systems.id, system.id));
 
-    const biomeOrbitPlan = planHomeBiomesOrdered();
+    const biomeOrbitPlan = HOME_PLANET_ORBIT_PLAN;
     if (biomeOrbitPlan.length !== HOME_PLANET_COUNT) {
       throw new Error(
         `generateHomeSystem: expected ${HOME_PLANET_COUNT} planets in biome plan, got ${biomeOrbitPlan.length}`,
       );
     }
-    if (!biomeOrbitPlan.includes('green')) {
+    if (!biomeOrbitPlan.some((entry) => entry.isCapital && entry.biome === 'green')) {
       throw new Error('generateHomeSystem: capital green biome missing from plan');
     }
 
     // Capital is inserted FIRST so existing call sites that look up "the
     // first planet in the home system" (tests, tutorial bootstrap, queue
     // checks) still hit the planet that owns the level-1 command center.
-    // The remaining 8 planets are inserted in biome-orbit order
+    // The remaining planets are inserted in biome-orbit order
     // (volcanic → ice). The frontend renderer sorts visually by
     // biome-orbit tier, so the *visual* layout still has green in the
     // middle ring even though it is stored as `-1` in the database.
-    const insertionPlan: BiomeType[] = [
-      'green',
-      ...biomeOrbitPlan.filter((b) => b !== 'green'),
+    const capitalPlan = biomeOrbitPlan.find((entry) => entry.isCapital)!;
+    const insertionPlan = [
+      capitalPlan,
+      ...biomeOrbitPlan.filter((entry) => entry !== capitalPlan),
     ];
 
     for (let i = 0; i < insertionPlan.length; i++) {
-      const biomeType = insertionPlan[i]!;
-      const isCapital = biomeType === 'green';
+      const planetPlan = insertionPlan[i]!;
+      const biomeType = planetPlan.biome;
+      const isCapital = planetPlan.isCapital === true;
       const sizeClass = BIOME_SIZE_CLASS[biomeType];
       const size = isCapital
         ? PLANET_SIZE_RANGE.medium.max
@@ -222,29 +255,10 @@ export async function generateHomeSystem(userId: string, tx?: any) {
         })
         .returning();
 
-      // Resource set per planet. Capital gets a hand-tuned starter mix so
-      // the player can bootstrap without the market. Non-capital planets
-      // expose their biome's natural resources.
-      const planetResourcesList: string[] = [];
-
-      if (isCapital) {
-        planetResourcesList.push(
-          'water',
-          'iron',
-          'carbon',
-          'silicon',
-          'methane',
-          'oil',
-          'biomass',
-        );
-      } else {
-        planetResourcesList.push(...BIOMES[biomeType].commonResources);
-        // Stable rare-resource roll: outer orbits always get rares; inner
-        // orbits get them 50/50.
-        if (BIOMES[biomeType].orbitTier >= 5 || random() > 0.5) {
-          planetResourcesList.push(...BIOMES[biomeType].rareResources);
-        }
-      }
+      // Resource set per planet is hand-authored for the starter system:
+      // neutral worlds carry most progression resources, while extreme
+      // worlds provide one focused specialty deposit.
+      const planetResourcesList = [...planetPlan.resources];
 
       const uniqueResources = [...new Set(planetResourcesList)];
 

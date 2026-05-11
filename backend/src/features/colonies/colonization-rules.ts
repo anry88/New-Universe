@@ -1,6 +1,8 @@
 import { db } from '../../db/index.js';
 import { colonies } from '../../db/schema/colonies.js';
 import { planets, systems } from '../../db/schema/world.js';
+import { buildings } from '../../db/schema/buildings.js';
+import { discoveredPlanets } from '../../db/schema/discovery.js';
 import { researchProgress } from '../../db/schema/research.js';
 import { eq, and, count, desc } from 'drizzle-orm';
 import { COLONIZATION_RULES } from '../../config/colonization-rules.js';
@@ -25,12 +27,61 @@ export interface ColonizationEligibility {
  * Checks if a player satisfies all colonization gates.
  */
 export async function checkColonizationGates(userId: string, targetPlanetId: string): Promise<ColonizationEligibility> {
-  // 0. Check if planet is already colonized
+  const [targetPlanetInfo] = await db
+    .select({
+      systemOwnerId: systems.ownerId,
+      isHome: systems.isHome,
+    })
+    .from(planets)
+    .innerJoin(systems, eq(planets.systemId, systems.id))
+    .where(eq(planets.id, targetPlanetId))
+    .limit(1);
+
+  if (!targetPlanetInfo) {
+    return { allowed: false, reason: 'Target planet not found' };
+  }
+
+  if (targetPlanetInfo.isHome && targetPlanetInfo.systemOwnerId !== userId) {
+    return {
+      allowed: false,
+      reason: 'Cannot colonize protected home systems',
+    };
+  }
+
+  const discovery = await db.query.discoveredPlanets.findFirst({
+    where: and(
+      eq(discoveredPlanets.userId, userId),
+      eq(discoveredPlanets.planetId, targetPlanetId),
+    ),
+  });
+
+  if (!discovery) {
+    return {
+      allowed: false,
+      reason: 'Planet not discovered',
+    };
+  }
+
+  // 0. Check if planet is already colonized or already has an active base.
   const existingColony = await db.query.colonies.findFirst({
     where: eq(colonies.planetId, targetPlanetId),
   });
 
   if (existingColony) {
+    return {
+      allowed: false,
+      reason: 'Planet already colonized',
+    };
+  }
+
+  const existingCommandCenter = await db.query.buildings.findFirst({
+    where: and(
+      eq(buildings.planetId, targetPlanetId),
+      eq(buildings.typeId, 'command_center'),
+    ),
+  });
+
+  if (existingCommandCenter) {
     return {
       allowed: false,
       reason: 'Planet already colonized',

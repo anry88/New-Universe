@@ -9,7 +9,7 @@ Each subfolder is a single feature and is wired into Fastify from `backend/src/i
 Planet infrastructure management.
 
 - **`routes.ts`** — registers `GET /types`, `POST /build`, `POST /upgrade`, `POST /demolish`, `POST /sync/:planetId`, `GET /queue`, **`POST /rush`**.
-- **`service.ts`** — handles building logic, costs, queueing, **`rushQueuedBuilding`**, demolish, and sync/finalize helpers.
+- **`service.ts`** — handles building logic, costs, queueing, **`rushQueuedBuilding`**, demolish, and sync/finalize helpers. Construction requires an active settlement (capital Command Center or colony record), not just `discovered_planets`.
 - **`buildings.test.ts`**, **`rush.test.ts`**, etc. — integration tests for construction flows.
 
 ## `auth/`
@@ -52,7 +52,7 @@ Sector map visibility for Phase 3.
 
 Player state retrieval.
 
-- **`routes.ts`** — `meRoutes(app)` registers `GET /me`. Requires a valid JWT in the `Authorization: Bearer <token>` header. Returns the database user record mapped to the `User` shared type, obfuscates undiscovered home planets, and includes only the current user's active expeditions so stale/foreign trails never leak into the map UI.
+- **`routes.ts`** — `meRoutes(app)` registers `GET /me`. Requires a valid JWT in the `Authorization: Bearer <token>` header. Returns the database user record mapped to the `User` shared type, obfuscates undiscovered home planets, annotates discovered planets with `isColonized` so the UI can distinguish mapped bodies from buildable settlements, and includes only the current user's active expeditions so stale/foreign trails never leak into the map UI.
 
 ## `buildings/`
 
@@ -60,7 +60,7 @@ Building construction and queue management. [Detailed documentation](./buildings
 
 - **`routes.ts`** — `buildingsRoutes(app)` registers `POST /build/build` (mounted at `/buildings` from `index.ts`, so the public path is `POST /buildings/build`). Requires a valid JWT in the `Authorization: Bearer <token>` header. Accepts `{ planetId, typeSlug }` in the request body.
 - **`service.ts`** — `BuildingService.build(userId, { planetId, typeSlug })` performs the full build flow:
-  1. Validates the planet exists and belongs to the requesting user.
+  1. Validates the planet exists and has an active settlement for the requesting user.
   2. Looks up the building type from the catalog.
   3. Checks that the planet has a free slot (`buildingCount < planet.slotCount`).
   4. Ensures the build queue is not full (max 1 concurrent build without premium).
@@ -116,9 +116,9 @@ Market contracts and explicit order-state lifecycle rules.
 Ship launch and travel scheduling. [Detailed documentation](./expeditions/README.md).
 
 - **`routes.ts`** — `expeditionsRoutes(app)` registers:
-  - `POST /` — launches a standard expedition to a route point. Accepts `{ shipId, targetX, targetY, targetZ, cargoLoaded }`; fuel is calculated server-side from distance and ship fuel consumption. Legacy **`targetPlanetId`** remains accepted only for recon compatibility, but the normal UI sends scouts to route points and relies on pass-by visibility.
+  - `POST /` — launches a standard expedition to a route point. Accepts `{ shipId, targetX, targetY, targetZ, cargoLoaded }`; fuel is calculated server-side from distance and ship fuel consumption. `targetPlanetId` is valid for recon survey targets and required for colonizer deployments to discovered planets.
   - `POST /jump` — performs an inter-sector jump using a Jump Ship. Accepts `{ shipId, targetSector: { x, y, z } }`.
-- **`launch.ts`** — `launchExpedition(userId, request)` validates ship ownership and idle state, checks the launch planet has enough cargo stock, computes and spends required round-trip fuel, creates an `expeditions` row with `status='in_flight'`, updates the ship to `moving`, computes `eta = distance × 60 / speed × engine_factor`, and enqueues the delayed BullMQ job. Effective speed is resolved through `features/research/effects.ts`.
+- **`launch.ts`** — `launchExpedition(userId, request)` validates ship ownership and idle state, checks the launch planet has enough cargo stock, computes and spends fuel, creates an `expeditions` row with `status='in_flight'`, updates the ship to `moving`, computes `eta = distance × 60 / speed × engine_factor`, and enqueues the delayed BullMQ job. Effective speed is resolved through `features/research/effects.ts`; colonizer target-planet launches are one-way and must pass colonization gates before launch.
 - **`jump.ts`** — `jumpShip(userId, request)` handles specialized Jump Ship teleportation. Checks for Jump Drive research lvl 1+, deducts 50 fuel from the ship's internal tank, lazily generates the target sector/system, and moves the ship to the first planet of the target system. Updates discovery records.
 - **`launch.test.ts`** — Vitest integration suite covering the happy path, non-idle ship rejection, insufficient fuel, and missing auth.
 - **`jump.test.ts`** — Vitest integration suite for the jump feature.
@@ -127,20 +127,20 @@ Ship launch and travel scheduling. [Detailed documentation](./expeditions/README
 
 Procedural world generation primitives and visibility checks. Contains the home-system seeder used by `auth/service.ts`, sector pool management, and the fog-of-war visibility service.
 
-- **`biomes.ts`** — exports the `BiomeType` union (`'rocky' | 'ocean' | 'gas_giant' | 'ice' | 'volcanic' | 'green' | 'anomaly'`), a `BIOMES` map keyed by biome id (`commonResources`, `rareResources`, `bonuses`, `penalties`), and **`HOME_SYSTEM_BASE_BIOMES`** — the six starter biomes (`green`, `rocky`, `ocean`, `ice`, `gas_giant`, `volcanic`) each guaranteed once per generated home system (capital stays `green`; keep `tools/balance-sim` mirrors aligned). Green biome includes `oil` deposits for early refinery gameplay.
+- **`biomes.ts`** — exports the `BiomeType` union (`'rocky' | 'ocean' | 'gas_giant' | 'ice' | 'volcanic' | 'green' | 'anomaly'`), a `BIOMES` map keyed by biome id (`commonResources`, `rareResources`, `bonuses`, `penalties`), and **`HOME_SYSTEM_BASE_BIOMES`** — the six starter biomes (`green`, `rocky`, `ocean`, `ice`, `gas_giant`, `volcanic`) each guaranteed once per generated home system (capital stays `green`; keep `tools/balance-sim` mirrors aligned). Ice planets no longer roll biomass deposits; volcanic worlds carry hot mineral/sulfur deposits without frozen-water rares.
 - **`home-system-generator.ts`** — exports `generateHomeSystem(userId, tx?)`, **`MIN_HOME_CAPITAL_SLOT_COUNT`** (minimum building slots on planet 1 / capital), deterministic PRNG helpers `hashString` / `createRandom`, and English-canonical `systems.name` plus `{shortTag}-N` planet codes via `@shared/format/homeSystemNaming`.
   - Uses `tx` from auth or opens `db.transaction`; idempotent when a home `systems` row already exists.
   - Seeds sector coords `[-500,500]`, system `seed`, `name = "Home System <userId-prefix>"`.
-  - Generates **6–7** planets; assigns biomes so **every `HOME_SYSTEM_BASE_BIOMES` entry appears at least once** (deterministic shuffle for planets 1–5 after the capital).
+  - Generates **8** planets from the fixed `HOME_PLANET_ORBIT_PLAN`: one volcanic inner world, three rocky/neutral resource worlds, green capital, ocean world, gas giant, and one outer ice world.
   - Capital (planet index 0): biome **`green`**, larger size, **`slotCount ≥ MIN_HOME_CAPITAL_SLOT_COUNT`** for early tutorial + shipyard chain.
-  - Other planets: sizes/slots as before; resource rules unchanged — planet 0 gets the six starter resources (`water`, `iron`, `carbon`, `silicon`, `methane`, `oil`); planet 1 adds `tritium`; planet 2+ uses biome pools with optional rares.
+  - Other planets: sizes follow biome size classes; non-capital resources are hand-authored per orbit so titanium/tritium/ice/sulfur/copper/aluminum exist locally while rare/extreme biomes stay rare.
   - Filters forbidden tier-3/tier-4 richness ids; seeds `richness` + `planet_resources`; planet 0 gets `command_center` + **only planet 0** in `discovered_planets` (other home bodies stay locked until a recon expedition route passes through their system-map visibility corridor — see `visibility.ts` / `workers/tick-expeditions.ts`).
   - Returns the new `systems.id`.
 - **`sectors.ts`** — exports `getOrCreateSector(x, y, z)` which returns an existing sector or creates a new one with a deterministic seed. Used by jump and exploration features to lazily initialize world regions. The seed is computed via `hashString` of the coordinate triple, ensuring determinism across server restarts.
 - **`sector-generator.ts`** — exports `generateSystemsInSector(sector, targetCount?)` which lazily generates missing systems within a sector. Uses the sector's seed for deterministic generation, respects the 12-system maximum per sector, ensures minimum 50-unit distance between systems, and distributes planet biomes by GDD weights (`getBiomeByWeight`, `generateSystemPosition`). Systems in the common pool have `ownerId=null` and `isHome=false`.
 - **`visibility.ts`** — exports `checkVisibility(shipId, tx?, overrideCoords?)` which resolves the ship's sensor-augmented range, finds candidate systems in an **XY bounding square**, applies **planar** sector distance (Z ignored), skips **foreign** home systems, and inserts new `discovered_systems` / `discovered_planets` rows. **Does not auto-insert undiscovered planets that belong to the player's own home system**; home bodies unlock from the flat route-corridor scan in `workers/tick-expeditions.ts`.
 - **`visibility.test.ts`** — Vitest coverage for range, deduping, foreign-home suppression, discovery batches, 3D distance, and **locked home bodies staying hidden from passive sensors**.
-- **`home-system-generator.test.ts`** — Vitest coverage for determinism, resource/tritium contracts, **full home biome set + capital slots**, and tier restrictions.
+- **`home-system-generator.test.ts`** — Vitest coverage for determinism, starter resource coverage, **full home biome set + capital slots**, one volcanic/one ice starter rarity, visual orbit sorting, size spread, and tier restrictions.
 
 ## `research/`
 
@@ -158,10 +158,11 @@ Tech tree definitions and starting research on a planet.
 
 ## `colonies/`
 
-Player colonies outside the home system.
+Player colonies and settled planets.
 
-- **`colonies.ts`** — `ColonyService` singleton. Implements colonization rules: checks for discovery, protects home systems, enforces per-player limits (default 5), and inserts into the `colonies` table.
+- **`colonies.ts`** — `ColonyService` singleton. Implements colonization rules: checks for discovery, protects foreign home systems, allows the player's own discovered home bodies to be settled by colonizer, enforces per-player limits (default 5), and inserts into the `colonies` table.
 - **`found-colony.ts`** — `foundColony(userId, shipId, planetId)` action module. Performs role validation, consumes the colonizer ship, establishes the colony, and builds the initial Command Center.
+- **`ownership.ts`** — settlement ownership helpers used by buildings/ships/workers to distinguish discovered planets from buildable settlements.
 - **`bootstrap.ts`** — `bootstrapColony(planetId, tx?)` action module. Initializes resources and regen rates for a new colony.
 - **`colonies.test.ts`** — integration tests for colonization rules.
 - **`found-colony.test.ts`** — integration tests for the founding flow.

@@ -5,7 +5,6 @@ import {
   planets,
   planetResources,
   notifications,
-  systems,
   users,
 } from '../../db/schema.js';
 import { eq, and, sql, lte, inArray, gte, type InferSelectModel } from 'drizzle-orm';
@@ -20,6 +19,7 @@ import { resolveBuildBlockedReason, formatBuildBlockedMessage } from '@shared/ty
 import { BuildingOperationError } from './building-operation-error.js';
 import { countUserBuildingsOfType } from './count-user-buildings.js';
 import { BUILDING_TYPE_CATALOG_ROWS } from '../../db/seed/catalog-rows.js';
+import { getPlanetSettlementOwnerId, getPlayerPlanetSettlement } from '../colonies/ownership.js';
 
 type BuildingOutput = {
   resourceId?: string;
@@ -88,16 +88,11 @@ export class BuildingService {
   }
 
   async build(userId: string, planetId: string, typeId: string, slotIndex: number): Promise<ConstructionStatus> {
-    const planet = await db.query.planets.findFirst({
-      where: eq(planets.id, planetId),
-      with: {
-        system: true,
-        buildings: true,
-      }
-    });
+    const settlement = await getPlayerPlanetSettlement(userId, planetId);
+    const planet = settlement?.planet;
 
-    if (!planet || (planet.system as any).ownerId !== userId) {
-      throw new Error('Planet not found or not owned by user');
+    if (!planet || !settlement.isSettled) {
+      throw new Error('Planet not found or no active command center');
     }
 
     if (slotIndex < 0 || slotIndex >= planet.slotCount) {
@@ -251,7 +246,10 @@ export class BuildingService {
       }
     });
 
-    if (!building || (building.planet as any).system.ownerId !== userId) {
+    const settlement = building
+      ? await getPlayerPlanetSettlement(userId, building.planetId)
+      : null;
+    if (!building || !settlement?.isSettled) {
       throw new Error('Building not found or not owned by user');
     }
 
@@ -386,13 +384,11 @@ export class BuildingService {
       where: eq(planets.id, building.planetId),
     });
     if (planet) {
-      const system = await tx.query.systems.findFirst({
-        where: eq(systems.id, planet.systemId),
-      });
-      if (system?.ownerId) {
+      const ownerId = await getPlanetSettlementOwnerId(planet.id, tx);
+      if (ownerId) {
         const actionLabel = isBuild ? 'built' : `upgraded to level ${newLevel}`;
         await tx.insert(notifications).values({
-          userId: system.ownerId,
+          userId: ownerId,
           type: 'building_done',
           payload: {
             buildingId: building.id,
@@ -404,7 +400,7 @@ export class BuildingService {
           },
         });
         logger.info(
-          { buildingId: building.id, typeId: building.typeId, action: actionLabel, userId: system.ownerId },
+          { buildingId: building.id, typeId: building.typeId, action: actionLabel, userId: ownerId },
           'Building completion notification created',
         );
       }
@@ -426,7 +422,10 @@ export class BuildingService {
       },
     });
 
-    if (!building || (building.planet as any).system.ownerId !== userId) {
+    const settlement = building
+      ? await getPlayerPlanetSettlement(userId, building.planetId)
+      : null;
+    if (!building || !settlement?.isSettled) {
       throw new Error('Building not found or not owned by user');
     }
 
@@ -486,7 +485,8 @@ export class BuildingService {
     if (readyBuildings.length === 0) return;
 
     for (const building of readyBuildings) {
-      if ((building.planet as any).system.ownerId !== userId) continue;
+      const settlement = await getPlayerPlanetSettlement(userId, building.planetId);
+      if (!settlement?.isSettled) continue;
 
       await db.transaction(async (tx) => {
         await this.finalizeBuildingConstruction(tx, building.id, { skipNotification: true });
@@ -522,7 +522,10 @@ export class BuildingService {
       }
     });
 
-    if (!building || (building.planet as any).system.ownerId !== userId) {
+    const settlement = building
+      ? await getPlayerPlanetSettlement(userId, building.planetId)
+      : null;
+    if (!building || !settlement?.isSettled) {
       throw new Error('Building not found or not owned by user');
     }
 
