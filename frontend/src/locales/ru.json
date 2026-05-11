@@ -266,5 +266,8 @@
   "cargo.selectShipError": "Выберите корабль",
   "cargo.selectTargetError": "Выберите планету назначения",
   "cargo.addResourcesError": "Добавьте ресурсы для перевозки",
-  "cargo.capacityError": "Груз превышает вместимость"
+  "cargo.capacityError": "Груз превышает вместимость",
+  "map.mineableResources": "Добываемые ресурсы",
+  "map.noMineableResources": "На этой планете пока не обнаружено добываемых ресурсов",
+  "map.deposit": "залежь · {value}"
 }

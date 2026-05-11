@@ -43,6 +43,7 @@ import { BIOME_META, PlanetSvg, getBiomeTag, resolveBiome } from "./planets";
 import { SunSvg } from "./sun";
 import { FoundColonyDialog } from "../FoundColonyDialog";
 import { useI18n } from "../../lib/i18n";
+import { getResourceLabel, getResourceSymbol } from "./resources";
 
 /** When set, the map is used to pick a sector jump vector from the home star: tap = set course, drag = pan. */
 export interface ExpeditionPickConfig {
@@ -141,6 +142,7 @@ export function CosmicSystemRenderer({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pointerCount, setPointerCount] = useState(0);
   const [isColonyDialogOpen, setIsColonyDialogOpen] = useState(false);
+  const shouldCloseSelectionOnTapRef = useRef(false);
   /** Expedition mode: defer pan until finger moves past tap threshold so taps can aim. */
   const expeditionPanArmRef = useRef<{
     exceeded: boolean;
@@ -176,6 +178,17 @@ export function CosmicSystemRenderer({
         : null,
     [layouts, selectedId],
   );
+
+  const mineableResources = useMemo(() => {
+    if (!selected?.planet.resources) return [];
+    return selected.planet.resources
+      .filter((resource) => (resource.richness ?? 0) > 0)
+      .sort((a, b) => {
+        const aLabel = getResourceLabel(a.resourceId, locale).toLowerCase();
+        const bLabel = getResourceLabel(b.resourceId, locale).toLowerCase();
+        return aLabel.localeCompare(bLabel);
+      });
+  }, [selected, locale]);
 
   const orbitRadii = useMemo(() => {
     return buildSystemMapOrbitGuideRadii(system?.planets ?? []);
@@ -226,7 +239,13 @@ export function CosmicSystemRenderer({
         dragState.current.startY = e.clientY;
         dragState.current.originX = transform.x;
         dragState.current.originY = transform.y;
+        const target = e.target as HTMLElement | null;
+        const isCardControl =
+          target?.closest(".cosmic-selection-card") !== null ||
+          target?.closest("button") !== null;
+        shouldCloseSelectionOnTapRef.current = !isCardControl;
       } else if (dragState.current.pointers.size === 2) {
+        shouldCloseSelectionOnTapRef.current = false;
         expeditionPanArmRef.current = null;
         const pts = Array.from(dragState.current.pointers.values());
         const dx = pts[0].x - pts[1].x;
@@ -344,6 +363,11 @@ export function CosmicSystemRenderer({
       const el = containerRef.current;
       const pickCfg = expeditionPick;
       const arm = expeditionPanArmRef.current;
+      const startedWithOnePointer = dragState.current.pointers.size === 1;
+      const movedFromDownAll = Math.hypot(
+        e.clientX - dragState.current.startX,
+        e.clientY - dragState.current.startY,
+      );
       const movedFromDown =
         arm != null
           ? Math.hypot(e.clientX - arm.startX, e.clientY - arm.startY)
@@ -383,10 +407,22 @@ export function CosmicSystemRenderer({
         );
         pickCfg.onPickSectorDelta(dx, dy);
       }
+      if (
+        !pickCfg &&
+        startedWithOnePointer &&
+        shouldCloseSelectionOnTapRef.current &&
+        selectedId !== null &&
+        movedFromDownAll < EXPEDITION_TAP_THRESHOLD_PX &&
+        !wasAimTap
+      ) {
+        setSelectedId(null);
+      }
+
+      shouldCloseSelectionOnTapRef.current = false;
 
       expeditionPanArmRef.current = null;
     },
-    [expeditionPick, transform, layouts],
+    [expeditionPick, transform, layouts, selectedId],
   );
 
   // Wheel handler: must be passive: false to call preventDefault. React's
@@ -1022,6 +1058,47 @@ export function CosmicSystemRenderer({
               {selected.planet.isDiscovered !== false ? (selected.planet.buildings?.length ?? 0) : 0} /{" "}
               {selected.planet.isDiscovered !== false ? (selected.planet.slotCount ?? 0) : "???"}
             </b>
+          </div>
+          <div
+            style={{
+              marginTop: 8,
+              borderTop: "1px solid var(--line)",
+              paddingTop: 8,
+            }}
+          >
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.08em", color: "var(--text-dim)", marginBottom: 6 }}>
+              {t("map.mineableResources").toUpperCase()}
+            </div>
+            {mineableResources.length === 0 ? (
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-faint)" }}>
+                {t("map.noMineableResources")}
+              </div>
+            ) : (
+              <div style={{ display: "grid", gap: 6 }}>
+                {mineableResources.map((resource) => (
+                  <div
+                    key={resource.resourceId}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: 10,
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 10,
+                      color: "var(--text)",
+                    }}
+                  >
+                    <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <b style={{ color: "var(--accent)" }}>{getResourceSymbol(resource.resourceId)}</b>
+                      {getResourceLabel(resource.resourceId, locale)}
+                    </span>
+                    <span style={{ color: "var(--text-dim)" }}>
+                      {t("map.deposit", { value: resource.richness ?? 0 })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <button
             type="button"

@@ -279,7 +279,7 @@ const BUILDING_CATEGORY_BY_TYPE: Record<BuildingTypeId, BuildingCategoryKey> = {
   spaceport: 'shipbuilding',
   shipyard: 'shipbuilding',
   lab: 'progress',
-  cryo_factory: 'special',
+  cryo_factory: 'processing',
   solar_plant: 'energy',
 };
 
@@ -295,7 +295,7 @@ export const BUILDING_BY_TYPE: Record<BuildingTypeId, BuildingDef> = {
   spaceport: { Icon: IconSpaceport, label: 'Spaceport', labels: { en: 'Spaceport', ru: 'Космопорт' }, cat: 'Shipbuilding', cats: BUILDING_CATEGORY_LABELS.shipbuilding },
   shipyard: { Icon: IconShipyard, label: 'Shipyard', labels: { en: 'Shipyard', ru: 'Верфь' }, cat: 'Shipbuilding', cats: BUILDING_CATEGORY_LABELS.shipbuilding },
   lab: { Icon: IconLab, label: 'Research Lab', labels: { en: 'Research Lab', ru: 'Лаборатория' }, cat: 'Progress', cats: BUILDING_CATEGORY_LABELS.progress },
-  cryo_factory: { Icon: IconCryoFactory, label: 'Cryo Factory', labels: { en: 'Cryo Factory', ru: 'Криозавод' }, cat: 'Special', cats: BUILDING_CATEGORY_LABELS.special },
+  cryo_factory: { Icon: IconCryoFactory, label: 'Cryo Factory', labels: { en: 'Cryo Factory', ru: 'Криозавод' }, cat: 'Processing', cats: BUILDING_CATEGORY_LABELS.processing },
   solar_plant: { Icon: IconSolarPlant, label: 'Solar Plant', labels: { en: 'Solar Plant', ru: 'Солнечная станция' }, cat: 'Energy', cats: BUILDING_CATEGORY_LABELS.energy },
 };
 
