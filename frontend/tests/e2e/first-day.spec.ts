@@ -129,6 +129,7 @@ test('first day flow on cosmic atlas layout', async ({ page }) => {
         {
           id: 'mine',
           name: { ru: 'Шахта', en: 'Mine' },
+          description: { ru: 'Добывает железо на выбранной планете.', en: 'Extracts iron on the selected planet.' },
           category: 'extraction',
           maxLevel: 20,
           deps: [],
@@ -187,6 +188,19 @@ test('first day flow on cosmic atlas layout', async ({ page }) => {
       contentType: 'application/json',
       headers: corsHeaders,
       body: JSON.stringify({ success: true }),
+    });
+  });
+
+  await page.route(`**/resources/planets/${planetId}**`, async (route) => {
+    if (route.request().method() === 'OPTIONS') {
+      await route.fulfill({ status: 204, headers: corsHeaders, body: '' });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: corsHeaders,
+      body: JSON.stringify({ resources: meUser.homeSystem.planets[0].resources }),
     });
   });
 

@@ -129,7 +129,7 @@ test('colonization flow: eligibility and founding', async ({ page }) => {
 
   // Start test
   await page.goto('/map');
-  await expect(page.getByText('DRAG TO PAN')).toBeVisible();
+  await expect(page.locator('.cosmic-systemmap')).toBeVisible();
 
   // Select the target planet on the map
   await page.waitForFunction(() => document.querySelectorAll('[data-testid^="planet-btn-"]').length >= 2);
@@ -233,7 +233,7 @@ test('colonization flow: blocked attempt (cooldown)', async ({ page }) => {
   });
 
   await page.goto('/map');
-  await expect(page.getByText('DRAG TO PAN')).toBeVisible();
+  await expect(page.locator('.cosmic-systemmap')).toBeVisible();
   const cooldownPlanetSelector = `[data-testid="planet-btn-${targetPlanetId}"]`;
   await page.waitForSelector(cooldownPlanetSelector);
   await page.evaluate((sel) => (document.querySelector(sel) as HTMLElement).click(), cooldownPlanetSelector);
