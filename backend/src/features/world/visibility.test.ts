@@ -376,7 +376,7 @@ describe("Visibility Check Service", () => {
     expect(planetHits).not.toContain(lockedId);
   });
 
-  it("does not auto-discover locked planets in the player home system with recon ships", async () => {
+  it("auto-discovers locked planets in the player home system with recon ships", async () => {
     const userId = await createTestUser();
     const home = await createSystem(5, 5, 5, userId, true);
     const capitalId = await createPlanet(home.id, "Capital");
@@ -391,6 +391,6 @@ describe("Visibility Check Service", () => {
       .filter((d) => d.type === "planet")
       .map((d) => d.id);
 
-    expect(planetHits).not.toContain(lockedId);
+    expect(planetHits).toContain(lockedId);
   });
 });

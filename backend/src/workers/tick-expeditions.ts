@@ -66,9 +66,9 @@ export function calculateExpeditionPosition(
 
     const progress = (nowMs - startTimeMs) / durationMs;
     return {
-      x: originX + (tX - originX) * progress,
-      y: originY + (tY - originY) * progress,
-      z: originZ + (tZ - originZ) * progress,
+      x: Math.trunc(originX + (tX - originX) * progress),
+      y: Math.trunc(originY + (tY - originY) * progress),
+      z: Math.trunc(originZ + (tZ - originZ) * progress),
     };
   } else if (status === "returning") {
     // For 'returning', we assume it started returning at eta - durationMs
@@ -79,9 +79,9 @@ export function calculateExpeditionPosition(
 
     const progress = (nowMs - returnStartTimeMs) / durationMs;
     return {
-      x: tX + (originX - tX) * progress,
-      y: tY + (originY - tY) * progress,
-      z: tZ + (originZ - tZ) * progress,
+      x: Math.trunc(tX + (originX - tX) * progress),
+      y: Math.trunc(tY + (originY - tY) * progress),
+      z: Math.trunc(tZ + (originZ - tZ) * progress),
     };
   }
 

@@ -1,0 +1,606 @@
+ Volume new-universe_pgdata Creating 
+ Volume new-universe_pgdata Created 
+ Volume new-universe_redisdata Creating 
+ Volume new-universe_redisdata Created 
+ Container nu-redis Creating 
+ Container nu-postgres Creating 
+ Container nu-redis Created 
+ Container nu-postgres Created 
+ Container nu-postgres Starting 
+ Container nu-redis Starting 
+ Container nu-redis Started 
+ Container nu-postgres Started 
+ Container nu-postgres Waiting 
+ Container nu-redis Waiting 
+ Container nu-redis Healthy 
+ Container nu-postgres Healthy 
+ Image new-universe-backend Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 621B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 1.60kB done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/node:20-alpine
+#3 DONE 0.0s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 88B done
+#4 DONE 0.0s
+
+#5 [dev 1/6] FROM docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293
+#5 resolve docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293 0.0s done
+#5 DONE 0.0s
+
+#6 [internal] load build context
+#6 transferring context: 12.44kB 0.0s done
+#6 DONE 0.0s
+
+#7 [dev 2/6] WORKDIR /app
+#7 CACHED
+
+#8 [dev 4/6] COPY package.json package-lock.json* ./
+#8 CACHED
+
+#9 [dev 5/6] RUN npm ci
+#9 CACHED
+
+#10 [dev 3/6] RUN apk add --no-cache python3 make g++ tini && rm -rf /var/cache/apk/*
+#10 CACHED
+
+#11 [dev 6/6] COPY . .
+#11 CACHED
+
+#12 exporting to image
+#12 exporting layers done
+#12 exporting manifest sha256:c5e621158daaa9220ca04275c5f3faabeee0947563564dbf353025bd543e22d5 done
+#12 exporting config sha256:d7868b8b4ea1611f6aa3ea1c07149c5323679f9b45391a20a0eb8beac4d93bc5 done
+#12 exporting attestation manifest sha256:29de39783db0ff4bfb676bb27c8db63c5a2221f7d72eb8eff7b7031665b5a5ac done
+#12 exporting manifest list sha256:3e0f303dc16e729bc022d620d3ac2409cdf856ed951bded31af39ba7eb306d8e done
+#12 naming to docker.io/library/new-universe-backend:latest done
+#12 unpacking to docker.io/library/new-universe-backend:latest done
+#12 DONE 0.1s
+
+#13 resolving provenance for metadata file
+#13 DONE 0.0s
+ Image new-universe-backend Built 
+ Container nu-redis Running 
+ Container nu-postgres Running 
+ Container nu-redis Waiting 
+ Container nu-postgres Waiting 
+ Container nu-postgres Healthy 
+ Container nu-redis Healthy 
+ Container new-universe-backend-run-abeb25a6c5dd Creating 
+ Container new-universe-backend-run-abeb25a6c5dd Created 
+
+> new-universe-api@0.1.0 lint
+> eslint . --ext .ts
+
+
+/app/src/workers/tick-buildings.ts
+   5:3   warning  'buildingTypes' is defined but never used    @typescript-eslint/no-unused-vars
+   6:3   warning  'planetResources' is defined but never used  @typescript-eslint/no-unused-vars
+   7:3   warning  'notifications' is defined but never used    @typescript-eslint/no-unused-vars
+   8:3   warning  'systems' is defined but never used          @typescript-eslint/no-unused-vars
+   9:3   warning  'planets' is defined but never used          @typescript-eslint/no-unused-vars
+  11:10  warning  'eq' is defined but never used               @typescript-eslint/no-unused-vars
+  17:6   warning  'BuildingOutput' is defined but never used   @typescript-eslint/no-unused-vars
+
+/app/src/workers/tick-expeditions.ts
+  268:9  warning  'now' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+✖ 8 problems (0 errors, 8 warnings)
+
+ Container nu-postgres Running 
+ Container nu-redis Running 
+ Container nu-postgres Waiting 
+ Container nu-redis Waiting 
+ Container nu-redis Healthy 
+ Container nu-postgres Healthy 
+ Container new-universe-backend-run-fe8c4565b193 Creating 
+ Container new-universe-backend-run-fe8c4565b193 Created 
+
+> new-universe-api@0.1.0 build
+> tsc
+
+ Container nu-redis Running 
+ Container nu-postgres Running 
+ Container nu-postgres Waiting 
+ Container nu-redis Waiting 
+ Container nu-postgres Healthy 
+ Container nu-redis Healthy 
+ Container new-universe-backend-run-1343ed2afe71 Creating 
+ Container new-universe-backend-run-1343ed2afe71 Created 
+
+> new-universe-api@0.1.0 db:migrate
+> tsx node_modules/drizzle-kit/bin.cjs migrate
+
+No config path provided, using default 'drizzle.config.ts'
+Reading config file '/app/drizzle.config.ts'
+Using 'postgres' driver for database querying
+[⣷] applying migrations...{
+  severity_local: 'NOTICE',
+  severity: 'NOTICE',
+  code: '42P07',
+  message: 'relation "sectors" already exists, skipping',
+  file: 'parse_utilcmd.c',
+  line: '207',
+  routine: 'transformCreateStmt'
+}
+[2K[1G[⣯] applying migrations...[2K[1G[✓] migrations applied successfully! Container nu-postgres Running 
+ Container nu-redis Running 
+ Container nu-postgres Waiting 
+ Container nu-redis Waiting 
+ Container nu-redis Healthy 
+ Container nu-postgres Healthy 
+ Container new-universe-backend-run-b5d518f673bd Creating 
+ Container new-universe-backend-run-b5d518f673bd Created 
+
+> new-universe-api@0.1.0 db:seed
+> tsx src/db/seed.ts
+
+Seeding resources...
+Seeding research catalog branches...
+Seeding building types...
+Seeding ship types...
+Seeding completed successfully
+ Container nu-redis Running 
+ Container nu-postgres Running 
+ Container nu-redis Waiting 
+ Container nu-postgres Waiting 
+ Container nu-redis Healthy 
+ Container nu-postgres Healthy 
+ Container new-universe-backend-run-d1b917f54418 Creating 
+ Container new-universe-backend-run-d1b917f54418 Created 
+
+> new-universe-api@0.1.0 test
+> vitest run
+
+
+ RUN  v2.1.9 /app
+
+ ✓ src/features/world/visibility.test.ts (11 tests) 131ms
+stdout | src/features/buildings/service.test.ts > Buildings Service - POST /buildings/build
+Seeding building types...
+
+stderr | src/features/buildings/service.test.ts > Buildings Service - POST /buildings/build > should build a mine on the starting planet
+IMPORTANT! Eviction policy is allkeys-lru. It should be "noeviction"
+
+stderr | src/features/buildings/service.test.ts > Buildings Service - POST /buildings/build > should return 400 when build queue is full
+IMPORTANT! Eviction policy is allkeys-lru. It should be "noeviction"
+
+ ✓ src/features/buildings/service.test.ts (9 tests) 403ms
+[05:15:34 UTC] [32mINFO[39m: [36mExpedition reached target, starting return journey[39m
+    expeditionId: "ef844a7a-918b-4cb7-a16e-e00b6a583427"
+    shipId: "64c4fd76-d04f-4a07-ab38-22fee74154ea"
+[05:15:34 UTC] [32mINFO[39m: [36mNew discoveries made by expedition[39m
+    shipId: "7141e7d3-7eec-4314-bcb6-04616935527b"
+    expeditionId: "01903bce-f934-4ed7-944e-a6383e31bb43"
+    newEntities: 2
+[05:15:34 UTC] [32mINFO[39m: [36mExpedition returned home and deleted[39m
+    expeditionId: "01903bce-f934-4ed7-944e-a6383e31bb43"
+    shipId: "7141e7d3-7eec-4314-bcb6-04616935527b"
+[05:15:34 UTC] [32mINFO[39m: [36mNew discoveries made by expedition[39m
+    shipId: "fff2de05-7357-4c1f-a3ad-c4207d39d040"
+    expeditionId: "eeca27ba-38df-4340-8e9f-0dae56e22c0d"
+    newEntities: 2
+[05:15:34 UTC] [32mINFO[39m: [36mNew discoveries made by expedition[39m
+    shipId: "d543661e-e83b-4578-8859-6799f6486f10"
+    expeditionId: "b6ca0b4c-6c76-4e36-b24a-5115e56a04fe"
+    newEntities: 2
+[05:15:34 UTC] [32mINFO[39m: [36mExpedition reached target, starting return journey[39m
+    expeditionId: "b6ca0b4c-6c76-4e36-b24a-5115e56a04fe"
+    shipId: "d543661e-e83b-4578-8859-6799f6486f10"
+ ✓ src/workers/tick-expeditions.test.ts (6 tests) 74ms
+[05:15:34 UTC] [32mINFO[39m: [36mNew discoveries made by expedition[39m
+    shipId: "67d2c63c-66b3-4209-9d82-f6b5f5ceaef4"
+    expeditionId: "4f5e03c1-8400-4360-9488-b8a07d69702a"
+    newEntities: 2
+[05:15:34 UTC] [32mINFO[39m: [36mExpedition reached target, starting return journey[39m
+    expeditionId: "4f5e03c1-8400-4360-9488-b8a07d69702a"
+    shipId: "67d2c63c-66b3-4209-9d82-f6b5f5ceaef4"
+ ✓ src/features/resources/convert.test.ts (10 tests) 195ms
+stdout | tests/e2e/phase2-regression.test.ts > Phase 2 regression suite
+Seeding resources...
+
+stdout | tests/e2e/phase2-regression.test.ts > Phase 2 regression suite
+Seeding building types...
+
+stdout | tests/e2e/phase2-regression.test.ts > Phase 2 regression suite
+Seeding ship types...
+
+stderr | tests/e2e/phase2-regression.test.ts > Phase 2 regression suite > full path: research → first colony → cargo transfer → NPC market sell (resource accounting)
+IMPORTANT! Eviction policy is allkeys-lru. It should be "noeviction"
+
+ ✓ tests/e2e/phase2-regression.test.ts (1 test) 92ms
+stdout | tests/e2e/colonization.test.ts > E2E: Colonization Flow
+Seeding resources...
+
+stdout | tests/e2e/colonization.test.ts > E2E: Colonization Flow
+Seeding building types...
+
+stdout | tests/e2e/colonization.test.ts > E2E: Colonization Flow
+Seeding ship types...
+
+stderr | tests/e2e/colonization.test.ts > E2E: Colonization Flow > should pass minimal test
+IMPORTANT! Eviction policy is allkeys-lru. It should be "noeviction"
+
+ ✓ tests/e2e/colonization.test.ts (1 test) 95ms
+stdout | tests/e2e/first-day.test.ts > E2E: First Day Flow
+Seeding resources...
+
+stdout | tests/e2e/first-day.test.ts > E2E: First Day Flow
+Seeding building types...
+
+stdout | tests/e2e/first-day.test.ts > E2E: First Day Flow
+Seeding ship types...
+
+stderr | tests/e2e/first-day.test.ts > E2E: First Day Flow > should complete the full first-day flow
+IMPORTANT! Eviction policy is allkeys-lru. It should be "noeviction"
+
+stderr | tests/e2e/first-day.test.ts > E2E: First Day Flow > should complete the full first-day flow
+IMPORTANT! Eviction policy is allkeys-lru. It should be "noeviction"
+
+[05:15:35 UTC] [32mINFO[39m: [36mBuilding completion notification created[39m
+    buildingId: "0edc1300-b754-45e0-bf3b-7afae24504f7"
+    typeId: "mine"
+    action: "built"
+    userId: "27db3fe2-12e6-4081-b879-9d2d65b89455"
+[05:15:35 UTC] [32mINFO[39m: [36mBuilding completion notification created[39m
+    buildingId: "0edc1300-b754-45e0-bf3b-7afae24504f7"
+    typeId: "mine"
+    action: "upgraded to level 2"
+    userId: "27db3fe2-12e6-4081-b879-9d2d65b89455"
+stderr | tests/e2e/first-day.test.ts > E2E: First Day Flow > should complete the full first-day flow
+IMPORTANT! Eviction policy is allkeys-lru. It should be "noeviction"
+
+stderr | tests/e2e/first-day.test.ts > E2E: First Day Flow > should complete the full first-day flow
+IMPORTANT! Eviction policy is allkeys-lru. It should be "noeviction"
+
+[05:15:35 UTC] [32mINFO[39m: [36mNew discoveries made by expedition[39m
+    shipId: "67d2c63c-66b3-4209-9d82-f6b5f5ceaef4"
+    expeditionId: "4f5e03c1-8400-4360-9488-b8a07d69702a"
+    newEntities: 8
+[05:15:35 UTC] [32mINFO[39m: [36mNew discoveries made by expedition[39m
+    shipId: "ad61029b-e288-401b-a4f0-4b29914b7b44"
+    expeditionId: "38a0a83f-7603-489d-af80-9a6d1ea37bba"
+    newEntities: 7
+[05:15:35 UTC] [32mINFO[39m: [36mNew discoveries made by expedition[39m
+    shipId: "86231c0c-2d03-4d12-86bc-fe3805772140"
+    expeditionId: "22343874-ea00-43eb-99da-6b481bd88610"
+    newEntities: 5
+[05:15:35 UTC] [32mINFO[39m: [36mNew discoveries made by expedition[39m
+    shipId: "9d79411e-627a-47d9-a8f1-d4dfa3422591"
+    expeditionId: "b2e5df6f-b88b-4871-b4a8-1039b529e50b"
+    newEntities: 2
+[05:15:35 UTC] [32mINFO[39m: [36mExpedition reached target, starting return journey[39m
+    expeditionId: "b2e5df6f-b88b-4871-b4a8-1039b529e50b"
+    shipId: "9d79411e-627a-47d9-a8f1-d4dfa3422591"
+[05:15:35 UTC] [32mINFO[39m: [36mNew discoveries made by expedition[39m
+    shipId: "9d79411e-627a-47d9-a8f1-d4dfa3422591"
+    expeditionId: "b2e5df6f-b88b-4871-b4a8-1039b529e50b"
+    newEntities: 4
+[05:15:35 UTC] [32mINFO[39m: [36mExpedition returned home and deleted[39m
+    expeditionId: "b2e5df6f-b88b-4871-b4a8-1039b529e50b"
+    shipId: "9d79411e-627a-47d9-a8f1-d4dfa3422591"
+ ❯ tests/e2e/first-day.test.ts (2 tests | 1 failed) 114ms
+   × E2E: First Day Flow > should complete the full first-day flow 76ms
+     → Cannot read properties of undefined (reading 'status')
+ ✓ src/features/market/orders.test.ts (4 tests) 84ms
+stderr | src/features/ships/build.test.ts > Ship Building - POST /ships/build > should build a scout ship with shipyard
+IMPORTANT! Eviction policy is allkeys-lru. It should be "noeviction"
+
+ ✓ src/features/ships/build.test.ts (7 tests) 131ms
+stderr | src/features/buildings/upgrade.test.ts > Building Upgrade - POST /buildings/upgrade > should upgrade a building successfully
+IMPORTANT! Eviction policy is allkeys-lru. It should be "noeviction"
+
+stderr | src/features/buildings/upgrade.test.ts > Building Upgrade - POST /buildings/upgrade > should calculate upgrade cost using base_cost * 1.6^level
+IMPORTANT! Eviction policy is allkeys-lru. It should be "noeviction"
+
+ ✓ src/features/buildings/upgrade.test.ts (7 tests) 141ms
+ ✓ src/features/market/fulfillment.test.ts (3 tests) 114ms
+[05:15:36 UTC] [32mINFO[39m: [36mBuilding completion notification created[39m
+    buildingId: "21f7ac3b-c3f3-46bf-9413-3f6969bc3585"
+    typeId: "mine"
+    action: "built"
+    userId: "874e6caf-9a06-44de-9bcc-367f28861baa"
+[05:15:36 UTC] [32mINFO[39m: [36mBuilding completion notification created[39m
+    buildingId: "2e64f30e-bd20-4ddb-97bd-4635563da60a"
+    typeId: "mine"
+    action: "upgraded to level 3"
+    userId: "b8ce5998-1a89-4062-bd3e-2bab5150965d"
+[05:15:36 UTC] [32mINFO[39m: [36mBuilding completion notification created[39m
+    buildingId: "4671c310-8943-447f-9da1-ae964415acbe"
+    typeId: "mine"
+    action: "built"
+    userId: "c1cc04f1-cf39-4872-918e-dba02da34a40"
+[05:15:36 UTC] [32mINFO[39m: [36mBuilding completion notification created[39m
+    buildingId: "0740912c-26ff-4d14-bd61-a0e9561fad3b"
+    typeId: "smelter"
+    action: "built"
+    userId: "b4595277-c6df-49c7-81c8-017caa485a71"
+[05:15:36 UTC] [32mINFO[39m: [36mBuilding completion notification created[39m
+    buildingId: "712546d4-58fe-4867-94bd-9e06d84e1569"
+    typeId: "mine"
+    action: "built"
+    userId: "c687e37b-ba6c-4026-b30d-9e31ebc56207"
+[05:15:36 UTC] [32mINFO[39m: [36mBuilding completion notification created[39m
+    buildingId: "c3c2f912-5d86-427d-88aa-c2dab157a4a1"
+    typeId: "command_center"
+    action: "built"
+    userId: "cf196fe7-568e-4815-8537-36cf82979fb9"
+ ✓ src/workers/tick-buildings.test.ts (8 tests) 125ms
+stderr | src/features/expeditions/launch.test.ts > Expeditions - POST /expeditions > should create an expedition and schedule eta
+IMPORTANT! Eviction policy is allkeys-lru. It should be "noeviction"
+
+ ✓ src/features/expeditions/launch.test.ts (4 tests) 74ms
+stdout | src/features/tutorial/tutorial.test.ts > tutorial sync > completes tutorial and applies reward once
+{
+  severity_local: 'NOTICE',
+  severity: 'NOTICE',
+  code: '00000',
+  message: 'truncate cascades to table "research_progress"',
+  file: 'tablecmds.c',
+  line: '1848',
+  routine: 'ExecuteTruncateGuts'
+}
+
+stdout | src/features/tutorial/tutorial.test.ts > tutorial sync > completes tutorial and applies reward once
+{
+  severity_local: 'NOTICE',
+  severity: 'NOTICE',
+  code: '00000',
+  message: 'truncate cascades to table "market_orders"',
+  file: 'tablecmds.c',
+  line: '1848',
+  routine: 'ExecuteTruncateGuts'
+}
+{
+  severity_local: 'NOTICE',
+  severity: 'NOTICE',
+  code: '00000',
+  message: 'truncate cascades to table "market_order_fills"',
+  file: 'tablecmds.c',
+  line: '1848',
+  routine: 'ExecuteTruncateGuts'
+}
+
+stdout | src/features/tutorial/tutorial.test.ts > tutorial sync > completes tutorial and applies reward once
+Seeding resources...
+
+stdout | src/features/tutorial/tutorial.test.ts > tutorial sync > completes tutorial and applies reward once
+Seeding building types...
+
+stdout | src/features/tutorial/tutorial.test.ts > tutorial sync > completes tutorial and applies reward once
+Seeding ship types...
+
+stdout | src/features/tutorial/tutorial.test.ts > tutorial sync > grants only step 1 rewards when only the mine milestone exists
+{
+  severity_local: 'NOTICE',
+  severity: 'NOTICE',
+  code: '00000',
+  message: 'truncate cascades to table "research_progress"',
+  file: 'tablecmds.c',
+  line: '1848',
+  routine: 'ExecuteTruncateGuts'
+}
+{
+  severity_local: 'NOTICE',
+  severity: 'NOTICE',
+  code: '00000',
+  message: 'truncate cascades to table "market_orders"',
+  file: 'tablecmds.c',
+  line: '1848',
+  routine: 'ExecuteTruncateGuts'
+}
+{
+  severity_local: 'NOTICE',
+  severity: 'NOTICE',
+  code: '00000',
+  message: 'truncate cascades to table "market_order_fills"',
+  file: 'tablecmds.c',
+  line: '1848',
+  routine: 'ExecuteTruncateGuts'
+}
+
+stdout | src/features/tutorial/tutorial.test.ts > tutorial sync > grants only step 1 rewards when only the mine milestone exists
+Seeding resources...
+
+stdout | src/features/tutorial/tutorial.test.ts > tutorial sync > grants only step 1 rewards when only the mine milestone exists
+Seeding building types...
+
+stdout | src/features/tutorial/tutorial.test.ts > tutorial sync > grants only step 1 rewards when only the mine milestone exists
+Seeding ship types...
+
+ ✓ src/features/tutorial/tutorial.test.ts (2 tests) 159ms
+stderr | src/features/logistics/cargo-transfer.test.ts > cargoTransfer > successfully launches transfer and reserves resources
+IMPORTANT! Eviction policy is allkeys-lru. It should be "noeviction"
+
+ ✓ src/features/logistics/cargo-transfer.test.ts (5 tests) 32ms
+ ✓ src/features/me/me.test.ts (3 tests) 76ms
+ ✓ src/features/colonies/found-colony.test.ts (4 tests) 75ms
+stdout | src/features/world/home-system-generator.test.ts > Home System Generator
+Seeding resources...
+
+ ✓ src/features/world/home-system-generator.test.ts (4 tests) 77ms
+stderr | src/workers/tick-ships.test.ts > Tick Ships Worker > should complete a ship build — set status to idle
+IMPORTANT! Eviction policy is allkeys-lru. It should be "noeviction"
+
+ ✓ src/workers/tick-ships.test.ts (3 tests) 56ms
+ ✓ src/features/resources/transactions.test.ts (5 tests) 41ms
+ ✓ src/features/logistics/cargo-route-worker.test.ts (2 tests) 21ms
+[05:15:36 UTC] [32mINFO[39m: [36mCargo worker: Transfer completed successfully[39m
+    expeditionId: "9c11f9f3-4191-416d-8783-2345753b2a78"
+    shipId: "070629df-6f12-4ac1-8735-31b8735d9081"
+[05:15:36 UTC] [32mINFO[39m: [36mCargo worker: Expedition already completed, skipping[39m
+    expeditionId: "9c11f9f3-4191-416d-8783-2345753b2a78"
+ ✓ src/features/expeditions/jump.test.ts (4 tests) 44ms
+ ✓ src/features/resources/accrual.test.ts (3 tests) 25ms
+ ✓ src/features/colonies/colonies.test.ts (5 tests) 19ms
+stderr | src/features/buildings/buildings.test.ts > Building Service > should start building in an empty slot
+IMPORTANT! Eviction policy is allkeys-lru. It should be "noeviction"
+
+stderr | src/features/buildings/buildings.test.ts > Building Service > should start upgrading an existing building
+IMPORTANT! Eviction policy is allkeys-lru. It should be "noeviction"
+
+ ✓ src/features/buildings/buildings.test.ts (6 tests) 48ms
+ ✓ src/features/research/research.test.ts (1 test) 35ms
+ ✓ src/features/world/sector-generator.test.ts (5 tests) 114ms
+ ✓ src/features/buildings/rush.test.ts (3 tests) 34ms
+[05:15:37 UTC] [32mINFO[39m: [36mBuilding completion notification created[39m
+    buildingId: "b68d78ae-cb8f-49ea-b43b-372ca0bd8f0e"
+    typeId: "mine"
+    action: "built"
+    userId: "9af443b8-54bf-4436-afe1-c54fe40a53a4"
+ ✓ src/features/colonies/bootstrap.test.ts (2 tests) 16ms
+ ✓ src/workers/notifications.test.ts (3 tests) 33ms
+[05:15:37 UTC] [32mINFO[39m: [36mPush notification sent[39m
+    notificationId: "9a06f2dc-121d-47fd-af75-9843a426b76f"
+    userId: "f17d56e4-90a1-443e-8603-6b3afbefca79"
+    type: "building_done"
+[05:15:37 UTC] [32mINFO[39m: [36mPush notification sent[39m
+    notificationId: "b2d010e7-0142-45f6-8836-57b02b79cb84"
+    userId: "fb89323f-8078-40ee-9db4-3e3b16efba41"
+    type: "building_done"
+[05:15:37 UTC] [32mINFO[39m: [36mPush notification sent[39m
+    notificationId: "03f09c32-bab7-42c0-8aca-67266c44d0dc"
+    userId: "fb89323f-8078-40ee-9db4-3e3b16efba41"
+    type: "building_done"
+[05:15:37 UTC] [32mINFO[39m: [36mPush notification sent[39m
+    notificationId: "d4af08aa-96cc-4294-a715-4bbec2557489"
+    userId: "fb89323f-8078-40ee-9db4-3e3b16efba41"
+    type: "building_done"
+[05:15:37 UTC] [32mINFO[39m: [36mPush notification sent[39m
+    notificationId: "a85951a3-75f0-4e58-996c-d28b8a97481a"
+    userId: "fb89323f-8078-40ee-9db4-3e3b16efba41"
+    type: "building_done"
+[05:15:37 UTC] [32mINFO[39m: [36mPush notification sent[39m
+    notificationId: "edd6d622-8b57-4c97-9bf9-e65d71d98123"
+    userId: "fb89323f-8078-40ee-9db4-3e3b16efba41"
+    type: "building_done"
+[05:15:37 UTC] [32mINFO[39m: [36mPush notification sent[39m
+    notificationId: "e40f1022-3a9a-46a0-89a2-37c2891c2845"
+    userId: "fb89323f-8078-40ee-9db4-3e3b16efba41"
+    type: "building_done"
+[05:15:37 UTC] [32mINFO[39m: [36mPush notification sent[39m
+    notificationId: "519723d1-805a-4b81-bf6e-1471da3cafc1"
+    userId: "fb89323f-8078-40ee-9db4-3e3b16efba41"
+    type: "building_done"
+[05:15:37 UTC] [32mINFO[39m: [36mPush notification sent[39m
+    notificationId: "5aa66673-d457-4aa9-8171-1463225f8644"
+    userId: "fb89323f-8078-40ee-9db4-3e3b16efba41"
+    type: "building_done"
+[05:15:37 UTC] [32mINFO[39m: [36mPush notification sent[39m
+    notificationId: "9ffd36fd-adca-4724-979f-1a243100ea62"
+    userId: "fb89323f-8078-40ee-9db4-3e3b16efba41"
+    type: "building_done"
+[05:15:37 UTC] [32mINFO[39m: [36mPush notification sent[39m
+    notificationId: "04d11015-46b5-4aa4-81a1-4398452cdf6b"
+    userId: "fb89323f-8078-40ee-9db4-3e3b16efba41"
+    type: "building_done"
+[05:15:37 UTC] [32mINFO[39m: [36mPush notification sent[39m
+    notificationId: "214411b4-059c-42a2-b312-4d4611368bf7"
+    userId: "fb89323f-8078-40ee-9db4-3e3b16efba41"
+    type: "building_done"
+[05:15:37 UTC] [32mINFO[39m: [36mPush notification sent[39m
+    notificationId: "80b23838-9def-48a7-bbdd-7ea75b9fa785"
+    userId: "fb89323f-8078-40ee-9db4-3e3b16efba41"
+    type: "building_done"
+[05:15:37 UTC] [32mINFO[39m: [36mPush notification sent[39m
+    notificationId: "dd85a2e0-8a89-4ad4-9747-a9307eada652"
+    userId: "fb89323f-8078-40ee-9db4-3e3b16efba41"
+    type: "building_done"
+[05:15:37 UTC] [32mINFO[39m: [36mPush notification sent[39m
+    notificationId: "3eeb5a38-ebe2-4748-a597-894b0ea604f1"
+    userId: "fb89323f-8078-40ee-9db4-3e3b16efba41"
+    type: "building_done"
+[05:15:37 UTC] [32mINFO[39m: [36mPush notification sent[39m
+    notificationId: "f288d052-0bfe-4d5f-a5cb-20395ff59c06"
+    userId: "fb89323f-8078-40ee-9db4-3e3b16efba41"
+    type: "building_done"
+[05:15:37 UTC] [32mINFO[39m: [36mPush notification sent[39m
+    notificationId: "3ffb62e7-14e2-4dd3-9a12-655f31b97078"
+    userId: "fb89323f-8078-40ee-9db4-3e3b16efba41"
+    type: "building_done"
+[05:15:37 UTC] [32mINFO[39m: [36mPush notification sent[39m
+    notificationId: "a0904a65-0646-4e58-8fb3-ce8f01da3075"
+    userId: "fb89323f-8078-40ee-9db4-3e3b16efba41"
+    type: "building_done"
+[05:15:37 UTC] [32mINFO[39m: [36mPush notification sent[39m
+    notificationId: "f6874d1c-7f8e-4546-a2e9-1f7de5d4cf47"
+    userId: "fb89323f-8078-40ee-9db4-3e3b16efba41"
+    type: "building_done"
+[05:15:37 UTC] [32mINFO[39m: [36mPush notification sent[39m
+    notificationId: "ddb06911-4e72-40ee-b2c7-b45d0c1d8ca3"
+    userId: "fb89323f-8078-40ee-9db4-3e3b16efba41"
+    type: "building_done"
+[05:15:37 UTC] [32mINFO[39m: [36mPush notification sent[39m
+    notificationId: "f21a81d3-ea6e-454b-b093-b4079efd75ce"
+    userId: "fb89323f-8078-40ee-9db4-3e3b16efba41"
+    type: "building_done"
+[05:15:37 UTC] [32mINFO[39m: [36mPush notification sent[39m
+    notificationId: "8b486e1d-d4a0-4780-b9b7-7aaa5b929a18"
+    userId: "59255654-f2d1-4678-a4b3-2b005dd1205e"
+    type: "building_done"
+[05:15:37 UTC] [32mINFO[39m: [36mPush notification sent[39m
+    notificationId: "b2d2c1ae-5851-48f3-a01d-163e1ccb34ce"
+    userId: "25c6084f-df73-4840-8376-e9888aeed9d1"
+    type: "ship_done"
+ ✓ src/features/research/completion.test.ts (3 tests) 15ms
+ ✓ src/middleware/telegram-auth.test.ts (4 tests) 5ms
+ ✓ src/features/multiplayer/presence.test.ts (2 tests) 17ms
+ ✓ src/features/auth/auth.test.ts (2 tests) 40ms
+ ✓ src/features/buildings/eligibility.test.ts (5 tests) 0ms
+ ✓ src/config/research-catalog.test.ts (4 tests) 3ms
+ ✓ src/features/research/effects.test.ts (3 tests) 0ms
+ ✓ src/config/market-prices.test.ts (4 tests) 1ms
+ ✓ src/features/market/pricing.test.ts (4 tests) 0ms
+ ✓ src/config/colonization-rules.test.ts (5 tests) 1ms
+ ✓ src/features/world/sectors.test.ts (4 tests) 13ms
+ ✓ src/features/bot/bot.test.ts (2 tests) 1ms
+ ✓ src/features/research/gates.test.ts (5 tests) 1ms
+ ✓ src/features/world/home-system-naming.test.ts (5 tests) 1ms
+ ✓ src/features/market/types.test.ts (3 tests) 0ms
+ ✓ src/routes/health.test.ts (1 test) 3ms
+[05:15:37 UTC] [32mINFO[39m: [36mHandling /start command[39m
+    chatId: 12345
+ ✓ src/db/seed/audit.test.ts (1 test) 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/e2e/first-day.test.ts > E2E: First Day Flow > should complete the full first-day flow
+TypeError: Cannot read properties of undefined (reading 'status')
+ ❯ tests/e2e/first-day.test.ts:239:32
+    237|       where: eq(expeditions.id, expeditionId),
+    238|     });
+    239|     expect(expeditionReturned!.status).toBe('completed');
+       |                                ^
+    240| 
+    241|     // 7. Discover Planet
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 46 passed (47)
+      Tests  1 failed | 189 passed (190)
+   Start at  05:15:33
+   Duration  4.39s (transform 518ms, setup 57ms, collect 1.35s, tests 2.78s, environment 0ms, prepare 37ms)
+
+
+ Container nu-postgres Stopping 
+ Container nu-redis Stopping 
+ Container nu-postgres Stopped 
+ Container nu-postgres Removing 
+ Container nu-postgres Removed 
+ Container nu-redis Stopped 
+ Container nu-redis Removing 
+ Container nu-redis Removed 
+ Volume new-universe_pgdata Removing 
+ Volume new-universe_backend_node_modules Removing 
+ Volume new-universe_redisdata Removing 
+ Network new-universe_default Removing 
+ Network new-universe_default Resource is still in use 
+ Volume new-universe_pgdata Removed 
+ Volume new-universe_backend_node_modules Resource is still in use 
+ Volume new-universe_redisdata Removed 

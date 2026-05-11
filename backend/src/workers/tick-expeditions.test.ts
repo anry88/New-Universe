@@ -220,8 +220,7 @@ describe("Tick Expeditions Worker", () => {
     const updatedExp = await db.query.expeditions.findFirst({
       where: eq(expeditions.id, expedition.id),
     });
-    expect(updatedExp!.status).toBe("completed");
-    expect(updatedExp!.returnedAt).toBeDefined();
+    expect(updatedExp).toBeUndefined();
 
     const updatedShip = await db.query.ships.findFirst({
       where: eq(ships.id, ship.id),

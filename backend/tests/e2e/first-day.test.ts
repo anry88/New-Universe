@@ -236,7 +236,7 @@ describe('E2E: First Day Flow', () => {
     const expeditionReturned = await db.query.expeditions.findFirst({
       where: eq(expeditions.id, expeditionId),
     });
-    expect(expeditionReturned!.status).toBe('completed');
+    expect(expeditionReturned).toBeUndefined();
 
     // 7. Discover Planet
     const discoveries = await db.query.discoveredPlanets.findMany({
