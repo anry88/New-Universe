@@ -35,6 +35,9 @@ export const SYSTEM_MAP_BIOME_ORBIT_TIER: Record<string, number> = {
   unknown: 99,
 };
 
+export const SYSTEM_MAP_HOME_GUIDE_ORBIT_COUNT = 9;
+const SYSTEM_MAP_HOME_CAPITAL_ORBIT_SLOT = 6;
+
 const SYSTEM_MAP_BIOME_SPRITE_BASE: Record<string, number> = {
   volcanic: 46,
   rocky: 44,
@@ -57,8 +60,44 @@ export function systemMapPlanetOrbitTier(planet: SystemMapPlanetInput): number {
 }
 
 export function systemMapPlanetOrbitRadius(planet: SystemMapPlanetInput): number {
-  const tier = systemMapPlanetOrbitTier(planet);
-  return SYSTEM_MAP_ORBIT_BASE + (Math.max(1, tier) - 1) * SYSTEM_MAP_ORBIT_STEP;
+  return systemMapOrbitRadiusForSlot(systemMapPlanetOrbitSlot(planet));
+}
+
+export function systemMapOrbitRadiusForSlot(slot: number): number {
+  return SYSTEM_MAP_ORBIT_BASE + (Math.max(1, slot) - 1) * SYSTEM_MAP_ORBIT_STEP;
+}
+
+export function systemMapPlanetOrbitSlot(
+  planet: SystemMapPlanetInput,
+  sortedIndex = 0,
+): number {
+  const nameIndex = planetNameIndex(planet.name);
+  if (planet.biome === "green" && nameIndex === 1) {
+    return SYSTEM_MAP_HOME_CAPITAL_ORBIT_SLOT;
+  }
+  if (nameIndex >= 2 && nameIndex <= 6) {
+    return nameIndex - 1;
+  }
+  if (nameIndex >= 7 && nameIndex <= SYSTEM_MAP_HOME_GUIDE_ORBIT_COUNT) {
+    return nameIndex;
+  }
+  return sortedIndex + 1;
+}
+
+export function buildSystemMapOrbitGuideRadii(
+  planets: SystemMapPlanetInput[],
+  minimumOrbitCount =
+    planets.length > 0 ? SYSTEM_MAP_HOME_GUIDE_ORBIT_COUNT : 1,
+): number[] {
+  const orbitSlots = planets
+    .map((planet, index) =>
+      planet.biome === "unknown" ? 0 : systemMapPlanetOrbitSlot(planet, index),
+    )
+    .filter((slot) => slot >= 1);
+  const orbitCount = Math.max(1, minimumOrbitCount, planets.length, ...orbitSlots);
+  return Array.from({ length: orbitCount }, (_, index) =>
+    systemMapOrbitRadiusForSlot(index + 1),
+  );
 }
 
 function planetAngleIndex(planet: SystemMapPlanetInput, sortedIndex: number): number {
@@ -96,7 +135,9 @@ export function buildSystemMapLayouts(
   systemSeed: number,
 ): SystemMapPlanetLayout[] {
   return [...planets].sort(compareSystemMapPlanets).map((planet, index) => {
-    const orbitRadius = systemMapPlanetOrbitRadius(planet);
+    const orbitRadius = systemMapOrbitRadiusForSlot(
+      systemMapPlanetOrbitSlot(planet, index),
+    );
     const angle = planetAngle(planet, planetAngleIndex(planet, index), systemSeed);
     const x = Math.cos(angle) * orbitRadius;
     const y = Math.sin(angle) * orbitRadius;
