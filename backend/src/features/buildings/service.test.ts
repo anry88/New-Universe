@@ -4,16 +4,18 @@ import { buildingsRoutes } from './routes.js';
 import { authRoutes } from '../auth/routes.js';
 import { meRoutes } from '../me/routes.js';
 import { db } from '../../db/index.js';
-import { planets, systems, buildings, planetResources } from '../../db/schema.js';
+import { colonies, discoveredPlanets, planets, systems, buildings, planetResources } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 import { env } from '../../lib/env.js';
 import { seedBuildingTypes } from '../../db/seed/building-types.js';
+import { seedResources } from '../../db/seed/resources.js';
 
 describe('Buildings Service - POST /buildings/build', () => {
   const botToken = env.TELEGRAM_BOT_TOKEN;
 
   beforeAll(async () => {
+    await seedResources();
     await seedBuildingTypes();
   });
 
@@ -94,6 +96,91 @@ describe('Buildings Service - POST /buildings/build', () => {
     expect(body.queueItem).toBeDefined();
     expect(body.queueItem.id).toBeDefined();
     expect(body.queueItem.completesAt).toBeDefined();
+  });
+
+  it('blocks construction on a discovered planet before colonizer settlement', async () => {
+    const { app, token, userId } = await createTestUser();
+
+    const userSystem = await db.query.systems.findFirst({
+      where: eq(systems.ownerId, userId),
+    });
+    const targetPlanet = await db.query.planets.findFirst({
+      where: eq(planets.systemId, userSystem!.id),
+      orderBy: (p, { desc }) => desc(p.name),
+    });
+    expect(targetPlanet).toBeDefined();
+
+    await db.insert(discoveredPlanets).values({
+      userId,
+      planetId: targetPlanet!.id,
+    }).onConflictDoNothing();
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/buildings/build',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        planetId: targetPlanet!.id,
+        typeId: 'command_center',
+        slotIndex: 0,
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().message).toContain('no active command center');
+  });
+
+  it('allows construction on a settled colony in a neutral system', async () => {
+    const { app, token, userId } = await createTestUser();
+
+    const [neutralSystem] = await db.insert(systems).values({
+      isHome: false,
+      sectorX: 1,
+      sectorY: 1,
+      sectorZ: 0,
+      x: '100.00',
+      y: '100.00',
+      z: '0.00',
+      name: `Neutral ${Math.random()}`,
+      seed: 456,
+    }).returning();
+
+    const [colonyPlanet] = await db.insert(planets).values({
+      systemId: neutralSystem.id,
+      biome: 'rocky',
+      size: 12,
+      slotCount: 8,
+      name: `Colony ${Math.random()}`,
+    }).returning();
+
+    await db.insert(colonies).values({
+      ownerId: userId,
+      planetId: colonyPlanet.id,
+    });
+    await db.insert(buildings).values({
+      planetId: colonyPlanet.id,
+      typeId: 'command_center',
+      level: 1,
+      slotIndex: 0,
+    });
+    await db.insert(planetResources).values([
+      { planetId: colonyPlanet.id, resourceId: 'iron', amount: '1000', regenRate: '0' },
+      { planetId: colonyPlanet.id, resourceId: 'carbon', amount: '1000', regenRate: '0' },
+    ]);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/buildings/build',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        planetId: colonyPlanet.id,
+        typeId: 'mine',
+        slotIndex: 1,
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().success).toBe(true);
   });
 
   it('should return 400 when planet has no free slots', async () => {

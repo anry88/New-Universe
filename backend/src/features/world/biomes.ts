@@ -78,8 +78,8 @@ export const BIOMES: Record<BiomeType, Biome> = {
   rocky: {
     id: 'rocky',
     name: { ru: 'Каменистая', en: 'Rocky' },
-    commonResources: ['iron', 'copper', 'silicon'],
-    rareResources: ['water'],
+    commonResources: ['iron', 'copper', 'silicon', 'aluminum'],
+    rareResources: ['titanium'],
     bonuses: ['cheap_mines'],
     penalties: ['slow_factories'],
     orbitTier: BIOME_ORBIT_TIER.rocky,
@@ -88,8 +88,8 @@ export const BIOMES: Record<BiomeType, Biome> = {
   ocean: {
     id: 'ocean',
     name: { ru: 'Океаническая', en: 'Ocean' },
-    commonResources: ['water', 'ice', 'biomass'],
-    rareResources: ['iron'],
+    commonResources: ['water', 'biomass'],
+    rareResources: ['oil'],
     bonuses: ['free_cooling'],
     penalties: ['slow_build'],
     orbitTier: BIOME_ORBIT_TIER.ocean,
@@ -112,8 +112,8 @@ export const BIOMES: Record<BiomeType, Biome> = {
   ice: {
     id: 'ice',
     name: { ru: 'Ледяная', en: 'Ice' },
-    commonResources: ['ice', 'magnesium', 'mercury'],
-    rareResources: ['biomass'],
+    commonResources: ['ice', 'water'],
+    rareResources: ['tritium'],
     bonuses: ['storage_plus_10'],
     penalties: ['low_energy'],
     orbitTier: BIOME_ORBIT_TIER.ice,
@@ -122,8 +122,8 @@ export const BIOMES: Record<BiomeType, Biome> = {
   volcanic: {
     id: 'volcanic',
     name: { ru: 'Вулканическая', en: 'Volcanic' },
-    commonResources: ['sulfur', 'iron', 'copper', 'uranium'],
-    rareResources: ['water'],
+    commonResources: ['sulfur', 'iron', 'copper'],
+    rareResources: ['titanium'],
     bonuses: ['rare_alloys_chance'],
     penalties: ['eruptions'],
     orbitTier: BIOME_ORBIT_TIER.volcanic,

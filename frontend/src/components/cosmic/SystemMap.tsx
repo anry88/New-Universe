@@ -64,6 +64,7 @@ interface CosmicSystemRendererProps {
   ships: Ship[];
   expeditions: Expedition[];
   onPlanetClick: (planet: Planet) => void;
+  onColonizeClick?: (planet: Planet) => void;
   ownedPlanetIds: Set<string>;
   expeditionPick?: ExpeditionPickConfig;
 }
@@ -125,6 +126,7 @@ export function CosmicSystemRenderer({
   ships,
   expeditions,
   onPlanetClick,
+  onColonizeClick,
   ownedPlanetIds,
   expeditionPick,
 }: CosmicSystemRendererProps) {
@@ -514,6 +516,10 @@ export function CosmicSystemRenderer({
                 data-testid={`planet-btn-${l.planet.id}`}
                 onClick={(e) => {
                   e.stopPropagation();
+                  if (expeditionPick?.onPickPlanet) {
+                    if (isDiscovered) expeditionPick.onPickPlanet(l.planet.id);
+                    return;
+                  }
                   setSelectedId(l.planet.id);
                 }}
                 style={{
@@ -525,8 +531,12 @@ export function CosmicSystemRenderer({
                   background: "transparent",
                   border: 0,
                   padding: 0,
-                  cursor: expeditionPick ? "inherit" : "pointer",
-                  pointerEvents: expeditionPick ? "none" : "auto",
+                  cursor: expeditionPick?.onPickPlanet ? "pointer" : expeditionPick ? "inherit" : "pointer",
+                  pointerEvents: expeditionPick?.onPickPlanet
+                    ? "auto"
+                    : expeditionPick
+                      ? "none"
+                      : "auto",
                   filter: isSelected
                     ? `drop-shadow(0 0 10px ${meta.accent})`
                     : "drop-shadow(0 6px 14px rgba(0,0,0,0.5))",
@@ -1022,7 +1032,11 @@ export function CosmicSystemRenderer({
               if (ownedPlanetIds.has(selected.planet.id)) {
                 onPlanetClick(selected.planet);
               } else {
-                setIsColonyDialogOpen(true);
+                if (onColonizeClick) {
+                  onColonizeClick(selected.planet);
+                } else {
+                  setIsColonyDialogOpen(true);
+                }
               }
             }}
             className="cosmic-cta"
@@ -1038,7 +1052,7 @@ export function CosmicSystemRenderer({
               ? "Discovery Required"
               : ownedPlanetIds.has(selected.planet.id)
                 ? "Open planet"
-                : "Colonize"}
+                : "Send colonizer"}
           </button>
         </div>
       )}

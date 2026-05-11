@@ -9,6 +9,7 @@ import { db } from '../../db/index.js';
 import { users, systems, planets, richness, planetResources, buildings } from '../../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import { formatPlanetCode, homeSystemShortTag } from '@shared/format/homeSystemNaming.js';
+import { buildSystemMapLayouts } from '@shared/format/systemMapLayout.js';
 import { seedResources } from '../../db/seed/resources.js';
 
 describe('Home System Generator', () => {
@@ -44,7 +45,7 @@ describe('Home System Generator', () => {
     // The capital (green biome) is always inserted first so that
     // existing call sites that pick "the home planet" by the lowest
     // planet-name suffix keep working. Capital is `<tag>-1` and the
-    // remaining 8 planets are `<tag>-2..<tag>-9` in biome-orbit order.
+    // remaining planets are `<tag>-2..` in biome-orbit order.
     const capital = systemPlanets.find(
       (p) => p.name === formatPlanetCode(shortTag, 1),
     );
@@ -196,6 +197,67 @@ describe('Home System Generator', () => {
     expect(nonCapital[nonCapital.length - 1]!.planet.biome).toBe('ice');
   });
 
+  it('keeps extreme starter biomes rare and removes frozen biomass deposits', async () => {
+    const [user] = await db.insert(users).values({
+      tgId: BigInt(Math.floor(Math.random() * 1000000000)),
+      tgUsername: 'testuser_biome_balance',
+    }).returning();
+
+    const systemId = await generateHomeSystem(user.id);
+    const systemPlanets = await db.query.planets.findMany({
+      where: eq(planets.systemId, systemId),
+    });
+
+    expect(systemPlanets.filter((p) => p.biome === 'volcanic')).toHaveLength(1);
+    expect(systemPlanets.filter((p) => p.biome === 'ice')).toHaveLength(1);
+    expect(systemPlanets.filter((p) => p.biome === 'rocky').length).toBeGreaterThanOrEqual(3);
+
+    const icePlanet = systemPlanets.find((p) => p.biome === 'ice');
+    expect(icePlanet).toBeDefined();
+    const iceRichness = await db.query.richness.findMany({
+      where: eq(richness.planetId, icePlanet!.id),
+    });
+    expect(iceRichness.map((row) => row.resourceId)).not.toContain('biomass');
+  });
+
+  it('covers local exit resources across the starter system', async () => {
+    const [user] = await db.insert(users).values({
+      tgId: BigInt(Math.floor(Math.random() * 1000000000)),
+      tgUsername: 'testuser_exit_resources',
+    }).returning();
+
+    const systemId = await generateHomeSystem(user.id);
+    const systemPlanets = await db.query.planets.findMany({
+      where: eq(planets.systemId, systemId),
+    });
+
+    const allResourceIds = new Set<string>();
+    for (const planet of systemPlanets) {
+      const rows = await db.query.richness.findMany({
+        where: eq(richness.planetId, planet.id),
+      });
+      rows.forEach((row) => allResourceIds.add(row.resourceId));
+    }
+
+    for (const resourceId of [
+      'iron',
+      'carbon',
+      'silicon',
+      'water',
+      'methane',
+      'oil',
+      'biomass',
+      'copper',
+      'aluminum',
+      'titanium',
+      'sulfur',
+      'ice',
+      'tritium',
+    ]) {
+      expect(allResourceIds.has(resourceId)).toBe(true);
+    }
+  });
+
   it('gives every starter system enough tritium to build a jump_ship', async () => {
     const [user] = await db.insert(users).values({
       tgId: BigInt(Math.floor(Math.random() * 1000000000)),
@@ -247,5 +309,27 @@ describe('Home System Generator', () => {
         expect(g.size).toBeGreaterThan(v.size);
       }
     }
+  });
+
+  it('lays out discovered planets visually from hot inner worlds to cold outer worlds', async () => {
+    const planetsForLayout = [
+      { id: 'ice', name: 'x-8', biome: 'ice', size: 26 },
+      { id: 'capital', name: 'x-1', biome: 'green', size: 22 },
+      { id: 'volcanic', name: 'x-2', biome: 'volcanic', size: 12 },
+      { id: 'gas', name: 'x-7', biome: 'gas_giant', size: 36 },
+      { id: 'rocky', name: 'x-3', biome: 'rocky', size: 14 },
+    ];
+
+    const layouts = buildSystemMapLayouts(planetsForLayout, 123);
+    expect(layouts.map((layout) => layout.id)).toEqual([
+      'volcanic',
+      'rocky',
+      'capital',
+      'gas',
+      'ice',
+    ]);
+    expect(layouts.find((layout) => layout.id === 'gas')!.spriteSize).toBeGreaterThan(
+      layouts.find((layout) => layout.id === 'rocky')!.spriteSize,
+    );
   });
 });

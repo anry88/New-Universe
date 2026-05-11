@@ -8,7 +8,7 @@ Deterministic offline simulator for first-week economy progression (resources, b
 - **`scenarios/first-week.json`** — beginner vs optimized fixture definitions (`marketChunks` expands into granular NPC trades).
 - **`expected-ranges.json`** — inclusive milestone bands validated by tests / `npm run verify`.
 - **`artifacts/`** — generated JSON summaries (`artifacts/latest-summary.json` last run pointer). Ignored by git except `.gitkeep`.
-- **`src/catalog.ts`** — numeric mirrors of backend seeds/config (keep synchronized when balance changes). Includes **`HOME_SYSTEM_BASE_BIOME_IDS`** / **`HOME_SYSTEM_PLANET_COUNT_*`** aligned with `backend/src/features/world/biomes.ts` and `home-system-generator.ts`. Production buildings (`mine`, `drill`, **`smelter`**, **`fabrication_bay`**, …) must list `output` where the server catalog uses `baseOutput.resourceId` + `baseRate`.
+- **`src/catalog.ts`** — numeric mirrors of backend seeds/config (keep synchronized when balance changes). Includes **`HOME_SYSTEM_BASE_BIOME_IDS`** / fixed **`HOME_SYSTEM_PLANET_COUNT_* = 8`** aligned with `backend/src/features/world/biomes.ts` and `home-system-generator.ts`. Production buildings (`mine`, `drill`, **`smelter`**, **`fabrication_bay`**, …) must list `output` where the server catalog uses `baseOutput.resourceId` + `baseRate`.
 - **`src/simulate.ts`** — discrete-time integrator with parallel NPC trade resolution (no single serial trade blocks unrelated fills).
 - **`src/cli.ts`** — loads a scenario file, writes artifacts, optional `--verify`.
 
@@ -17,7 +17,7 @@ Deterministic offline simulator for first-week economy progression (resources, b
 The simulator mirrors backend building upgrades:
 
 - Upgrade from level **L** → **L+1**: resource cost scales by **1.6^L** (per resource, rounded); build time scales by **1.8^L** × `baseTimeSec`, then research modifiers from `src/effects.ts`.
-- Command Center `baseTimeSec` matches seeds (`catalog.ts`); genesis home capital still starts with a completed CC (see `home-system-generator`), while newly founded colonies queue CC construction.
+- Command Center `baseTimeSec` matches seeds (`catalog.ts`); genesis home capital starts with a completed CC (see `home-system-generator`), and colonizer settlement creates the first completed CC on the target planet.
 
 ## Sync contract
 

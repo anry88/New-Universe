@@ -154,7 +154,7 @@ export async function meRoutes(app: FastifyInstance) {
       const { colonies } = await import("../../db/schema.js");
 
       const userColonies = await db.query.colonies.findMany({
-        where: eq(colonies.ownerId, user.id),
+        where: and(eq(colonies.ownerId, user.id), eq(colonies.status, "active")),
         with: {
           planet: {
             with: {
@@ -164,8 +164,28 @@ export async function meRoutes(app: FastifyInstance) {
         },
       });
 
-      const homePlanets = homeSystem?.planets || [];
-      const colonyPlanets = userColonies.map((c) => c.planet);
+      const colonyPlanetIds = new Set(userColonies.map((c) => c.planetId));
+      const markPlanetSettlement = (planet: any) => {
+        const hasCommandCenter = (planet.buildings ?? []).some(
+          (building: any) =>
+            building.typeId === "command_center" &&
+            building.queueAction !== "build",
+        );
+        const isCapital =
+          planet.systemId === homeSystem?.id &&
+          homeSystem?.ownerId === user.id &&
+          hasCommandCenter;
+        return {
+          ...planet,
+          isColonized: isCapital || colonyPlanetIds.has(planet.id),
+        };
+      };
+
+      const homePlanets = (homeSystem?.planets || []).map(markPlanetSettlement);
+      const homePlanetIds = new Set(homePlanets.map((planet: any) => planet.id));
+      const colonyPlanets = userColonies
+        .map((c) => markPlanetSettlement(c.planet))
+        .filter((planet: any) => !homePlanetIds.has(planet.id));
       const allPlanets = [...homePlanets, ...colonyPlanets];
 
       const enrichedPlanets = await Promise.all(

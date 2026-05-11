@@ -47,7 +47,11 @@ export function SystemMapPage() {
   const home = meData.homeSystem;
 
   const ownedPlanetIds = useMemo(() => {
-    return new Set(meData?.planets?.map(p => p.id) ?? []);
+    return new Set(
+      meData?.planets
+        ?.filter((planet) => planet.isColonized !== false)
+        .map((planet) => planet.id) ?? [],
+    );
   }, [meData?.planets]);
   return (
     <div className="cosmic-screen" style={{ '--accent': '#5BD7FF', position: 'relative' } as React.CSSProperties}>
@@ -153,6 +157,7 @@ export function SystemMapPage() {
           ships={meData.ships || []}
           expeditions={meData.expeditions || []}
           onPlanetClick={(planet) => navigate(`/planet/${planet.id}`)}
+          onColonizeClick={() => navigate('/ships')}
           ownedPlanetIds={ownedPlanetIds}
         />
       </div>

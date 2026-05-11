@@ -14,6 +14,8 @@ import {
   applyShipSpeed,
   getResearchEffectsForUser,
 } from "../research/effects.js";
+import { checkColonizationGates } from "../colonies/colonization-rules.js";
+import { colonyService } from "../colonies/colonies.js";
 
 export interface LaunchExpeditionRequest {
   shipId: string;
@@ -73,12 +75,14 @@ async function getAvailableCargo(planetId: string, tx: any): Promise<number> {
 function calculateRequiredFuel(
   distance: number,
   fuelConsumption: number,
+  returnTrip = true,
 ): number {
   const perLy =
     Number.isFinite(fuelConsumption) && fuelConsumption > 0
       ? fuelConsumption
       : 1;
-  return Math.max(1, Math.ceil(distance * 2 * perLy));
+  const tripMultiplier = returnTrip ? 2 : 1;
+  return Math.max(1, Math.ceil(distance * tripMultiplier * perLy));
 }
 
 export async function launchExpedition(
@@ -182,6 +186,14 @@ export async function launchExpedition(
     };
   }
 
+  if (shipRow.shipRole === "colonization" && !targetPlanetId) {
+    return {
+      success: false,
+      status: 400,
+      error: "Colonizer expeditions require targetPlanetId",
+    };
+  }
+
   if (cargoLoaded > shipRow.shipCargoCapacity) {
     return {
       success: false,
@@ -192,11 +204,12 @@ export async function launchExpedition(
 
   let resolvedTargetPlanetId: string | null = null;
   if (targetPlanetId) {
-    if (shipRow.shipRole !== "recon") {
+    if (shipRow.shipRole !== "recon" && shipRow.shipRole !== "colonization") {
       return {
         success: false,
         status: 400,
-        error: "targetPlanetId is only supported for recon expeditions",
+        error:
+          "targetPlanetId is only supported for recon or colonization expeditions",
       };
     }
 
@@ -210,14 +223,6 @@ export async function launchExpedition(
     }
 
     const sys = targetPlanet.system;
-    if (!sys.isHome || sys.ownerId !== userId) {
-      return {
-        success: false,
-        status: 400,
-        error: "targetPlanetId must refer to a planet in your home system",
-      };
-    }
-
     if (
       Math.trunc(targetX) !== sys.sectorX ||
       Math.trunc(targetY) !== sys.sectorY ||
@@ -227,22 +232,50 @@ export async function launchExpedition(
         success: false,
         status: 400,
         error:
-          "targetSector must match the home system sector when targetPlanetId is set",
+          "targetSector must match the target system sector when targetPlanetId is set",
       };
     }
 
-    const already = await defaultDb.query.discoveredPlanets.findFirst({
-      where: and(
-        eq(discoveredPlanets.userId, userId),
-        eq(discoveredPlanets.planetId, targetPlanetId),
-      ),
-    });
-    if (already) {
-      return {
-        success: false,
-        status: 400,
-        error: "Planet is already surveyed",
-      };
+    if (shipRow.shipRole === "recon") {
+      if (!sys.isHome || sys.ownerId !== userId) {
+        return {
+          success: false,
+          status: 400,
+          error: "targetPlanetId must refer to a planet in your home system",
+        };
+      }
+
+      const already = await defaultDb.query.discoveredPlanets.findFirst({
+        where: and(
+          eq(discoveredPlanets.userId, userId),
+          eq(discoveredPlanets.planetId, targetPlanetId),
+        ),
+      });
+      if (already) {
+        return {
+          success: false,
+          status: 400,
+          error: "Planet is already surveyed",
+        };
+      }
+    } else {
+      const gates = await checkColonizationGates(userId, targetPlanetId);
+      if (!gates.allowed) {
+        return {
+          success: false,
+          status: 400,
+          error: gates.reason || "Colonization requirements not met",
+        };
+      }
+
+      const eligibility = await colonyService.canColonize(userId, targetPlanetId);
+      if (!eligibility.allowed) {
+        return {
+          success: false,
+          status: 400,
+          error: eligibility.reason || "Cannot colonize this planet",
+        };
+      }
     }
 
     resolvedTargetPlanetId = targetPlanetId;
@@ -257,9 +290,12 @@ export async function launchExpedition(
   const travelDistance = resolvedTargetPlanetId
     ? Math.max(1, distance)
     : distance;
+  const isOneWayColonization =
+    shipRow.shipRole === "colonization" && resolvedTargetPlanetId !== null;
   const fuelRequired = calculateRequiredFuel(
     travelDistance,
     Number(shipRow.shipFuelConsumption),
+    !isOneWayColonization,
   );
   const researchEffects = await getResearchEffectsForUser(userId, defaultDb);
   const speed = applyShipSpeed(Number(shipRow.shipSpeed), researchEffects);
@@ -315,6 +351,7 @@ export async function launchExpedition(
           requestedDistance: distance,
           speed,
           engineFactor,
+          returnTrip: !isOneWayColonization,
         },
       })
       .returning();

@@ -26,10 +26,10 @@ import {
   distancePointToSegment,
   interpolateSystemMapPoint,
   sectorDeltaToSystemMapPoint,
+  systemMapPlanetDiscoveryRadius,
 } from "@shared/format/systemMapLayout.js";
 
 const POLL_INTERVAL_MS = 30000;
-const HOME_PLANET_DISCOVERY_RADIUS = 100;
 
 /**
  * Calculates current position of a ship in an expedition using linear interpolation.
@@ -139,6 +139,7 @@ async function discoverHomePlanetsAlongRoute(
   const homePlanets = await tx
     .select({
       id: planets.id,
+      name: planets.name,
       biome: planets.biome,
       size: planets.size,
     })
@@ -196,7 +197,7 @@ async function discoverHomePlanetsAlongRoute(
     .filter(
       (layout) =>
         distancePointToSegment(layout, segmentStart, segmentEnd) <=
-        HOME_PLANET_DISCOVERY_RADIUS,
+        systemMapPlanetDiscoveryRadius(layout),
     );
 
   if (newlyVisiblePlanets.length === 0) return [];
@@ -379,8 +380,6 @@ async function handleArrivalAtHome(
   expedition: typeof expeditions.$inferSelect,
   tx: any,
 ) {
-  const now = new Date();
-
   // 1. Mark expedition as completed (or delete it to clean up the map immediately)
   // The user requested to delete it: "его нужо удалять"
   await tx.delete(expeditions).where(eq(expeditions.id, expedition.id));

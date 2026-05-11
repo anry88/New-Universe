@@ -63,10 +63,20 @@ describe('ColonyService', () => {
     otherPlanetId = otherPlanet.id;
   });
 
-  it('rejects colonization of home system planets', async () => {
+  it('rejects undiscovered own home-system planets', async () => {
     const result = await colonyService.canColonize(userId, homePlanetId);
     expect(result.allowed).toBe(false);
-    expect(result.reason).toBe('Cannot colonize home systems');
+    expect(result.reason).toBe('Planet not discovered');
+  });
+
+  it('allows discovered own home-system planets without an active base', async () => {
+    await db
+      .insert(discoveredPlanets)
+      .values({ userId, planetId: homePlanetId })
+      .onConflictDoNothing();
+
+    const result = await colonyService.canColonize(userId, homePlanetId);
+    expect(result.allowed).toBe(true);
   });
 
   it('rejects colonization of undiscovered planets', async () => {

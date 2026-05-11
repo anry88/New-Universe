@@ -17,7 +17,7 @@ Each module owns one domain and exports the Drizzle table objects. `schema.ts` r
 - **`resources.ts`** — `resources` reference catalog. Columns: `id` (text PK), `name` (`jsonb<{ ru, en }>`), `tier`, `symbol`, `baseRegenRate`, `defaultStorageCap`. Seeded by `seed/resources.ts` with 24 resources across tiers 1–4, including the oil→fuel production chain (`oil`, `fuel`).
 - **`world.ts`** — `systems`, `planets`, `planet_resources`, `richness`. Notable details:
   - `systems.ownerId` is the home-system owner; `isHome` flags it as the player's starting system; `sectorX/Y/Z` are deterministic per-user sector coordinates produced by `home-system-generator.ts`; `x/y/z` are the system's position within the sector (numeric, precision 10 scale 2), used for distance calculations between systems in the same sector.
-  - `planets` carries `biome` (text), `size` (10–19), `slotCount` (≈80% of `size`), `name` (`{shortTag}-{index}` for home worlds — see `@shared/format/homeSystemNaming`).
+  - `planets` carries `biome` (text), `size` (biome-size band from `features/world/biomes.ts`), `slotCount` (≈70% of `size`, with a larger guaranteed home capital), `name` (`{shortTag}-{index}` for home worlds — see `@shared/format/homeSystemNaming`).
   - `planet_resources` is a composite-PK `(planet_id, resource_id)` table with `amount`, `lastUpdateAt`, `regenRate` (numeric). It is the source of truth for current per-planet balances.
   - `richness` is also `(planet_id, resource_id)` and stores `value` constrained to `0..5` via `richness_value_check`. It represents discovered deposit tier, not running balance.
   - `planets_system_id_idx` covers the common `systemId` lookup pattern.
@@ -32,7 +32,7 @@ Each module owns one domain and exports the Drizzle table objects. `schema.ts` r
   - `market_offers` — offer book rows keyed by scope (`npc`/`player`), side (`buy`/`sell`), resource, status, price, qty, fees, and expiry.
   - `market_orders` — per-user order lifecycle rows (`open`, `partially_filled`, `filled`, `cancelled`, `expired`, `failed`, `settled`) with fill totals, fees, optional delivery/offer references, nullable `planet_id` (FK → `planets`, `ON DELETE set null`) for settlement routing, and optional `delivery_ready_at` for NPC buy ETA indexing (`market_orders_fulfillment_tick_idx`).
   - `market_order_fills` — immutable fill records tied to orders/offers, with execution price/qty, fees, and optional delivery expedition reference.
-- **`colonies.ts`** — `colonies` table. Columns: `id` (UUID PK), `ownerId` (references `users.id`), `planetId` (references `planets.id`), `foundedAt`, `status`. A planet can only have one colony total across all players (`colonies_planet_id_idx`).
+- **`colonies.ts`** — `colonies` table. Columns: `id` (UUID PK), `ownerId` (references `users.id`), `planetId` (references `planets.id`), `foundedAt`, `status`. A planet can only have one colony total across all players (`colonies_planet_id_idx`); rows represent both neutral/common-space colonies and colonizer-settled non-capital bodies inside the player's own home system.
 - **`multiplayer.ts`** — documents that Phase 3 sector presence composes `systems`, `planets`, `colonies`, `ships`, and `users`; no extra tables in this slice (see `features/multiplayer/presence.ts`).
 
 

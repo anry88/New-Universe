@@ -1,10 +1,11 @@
 import { db as defaultDb } from '../../db/index.js';
-import { ships, shipTypes, buildings, planets, systems, users } from '../../db/schema.js';
+import { ships, shipTypes, buildings, planets, users } from '../../db/schema.js';
 import { eq, and, sql, gte, isNotNull, lte } from 'drizzle-orm';
 import { spendResources } from '../resources/transactions.js';
 import { SHIP_RESEARCH_GATES } from '../../config/research-unlocks.js';
 import { assertResearchRequirement, loadUserResearchLevels } from '../research/gates.js';
 import { rushDiamondCost, rushRemainingSeconds } from '../../lib/diamonds.js';
+import { getPlayerPlanetSettlement } from '../colonies/ownership.js';
 
 export interface BuildShipRequest {
   planetId: string;
@@ -34,10 +35,8 @@ export async function buildShip(
     return { success: false, status: 404, error: 'Planet not found' };
   }
 
-  const system = await db.query.systems.findFirst({
-    where: eq(systems.id, planet.systemId),
-  });
-  if (!system || system.ownerId !== userId) {
+  const settlement = await getPlayerPlanetSettlement(userId, planetId, db);
+  if (!settlement?.isSettled) {
     return { success: false, status: 403, error: 'Planet does not belong to you' };
   }
 

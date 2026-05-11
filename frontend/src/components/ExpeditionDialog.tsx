@@ -38,12 +38,30 @@ export function ExpeditionDialog({
     y: originY + 10,
     z: originZ,
   });
+  const [targetPlanetId, setTargetPlanetId] = useState<string | null>(null);
   const [cargo] = useState(0);
   const launch = useLaunchExpedition();
 
   const homeSystem = meData?.homeSystem;
+  const isColonizer =
+    shipType.role === "colonization" || ship.typeId === "colonizer";
+  const colonizationTargets = useMemo(
+    () =>
+      (homeSystem?.planets ?? []).filter(
+        (planet) =>
+          planet.id !== ship.locationPlanetId &&
+          planet.isDiscovered !== false &&
+          planet.isColonized === false,
+      ),
+    [homeSystem?.planets, ship.locationPlanetId],
+  );
   const ownedPlanetIds = useMemo(
-    () => new Set(meData?.planets?.map((p) => p.id) ?? []),
+    () =>
+      new Set(
+        meData?.planets
+          ?.filter((planet) => planet.isColonized !== false)
+          .map((planet) => planet.id) ?? [],
+      ),
     [meData?.planets],
   );
 
@@ -64,24 +82,28 @@ export function ExpeditionDialog({
     );
   }, [target, originX, originY, originZ]);
 
+  const effectiveDistance = targetPlanetId ? Math.max(1, distance) : distance;
+
   const etaSeconds = useMemo(() => {
     const speed = Number(shipType.speed);
     if (speed <= 0) return 0;
-    return Math.max(0, Math.ceil((distance * 60) / speed));
-  }, [distance, shipType.speed]);
+    return Math.max(0, Math.ceil((effectiveDistance * 60) / speed));
+  }, [effectiveDistance, shipType.speed]);
 
   const recommendedFuel = useMemo(() => {
     const perLy = Number(shipType.fuelConsumption);
+    const tripMultiplier = isColonizer && targetPlanetId ? 1 : 2;
     if (!Number.isFinite(perLy) || perLy <= 0)
-      return Math.max(1, Math.ceil(distance * 2));
-    return Math.max(1, Math.ceil(2 * distance * perLy));
-  }, [distance, shipType.fuelConsumption]);
+      return Math.max(1, Math.ceil(effectiveDistance * tripMultiplier));
+    return Math.max(1, Math.ceil(tripMultiplier * effectiveDistance * perLy));
+  }, [effectiveDistance, shipType.fuelConsumption, isColonizer, targetPlanetId]);
 
   const shortOnFuel = fuelAvailable > 0 && recommendedFuel > fuelAvailable;
   const launchBlocked =
     recommendedFuel <= 0 ||
     recommendedFuel > fuelAvailable ||
-    fuelAvailable <= 0;
+    fuelAvailable <= 0 ||
+    (isColonizer && !targetPlanetId);
 
   const handleLaunch = async () => {
     try {
@@ -91,6 +113,7 @@ export function ExpeditionDialog({
         targetY: target.y,
         targetZ: target.z,
         cargoLoaded: cargo,
+        targetPlanetId: targetPlanetId ?? undefined,
       });
       onClose();
     } catch (err) {
@@ -100,6 +123,7 @@ export function ExpeditionDialog({
 
   const onPickSectorDelta = useCallback(
     (dx: number, dy: number) => {
+      if (isColonizer) return;
       setTarget((prev) => ({
         ...prev,
         x: originX + dx,
@@ -107,7 +131,22 @@ export function ExpeditionDialog({
         z: originZ,
       }));
     },
-    [originX, originY, originZ],
+    [originX, originY, originZ, isColonizer],
+  );
+
+  const onPickPlanet = useCallback(
+    (planetId: string) => {
+      if (!isColonizer) return;
+      const planet = colonizationTargets.find((candidate) => candidate.id === planetId);
+      if (!planet || !homeSystem) return;
+      setTargetPlanetId(planet.id);
+      setTarget({
+        x: homeSystem.sectorX,
+        y: homeSystem.sectorY,
+        z: homeSystem.sectorZ,
+      });
+    },
+    [isColonizer, colonizationTargets, homeSystem],
   );
 
   const sectorDx = target.x - originX;
@@ -119,7 +158,9 @@ export function ExpeditionDialog({
           sectorDx,
           sectorDy,
           launchPlanetId: ship.locationPlanetId,
+          targetPlanetId,
           onPickSectorDelta,
+          onPickPlanet: isColonizer ? onPickPlanet : undefined,
         }
       : undefined;
 
@@ -270,10 +311,13 @@ export function ExpeditionDialog({
             lineHeight: 1.45,
           }}
         >
-          <strong style={{ color: "var(--text)" }}>Pick a route point</strong> —
-          the scout flies through the flat system plane and scans along the way.
-          Hidden planets stay unmapped until they enter the scout visibility
-          corridor.
+          <strong style={{ color: "var(--text)" }}>
+            {isColonizer ? "Select target planet" : "Pick a route point"}
+          </strong>{" "}
+          —{" "}
+          {isColonizer
+            ? "choose a discovered world for colonizer deployment."
+            : "the scout flies through the flat system plane and scans along the way. Hidden planets stay unmapped until they enter the scout visibility corridor."}
         </div>
 
         <div
@@ -384,7 +428,7 @@ export function ExpeditionDialog({
                   fontSize: 16,
                 }}
               >
-                {distance.toFixed(1)}{" "}
+                {effectiveDistance.toFixed(1)}{" "}
                 <span style={{ fontSize: 11, color: "var(--text-faint)" }}>
                   ly
                 </span>
@@ -442,8 +486,8 @@ export function ExpeditionDialog({
                     fontSize: 13,
                   }}
                 >
-                  <Fuel size={16} style={{ opacity: 0.85 }} /> Fuel (round-trip
-                  est.)
+                  <Fuel size={16} style={{ opacity: 0.85 }} /> Fuel (
+                  {isColonizer && targetPlanetId ? "one-way" : "round-trip"} est.)
                 </div>
                 <span
                   style={{
@@ -471,7 +515,9 @@ export function ExpeditionDialog({
                 <strong style={{ color: "var(--text)" }}>
                   {recommendedFuel}
                 </strong>{" "}
-                units (2× {distance.toFixed(1)} ly ×{" "}
+                units (
+                {isColonizer && targetPlanetId ? "1" : "2"}×{" "}
+                {effectiveDistance.toFixed(1)} ly ×{" "}
                 {Number(shipType.fuelConsumption).toFixed(2)} / ly). The server
                 reserves this automatically.
               </div>
@@ -533,6 +579,10 @@ export function ExpeditionDialog({
         >
           {launch.isPending ? (
             "Preparing…"
+          ) : isColonizer && !targetPlanetId ? (
+            <>
+              <Target size={20} /> SELECT PLANET
+            </>
           ) : launchBlocked ? (
             <>
               <Target size={20} /> INSUFFICIENT FUEL
