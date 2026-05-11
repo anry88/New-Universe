@@ -674,23 +674,6 @@ export function CosmicSystemRenderer({
                 >
                   <polygon points="0,0 16,8 0,16 4,8" />
                 </svg>
-                {isMoving && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "100%",
-                      left: "50%",
-                      transform: `translateX(-50%) rotate(${-angle}rad)`,
-                      fontSize: 8,
-                      fontFamily: "var(--font-mono)",
-                      color: "currentColor",
-                      whiteSpace: "nowrap",
-                      marginTop: 4,
-                    }}
-                  >
-                    {isReturning ? "RETURNING" : "IN FLIGHT"}
-                  </div>
-                )}
               </div>
             );
           })}

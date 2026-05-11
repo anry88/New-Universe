@@ -53,6 +53,7 @@ Sector map visibility for Phase 3.
 Player state retrieval.
 
 - **`routes.ts`** — `meRoutes(app)` registers `GET /me`. Requires a valid JWT in the `Authorization: Bearer <token>` header. Returns the database user record mapped to the `User` shared type, obfuscates undiscovered home planets, annotates discovered planets with `isColonized` so the UI can distinguish mapped bodies from buildable settlements, and includes only the current user's active expeditions so stale/foreign trails never leak into the map UI.
+- **`online-sync.ts`** — active-session completion service used by `GET /me`. It finalizes due buildings, research, ship builds, expeditions, and colonizer arrivals for the current user with notification suppression so Telegram pushes remain an offline fallback.
 
 ## `buildings/`
 
@@ -148,13 +149,27 @@ Tech tree definitions and starting research on a planet.
 
 - **`data.ts`** — exports `TECH_TREE` and `getResearchDef(branch, level)` backed by **`shared/config/researchCatalog.ts`** (seven branches × **five** tiers); building prerequisites use catalog id `lab`, and all research costs use seeded resource ids (`iron`, `silicon`, `tritium`, ...).
 - **`gates.ts`** — progression gates: `loadUserResearchLevels(userId, db)`, `meetsResearchRequirement`, and `assertResearchRequirement` enforce unlock rules from `config/research-unlocks.ts` for buildings, ships, colonization, cargo routes, and NPC market orders.
-- **`completion.ts`** — `processCompletedResearch(db)` scans due `research_progress` rows (`completes_at <= now`), increments `level` exactly once per completion, clears the timer, calls `invalidateResearchEffectsCache`, and inserts a `research_done` notification. Used by `workers/research.ts`.
+- **`completion.ts`** — `processCompletedResearch(db, options?)` scans due `research_progress` rows (`completes_at <= now`), optionally scoped to one user, increments `level` exactly once per completion, clears the timer, calls `invalidateResearchEffectsCache`, and inserts a `research_done` notification unless active-session sync passed `skipNotification`.
 - **`effects.ts`** — typed research-effects engine with deterministic stacking. Exports `getResearchEffectsForUser(userId)` plus apply helpers for production, storage, ship speed, sensor range, and build time. Exports `invalidateResearchEffectsCache(userId)` as a hook after tier completions (no-op until memoization exists).
 - **`effects.test.ts`** — unit tests for deterministic composition and stacked resource/ship/sensor/build-time effects.
-- **`routes.ts`** — registers `POST /start` (mounted at `/research` from `index.ts`). Validates planet ownership, prerequisite research rows, lab building level (`buildings.typeId === 'lab'`), spends resources, and upserts `research_progress`.
+- **`routes.ts`** — registers `POST /start` and **`POST /rush`** (mounted at `/research` from `index.ts`). Start validates planet ownership, prerequisite research rows, lab building level (`buildings.typeId === 'lab'`), spends resources, and upserts `research_progress`; rush validates the active branch and delegates diamond spending to `rushActiveResearch`.
+- **`rush.ts`** — `rushActiveResearch(userId, branch)` prices the remaining timer through `lib/diamonds`, atomically spends `users.diamonds`, increments the tier, clears `completesAt`, and invalidates research effects without creating a Telegram notification.
 - **`research.test.ts`** — integration test for `POST /research/start`; creates a user and inserts a `lab` at **`slotIndex: 1`** (slot `0` is reserved for the seeded `command_center`), starts mining tier 1 research, and asserts `iron`/`silicon` are atomically deducted from `planet_resources`.
+- **`rush.test.ts`** — integration tests for research rush success and insufficient-diamond rollback.
 - **`gates.test.ts`** — unit coverage for research level maps, requirement checks, and unlock assertions.
-- **`completion.test.ts`** — asserts single completion, idempotent ticks, future-dated timers ignored, effects multiplier change, and notification creation.
+- **`completion.test.ts`** — asserts single completion, idempotent ticks, future-dated timers ignored, effects multiplier change, notification creation, and online scoped completion without notification.
+
+## `ships/`
+
+Ship construction and fleet queue helpers.
+
+- **`build.ts`** — `buildShip`, `getShipQueue`, `rushShipBuild`, and `syncReadyShips(userId?, options?)`. Queue payloads include server-derived `queueStartedAt`; `syncReadyShips` can be scoped to the active user and suppress stale pending `ship_done` notifications.
+- **`routes.ts`** — registers `GET /types`, `POST /build`, `GET /queue`, and `POST /rush`; queue reads run user-scoped `syncReadyShips(..., { skipNotifications: true })` before returning the current queue.
+- **`build.test.ts`** — integration coverage for ship construction gates and active-session ready-ship sync.
+
+## Shared feature helpers
+
+- **`timers.ts`** — server-side derivation helpers for timer metadata (`queueStartedAt` / `startedAt`) from catalog durations and completion timestamps, used by `/me`, `/buildings/queue`, and `/ships/queue`.
 
 ## `colonies/`
 

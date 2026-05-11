@@ -14,6 +14,15 @@ import {
 import { and, asc, eq, inArray, or } from "drizzle-orm";
 import { syncTutorialProgress } from "../tutorial/service.js";
 import { homeSystemShortTag } from "@shared/format/homeSystemNaming.js";
+import { syncDuePlayerState } from "./online-sync.js";
+import { getResearchEffectsForUser } from "../research/effects.js";
+import {
+  deriveBuildingQueueStartedAt,
+  deriveResearchStartedAt,
+  deriveShipQueueStartedAt,
+} from "../timers.js";
+import { getResearchDef } from "../research/data.js";
+import { rushPricingMeta } from "../../lib/diamonds.js";
 
 export async function meRoutes(app: FastifyInstance) {
   app.get("/", async (request, reply) => {
@@ -51,6 +60,27 @@ export async function meRoutes(app: FastifyInstance) {
         });
       }
 
+      await syncDuePlayerState(user.id);
+
+      const [buildingTypeRows, shipTypeRows, researchEffects] = await Promise.all([
+        db.query.buildingTypes.findMany(),
+        db.query.shipTypes.findMany(),
+        getResearchEffectsForUser(user.id, db),
+      ]);
+      const buildingTypeMap = new Map(buildingTypeRows.map((row) => [row.id, row]));
+      const shipTypeMap = new Map(shipTypeRows.map((row) => [row.id, row]));
+      const enrichPlanetTimers = (planet: any) => ({
+        ...planet,
+        buildings: (planet.buildings ?? []).map((building: any) => ({
+          ...building,
+          queueStartedAt: deriveBuildingQueueStartedAt(
+            building,
+            buildingTypeMap.get(building.typeId),
+            researchEffects,
+          ),
+        })),
+      });
+
       const discoveredPlanetIds = await db
         .select({ planetId: discoveredPlanets.planetId })
         .from(discoveredPlanets)
@@ -85,7 +115,7 @@ export async function meRoutes(app: FastifyInstance) {
           planets: homeSystem.planets.map((p) => {
             const isDiscovered = discoveredPlanetIdSet.has(p.id);
             if (isDiscovered) {
-              return { ...p, isDiscovered: true };
+              return { ...enrichPlanetTimers(p), isDiscovered: true };
             }
             // Obfuscate undiscovered planet
             return {
@@ -129,8 +159,15 @@ export async function meRoutes(app: FastifyInstance) {
       const userShips = await db.query.ships.findMany({
         where: eq(ships.ownerId, user.id),
       });
+      const enrichedShips = userShips.map((ship) => ({
+        ...ship,
+        queueStartedAt: deriveShipQueueStartedAt(
+          ship,
+          shipTypeMap.get(ship.typeId),
+        ),
+      }));
 
-      const userShipIds = userShips.map((ship) => ship.id);
+      const userShipIds = enrichedShips.map((ship) => ship.id);
       const activeExpeditions = userShipIds.length
         ? await db.query.expeditions.findMany({
             where: and(
@@ -143,8 +180,20 @@ export async function meRoutes(app: FastifyInstance) {
           })
         : [];
 
-      const userResearch = await db.query.researchProgress.findMany({
+      const userResearchRows = await db.query.researchProgress.findMany({
         where: eq(researchProgress.userId, user.id),
+      });
+      const userResearch = userResearchRows.map((row) => {
+        const nextDef = row.completesAt
+          ? getResearchDef(row.branch, row.level + 1)
+          : undefined;
+        return {
+          ...row,
+          startedAt: deriveResearchStartedAt(
+            row.completesAt,
+            nextDef?.timeSec,
+          ),
+        };
       });
 
       const tutorialProgress = await syncTutorialProgress(user.id);
@@ -166,7 +215,8 @@ export async function meRoutes(app: FastifyInstance) {
 
       const colonyPlanetIds = new Set(userColonies.map((c) => c.planetId));
       const markPlanetSettlement = (planet: any) => {
-        const hasCommandCenter = (planet.buildings ?? []).some(
+        const planetWithTimers = enrichPlanetTimers(planet);
+        const hasCommandCenter = (planetWithTimers.buildings ?? []).some(
           (building: any) =>
             building.typeId === "command_center" &&
             building.queueAction !== "build",
@@ -176,7 +226,7 @@ export async function meRoutes(app: FastifyInstance) {
           homeSystem?.ownerId === user.id &&
           hasCommandCenter;
         return {
-          ...planet,
+          ...planetWithTimers,
           isColonized: isCapital || colonyPlanetIds.has(planet.id),
         };
       };
@@ -223,9 +273,10 @@ export async function meRoutes(app: FastifyInstance) {
             }
           : undefined,
         planets: enrichedPlanets.filter((p) => p.isDiscovered !== false),
-        ships: userShips,
+        ships: enrichedShips,
         expeditions: activeExpeditions,
         research: userResearch,
+        rushPricing: rushPricingMeta(),
       };
 
       return reply.send({ user: userObj });

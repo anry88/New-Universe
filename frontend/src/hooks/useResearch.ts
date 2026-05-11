@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../lib/api';
 import type { User } from '@shared/types/user';
+import type { RushResearchResponse } from '@shared/types/research';
 
 export interface StartResearchVariables {
   branch: string;
@@ -14,27 +15,35 @@ export function useStartResearch() {
 
   return useMutation({
     mutationFn: (body: StartResearchVariables) =>
-      apiFetch<{ success: boolean; completesAt: string }>('/research/start', {
+      apiFetch<{ success: boolean; completesAt: string; startedAt?: string }>('/research/start', {
         method: 'POST',
         body: JSON.stringify({ branch: body.branch, planetId: body.planetId }),
       }),
     onMutate: async (vars) => {
       await queryClient.cancelQueries({ queryKey: ['me'] });
       const previous = queryClient.getQueryData<User>(['me']);
-      const optimisticCompletesAt = new Date(Date.now() + vars.estimatedDurationSec * 1000).toISOString();
+      const optimisticStartedAt = new Date().toISOString();
+      const optimisticCompletesAt = new Date(
+        Date.now() + vars.estimatedDurationSec * 1000,
+      ).toISOString();
 
       queryClient.setQueryData<User>(['me'], (old) => {
         if (!old) return old;
         const research = [...(old.research ?? [])];
         const idx = research.findIndex((r) => r.branch === vars.branch);
         if (idx >= 0) {
-          research[idx] = { ...research[idx], completesAt: optimisticCompletesAt };
+          research[idx] = {
+            ...research[idx],
+            completesAt: optimisticCompletesAt,
+            startedAt: optimisticStartedAt,
+          };
         } else {
           research.push({
             userId: old.id,
             branch: vars.branch,
             level: 0,
             completesAt: optimisticCompletesAt,
+            startedAt: optimisticStartedAt,
           });
         }
         return { ...old, research };
@@ -48,6 +57,21 @@ export function useStartResearch() {
       }
     },
     onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['me'] });
+    },
+  });
+}
+
+export function useRushResearch() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (branch: string) =>
+      apiFetch<RushResearchResponse>('/research/rush', {
+        method: 'POST',
+        body: JSON.stringify({ branch }),
+      }),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['me'] });
     },
   });

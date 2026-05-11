@@ -62,7 +62,7 @@ export async function shipsRoutes(app: FastifyInstance) {
   app.get('/queue', async (request, reply) => {
     const auth = resolveUserId(request, reply);
     if (!auth.ok) return;
-    await syncReadyShips();
+    await syncReadyShips(auth.userId, { skipNotifications: true });
     const queue = await getShipQueue(auth.userId);
     return reply.send(queue);
   });

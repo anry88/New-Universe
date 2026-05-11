@@ -222,6 +222,7 @@ async function discoverHomePlanetsAlongRoute(
 async function handleArrivalAtTarget(
   expedition: typeof expeditions.$inferSelect,
   tx: any,
+  options: { skipNotifications?: boolean } = {},
 ) {
   const result = expedition.result as any;
   const durationMs =
@@ -253,7 +254,7 @@ async function handleArrivalAtTarget(
   // ship, plant a level-1 command_center instantly, bootstrap the colony,
   // and complete the expedition (no return trip).
   if (expedition.type === "colonizer" && expedition.targetPlanetId) {
-    const colonized = await autoColonizeAtTarget(expedition, tx);
+    const colonized = await autoColonizeAtTarget(expedition, tx, options);
     if (colonized) {
       await tx.delete(expeditions).where(eq(expeditions.id, expedition.id));
       logger.info(
@@ -298,6 +299,7 @@ async function handleArrivalAtTarget(
 async function autoColonizeAtTarget(
   expedition: typeof expeditions.$inferSelect,
   tx: any,
+  options: { skipNotifications?: boolean } = {},
 ): Promise<boolean> {
   if (!expedition.targetPlanetId) return false;
 
@@ -362,16 +364,17 @@ async function autoColonizeAtTarget(
   // Bootstrap economy.
   await bootstrapColony(expedition.targetPlanetId, tx);
 
-  // Notify the player.
-  await tx.insert(notifications).values({
-    userId: ship.ownerId,
-    type: "colony_founded",
-    payload: {
-      expeditionId: expedition.id,
-      planetId: expedition.targetPlanetId,
-      shipId: ship.id,
-    },
-  });
+  if (!options.skipNotifications) {
+    await tx.insert(notifications).values({
+      userId: ship.ownerId,
+      type: "colony_founded",
+      payload: {
+        expeditionId: expedition.id,
+        planetId: expedition.targetPlanetId,
+        shipId: ship.id,
+      },
+    });
+  }
 
   return true;
 }
@@ -379,6 +382,7 @@ async function autoColonizeAtTarget(
 async function handleArrivalAtHome(
   expedition: typeof expeditions.$inferSelect,
   tx: any,
+  options: { skipNotifications?: boolean } = {},
 ) {
   // 1. Mark expedition as completed (or delete it to clean up the map immediately)
   // The user requested to delete it: "его нужо удалять"
@@ -405,7 +409,7 @@ async function handleArrivalAtHome(
     .from(ships)
     .where(eq(ships.id, expedition.shipId))
     .limit(1);
-  if (ship) {
+  if (ship && !options.skipNotifications) {
     await tx.insert(notifications).values({
       userId: ship.ownerId,
       type: "expedition_returned",
@@ -418,8 +422,20 @@ async function handleArrivalAtHome(
   }
 }
 
-export async function processExpeditions(): Promise<void> {
-  const now = new Date();
+export async function processExpeditions(
+  options: { userId?: string; skipNotifications?: boolean; now?: Date } = {},
+): Promise<void> {
+  const now = options.now ?? new Date();
+  const activeConditions = [
+    or(
+      eq(expeditions.status, "in_flight"),
+      eq(expeditions.status, "returning"),
+    ),
+  ];
+  if (options.userId) {
+    activeConditions.push(eq(ships.ownerId, options.userId));
+  }
+
   const activeExpeditions = await db
     .select({
       expedition: expeditions,
@@ -439,12 +455,7 @@ export async function processExpeditions(): Promise<void> {
     .innerJoin(shipTypes, eq(shipTypes.id, ships.typeId))
     .innerJoin(planets, eq(planets.id, expeditions.originPlanetId))
     .innerJoin(systems, eq(systems.id, planets.systemId))
-    .where(
-      or(
-        eq(expeditions.status, "in_flight"),
-        eq(expeditions.status, "returning"),
-      ),
-    );
+    .where(and(...activeConditions));
 
   if (activeExpeditions.length === 0) return;
 
@@ -503,9 +514,13 @@ export async function processExpeditions(): Promise<void> {
       // 3. Handle arrival
       if (now >= expedition.eta) {
         if (expedition.status === "in_flight") {
-          await handleArrivalAtTarget(expedition, tx);
+          await handleArrivalAtTarget(expedition, tx, {
+            skipNotifications: options.skipNotifications,
+          });
         } else if (expedition.status === "returning") {
-          await handleArrivalAtHome(expedition, tx);
+          await handleArrivalAtHome(expedition, tx, {
+            skipNotifications: options.skipNotifications,
+          });
         }
       }
     });

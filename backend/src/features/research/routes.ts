@@ -6,6 +6,8 @@ import { researchProgress, buildings, planets, systems } from '../../db/schema.j
 import { eq, and, desc, isNull } from 'drizzle-orm';
 import { getResearchDef } from './data.js';
 import { spendResources } from '../resources/transactions.js';
+import { rushActiveResearch } from './rush.js';
+import type { RushResearchRequest } from '@shared/types/research.js';
 
 export async function researchRoutes(app: FastifyInstance) {
   app.post('/start', async (request, reply) => {
@@ -111,7 +113,8 @@ export async function researchRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: spendResult.error });
     }
 
-    const completesAt = new Date(Date.now() + def.timeSec * 1000);
+    const startedAt = new Date();
+    const completesAt = new Date(startedAt.getTime() + def.timeSec * 1000);
 
     // Upsert progress
     if (active) {
@@ -123,6 +126,36 @@ export async function researchRoutes(app: FastifyInstance) {
         .values({ userId, branch, level: 0, completesAt });
     }
 
-    return reply.send({ success: true, completesAt });
+    return reply.send({ success: true, completesAt, startedAt });
+  });
+
+  app.post('/rush', async (request, reply) => {
+    const authHeader = request.headers.authorization;
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+    if (!token) {
+      return reply.status(401).send({ error: 'Unauthorized' });
+    }
+
+    let userId: string;
+    try {
+      const payload = jwt.verify(token, env.JWT_SECRET) as { userId: string };
+      userId = payload.userId;
+    } catch {
+      return reply.status(401).send({ error: 'Invalid token' });
+    }
+
+    const { branch } = request.body as RushResearchRequest;
+    if (!branch || typeof branch !== 'string') {
+      return reply.status(400).send({ error: 'branch is required' });
+    }
+
+    try {
+      const result = await rushActiveResearch(userId, branch);
+      return reply.send(result);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Bad Request';
+      return reply.status(400).send({ error: message });
+    }
   });
 }

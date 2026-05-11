@@ -1,6 +1,9 @@
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../lib/api';
 import { RushShipBuildResponse, Ship, ShipQueueItem, ShipType } from '@shared/types/ships';
+
+const MAX_TIMEOUT_MS = 2_147_483_647;
 
 export function useShipTypes() {
   return useQuery({
@@ -25,11 +28,32 @@ export function useBuildShip() {
 }
 
 export function useShipQueue() {
-  return useQuery({
+  const queryClient = useQueryClient();
+  const query = useQuery({
     queryKey: ['ship-queue'],
     queryFn: () => apiFetch<{ queue: ShipQueueItem[] }>('/ships/queue'),
-    refetchInterval: 1000,
+    refetchInterval: false,
   });
+
+  useEffect(() => {
+    const nextDue = (query.data?.queue ?? [])
+      .map((item) => new Date(item.queueCompletesAt).getTime())
+      .filter((ms) => Number.isFinite(ms))
+      .sort((a, b) => a - b)[0];
+    if (nextDue == null) return;
+
+    const delay = Math.min(
+      Math.max(0, nextDue - Date.now()) + 250,
+      MAX_TIMEOUT_MS,
+    );
+    const id = window.setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: ['ship-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['me'] });
+    }, delay);
+    return () => window.clearTimeout(id);
+  }, [query.data, queryClient]);
+
+  return query;
 }
 
 export function useRushShip() {

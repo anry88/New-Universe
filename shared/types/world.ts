@@ -14,7 +14,8 @@ export interface Building {
   level: number;
   slotIndex: number;
   queueAction?: 'build' | 'upgrade' | 'destroy';
-  queueCompletesAt?: string;
+  queueCompletesAt?: string | null;
+  queueStartedAt?: string | null;
 }
 
 export interface Planet {

@@ -12,8 +12,10 @@ import {
 import { rushDiamondCost, rushPricingMeta, rushRemainingSeconds } from '../../lib/diamonds.js';
 
 import { db } from '../../db/index.js';
-import { buildings, colonies, planets, systems } from '../../db/schema.js';
+import { buildings, buildingTypes, colonies, planets, systems } from '../../db/schema.js';
 import { and, eq, isNotNull, or } from 'drizzle-orm';
+import { getResearchEffectsForUser } from '../research/effects.js';
+import { deriveBuildingQueueStartedAt } from '../timers.js';
 
 export async function buildingsRoutes(app: FastifyInstance) {
   app.addHook('preHandler', async (request, reply) => {
@@ -113,6 +115,7 @@ export async function buildingsRoutes(app: FastifyInstance) {
 
   app.get('/queue', async (request) => {
     const userId = (request as any).userId as string;
+    const researchEffects = await getResearchEffectsForUser(userId, db);
 
     const rows = await db
       .select({
@@ -122,8 +125,10 @@ export async function buildingsRoutes(app: FastifyInstance) {
         level: buildings.level,
         queueAction: buildings.queueAction,
         queueCompletesAt: buildings.queueCompletesAt,
+        baseTimeSec: buildingTypes.baseTimeSec,
       })
       .from(buildings)
+      .innerJoin(buildingTypes, eq(buildingTypes.id, buildings.typeId))
       .innerJoin(planets, eq(planets.id, buildings.planetId))
       .innerJoin(systems, eq(systems.id, planets.systemId))
       .leftJoin(colonies, eq(colonies.planetId, planets.id))
@@ -140,6 +145,11 @@ export async function buildingsRoutes(app: FastifyInstance) {
         ...row,
         queueAction: row.queueAction as 'build' | 'upgrade' | 'destroy',
         queueCompletesAt: row.queueCompletesAt!.toISOString(),
+        queueStartedAt: deriveBuildingQueueStartedAt(
+          row,
+          { baseTimeSec: row.baseTimeSec },
+          researchEffects,
+        ),
         rushCost: rushDiamondCost(rushRemainingSeconds(row.queueCompletesAt!)),
       }))
       .sort(

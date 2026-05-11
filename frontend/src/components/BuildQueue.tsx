@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useMe } from '../hooks/useMe';
 import type { RushBuildResponse } from '@shared/types/buildings';
 import { estimateRushDiamondCost } from '@shared/types/diamonds';
+import { timerSnapshot } from '../lib/timers';
 
 interface BuildQueueItem {
   id: string;
@@ -14,7 +15,7 @@ interface BuildQueueItem {
   level: number;
   queueAction: 'build' | 'upgrade' | 'destroy';
   queueCompletesAt: string;
-  queueStartedAt?: string;
+  queueStartedAt?: string | null;
   /** Server snapshot; live price uses `estimateRushDiamondCost` + `rushPricing` from the same response. */
   rushCost?: number;
 }
@@ -114,24 +115,20 @@ export function BuildQueue({ planetId }: BuildQueueProps) {
 
   if (!filteredQueue.length) return null;
   const head = filteredQueue[0];
-  const completesAt = new Date(head.queueCompletesAt).getTime();
-  const startedAt = head.queueStartedAt
-    ? new Date(head.queueStartedAt).getTime()
-    : completesAt - 60_000; // best-effort fallback if backend omits start
-  const total = Math.max(1, completesAt - startedAt);
-  const remaining = Math.max(0, completesAt - now);
-  const progress = Math.min(100, Math.max(0, Math.round((1 - remaining / total) * 100)));
-  const remainingSec = Math.ceil(remaining / 1000);
+  const snapshot = timerSnapshot({
+    completesAt: head.queueCompletesAt,
+    startedAt: head.queueStartedAt,
+    nowMs: now,
+  });
 
   const def = resolveBuildingType(head.buildingTypeId);
   const verb = head.queueAction === 'build' ? 'Building' : 'Upgrading';
   const title = `${def.label} · ${verb} L${head.level}`;
 
-  const remainingSecForRush = Math.max(0, Math.ceil((completesAt - now) / 1000));
   const rushCost =
     rushPricing != null
       ? estimateRushDiamondCost(
-          remainingSecForRush,
+          snapshot.remainingSec,
           rushPricing.diamondsPerMinute,
           rushPricing.maxPerAction,
         )
@@ -141,8 +138,8 @@ export function BuildQueue({ planetId }: BuildQueueProps) {
   return (
     <QueueStrip
       title={title}
-      etaSec={remainingSec}
-      progressPct={progress}
+      etaSec={snapshot.remainingSec}
+      progressPct={snapshot.progressPct}
       rushCost={rushCost}
       diamondBalance={diamondBalance}
       rushBusy={rushBusy}

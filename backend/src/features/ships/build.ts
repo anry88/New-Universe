@@ -1,6 +1,6 @@
 import { db as defaultDb } from '../../db/index.js';
-import { ships, shipTypes, buildings, planets, users } from '../../db/schema.js';
-import { eq, and, sql, gte, isNotNull, lte } from 'drizzle-orm';
+import { ships, shipTypes, buildings, planets, users, notifications } from '../../db/schema.js';
+import { eq, and, sql, gte, isNotNull, lte, inArray } from 'drizzle-orm';
 import { spendResources } from '../resources/transactions.js';
 import { SHIP_RESEARCH_GATES } from '../../config/research-unlocks.js';
 import { assertResearchRequirement, loadUserResearchLevels } from '../research/gates.js';
@@ -170,6 +170,7 @@ export async function getShipQueue(userId: string): Promise<{
     typeId: string;
     status: string;
     queueCompletesAt: string;
+    queueStartedAt: string | null;
     rushCost: number;
   }[];
 }> {
@@ -180,8 +181,10 @@ export async function getShipQueue(userId: string): Promise<{
       typeId: ships.typeId,
       status: ships.status,
       queueCompletesAt: ships.queueCompletesAt,
+      buildTimeSec: shipTypes.buildTimeSec,
     })
     .from(ships)
+    .innerJoin(shipTypes, eq(shipTypes.id, ships.typeId))
     .where(
       and(
         eq(ships.ownerId, userId),
@@ -197,6 +200,9 @@ export async function getShipQueue(userId: string): Promise<{
       typeId: row.typeId,
       status: row.status,
       queueCompletesAt: row.queueCompletesAt!.toISOString(),
+      queueStartedAt: new Date(
+        row.queueCompletesAt!.getTime() - row.buildTimeSec * 1000,
+      ).toISOString(),
       rushCost: rushDiamondCost(rushRemainingSeconds(row.queueCompletesAt!)),
     }))
     .sort((a, b) => new Date(a.queueCompletesAt).getTime() - new Date(b.queueCompletesAt).getTime());
@@ -251,19 +257,59 @@ export async function rushShipBuild(userId: string, shipId: string): Promise<{
   });
 }
 
-export async function syncReadyShips(): Promise<void> {
+export async function syncReadyShips(
+  userId?: string,
+  options: { skipNotifications?: boolean } = {},
+): Promise<void> {
   const now = new Date();
+  const conditions = [
+    eq(ships.status, 'building'),
+    isNotNull(ships.queueCompletesAt),
+    lte(ships.queueCompletesAt, now),
+  ];
+  if (userId) {
+    conditions.push(eq(ships.ownerId, userId));
+  }
+
+  const readyShips = await defaultDb
+    .select({
+      id: ships.id,
+      ownerId: ships.ownerId,
+    })
+    .from(ships)
+    .where(and(...conditions));
+
+  if (readyShips.length === 0) return;
+
+  const readyIds = readyShips.map((ship) => ship.id);
+
   await defaultDb
     .update(ships)
     .set({
       status: 'idle',
       queueCompletesAt: null,
     })
-    .where(
-      and(
-        eq(ships.status, 'building'),
-        isNotNull(ships.queueCompletesAt),
-        lte(ships.queueCompletesAt, now),
-      ),
-    );
+    .where(inArray(ships.id, readyIds));
+
+  if (!options.skipNotifications) return;
+
+  const ownerIds = [...new Set(readyShips.map((ship) => ship.ownerId))];
+  for (const ownerId of ownerIds) {
+    const shipIds = readyShips
+      .filter((ship) => ship.ownerId === ownerId)
+      .map((ship) => ship.id);
+    for (const shipId of shipIds) {
+      await defaultDb
+        .update(notifications)
+        .set({ pending: false, read: true })
+        .where(
+          and(
+            eq(notifications.userId, ownerId),
+            eq(notifications.type, 'ship_done'),
+            sql`(${notifications.payload} ->> 'shipId') = ${shipId}`,
+            eq(notifications.pending, true),
+          ),
+        );
+    }
+  }
 }

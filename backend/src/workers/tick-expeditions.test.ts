@@ -257,6 +257,33 @@ describe("Tick Expeditions Worker", () => {
     expect(updatedShip!.locationPlanetId).toBe(originPlanet.id);
   });
 
+  it("suppresses return notifications during online expedition sync", async () => {
+    const { ship, originPlanet, user } = await createSetup();
+
+    await db.insert(expeditions).values({
+      shipId: ship.id,
+      type: "scout",
+      originPlanetId: originPlanet.id,
+      targetX: "100",
+      targetY: "0",
+      targetZ: "0",
+      status: "returning",
+      eta: new Date(Date.now() - 1000),
+      result: {
+        distance: 100,
+        speed: 10,
+        engineFactor: 1,
+      },
+    });
+
+    await processExpeditions({ userId: user.id, skipNotifications: true });
+
+    const notes = await db.query.notifications.findMany({
+      where: eq(notifications.userId, user.id),
+    });
+    expect(notes.filter((note) => note.type === "expedition_returned")).toHaveLength(0);
+  });
+
   it("should discover new systems/planets during travel", async () => {
     const { ship, originPlanet, user } = await createSetup();
 

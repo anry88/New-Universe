@@ -1,6 +1,7 @@
 import React from 'react';
 import type { Building } from '@shared/types/world';
 import { BuildSlot } from './cosmic/atoms';
+import { timerSnapshot } from '../lib/timers';
 
 interface BuildingSlotProps {
   index: number;
@@ -12,15 +13,13 @@ interface BuildingSlotProps {
 
 const computeProgress = (building: Building) => {
   if (!building.queueAction || !building.queueCompletesAt) return undefined;
-  const completesAt = new Date(building.queueCompletesAt).getTime();
-  const now = Date.now();
-  const remainingMs = Math.max(0, completesAt - now);
+  const snapshot = timerSnapshot({
+    completesAt: building.queueCompletesAt,
+    startedAt: building.queueStartedAt,
+  });
   return {
-    etaSec: Math.ceil(remainingMs / 1000),
-    // The backend doesn't expose queueStartedAt yet — show a best-effort
-    // half-bar so the slot signals "in progress" without lying about
-    // exact completion time.
-    progressPct: 64,
+    etaSec: snapshot.remainingSec,
+    progressPct: snapshot.progressPct,
   };
 };
 
@@ -34,6 +33,15 @@ export const BuildingSlot: React.FC<BuildingSlotProps> = ({
   onClick,
   biomeAccent = '#5BD7FF',
 }) => {
+  const hasQueue = Boolean(building?.queueAction && building.queueCompletesAt);
+  const [, setNow] = React.useState(Date.now());
+
+  React.useEffect(() => {
+    if (!hasQueue) return;
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [hasQueue]);
+
   const progress = building ? computeProgress(building) : undefined;
   return (
     <BuildSlot
