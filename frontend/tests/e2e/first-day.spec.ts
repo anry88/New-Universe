@@ -72,7 +72,7 @@ test('first day flow on cosmic atlas layout', async ({ page }) => {
           { planetId, resourceId: 'methane', amount: '400', lastUpdateAt: nowIso, regenRate: '0', storageCap: '5000' },
           { planetId, resourceId: 'tritium', amount: '50', lastUpdateAt: nowIso, regenRate: '0', storageCap: '5000' },
         ],
-        buildings: [],
+        buildings: [] as Array<Record<string, unknown>>,
       }
     ],
   };
@@ -175,14 +175,16 @@ test('first day flow on cosmic atlas layout', async ({ page }) => {
       return;
     }
     queueReady = true;
-    meUser.homeSystem.planets[0].buildings.push({
+    const queuedBuilding = {
       id: 'building-mine-1',
       planetId,
       typeId: 'mine',
       level: 1,
       slotIndex: 0,
       queueAction: 'build',
-    });
+    };
+    meUser.homeSystem.planets[0].buildings.push(queuedBuilding);
+    meUser.planets[0].buildings.push(queuedBuilding);
 
     await route.fulfill({
       status: 200,
