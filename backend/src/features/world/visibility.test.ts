@@ -328,22 +328,22 @@ describe("Visibility Check Service", () => {
     expect(result).toEqual([]);
   });
 
-  it("respects Euclidean distance in 3D", async () => {
+  it("respects planar sector distance (Z is ignored)", async () => {
     const userId = await createTestUser();
     const shipSystem = await createSystem(0, 0, 0);
     const shipPlanetId = await createPlanet(shipSystem.id, "Ship Planet");
     const shipId = await createShip(userId, shipPlanetId);
 
-    const systemInside = await createSystem(10, 10, 10);
+    // Same XY as old “inside” 3D case, large Z — still in range on the galactic plane.
+    const systemInside = await createSystem(10, 10, 999);
     await createPlanet(systemInside.id, "Inside Planet");
 
-    const systemOutside = await createSystem(20, 20, 20);
+    // Far in XY only; Z does not shrink the distance anymore.
+    const systemOutside = await createSystem(40, 0, 0);
     await createPlanet(systemOutside.id, "Outside Planet");
 
-    const distInside = Math.sqrt(10 * 10 + 10 * 10 + 10 * 10);
-    const distOutside = Math.sqrt(20 * 20 + 20 * 20 + 20 * 20);
-    expect(distInside).toBeLessThanOrEqual(30);
-    expect(distOutside).toBeGreaterThan(30);
+    expect(Math.hypot(10, 10)).toBeLessThanOrEqual(30);
+    expect(Math.hypot(40, 0)).toBeGreaterThan(30);
 
     const discoveries = await checkVisibility(shipId);
 
@@ -376,7 +376,7 @@ describe("Visibility Check Service", () => {
     expect(planetHits).not.toContain(lockedId);
   });
 
-  it("auto-discovers locked planets in the player home system with recon ships", async () => {
+  it("does not auto-discover locked home planets via checkVisibility even for recon ships", async () => {
     const userId = await createTestUser();
     const home = await createSystem(5, 5, 5, userId, true);
     const capitalId = await createPlanet(home.id, "Capital");
@@ -391,6 +391,6 @@ describe("Visibility Check Service", () => {
       .filter((d) => d.type === "planet")
       .map((d) => d.id);
 
-    expect(planetHits).toContain(lockedId);
+    expect(planetHits).not.toContain(lockedId);
   });
 });
