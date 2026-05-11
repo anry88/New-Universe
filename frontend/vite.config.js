@@ -26,7 +26,7 @@ export default defineConfig({
     port: 5173,
     host: true,
     strictPort: true,
-    allowedHosts: ['learned-nikon-dec-package.trycloudflare.com'],
+    allowedHosts: ['kick-biblical-jobs-humanities.trycloudflare.com'],
     hmr: {
       clientPort: 443,
     },
