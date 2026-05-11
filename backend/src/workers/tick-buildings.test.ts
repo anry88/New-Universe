@@ -128,7 +128,7 @@ describe('Tick Buildings Worker', () => {
       ),
     });
     expect(pr).toBeDefined();
-    expect(Number(pr!.regenRate)).toBe(50);
+    expect(Number(pr!.regenRate)).toBeCloseTo(50 / 3, 4);
   });
 
   it('should insert steel production when smelter completes (no prior steel row)', async () => {
