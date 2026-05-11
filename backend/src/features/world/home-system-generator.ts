@@ -24,7 +24,7 @@ import {
 } from './biomes.js';
 
 /**
- * Capital planet (green, orbit tier 3) needs enough slots for the bootstrap
+ * Capital planet (green, orbit tier 4) needs enough slots for the bootstrap
  * progression: command_center, mine, drill, smelter, fabrication_bay,
  * spaceport, shipyard, lab, solar_plants + room for storage and a small
  * fleet — without forcing the player into the market.
@@ -45,9 +45,9 @@ export const HOME_PLANET_COUNT = 8;
  *   tier 1 — volcanic (single hot sulfur/copper world)
  *   tier 2 — rocky    (iron/copper/aluminum belt)
  *   tier 2 — rocky    (silicon/carbon/titanium belt)
- *   tier 3 — green    ★ capital (habitable)
- *   tier 3 — rocky    (neutral mineral reserve)
- *   tier 4 — ocean    (water/biomass)
+ *   tier 2 — rocky    (neutral mineral reserve)
+ *   tier 3 — ocean    (water/biomass)
+ *   tier 4 — green    ★ capital (habitable, deeper safe orbit)
  *   tier 5 — gas_giant (methane/tritium)
  *   tier 6 — ice      (ice/water outer body; no biomass)
  */
@@ -71,17 +71,17 @@ export const HOME_PLANET_ORBIT_PLAN: readonly HomePlanetOrbitPlanEntry[] = [
     resources: ['silicon', 'carbon', 'titanium'],
   },
   {
-    biome: 'green',
-    resources: ['water', 'iron', 'carbon', 'silicon', 'methane', 'oil', 'biomass'],
-    isCapital: true,
-  },
-  {
     biome: 'rocky',
     resources: ['iron', 'silicon', 'carbon'],
   },
   {
     biome: 'ocean',
     resources: ['water', 'biomass', 'oil'],
+  },
+  {
+    biome: 'green',
+    resources: ['water', 'iron', 'carbon', 'silicon', 'methane', 'oil', 'biomass'],
+    isCapital: true,
   },
   {
     biome: 'gas_giant',
@@ -223,8 +223,8 @@ export async function generateHomeSystem(userId: string, tx?: any) {
     // checks) still hit the planet that owns the level-1 command center.
     // The remaining planets are inserted in biome-orbit order
     // (volcanic → ice). The frontend renderer sorts visually by
-    // biome-orbit tier, so the *visual* layout still has green in the
-    // middle ring even though it is stored as `-1` in the database.
+    // biome-orbit tier, so the *visual* layout still places green in a
+    // deeper habitable ring even though it is stored as `-1` in the database.
     const capitalPlan = biomeOrbitPlan.find((entry) => entry.isCapital)!;
     const insertionPlan = [
       capitalPlan,

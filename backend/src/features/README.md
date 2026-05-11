@@ -131,7 +131,7 @@ Procedural world generation primitives and visibility checks. Contains the home-
 - **`home-system-generator.ts`** — exports `generateHomeSystem(userId, tx?)`, **`MIN_HOME_CAPITAL_SLOT_COUNT`** (minimum building slots on planet 1 / capital), deterministic PRNG helpers `hashString` / `createRandom`, and English-canonical `systems.name` plus `{shortTag}-N` planet codes via `@shared/format/homeSystemNaming`.
   - Uses `tx` from auth or opens `db.transaction`; idempotent when a home `systems` row already exists.
   - Seeds sector coords `[-500,500]`, system `seed`, `name = "Home System <userId-prefix>"`.
-  - Generates **8** planets from the fixed `HOME_PLANET_ORBIT_PLAN`: one volcanic inner world, three rocky/neutral resource worlds, green capital, ocean world, gas giant, and one outer ice world.
+  - Generates **8** planets from the fixed `HOME_PLANET_ORBIT_PLAN`: one volcanic inner world, three rocky/neutral resource worlds, ocean world, green capital in a deeper habitable orbit, gas giant, and one outer ice world.
   - Capital (planet index 0): biome **`green`**, larger size, **`slotCount ≥ MIN_HOME_CAPITAL_SLOT_COUNT`** for early tutorial + shipyard chain.
   - Other planets: sizes follow biome size classes; non-capital resources are hand-authored per orbit so titanium/tritium/ice/sulfur/copper/aluminum exist locally while rare/extreme biomes stay rare.
   - Filters forbidden tier-3/tier-4 richness ids; seeds `richness` + `planet_resources`; planet 0 gets `command_center` + **only planet 0** in `discovered_planets` (other home bodies stay locked until a recon expedition route passes through their system-map visibility corridor — see `visibility.ts` / `workers/tick-expeditions.ts`).
