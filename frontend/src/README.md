@@ -21,7 +21,7 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
 - `pages/` — page-level components routed by `react-router-dom`.
   - **`Home.tsx`** — main game screen with resource bar, planet view, build queue, and bottom tab bar.
   - **`Colonies.tsx`** — lists all owned planets with their resources and status, allowing focal planet switching and initiating cargo transfers.
-  - **`Profile.tsx`** — player profile card with sector/system details and a `RESUME TUTORIAL` action when onboarding is not completed yet.
+  - **`Profile.tsx`** — player profile card with sector/system details, controlled-planet count based only on settled planets, and a `RESUME TUTORIAL` action when onboarding is not completed yet.
   - `onboarding/` — first-session onboarding tutorial pages. See [`pages/onboarding/README.md`](./pages/onboarding/README.md).
     - **`Onboarding.tsx`** — 5-step tutorial overlay (welcome → mine → storage → scout → expedition); polls `POST /tutorial/sync`; wires **Continue** to dismiss full-screen gate via App/sessionStorage so Home stays playable without redirect loops.
   - **`PlanetDetail.tsx`** — detailed planet view with building slots and upgrade options; derives construction eligibility from `GET /buildings/types` limits plus live `/me` planets/research via `@shared/types/building-eligibility`, and keeps merely discovered planets read-only until `/me` marks them `isColonized`.

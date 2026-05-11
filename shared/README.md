@@ -6,7 +6,7 @@ Cross-package contracts shared between the Fastify backend (`backend/`) and the 
 
 - `format/` — small pure formatters shared by API and UI where duplication would drift.
   - **`homeSystemNaming.ts`** — `homeSystemShortTag`, `sanitizePlayerSlug`, `formatPlanetCode`, `formatHomeSystemDisplayName` (EN/RU templates for home system titles and `{shortTag}-N` planet codes).
-  - **`systemMapLayout.ts`** — deterministic flat home-system map layout helpers (`buildSystemMapLayouts`, `sectorDeltaToSystemMapPoint`, `distancePointToSegment`, `systemMapPlanetDiscoveryRadius`) shared by the frontend renderer and expedition worker so pass-by scout discovery uses the same route geometry and size-based planet footprint as the UI. Layout sorting follows biome orbit tier (hot volcanic inner worlds → cold ice outer worlds) for discovered planets.
+  - **`systemMapLayout.ts`** — deterministic flat home-system map layout helpers (`buildSystemMapLayouts`, `sectorDeltaToSystemMapPoint`, `distancePointToSegment`, `systemMapPlanetDiscoveryRadius`) shared by the frontend renderer and expedition worker so pass-by scout discovery uses the same route geometry and size-based planet footprint as the UI, with a minimum practical corridor for small worlds. Layout sorting follows biome orbit tier (hot volcanic inner worlds → cold ice outer worlds) for discovered planets.
 
 - `config/` — progression catalogs consumed by both Node and Vite bundles where duplication would drift (research gates for buildings; full tech tree).
     - **`buildingResearchGates.ts`** — `ResearchUnlockRequirement` plus `BUILDING_RESEARCH_GATES` (imported through `backend/src/config/research-unlocks.ts` on the API side and directly by Cosmic build previews).

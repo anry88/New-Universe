@@ -105,7 +105,7 @@ export function buildSystemMapLayouts(
 export function systemMapPlanetDiscoveryRadius(
   planet: Pick<SystemMapPlanetLayout, "spriteSize">,
 ): number {
-  return Math.max(30, Math.round(planet.spriteSize * 0.55));
+  return Math.max(80, Math.round(planet.spriteSize));
 }
 
 export function sectorDeltaToSystemMapPoint(
