@@ -24,7 +24,7 @@ import {
 } from "@shared/format/systemMapLayout.js";
 
 const POLL_INTERVAL_MS = 30000;
-const HOME_PLANET_DISCOVERY_RADIUS = 72;
+const HOME_PLANET_DISCOVERY_RADIUS = 100;
 
 /**
  * Calculates current position of a ship in an expedition using linear interpolation.
@@ -55,29 +55,33 @@ export function calculateExpeditionPosition(
   const originY = Number(originSystem.sectorY);
   const originZ = Number(originSystem.sectorZ);
 
+  const tX = Number(targetX);
+  const tY = Number(targetY);
+  const tZ = Number(targetZ);
+
   if (status === "in_flight") {
     const startTimeMs = etaMs - durationMs;
     if (nowMs <= startTimeMs) return { x: originX, y: originY, z: originZ };
-    if (nowMs >= etaMs) return { x: targetX, y: targetY, z: targetZ };
+    if (nowMs >= etaMs) return { x: tX, y: tY, z: tZ };
 
     const progress = (nowMs - startTimeMs) / durationMs;
     return {
-      x: Math.trunc(originX + (targetX - originX) * progress),
-      y: Math.trunc(originY + (targetY - originY) * progress),
-      z: Math.trunc(originZ + (targetZ - originZ) * progress),
+      x: Math.trunc(originX + (tX - originX) * progress),
+      y: Math.trunc(originY + (tY - originY) * progress),
+      z: Math.trunc(originZ + (tZ - originZ) * progress),
     };
   } else if (status === "returning") {
     // For 'returning', we assume it started returning at eta - durationMs
     const returnStartTimeMs = etaMs - durationMs;
     if (nowMs <= returnStartTimeMs)
-      return { x: targetX, y: targetY, z: targetZ };
+      return { x: tX, y: tY, z: tZ };
     if (nowMs >= etaMs) return { x: originX, y: originY, z: originZ };
 
     const progress = (nowMs - returnStartTimeMs) / durationMs;
     return {
-      x: Math.trunc(targetX + (originX - targetX) * progress),
-      y: Math.trunc(targetY + (originY - targetY) * progress),
-      z: Math.trunc(targetZ + (originZ - targetZ) * progress),
+      x: Math.trunc(tX + (originX - tX) * progress),
+      y: Math.trunc(tY + (originY - tY) * progress),
+      z: Math.trunc(tZ + (originZ - tZ) * progress),
     };
   }
 
@@ -218,29 +222,36 @@ async function handleArrivalAtTarget(
   const durationMs =
     ((result.distance * 60) / result.speed) * result.engineFactor * 1000;
 
-  if (
-    expedition.targetPlanetId &&
-    (expedition.type === "scout" || expedition.type === "recon_probe")
-  ) {
+  if (expedition.type === "scout" || expedition.type === "recon_probe") {
     const [ship] = await tx
       .select()
       .from(ships)
       .where(eq(ships.id, expedition.shipId))
       .limit(1);
+
     if (ship) {
-      await tx
-        .insert(discoveredPlanets)
-        .values({ userId: ship.ownerId, planetId: expedition.targetPlanetId })
-        .onConflictDoNothing();
+      if (expedition.targetPlanetId) {
+        await tx
+          .insert(discoveredPlanets)
+          .values({ userId: ship.ownerId, planetId: expedition.targetPlanetId })
+          .onConflictDoNothing();
+      } else {
+        // Targeted by coordinates — the discoverHomePlanetsAlongRoute logic
+        // in processExpeditions already checks the segment to routeEnd.
+        // If it arrived exactly, it will catch it there.
+      }
     }
   }
 
-  // Start return journey
+  // Start return journey from the moment we SHOULD have arrived
+  const arrivalTime = expedition.eta.getTime();
+  const returnEta = new Date(arrivalTime + durationMs);
+
   await tx
     .update(expeditions)
     .set({
       status: "returning",
-      eta: new Date(Date.now() + durationMs),
+      eta: returnEta,
     })
     .where(eq(expeditions.id, expedition.id));
 
@@ -256,14 +267,9 @@ async function handleArrivalAtHome(
 ) {
   const now = new Date();
 
-  // 1. Mark expedition as completed
-  await tx
-    .update(expeditions)
-    .set({
-      status: "completed",
-      returnedAt: now,
-    })
-    .where(eq(expeditions.id, expedition.id));
+  // 1. Mark expedition as completed (or delete it to clean up the map immediately)
+  // The user requested to delete it: "его нужо удалять"
+  await tx.delete(expeditions).where(eq(expeditions.id, expedition.id));
 
   // 2. Update ship status and return to origin planet
   await tx
@@ -277,7 +283,7 @@ async function handleArrivalAtHome(
 
   logger.info(
     { expeditionId: expedition.id, shipId: expedition.shipId },
-    "Expedition returned home and completed",
+    "Expedition returned home and deleted",
   );
 
   // Send notification

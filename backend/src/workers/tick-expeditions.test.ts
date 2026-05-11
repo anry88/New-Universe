@@ -170,9 +170,9 @@ describe("Tick Expeditions Worker", () => {
         shipId: ship.id,
         type: "scout",
         originPlanetId: originPlanet.id,
-        targetX: 100,
-        targetY: 0,
-        targetZ: 0,
+        targetX: "100",
+        targetY: "0",
+        targetZ: "0",
         status: "in_flight",
         eta: pastEta,
         result: {
@@ -202,9 +202,9 @@ describe("Tick Expeditions Worker", () => {
         shipId: ship.id,
         type: "scout",
         originPlanetId: originPlanet.id,
-        targetX: 100,
-        targetY: 0,
-        targetZ: 0,
+        targetX: "100",
+        targetY: "0",
+        targetZ: "0",
         status: "returning",
         eta: pastEta,
         result: {
@@ -220,8 +220,7 @@ describe("Tick Expeditions Worker", () => {
     const updatedExp = await db.query.expeditions.findFirst({
       where: eq(expeditions.id, expedition.id),
     });
-    expect(updatedExp!.status).toBe("completed");
-    expect(updatedExp!.returnedAt).toBeDefined();
+    expect(updatedExp).toBeUndefined();
 
     const updatedShip = await db.query.ships.findFirst({
       where: eq(ships.id, ship.id),
@@ -269,9 +268,9 @@ describe("Tick Expeditions Worker", () => {
       shipId: ship.id,
       type: "scout",
       originPlanetId: originPlanet.id,
-      targetX: 200,
-      targetY: 0,
-      targetZ: 0,
+      targetX: "200",
+      targetY: "0",
+      targetZ: "0",
       status: "in_flight",
       eta: new Date(eta),
       result: {
@@ -353,9 +352,9 @@ describe("Tick Expeditions Worker", () => {
       shipId: ship.id,
       type: "scout",
       originPlanetId: capital.id,
-      targetX: 3,
-      targetY: 4,
-      targetZ: 5,
+      targetX: "3",
+      targetY: "4",
+      targetZ: "5",
       targetPlanetId: lockedTarget.id,
       status: "in_flight",
       eta: pastEta,
@@ -464,9 +463,9 @@ describe("Tick Expeditions Worker", () => {
       shipId: ship.id,
       type: "scout",
       originPlanetId: capital.id,
-      targetX: homeSystem.sectorX + sectorDx,
-      targetY: homeSystem.sectorY + sectorDy,
-      targetZ: homeSystem.sectorZ,
+      targetX: (homeSystem.sectorX + sectorDx).toString(),
+      targetY: (homeSystem.sectorY + sectorDy).toString(),
+      targetZ: homeSystem.sectorZ.toString(),
       status: "in_flight",
       eta: new Date(Date.now() - 1000),
       result: {

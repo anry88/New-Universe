@@ -46,7 +46,7 @@ import { FoundColonyDialog } from "../FoundColonyDialog";
 
 /** When set, the map is used to pick a sector jump vector from the home star: tap = set course, drag = pan. */
 export interface ExpeditionPickConfig {
-  /** Integer sector delta from home (X/Y galactic grid). */
+  /** Sector delta from home (X/Y galactic grid). */
   sectorDx: number;
   sectorDy: number;
   /** Trail starts at this planet (launch site). */
@@ -78,8 +78,10 @@ interface PlanetLayout {
   spriteSize: number;
 }
 
-const MIN_SCALE = 0.3;
-const MAX_SCALE = 4;
+const MIN_SCALE = 0.1;
+const MAX_SCALE = 5;
+const DISPLAY_SCALE_FACTOR = 0.3;
+
 /** Below this drag distance (CSS px), a one-finger gesture counts as a tap for expedition aiming. */
 const EXPEDITION_TAP_THRESHOLD_PX = 14;
 
@@ -111,10 +113,10 @@ function worldRayToSectorDelta(
   const MIN_WORLD = 40;
   if (r < MIN_WORLD) r = MIN_WORLD;
   const ly = r / worldUnitsPerLy;
-  const distInt = Math.max(1, Math.round(ly));
+  const dist = Math.max(0.1, ly);
   return {
-    dx: Math.round(distInt * Math.cos(angle)),
-    dy: Math.round(distInt * Math.sin(angle)),
+    dx: dist * Math.cos(angle),
+    dy: dist * Math.sin(angle),
   };
 }
 
@@ -127,7 +129,7 @@ export function CosmicSystemRenderer({
   expeditionPick,
 }: CosmicSystemRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
+  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 0.3 });
   const [now, setNow] = useState(Date.now());
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pointerCount, setPointerCount] = useState(0);
@@ -151,11 +153,6 @@ export function CosmicSystemRenderer({
       planet: planetById.get(layout.id)!,
     }));
   }, [system]);
-
-  const discoveredLayouts = useMemo(
-    () => layouts.filter((layout) => layout.planet.isDiscovered !== false),
-    [layouts],
-  );
 
   const activeExpeditions = useMemo(
     () =>
@@ -182,7 +179,7 @@ export function CosmicSystemRenderer({
     originX: 0,
     originY: 0,
     pinchStartDist: 0,
-    pinchStartScale: 1,
+    pinchStartScale: 0.3,
     pointers: new Map<number, { x: number; y: number }>(),
   });
 
@@ -401,7 +398,7 @@ export function CosmicSystemRenderer({
     return () => el.removeEventListener("wheel", handler);
   }, []);
 
-  const resetView = () => setTransform({ x: 0, y: 0, scale: 1 });
+  const resetView = () => setTransform({ x: 0, y: 0, scale: 0.3 });
 
   // Auto-fit: when the system loads, choose a starting scale that fits the
   // outermost orbit comfortably inside the visible area. Keeps the home
@@ -471,7 +468,7 @@ export function CosmicSystemRenderer({
           }}
         >
           {/* Orbit rings */}
-          {discoveredLayouts.map((l) => (
+          {layouts.map((l) => (
             <div
               key={`orbit-${l.planet.id}`}
               style={{
@@ -480,7 +477,7 @@ export function CosmicSystemRenderer({
                 top: -l.orbitRadius,
                 width: l.orbitRadius * 2,
                 height: l.orbitRadius * 2,
-                border: "1px dashed rgba(150,175,220,0.18)",
+                border: "1.5px solid rgba(150,175,220,0.22)",
                 borderRadius: "50%",
                 pointerEvents: expeditionPick ? "none" : "auto",
               }}
@@ -504,15 +501,11 @@ export function CosmicSystemRenderer({
           {/* Planets */}
           {layouts.map((l) => {
             const isDiscovered = l.planet.isDiscovered !== false;
-            const biome = resolveBiome(l.planet.biome);
+            const biome = resolveBiome(isDiscovered ? l.planet.biome : "unknown");
             const meta = BIOME_META[biome];
             const isSelected =
               l.planet.id === selectedId ||
               expeditionPick?.targetPlanetId === l.planet.id;
-
-            if (!isDiscovered) {
-              return null;
-            }
 
             return (
               <button
@@ -559,7 +552,7 @@ export function CosmicSystemRenderer({
                     textShadow: "0 1px 2px rgba(0,0,0,0.8)",
                   }}
                 >
-                  {(l.planet.name || "?").toUpperCase()}
+                  {(isDiscovered ? (l.planet.name || "?") : "?").toUpperCase()}
                 </div>
               </button>
             );
@@ -677,7 +670,7 @@ export function CosmicSystemRenderer({
                       position: "absolute",
                       top: "100%",
                       left: "50%",
-                      transform: "translateX(-50%) rotate(${-angle}rad)",
+                      transform: `translateX(-50%) rotate(${-angle}rad)`,
                       fontSize: 8,
                       fontFamily: "var(--font-mono)",
                       color: "currentColor",
@@ -909,7 +902,7 @@ export function CosmicSystemRenderer({
               style={{
                 width: 7,
                 height: 7,
-                border: "1px dashed rgba(150,175,220,0.4)",
+                border: "1px solid rgba(150,175,220,0.6)",
                 borderRadius: "50%",
               }}
             />
@@ -939,7 +932,7 @@ export function CosmicSystemRenderer({
           pointerEvents: "auto",
         }}
       >
-        RESET · {transform.scale.toFixed(2)}×
+        RESET · {(transform.scale / DISPLAY_SCALE_FACTOR).toFixed(2)}×
       </button>
 
       {/* Selected planet info card */}
@@ -969,11 +962,11 @@ export function CosmicSystemRenderer({
               fontFamily: "var(--font-mono)",
               fontSize: 9,
               letterSpacing: "0.2em",
-              color: BIOME_META[resolveBiome(selected.planet.biome)].accent,
+              color: BIOME_META[resolveBiome(selected.planet.isDiscovered !== false ? selected.planet.biome : "unknown")].accent,
               marginBottom: 4,
             }}
           >
-            SELECTED · {BIOME_META[resolveBiome(selected.planet.biome)].tag}
+            SELECTED · {BIOME_META[resolveBiome(selected.planet.isDiscovered !== false ? selected.planet.biome : "unknown")].tag}
           </div>
           <div
             style={{
@@ -983,7 +976,7 @@ export function CosmicSystemRenderer({
               marginBottom: 8,
             }}
           >
-            {selected.planet.name}
+            {selected.planet.isDiscovered !== false ? selected.planet.name : "Unmapped Planet"}
           </div>
           <div
             style={{
@@ -1000,7 +993,7 @@ export function CosmicSystemRenderer({
               Size
             </span>
             <b style={{ color: "var(--text)", fontWeight: 600 }}>
-              {selected.planet.size}
+              {selected.planet.isDiscovered !== false ? selected.planet.size : "???"}
             </b>
           </div>
           <div
@@ -1018,8 +1011,8 @@ export function CosmicSystemRenderer({
               Slots
             </span>
             <b style={{ color: "var(--text)", fontWeight: 600 }}>
-              {selected.planet.buildings?.length ?? 0} /{" "}
-              {selected.planet.slotCount ?? 0}
+              {selected.planet.isDiscovered !== false ? (selected.planet.buildings?.length ?? 0) : 0} /{" "}
+              {selected.planet.isDiscovered !== false ? (selected.planet.slotCount ?? 0) : "???"}
             </b>
           </div>
           <button
