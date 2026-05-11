@@ -27,8 +27,8 @@ export interface SystemMapPoint {
 export const SYSTEM_MAP_BIOME_ORBIT_TIER: Record<string, number> = {
   volcanic: 1,
   rocky: 2,
-  green: 3,
-  ocean: 4,
+  ocean: 3,
+  green: 4,
   gas_giant: 5,
   ice: 6,
   anomaly: 7,
@@ -51,15 +51,26 @@ function planetNameIndex(name?: string | null): number {
   return match ? Number.parseInt(match[1]!, 10) : Number.MAX_SAFE_INTEGER;
 }
 
+export function systemMapPlanetOrbitTier(planet: SystemMapPlanetInput): number {
+  const biome = planet.biome ?? "unknown";
+  return SYSTEM_MAP_BIOME_ORBIT_TIER[biome] ?? SYSTEM_MAP_BIOME_ORBIT_TIER.unknown;
+}
+
+export function systemMapPlanetOrbitRadius(planet: SystemMapPlanetInput): number {
+  const tier = systemMapPlanetOrbitTier(planet);
+  return SYSTEM_MAP_ORBIT_BASE + (Math.max(1, tier) - 1) * SYSTEM_MAP_ORBIT_STEP;
+}
+
+function planetAngleIndex(planet: SystemMapPlanetInput, sortedIndex: number): number {
+  const nameIndex = planetNameIndex(planet.name);
+  return nameIndex === Number.MAX_SAFE_INTEGER ? sortedIndex + 1 : nameIndex;
+}
+
 export function compareSystemMapPlanets(
   a: SystemMapPlanetInput,
   b: SystemMapPlanetInput,
 ): number {
-  const aBiome = a.biome ?? "unknown";
-  const bBiome = b.biome ?? "unknown";
-  const tierDelta =
-    (SYSTEM_MAP_BIOME_ORBIT_TIER[aBiome] ?? SYSTEM_MAP_BIOME_ORBIT_TIER.unknown) -
-    (SYSTEM_MAP_BIOME_ORBIT_TIER[bBiome] ?? SYSTEM_MAP_BIOME_ORBIT_TIER.unknown);
+  const tierDelta = systemMapPlanetOrbitTier(a) - systemMapPlanetOrbitTier(b);
   if (tierDelta !== 0) return tierDelta;
 
   const indexDelta = planetNameIndex(a.name) - planetNameIndex(b.name);
@@ -85,8 +96,8 @@ export function buildSystemMapLayouts(
   systemSeed: number,
 ): SystemMapPlanetLayout[] {
   return [...planets].sort(compareSystemMapPlanets).map((planet, index) => {
-    const orbitRadius = SYSTEM_MAP_ORBIT_BASE + index * SYSTEM_MAP_ORBIT_STEP;
-    const angle = planetAngle(planet, index, systemSeed);
+    const orbitRadius = systemMapPlanetOrbitRadius(planet);
+    const angle = planetAngle(planet, planetAngleIndex(planet, index), systemSeed);
     const x = Math.cos(angle) * orbitRadius;
     const y = Math.sin(angle) * orbitRadius;
     const biome = planet.biome ?? "unknown";

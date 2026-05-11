@@ -41,8 +41,8 @@ export const PLANET_SIZE_RANGE: Record<PlanetSizeClass, { min: number; max: numb
 export const BIOME_ORBIT_TIER: Record<BiomeType, number> = {
   volcanic: 1,
   rocky: 2,
-  green: 3,
-  ocean: 4,
+  ocean: 3,
+  green: 4,
   gas_giant: 5,
   ice: 6,
   anomaly: 7,

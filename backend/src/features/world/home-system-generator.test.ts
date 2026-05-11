@@ -9,7 +9,11 @@ import { db } from '../../db/index.js';
 import { users, systems, planets, richness, planetResources, buildings } from '../../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import { formatPlanetCode, homeSystemShortTag } from '@shared/format/homeSystemNaming.js';
-import { buildSystemMapLayouts } from '@shared/format/systemMapLayout.js';
+import {
+  buildSystemMapLayouts,
+  SYSTEM_MAP_ORBIT_BASE,
+  SYSTEM_MAP_ORBIT_STEP,
+} from '@shared/format/systemMapLayout.js';
 import { seedResources } from '../../db/seed/resources.js';
 
 describe('Home System Generator', () => {
@@ -317,6 +321,7 @@ describe('Home System Generator', () => {
       { id: 'capital', name: 'x-1', biome: 'green', size: 22 },
       { id: 'volcanic', name: 'x-2', biome: 'volcanic', size: 12 },
       { id: 'gas', name: 'x-7', biome: 'gas_giant', size: 36 },
+      { id: 'ocean', name: 'x-6', biome: 'ocean', size: 22 },
       { id: 'rocky', name: 'x-3', biome: 'rocky', size: 14 },
     ];
 
@@ -324,10 +329,25 @@ describe('Home System Generator', () => {
     expect(layouts.map((layout) => layout.id)).toEqual([
       'volcanic',
       'rocky',
+      'ocean',
       'capital',
       'gas',
       'ice',
     ]);
+    expect(layouts.find((layout) => layout.id === 'capital')!.orbitRadius).toBe(
+      SYSTEM_MAP_ORBIT_BASE + 3 * SYSTEM_MAP_ORBIT_STEP,
+    );
+    expect(layouts.find((layout) => layout.id === 'capital')!.orbitRadius).toBeGreaterThan(
+      layouts.find((layout) => layout.id === 'ocean')!.orbitRadius,
+    );
+    const capitalOnlyLayout = buildSystemMapLayouts(
+      [{ id: 'capital', name: 'x-1', biome: 'green', size: 22 }],
+      123,
+    )[0]!;
+    const capitalLayout = layouts.find((layout) => layout.id === 'capital')!;
+    expect(capitalOnlyLayout.orbitRadius).toBe(capitalLayout.orbitRadius);
+    expect(capitalOnlyLayout.x).toBeCloseTo(capitalLayout.x, 8);
+    expect(capitalOnlyLayout.y).toBeCloseTo(capitalLayout.y, 8);
     expect(layouts.find((layout) => layout.id === 'gas')!.spriteSize).toBeGreaterThan(
       layouts.find((layout) => layout.id === 'rocky')!.spriteSize,
     );
