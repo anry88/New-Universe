@@ -236,28 +236,6 @@ describe('Home System Generator', () => {
     }
   });
 
-  it('gives both rocky starter planets iron deposits', async () => {
-    const [user] = await db.insert(users).values({
-      tgId: BigInt(Math.floor(Math.random() * 1000000000)),
-      tgUsername: 'testuser_rocky_iron',
-    }).returning();
-
-    const systemId = await generateHomeSystem(user.id);
-    const systemPlanets = await db.query.planets.findMany({
-      where: eq(planets.systemId, systemId),
-    });
-
-    const rockyPlanets = systemPlanets.filter((planet) => planet.biome === 'rocky');
-    expect(rockyPlanets).toHaveLength(2);
-
-    for (const rockyPlanet of rockyPlanets) {
-      const rockyRichness = await db.query.richness.findMany({
-        where: eq(richness.planetId, rockyPlanet.id),
-      });
-      expect(rockyRichness.map((row) => row.resourceId)).toContain('iron');
-    }
-  });
-
   it('covers local exit resources across the starter system', async () => {
     const [user] = await db.insert(users).values({
       tgId: BigInt(Math.floor(Math.random() * 1000000000)),

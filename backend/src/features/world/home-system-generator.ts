@@ -45,7 +45,7 @@ export const HOME_PLANET_COUNT = 9;
  *   tier 1 — volcanic (hot sulfur/copper world)
  *   tier 1 — volcanic (hot titanium/sulfur reserve)
  *   tier 2 — rocky    (iron/copper/aluminum belt)
- *   tier 2 — rocky    (iron/silicon/carbon/titanium belt)
+ *   tier 2 — rocky    (silicon/carbon/titanium belt)
  *   tier 3 — ocean    (water/biomass)
  *   tier 4 — green    ★ capital (habitable, deeper safe orbit)
  *   tier 5 — gas_giant (methane/tritium)
@@ -73,7 +73,7 @@ export const HOME_PLANET_ORBIT_PLAN: readonly HomePlanetOrbitPlanEntry[] = [
   },
   {
     biome: 'rocky',
-    resources: ['iron', 'silicon', 'carbon', 'titanium'],
+    resources: ['silicon', 'carbon', 'titanium'],
   },
   {
     biome: 'ocean',
