@@ -266,5 +266,8 @@
   "cargo.selectShipError": "Select a ship",
   "cargo.selectTargetError": "Select target planet",
   "cargo.addResourcesError": "Add resources to transfer",
-  "cargo.capacityError": "Cargo exceeds capacity"
+  "cargo.capacityError": "Cargo exceeds capacity",
+  "map.mineableResources": "Mineable resources",
+  "map.noMineableResources": "No mineable deposits discovered on this planet",
+  "map.deposit": "deposit · {value}"
 }

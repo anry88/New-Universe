@@ -9,7 +9,7 @@ Each subfolder is a single feature and is wired into Fastify from `backend/src/i
 Planet infrastructure management.
 
 - **`routes.ts`** — registers `GET /types`, `POST /build`, `POST /upgrade`, `POST /demolish`, `POST /sync/:planetId`, `GET /queue`, **`POST /rush`**.
-- **`service.ts`** — handles building logic, costs, queueing, **`rushQueuedBuilding`**, demolish, sync/finalize helpers, and planet-aware production regen. Construction requires an active settlement (capital Command Center or colony record), not just `discovered_planets`, and extractor/feedstock buildings require matching deposits.
+- **`service.ts`** — handles building logic, costs, queueing, **`rushQueuedBuilding`**, demolish, sync/finalize helpers, and planet-aware production regen. `sync` finalizes completed queue items and also recomputes production regen for all settled buildings on the planet so existing operational buildings pick up updated eligibility/output rules.
 - **`buildings.test.ts`**, **`rush.test.ts`**, etc. — integration tests for construction flows.
 
 ## `auth/`

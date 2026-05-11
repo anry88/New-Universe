@@ -54,6 +54,7 @@ describe('building categories', () => {
     expect(getBuildingCategoryKey('solar_plant')).toBe('energy');
     expect(getBuildingCategoryKey('mine')).toBe('extraction');
     expect(getBuildingCategoryKey('smelter')).toBe('processing');
+    expect(getBuildingCategoryKey('cryo_factory')).toBe('processing');
     expect(getBuildingCategoryKey('shipyard')).toBe('shipbuilding');
     expect(getBuildingCategoryKey('command_center')).toBe('special');
     expect(getBuildingCategoryLabel('shipbuilding', 'ru')).toBe('Строительство кораблей');

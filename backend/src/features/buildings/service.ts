@@ -512,6 +512,9 @@ export class BuildingService {
   }
 
   async syncPlanetBuildings(userId: string, planetId: string): Promise<void> {
+    const settlement = await getPlayerPlanetSettlement(userId, planetId);
+    if (!settlement?.isSettled) return;
+
     const now = new Date();
     const readyBuildings = await db.query.buildings.findMany({
       where: and(
@@ -519,21 +522,9 @@ export class BuildingService {
         lte(buildings.queueCompletesAt, now),
         sql`${buildings.queueAction} IS NOT NULL`
       ),
-      with: {
-        planet: {
-          with: {
-            system: true
-          }
-        }
-      }
     });
 
-    if (readyBuildings.length === 0) return;
-
     for (const building of readyBuildings) {
-      const settlement = await getPlayerPlanetSettlement(userId, building.planetId);
-      if (!settlement?.isSettled) continue;
-
       await db.transaction(async (tx) => {
         await this.finalizeBuildingConstruction(tx, building.id, { skipNotification: true });
         // If a worker created a pending completion notification before manual sync won the race,
@@ -553,6 +544,38 @@ export class BuildingService {
             ),
           );
       });
+    }
+
+    const operatingBuildings = await db.query.buildings.findMany({
+      where: and(
+        eq(buildings.planetId, planetId),
+        sql`${buildings.queueAction} IS NULL`,
+      ),
+      columns: {
+        typeId: true,
+      },
+    });
+
+    const readyTypeIds = readyBuildings
+      .map((building) => building.typeId)
+      .filter((id): id is string => typeof id === 'string');
+    const operatingTypeIds = operatingBuildings
+      .map((building) => building.typeId)
+      .filter((id): id is string => typeof id === 'string');
+    const typeIds = [...new Set([...readyTypeIds, ...operatingTypeIds])];
+    if (typeIds.length === 0) return;
+
+    const buildingTypesRows = await db
+      .select()
+      .from(buildingTypes)
+      .where(inArray(buildingTypes.id, typeIds));
+    const typeMap = new Map<string, BuildingTypeRow>(buildingTypesRows.map((type) => [type.id, type]));
+
+    for (const typeId of typeIds) {
+      const typeInfo = typeMap.get(typeId);
+      if (typeInfo?.baseOutput) {
+        await recalculateProductionRegenForBuildingType(db, planetId, typeInfo);
+      }
     }
   }
 

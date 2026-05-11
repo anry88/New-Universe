@@ -112,6 +112,14 @@ describe('planet resource construction rules', () => {
     ).toEqual(['aluminum', 'copper']);
 
     expect(
+      resolveBuildingProducedResourceIds({
+        typeId: 'mine',
+        baseOutput: { resourceId: 'iron', baseRate: 50 },
+        planetResourceIds: ['titanium', 'carbon', 'silicon'],
+      }),
+    ).toEqual(['titanium', 'carbon', 'silicon']);
+
+    expect(
       resolveBuildingProductionRateForResource({
         typeId: 'mine',
         baseOutput: { resourceId: 'iron', baseRate: 50 },

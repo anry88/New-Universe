@@ -552,6 +552,54 @@ describe('Buildings Service - POST /buildings/build', () => {
     expect(updated?.queueCompletesAt).toBeNull();
   });
 
+  it('should recalculate mine production for already completed buildings on sync', async () => {
+    const { app, token, userId } = await createTestUser();
+
+    const userSystem = await db.query.systems.findFirst({
+      where: eq(systems.ownerId, userId),
+    });
+    const userPlanet = await db.query.planets.findFirst({
+      where: eq(planets.systemId, userSystem!.id),
+      orderBy: (p, { asc }) => asc(p.name),
+    });
+
+    await db.delete(richness).where(eq(richness.planetId, userPlanet!.id));
+    await db.delete(planetResources).where(eq(planetResources.planetId, userPlanet!.id));
+    await db.insert(richness).values([
+      { planetId: userPlanet!.id, resourceId: 'iron', value: 2 },
+      { planetId: userPlanet!.id, resourceId: 'carbon', value: 1 },
+      { planetId: userPlanet!.id, resourceId: 'silicon', value: 1 },
+    ]);
+
+    await db.insert(buildings).values({
+      planetId: userPlanet!.id,
+      typeId: 'mine',
+      slotIndex: 1,
+      level: 1,
+      queueAction: null,
+      queueCompletesAt: null,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/buildings/sync/${userPlanet!.id}`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+
+    const syncedResources = await db.query.planetResources.findMany({
+      where: eq(planetResources.planetId, userPlanet!.id),
+    });
+    const regenByResource = Object.fromEntries(
+      syncedResources.map((resource) => [resource.resourceId, Number(resource.regenRate)]),
+    );
+
+    expect(regenByResource.iron).toBeGreaterThan(0);
+    expect(regenByResource.carbon).toBeGreaterThan(0);
+    expect(regenByResource.silicon).toBeGreaterThan(0);
+  });
+
   it('should demolish a building and refund 50% of costs', async () => {
     const { app, token, userId } = await createTestUser();
 

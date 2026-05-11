@@ -5,6 +5,8 @@ export const METAL_DEPOSIT_RESOURCE_IDS = [
   'iron',
   'copper',
   'aluminum',
+  'carbon',
+  'silicon',
   'titanium',
   'mercury',
   'magnesium',
