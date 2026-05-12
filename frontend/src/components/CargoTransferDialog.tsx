@@ -8,6 +8,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { X, Package, Truck, AlertTriangle } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
 import type { CargoTransferRequest } from '@shared/types/cargo';
+import { formatCargoTransferError, isCargoTransferShip } from '../lib/fleet';
 
 interface CargoTransferDialogProps {
   originPlanet: Planet;
@@ -26,9 +27,13 @@ export function CargoTransferDialog({ originPlanet, onClose }: CargoTransferDial
   const [cargo, setCargo] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
 
-  const availableShips = useMemo(() => 
-    meData?.ships?.filter(s => s.locationPlanetId === originPlanet.id && s.status === 'idle') || []
-  , [meData?.ships, originPlanet.id]);
+  const availableShips = useMemo(() =>
+    meData?.ships?.filter((ship) =>
+      ship.locationPlanetId === originPlanet.id &&
+      ship.status === 'idle' &&
+      isCargoTransferShip(ship, shipTypes),
+    ) || []
+  , [meData?.ships, originPlanet.id, shipTypes]);
 
   const targetPlanets = useMemo(() => 
     planets.filter(p => p.id !== originPlanet.id)
@@ -50,7 +55,7 @@ export function CargoTransferDialog({ originPlanet, onClose }: CargoTransferDial
       onClose();
     },
     onError: (err: Error) => {
-      setError(err.message || t('cargo.transferFailed'));
+      setError(formatCargoTransferError(err.message, t));
     }
   });
 

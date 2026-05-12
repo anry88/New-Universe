@@ -120,9 +120,9 @@ Market contracts and explicit order-state lifecycle rules.
 Ship launch and travel scheduling. [Detailed documentation](./expeditions/README.md).
 
 - **`routes.ts`** — `expeditionsRoutes(app)` registers:
-  - `POST /` — launches a standard expedition to a route point. Accepts `{ shipId, targetX, targetY, targetZ, cargoLoaded }`; fuel is calculated server-side from distance and ship fuel consumption. `targetPlanetId` is valid for recon survey targets and required for colonizer deployments to discovered planets.
+  - `POST /` — launches a standard expedition to a route point. Accepts `{ shipId, targetX, targetY, targetZ, cargoLoaded }`; fuel is calculated server-side from distance and ship fuel consumption. `targetPlanetId` is valid for recon survey targets and required for colonizer deployments to discovered planets; same-system targeted launches use shared system-map planet distance, while logistics ships are rejected and must use `/cargo/transfer`.
   - `POST /jump` — performs an inter-sector jump using a Jump Ship. Accepts `{ shipId, targetSector: { x, y, z } }`.
-- **`launch.ts`** — `launchExpedition(userId, request)` validates ship ownership and idle state, checks the launch planet has enough cargo stock, computes and spends fuel, creates an `expeditions` row with `status='in_flight'`, updates the ship to `moving`, computes `eta = distance × 60 / speed × engine_factor`, and enqueues the delayed BullMQ job. Effective speed is resolved through `features/research/effects.ts`; colonizer target-planet launches are one-way and must pass colonization gates before launch.
+- **`launch.ts`** — `launchExpedition(userId, request)` validates ship ownership and idle state, rejects logistics ships from generic expeditions, checks the launch planet has enough cargo stock, computes and spends fuel, creates an `expeditions` row with `status='in_flight'`, updates the ship to `moving`, computes `eta = distance × 60 / speed × engine_factor`, and enqueues the delayed BullMQ job. Effective speed is resolved through `features/research/effects.ts`; same-system target-planet launches derive distance from `@shared/format/systemMapLayout`, and colonizer launches are one-way and must pass colonization gates before launch.
 - **`jump.ts`** — `jumpShip(userId, request)` handles specialized Jump Ship teleportation. Checks for Jump Drive research lvl 1+, deducts 50 fuel from the ship's internal tank, lazily generates the target sector/system, and moves the ship to the first planet of the target system. Updates discovery records.
 - **`launch.test.ts`** — Vitest integration suite covering the happy path, non-idle ship rejection, insufficient fuel, and missing auth.
 - **`jump.test.ts`** — Vitest integration suite for the jump feature.
@@ -190,7 +190,7 @@ Player colonies and settled planets.
 
 Interplanetary cargo transfers. [Detailed documentation](./logistics/README.md).
 
-- **`cargo-transfer.ts`** — `launchCargoTransfer(userId, request)` action module. Validates ownership, multi-load capacity, and planet state; reserves aggregated resources atomically; creates a one-way `expeditions` record with type `cargo_transfer`; enqueues a BullMQ `arrive_cargo` job and shares `completeCargoTransfer` with active-session expedition sync.
+- **`cargo-transfer.ts`** — `launchCargoTransfer(userId, request)` action module. Validates settlement ownership including the home capital, logistics ship role, multi-load capacity, and planet state; reserves aggregated resources atomically; creates a one-way `expeditions` record with type `cargo_transfer`; enqueues a BullMQ `arrive_cargo` job and shares `completeCargoTransfer` with active-session expedition sync.
 - **`cargo-transfer.test.ts`** — integration tests for the cargo transfer flow.
 
 ## Adding a new feature module

@@ -20,6 +20,7 @@ import { generateHomeSystem } from "../world/home-system-generator.js";
 import { expeditionsRoutes } from "./routes.js";
 import { seedResources } from "../../db/seed/resources.js";
 import { seedShipTypes } from "../../db/seed/ship-types.js";
+import { systemMapPlanetDistanceLy } from "@shared/format/systemMapLayout.js";
 
 describe("Expeditions - POST /expeditions", () => {
   beforeAll(async () => {
@@ -113,6 +114,22 @@ describe("Expeditions - POST /expeditions", () => {
       .values({
         ownerId: userId,
         typeId: "scout",
+        locationPlanetId: planetId,
+        status: "idle",
+        cargoJson: {},
+        fuel: "0",
+      })
+      .returning();
+
+    return ship;
+  }
+
+  async function createIdleCargo(userId: string, planetId: string) {
+    const [ship] = await db
+      .insert(ships)
+      .values({
+        ownerId: userId,
+        typeId: "cargo_light",
         locationPlanetId: planetId,
         status: "idle",
         cargoJson: {},
@@ -267,6 +284,30 @@ describe("Expeditions - POST /expeditions", () => {
     expect(response.json().error).toContain("not enough fuel");
   });
 
+  it("rejects cargo ships from the generic expedition launch flow", async () => {
+    const { app, token, userId } = await createTestUser();
+    const { system, planet } = await getHomeContext(userId);
+
+    await ensureFuel(planet.id, 100);
+    const ship = await createIdleCargo(userId, planet.id);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/expeditions",
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        shipId: ship.id,
+        targetX: system.sectorX + 5,
+        targetY: system.sectorY,
+        targetZ: system.sectorZ,
+        cargoLoaded: 0,
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error).toContain("cargo transfer");
+  });
+
   it("should return 401 without authorization", async () => {
     const app = Fastify();
     await app.register(expeditionsRoutes, { prefix: "/expeditions" });
@@ -345,6 +386,20 @@ describe("Expeditions - POST /expeditions", () => {
     const body = response.json();
     expect(body.expedition.targetPlanetId).toBe(targetPlanet!.id);
     expect(body.expedition.result.returnTrip).toBe(false);
-    expect(body.expedition.result.fuelRequired).toBe(2);
+    const systemPlanets = await db.query.planets.findMany({
+      where: eq(planets.systemId, system.id),
+    });
+    const expectedDistance = systemMapPlanetDistanceLy(
+      systemPlanets,
+      system.seed,
+      planet.id,
+      targetPlanet!.id,
+    );
+    expect(expectedDistance).not.toBeNull();
+    expect(body.expedition.result.distance).toBeCloseTo(expectedDistance!, 6);
+    expect(body.expedition.result.distance).toBeGreaterThan(1);
+    expect(body.expedition.result.fuelRequired).toBe(
+      Math.ceil(expectedDistance! * 1.5),
+    );
   });
 });

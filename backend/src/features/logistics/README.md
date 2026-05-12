@@ -5,10 +5,10 @@ Interplanetary logistics — cargo transfers between player-owned colonies.
 ## Files
 
 - **`cargo-transfer.ts`** — `launchCargoTransfer(userId, request)` action module. Implements the atomic cargo transfer flow:
-  - Validates ship ownership, idle state, and planet location.
-  - Confirms target planet is owned by the player (via `colonies` table).
+  - Validates ship ownership, idle state, logistics role, and planet location.
+  - Confirms origin and target are player settlements through `features/colonies/ownership.ts`, so the home capital works even though it has no `colonies` row.
   - Normalizes multiple load lines in one transfer order, aggregates duplicate resource ids for reservation/delivery, and enforces the ship cargo capacity limit.
-  - Calculates travel ETA based on 3D distance, ship speed, and research effects.
+  - Calculates travel ETA based on route distance, ship speed, and research effects.
   - Reserves resources atomically on the origin planet (via `spendResources`).
   - Creates a one-way `expeditions` record with type `cargo_transfer`.
   - Sets ship status to `moving` and populates `cargoJson`.
@@ -18,12 +18,13 @@ Interplanetary logistics — cargo transfers between player-owned colonies.
 
 ## Transfer Rules
 
-1. **Ownership**: Source and target planets must both be owned by the requesting player.
+1. **Ownership**: Source and target planets must both be player settlements, either the home capital with an operational Command Center or an active `colonies` row.
 2. **Capacity**: Total resource weight across all load lines must not exceed the ship's cargo capacity (`cargo_light` currently carries 5000).
 3. **Idle**: Ship must be in `idle` status.
-4. **Distinct**: Source and target must be different planets.
-5. **Atomic reservation**: Resources are deducted from the origin planet within the same DB transaction as the expedition record creation.
-6. **No duplication on cancel**: Resources are reserved up-front; delivery only adds to target when the BullMQ worker or online expedition sync completes the one-way transfer.
+4. **Ship role**: Only logistics-role ships such as `cargo_light` can use `/cargo/transfer`; scouts and colonizers are rejected even if their catalog cargo value is non-zero.
+5. **Distinct**: Source and target must be different planets.
+6. **Atomic reservation**: Resources are deducted from the origin planet within the same DB transaction as the expedition record creation.
+7. **No duplication on cancel**: Resources are reserved up-front; delivery only adds to target when the BullMQ worker or online expedition sync completes the one-way transfer.
 
 ## Adding a new logistics action
 
