@@ -74,6 +74,17 @@ export interface UpgradeRequest {
   buildingId: string;
 }
 
+export interface ChangeExtractorResourceRequest {
+  buildingId: string;
+  selectedResourceId: string;
+}
+
+export interface ChangeExtractorResourceResponse {
+  success: boolean;
+  buildingId: string;
+  selectedResourceId: string;
+}
+
 export interface ConstructionStatus {
   success: boolean;
   message?: string;

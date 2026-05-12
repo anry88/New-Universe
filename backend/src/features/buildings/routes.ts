@@ -6,6 +6,7 @@ import { BuildingOperationError } from './building-operation-error.js';
 import {
   BuildRequest,
   UpgradeRequest,
+  ChangeExtractorResourceRequest,
   DemolishRequest,
   RushBuildRequest,
 } from '@shared/types/buildings.js';
@@ -75,6 +76,36 @@ export async function buildingsRoutes(app: FastifyInstance) {
     try {
       const result = await buildingService.upgrade(userId, buildingId);
       return result;
+    } catch (err: unknown) {
+      if (err instanceof BuildingOperationError) {
+        return reply.status(400).send({
+          error: 'Bad Request',
+          message: err.message,
+          code: err.code,
+          details: err.details,
+        });
+      }
+      const e = err as { message?: string };
+      return reply.status(400).send({
+        error: 'Bad Request',
+        message: e.message ?? 'Bad Request',
+      });
+    }
+  });
+
+  app.post('/resource', async (request, reply) => {
+    const { buildingId, selectedResourceId } = request.body as ChangeExtractorResourceRequest;
+    const userId = (request as any).userId;
+
+    if (!buildingId || !selectedResourceId) {
+      return reply.status(400).send({
+        error: 'Bad Request',
+        message: 'buildingId and selectedResourceId are required',
+      });
+    }
+
+    try {
+      return await buildingService.changeExtractorResource(userId, buildingId, selectedResourceId);
     } catch (err: unknown) {
       if (err instanceof BuildingOperationError) {
         return reply.status(400).send({

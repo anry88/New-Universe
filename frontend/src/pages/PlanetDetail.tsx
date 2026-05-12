@@ -18,7 +18,13 @@ import {
   resolveBiome,
 } from '../components/cosmic/atoms';
 import type { Building, Planet } from '@shared/types/world';
-import type { BuildingType, BuildBlockedReason, ConstructionStatus, DemolishStatus } from '@shared/types/buildings';
+import type {
+  BuildingType,
+  BuildBlockedReason,
+  ChangeExtractorResourceResponse,
+  ConstructionStatus,
+  DemolishStatus,
+} from '@shared/types/buildings';
 import {
   isSelectableExtractorType,
   resolveBuildBlockedReason,
@@ -160,6 +166,47 @@ export function PlanetDetailPage() {
     [depositLimitsByResourceId, planetDepositResourceIds, usedExtractorCountsByResourceId],
   );
 
+  const usedExtractorCountsByResourceIdExcluding = useCallback(
+    (excludedBuildingId: string) => {
+      const counts: Record<string, number> = {};
+      for (const building of planet?.buildings ?? []) {
+        if (building.id === excludedBuildingId) continue;
+        if (building.queueAction === 'destroy') continue;
+        if (!isSelectableExtractorType(building.typeId)) continue;
+
+        const producedResourceIds = resolveBuildingProducedResourceIds({
+          typeId: building.typeId,
+          planetResourceIds: planetDepositResourceIds,
+          selectedResourceId: building.selectedResourceId,
+        });
+
+        for (const resourceId of producedResourceIds) {
+          counts[resourceId] = (counts[resourceId] ?? 0) + 1;
+        }
+      }
+      return counts;
+    },
+    [planet?.buildings, planetDepositResourceIds],
+  );
+
+  const resourceSwitchBlockedReasonForBuilding = useCallback(
+    (building: Building, selectedResourceId: string): BuildBlockedReason | null => {
+      if (!isSelectableExtractorType(building.typeId)) return null;
+      return resolveExtractorSelectionBlockedReason({
+        typeId: building.typeId,
+        selectedResourceId,
+        planetResourceIds: planetDepositResourceIds,
+        depositLimitsByResourceId,
+        usedExtractorCountsByResourceId: usedExtractorCountsByResourceIdExcluding(building.id),
+      });
+    },
+    [
+      depositLimitsByResourceId,
+      planetDepositResourceIds,
+      usedExtractorCountsByResourceIdExcluding,
+    ],
+  );
+
   const blockedReasonForType = useCallback(
     (typeId: string, selectedResourceId?: string | null): BuildBlockedReason | null => {
       const typeRow = buildingTypes.find((t) => t.id === typeId);
@@ -228,7 +275,8 @@ export function PlanetDetailPage() {
       const type = byId.get(b.typeId);
       if (!type) continue;
       produced += (type.baseOutput?.energy ?? 0) * Math.max(1, b.level ?? 1);
-      consumed += (type.energyConsumption ?? 0) * Math.max(1, b.level ?? 1);
+      const consumesEnergyOnlyDuringProcess = recipesForBuildingType(type.id).length > 0;
+      consumed += consumesEnergyOnlyDuringProcess ? 0 : (type.energyConsumption ?? 0) * Math.max(1, b.level ?? 1);
     }
     return { produced, consumed };
   }, [planet, buildingTypes]);
@@ -332,6 +380,38 @@ export function PlanetDetailPage() {
       setSelectedBuilding(null);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t('build.failedUpgrade');
+      alert(message);
+      queryClient.setQueryData(['me'], previousMeData);
+    } finally {
+      setIsProcessing(false);
+      queryClient.invalidateQueries({ queryKey: ['me'] });
+    }
+  };
+
+  const handleChangeExtractorResource = async (buildingId: string, selectedResourceId: string) => {
+    setIsProcessing(true);
+    const previousMeData = queryClient.getQueryData(['me']);
+
+    if (meData) {
+      const optimisticMe = structuredClone(meData);
+      const p = optimisticMe.planets?.find((pl) => pl.id === planet.id);
+      const b = p?.buildings?.find((bld) => bld.id === buildingId);
+      if (b) {
+        b.selectedResourceId = selectedResourceId;
+      }
+      queryClient.setQueryData(['me'], optimisticMe);
+    }
+
+    try {
+      await apiFetch<ChangeExtractorResourceResponse>('/buildings/resource', {
+        method: 'POST',
+        body: JSON.stringify({ buildingId, selectedResourceId }),
+      });
+      setSelectedBuilding((current) =>
+        current?.id === buildingId ? { ...current, selectedResourceId } : current,
+      );
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : t('build.failedResourceSwitch');
       alert(message);
       queryClient.setQueryData(['me'], previousMeData);
     } finally {
@@ -502,6 +582,13 @@ export function PlanetDetailPage() {
               }
             : undefined
         }
+        resourceChoices={selectedBuilding ? resourceChoicesForType(selectedBuilding.typeId) : []}
+        resourceSwitchBlockedReason={
+          selectedBuilding
+            ? (resourceId) => resourceSwitchBlockedReasonForBuilding(selectedBuilding, resourceId)
+            : undefined
+        }
+        onChangeResource={handleChangeExtractorResource}
         isProcessing={isProcessing}
         accent={accent}
       />

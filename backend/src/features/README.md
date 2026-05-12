@@ -8,8 +8,8 @@ Each subfolder is a single feature and is wired into Fastify from `backend/src/i
 
 Planet infrastructure management.
 
-- **`routes.ts`** — registers `GET /types`, `POST /build`, `POST /upgrade`, `POST /demolish`, `POST /sync/:planetId`, `GET /queue`, **`POST /rush`**.
-- **`service.ts`** — handles building logic, costs, queueing, **`rushQueuedBuilding`**, demolish, sync/finalize helpers, selected-resource passive regen for extractors such as mines, drills, oil pumps, and biomass harvesters with per-resource deposit limits, plus energy storage/generation sync for `battery`, `solar_plant`, `wind_turbine`, and `fuel_generator`.
+- **`routes.ts`** — registers `GET /types`, `POST /build`, `POST /upgrade`, **`POST /resource`** for post-build extractor target changes, `POST /demolish`, `POST /sync/:planetId`, `GET /queue`, **`POST /rush`**.
+- **`service.ts`** — handles building logic, costs, queueing, **`rushQueuedBuilding`**, demolish, sync/finalize helpers, selected-resource passive regen and post-build retargeting for extractors such as mines, drills, oil pumps, and biomass harvesters with per-resource deposit limits, plus energy storage/generation sync for `battery`, `solar_plant`, `wind_turbine`, and `fuel_generator`.
 - **`buildings.test.ts`**, **`rush.test.ts`**, etc. — integration tests for construction flows.
 
 ## `auth/`
@@ -59,7 +59,7 @@ Player state retrieval.
 
 Building construction and queue management. [Detailed documentation](./buildings/README.md).
 
-- **`routes.ts`** — `buildingsRoutes(app)` registers `POST /build/build` (mounted at `/buildings` from `index.ts`, so the public path is `POST /buildings/build`). Requires a valid JWT in the `Authorization: Bearer <token>` header. Accepts `{ planetId, typeId, slotIndex, selectedResourceId? }` in the request body.
+- **`routes.ts`** — `buildingsRoutes(app)` registers `POST /build/build` (mounted at `/buildings` from `index.ts`, so the public path is `POST /buildings/build`) plus `POST /buildings/resource` for changing an operational extractor's `selectedResourceId`. Requires a valid JWT in the `Authorization: Bearer <token>` header. Build accepts `{ planetId, typeId, slotIndex, selectedResourceId? }`; retargeting accepts `{ buildingId, selectedResourceId }`.
 - **`service.ts`** — `BuildingService.build(userId, { planetId, typeSlug })` performs the full build flow:
   1. Validates the planet exists and has an active settlement for the requesting user.
   2. Looks up the building type from the catalog.
@@ -91,8 +91,8 @@ Resource accrual, transactions, conversion, and explicit production orders. [Det
   - If resource is insufficient → transaction rolls back, nothing spent.
   - `lastUpdateAt` synced with spend/gain.
 - **`transactions.test.ts`** — Vitest coverage asserting: successful spend, insufficient resource rollback, gain resources, sync `lastUpdateAt`, and multiple resource atomic handling.
-- **`production.ts`** — `ProductionService` exposes recipe listing, preview, start, order listing, and due-order processing. It validates settled-planet ownership and building type, applies building/research modifiers to input quantities/durations, includes stored `energy` in processor inputs, blocks before spending materials when charge is missing, stores `production_orders`, and grants outputs when worker or online sync processes due rows.
-- **`production.test.ts`** — Vitest integration suite covering steel inputs, immediate spend/deferred output, insufficient resources, building/research modifiers, electronics multi-input costs, and oil-vs-methane fuel recipes.
+- **`production.ts`** — `ProductionService` exposes recipe listing, preview, start, process listing, pause/resume, and due-row completion. It validates settled-planet ownership and building type, applies building/research modifiers to input quantities/durations, keeps material spend immediate, treats processor energy as active-process demand instead of an upfront resource input, stores `production_orders`, pauses queued rows on energy shortage, and grants outputs when worker or online sync processes due rows.
+- **`production.test.ts`** — Vitest integration suite covering steel inputs, immediate material spend/deferred output, insufficient resources, building/research modifiers, electronics multi-input costs, oil-vs-methane fuel recipes, and energy pause/resume.
 
 ## `tutorial/`
 

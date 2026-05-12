@@ -10,6 +10,7 @@ import {
   richness,
   ships,
   expeditions,
+  productionOrders,
   researchProgress,
 } from "../../db/schema.js";
 import { and, asc, eq, inArray, or } from "drizzle-orm";
@@ -253,6 +254,39 @@ export async function meRoutes(app: FastifyInstance) {
         .map((c) => markPlanetSettlement(c.planet))
         .filter((planet: any) => !homePlanetIds.has(planet.id));
       const allPlanets = [...homePlanets, ...colonyPlanets];
+      const allPlanetIds = allPlanets
+        .filter((planet: any) => planet.isDiscovered !== false)
+        .map((planet: any) => planet.id);
+      const activeProductionRows = allPlanetIds.length
+        ? await db.query.productionOrders.findMany({
+            where: and(
+              inArray(productionOrders.planetId, allPlanetIds),
+              inArray(productionOrders.status, ["queued", "paused"]),
+            ),
+          })
+        : [];
+      const activeProductionByBuildingId = new Map<string, any[]>();
+      for (const order of activeProductionRows) {
+        if (!order.buildingId) continue;
+        const mappedOrder = {
+          id: order.id,
+          userId: order.userId,
+          planetId: order.planetId,
+          buildingId: order.buildingId,
+          recipeId: order.recipeId,
+          quantity: Number(order.quantity),
+          status: order.status,
+          inputs: order.inputs,
+          outputs: order.outputs,
+          startedAt: order.startedAt.toISOString(),
+          completesAt: order.completesAt.toISOString(),
+          completedAt: order.completedAt?.toISOString() ?? null,
+          pausedAt: order.pausedAt?.toISOString() ?? null,
+        };
+        const orders = activeProductionByBuildingId.get(order.buildingId) ?? [];
+        orders.push(mappedOrder);
+        activeProductionByBuildingId.set(order.buildingId, orders);
+      }
 
       const enrichedPlanets = await Promise.all(
         allPlanets.map(async (planet: any) => {
@@ -283,6 +317,9 @@ export async function meRoutes(app: FastifyInstance) {
             buildings: (planet.buildings ?? []).map((building: any) => ({
               ...building,
               energy: energyState.buildingStates[building.id],
+              production: activeProductionByBuildingId.has(building.id)
+                ? { activeOrders: activeProductionByBuildingId.get(building.id) ?? [] }
+                : undefined,
             })),
             resources: res.map((r) => ({
               ...r,

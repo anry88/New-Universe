@@ -3459,6 +3459,52 @@
       "verify": "Backend unit/integration тесты: невозможность разместить/активировать 3-й mine по iron на планете с 2 залежами; ручной smoke: выбор ресурса в UI для mine/oil_pump работает и возвращает локализованную ошибку при лимите.",
       "notes": "Рекомендуется переиспользовать существующий механизм production recipes/selection в общей модели buildingProductionProfile для единообразия UX и авторитетности валидации на backend.",
       "prompt": "[TASK P2.2-009] Добыча: выбор ресурса шахтами и насосами по лимиту месторождений\n\nОПИСАНИЕ\nДобавить выбор добываемого ресурса для шахт и нефтяных насосов (и других добывающих зданий), аналогично выбранной логике в производственных зданиях. Нужно хранить выбор и валидировать его на сервере в привязке к планете: на планете доступно ограниченное число месторождений по каждому ресурсу, и это лимитирует число зданий, которые могут его добывать одновременно.\n\nACCEPTANCE CRITERIA\n  1. Для mine/oil_pump доступен выбор ресурса/продукта\n  2. Выбранный ресурс используется в производственном расчёте и сохраняется в состоянии здания\n  3. Сервер блокирует доп. post-build/upgrade/ререндер для ресурса, если лимит месторождений на планете исчерпан\n  4. На планете с 2 железными залежами одновременно работает максимум 2 mine по iron\n  5. Аналогично применимо к oil/gas/methane/ice/water и другим добываемым ресурсам\n  6. Клиент и сервер используют RU/EN сообщения о причине ограничения\n  7. Обновлены shared типы и контрактные тесты для выбранного ресурса\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/schema/\n  - backend/src/features/buildings/\n  - backend/src/features/colonies/\n  - backend/src/workers/tick-buildings.ts\n  - frontend/src/components/\n  - frontend/src/pages/PlanetDetail.tsx\n  - frontend/src/locales/\n  - shared/types/\n\nЗАВИСИМОСТИ\n  P2.2-002\n\nКАК ПРОВЕРИТЬ\n  Запустить unit/integration tests на лимиты добычи по ресурсам. Ручной smoke: выбор ресурса в карточке здания и блокировка третьей mine на планете с 2 железными залежами."
+    },
+    {
+      "id": "P2.2-010",
+      "epic": "EPIC-P2.2-BUILDING-ECONOMY",
+      "size": "M",
+      "title": "Постройки: переключение добычи и процессы переработки",
+      "description": "Доделать post-build UX и серверные правила для добывающих и перерабатывающих построек: уже построенные шахты/экстракторы должны переключать добываемый ресурс с проверкой лимита месторождений, переработчики должны открываться независимо друг от друга, их описания должны говорить только о назначении, а текущие процессы переработки должны быть видны снаружи на карточке здания. Энергия для переработчиков расходуется только во время активного процесса; при дефиците энергии процесс ставится на паузу и продолжает таймер после восстановления питания.",
+      "acceptance": [
+        "Построенные добывающие здания (mine, drill, oil_pump, biomass_harvester) позволяют сменить selectedResourceId через UI-переключатели, аналогичные выбору ресурса при строительстве",
+        "Backend валидирует смену selectedResourceId атомарно: нельзя переключиться на ресурс без месторождения или на ресурс, у которого уже достигнут лимит активных добывающих зданий",
+        "После смены ресурса добывающего здания сервер пересчитывает regenRate для старого и нового ресурсов без скрытой пассивной генерации других ресурсов",
+        "Перерабатывающие здания (smelter, refinery, fabrication_bay, cryo_factory) не зависят друг от друга в deps и могут открываться независимо при выполнении собственной базовой инфраструктуры",
+        "Описания добывающих и перерабатывающих зданий убирают мета-информацию про биомы/заказы и оставляют только краткое назначение",
+        "UI больше не называет production flow заказами: он показывает текущие процессы, а активный/paused процесс виден на карточке построенного здания с результатом и оставшимся временем",
+        "Производственные процессы не списывают всю энергию заранее и не создают idle-потребление для переработчиков; энергия учитывается только пока процесс запущен",
+        "Если энергии не хватает во время производства, процесс переходит в paused-состояние, не завершается до восстановления питания и затем продолжает с продлённым временем завершения",
+        "RU/EN локализация, shared contracts, backend/frontend tests and adjacent README/DOCUMENTATION updated for the new behavior"
+      ],
+      "files": [
+        "backend/src/db/schema/production.ts",
+        "backend/src/db/seed/catalog-rows.ts",
+        "backend/src/features/buildings/",
+        "backend/src/features/resources/",
+        "backend/src/features/me/routes.ts",
+        "backend/src/workers/production-orders.ts",
+        "frontend/src/components/",
+        "frontend/src/pages/PlanetDetail.tsx",
+        "frontend/src/locales/",
+        "shared/types/",
+        "tools/balance-sim/src/catalog.ts",
+        "DOCUMENTATION.md",
+        "backend/src/db/README.md",
+        "backend/src/features/buildings/README.md",
+        "backend/src/features/resources/README.md",
+        "backend/src/features/README.md",
+        "frontend/src/README.md",
+        "shared/README.md"
+      ],
+      "deps": [
+        "P2.2-003",
+        "P2.2-004",
+        "P2.2-009"
+      ],
+      "verify": "Backend tests: extractor retargeting, production no upfront energy spend, pause/resume on energy shortage. Frontend build/tests: resource chips on existing extractor and current process card rendering. Manual smoke: switch mine target after build, blocked full deposit target, refinery build not blocked by smelter, processor card shows active/paused process.",
+      "notes": "Keep the behavior server-authoritative. Reuse shared extractor eligibility helpers for both build-time and post-build switching. Do not reintroduce processor passive regen or idle processor energy drain.",
+      "prompt": "[TASK P2.2-010] Постройки: переключение добычи и процессы переработки\n\nОПИСАНИЕ\nДоделать post-build UX и серверные правила для добывающих и перерабатывающих построек: уже построенные шахты/экстракторы должны переключать добываемый ресурс с проверкой лимита месторождений, переработчики должны открываться независимо друг от друга, их описания должны говорить только о назначении, а текущие процессы переработки должны быть видны снаружи на карточке здания. Энергия для переработчиков расходуется только во время активного процесса; при дефиците энергии процесс ставится на паузу и продолжает таймер после восстановления питания.\n\nACCEPTANCE CRITERIA\n  1. Построенные добывающие здания позволяют сменить selectedResourceId через UI-переключатели, аналогичные выбору ресурса при строительстве\n  2. Backend валидирует смену selectedResourceId атомарно: нельзя переключиться на ресурс без месторождения или на ресурс, у которого уже достигнут лимит активных добывающих зданий\n  3. После смены ресурса добывающего здания сервер пересчитывает regenRate для старого и нового ресурсов\n  4. Перерабатывающие здания не зависят друг от друга в deps и открываются независимо\n  5. Описания добывающих и перерабатывающих зданий убирают мета-информацию и оставляют назначение\n  6. UI показывает текущие процессы на карточке здания и больше не называет production flow заказами\n  7. Производство не списывает всю энергию заранее и не создаёт idle-потребление для переработчиков\n  8. При нехватке энергии производство переходит в paused-состояние и продолжает после восстановления питания\n  9. Обновлены RU/EN локализация, shared contracts, тесты и документация\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/schema/production.ts\n  - backend/src/db/seed/catalog-rows.ts\n  - backend/src/features/buildings/\n  - backend/src/features/resources/\n  - backend/src/features/me/routes.ts\n  - backend/src/workers/production-orders.ts\n  - frontend/src/components/\n  - frontend/src/pages/PlanetDetail.tsx\n  - frontend/src/locales/\n  - shared/types/\n  - tools/balance-sim/src/catalog.ts\n  - DOCUMENTATION.md\n  - backend/src/db/README.md\n  - backend/src/features/buildings/README.md\n  - backend/src/features/resources/README.md\n  - backend/src/features/README.md\n  - frontend/src/README.md\n  - shared/README.md\n\nЗАВИСИМОСТИ\n  P2.2-003, P2.2-004, P2.2-009\n\nКАК ПРОВЕРИТЬ\n  Backend tests: extractor retargeting, production no upfront energy spend, pause/resume on energy shortage. Frontend build/tests: resource chips on existing extractor and current process card rendering. Manual smoke: switch mine target after build, blocked full deposit target, refinery build not blocked by smelter, processor card shows active/paused process.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Keep the behavior server-authoritative. Reuse shared extractor eligibility helpers for both build-time and post-build switching. Do not reintroduce processor passive regen or idle processor energy drain."
     }
   ]
 }

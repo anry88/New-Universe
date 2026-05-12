@@ -16,6 +16,7 @@ export const productionOrders = pgTable('production_orders', {
   outputs: jsonb('outputs').$type<ResourceAmount[]>().notNull(),
   startedAt: timestamp('started_at').defaultNow().notNull(),
   completesAt: timestamp('completes_at').notNull(),
+  pausedAt: timestamp('paused_at'),
   completedAt: timestamp('completed_at'),
 }, (table) => ({
   dueIdx: index('production_orders_due_idx').on(table.status, table.completesAt),

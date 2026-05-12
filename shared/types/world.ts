@@ -1,3 +1,5 @@
+import type { ProductionOrder } from './production.js';
+
 export interface PlanetResource {
   planetId: string;
   resourceId: string;
@@ -30,6 +32,9 @@ export interface Building {
   queueCompletesAt?: string | null;
   queueStartedAt?: string | null;
   energy?: BuildingEnergyState;
+  production?: {
+    activeOrders: ProductionOrder[];
+  };
 }
 
 export interface PlanetEnergyStatus {

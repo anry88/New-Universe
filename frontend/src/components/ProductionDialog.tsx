@@ -117,15 +117,17 @@ export const ProductionDialog: React.FC<ProductionDialogProps> = ({
     () => recipes.find((recipe) => recipe.id === selectedRecipeId),
     [recipes, selectedRecipeId],
   );
-  const queuedOrders = orders.filter((order) => order.status === 'queued' && order.buildingId === building?.id);
+  const activeProcesses = orders.filter(
+    (order) => (order.status === 'queued' || order.status === 'paused') && order.buildingId === building?.id,
+  );
   const blocked = productionBlockedText(preview, locale);
 
   useEffect(() => {
-    if (!isOpen || queuedOrders.length === 0) return;
+    if (!isOpen || activeProcesses.length === 0) return;
     setNowMs(Date.now());
     const interval = window.setInterval(() => setNowMs(Date.now()), 1000);
     return () => window.clearInterval(interval);
-  }, [isOpen, queuedOrders.length]);
+  }, [isOpen, activeProcesses.length]);
 
   if (!isOpen || !building) return null;
 
@@ -257,32 +259,36 @@ export const ProductionDialog: React.FC<ProductionDialogProps> = ({
             </section>
           ) : null}
 
-          {queuedOrders.length > 0 ? (
+          {activeProcesses.length > 0 ? (
             <section className="bd-category">
               <div className="bd-category-head">
-                <span className="bd-category-title">{t('production.activeOrders')}</span>
-                <span className="bd-category-count">{queuedOrders.length}</span>
+                <span className="bd-category-title">{t('production.currentProcesses')}</span>
+                <span className="bd-category-count">{activeProcesses.length}</span>
               </div>
-              {queuedOrders.map((order) => (
+              {activeProcesses.map((order) => {
+                const pausedAtMs = order.status === 'paused' && order.pausedAt
+                  ? new Date(order.pausedAt).getTime()
+                  : nowMs;
+                const remainingSec = timerSnapshot({
+                  completesAt: order.completesAt,
+                  startedAt: order.startedAt,
+                  nowMs: pausedAtMs,
+                }).remainingSec;
+                return (
                 <div key={order.id} className="prod-order">
                   <div className="prod-card-head">
                     <span className="prod-card-title">
                       {order.outputs.map((output) => formatResourceAmount(output, '+')).join(', ')}
                     </span>
                     <span className="prod-pill">
-                      {t('production.remaining', {
-                        time: formatTimerDuration(
-                          timerSnapshot({
-                            completesAt: order.completesAt,
-                            startedAt: order.startedAt,
-                            nowMs,
-                          }).remainingSec,
-                        ),
-                      })}
+                      {order.status === 'paused'
+                        ? t('production.paused')
+                        : t('production.remaining', { time: formatTimerDuration(remainingSec) })}
                     </span>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </section>
           ) : null}
 

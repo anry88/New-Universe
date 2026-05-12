@@ -2,6 +2,7 @@ import React from 'react';
 import type { Building } from '@shared/types/world';
 import { BuildSlot } from './cosmic/atoms';
 import { timerSnapshot } from '../lib/timers';
+import { getResourceSymbol } from './cosmic/resources';
 
 interface BuildingSlotProps {
   index: number;
@@ -20,6 +21,41 @@ const computeProgress = (building: Building) => {
   return {
     etaSec: snapshot.remainingSec,
     progressPct: snapshot.progressPct,
+  };
+};
+
+const formatProcessOutput = (building: Building): string | undefined => {
+  const activeOrders = (building.production?.activeOrders ?? []).filter((order) =>
+    order.status === 'queued' || order.status === 'paused',
+  );
+  const order = activeOrders[0];
+  if (!order) return undefined;
+  return order.outputs
+    .map((output) => `+${output.amount.toLocaleString(undefined, { maximumFractionDigits: 1 })}${getResourceSymbol(output.resourceId)}`)
+    .join(' ');
+};
+
+const computeProcess = (building: Building) => {
+  const activeOrders = (building.production?.activeOrders ?? []).filter((order) =>
+    order.status === 'queued' || order.status === 'paused',
+  );
+  const order = activeOrders[0];
+  const outputLabel = formatProcessOutput(building);
+  if (!order || !outputLabel) return undefined;
+  const pausedAtMs = order.status === 'paused' && order.pausedAt
+    ? new Date(order.pausedAt).getTime()
+    : undefined;
+  const snapshot = timerSnapshot({
+    completesAt: order.completesAt,
+    startedAt: order.startedAt,
+    nowMs: pausedAtMs,
+  });
+  return {
+    outputLabel,
+    etaSec: snapshot.remainingSec,
+    progressPct: snapshot.progressPct,
+    paused: order.status === 'paused',
+    extraCount: Math.max(0, activeOrders.length - 1),
   };
 };
 
@@ -43,6 +79,7 @@ export const BuildingSlot: React.FC<BuildingSlotProps> = ({
   }, [hasQueue]);
 
   const progress = building ? computeProgress(building) : undefined;
+  const process = building ? computeProcess(building) : undefined;
   return (
     <BuildSlot
       slot={{
@@ -55,6 +92,7 @@ export const BuildingSlot: React.FC<BuildingSlotProps> = ({
         disabled: building?.energy?.disabled,
         energyStored: building?.energy?.stored,
         energyCapacity: building?.energy?.capacity,
+        process,
       }}
       biomeAccent={biomeAccent}
       onClick={() => onClick(index, building)}

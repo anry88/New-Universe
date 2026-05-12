@@ -126,7 +126,9 @@ describe('production orders', () => {
     });
 
     expect(await resourceAmount(planet.id, 'iron')).toBeCloseTo(ironBefore - 10, 4);
-    expect(await resourceAmount(planet.id, 'energy')).toBeLessThan(energyBefore);
+    const energyAfterStart = await resourceAmount(planet.id, 'energy');
+    expect(energyAfterStart).toBeLessThanOrEqual(energyBefore);
+    expect(energyAfterStart).toBeGreaterThan(energyBefore - 1);
     expect(await resourceAmount(planet.id, 'steel')).toBeCloseTo(steelBefore, 4);
 
     await db
@@ -198,13 +200,13 @@ describe('production orders', () => {
       quantity: 10,
     });
     const electronicsInputIds = electronicsPreview.inputs.map((input) => input.resourceId).sort();
-    expect(electronicsInputIds.filter((resourceId) => resourceId !== 'energy')).toEqual([
+    expect(electronicsInputIds).toEqual([
       'copper',
       'silicon',
       'silicon_carbide',
       'steel',
     ]);
-    expect(electronicsInputIds).toContain('energy');
+    expect(electronicsPreview.energyPerHour).toBeGreaterThan(0);
 
     const refinery = await createProductionPlanet('refinery');
     const oilPreview = await productionService.preview(refinery.user.id, {
@@ -224,7 +226,7 @@ describe('production orders', () => {
     expect(methaneInput).toBeGreaterThan(oilInput);
   });
 
-  it('blocks processing without stored energy and supports fuel-generator charge recipes', async () => {
+  it('blocks process start without available energy and supports fuel-generator charge recipes', async () => {
     const smelter = await createProductionPlanet('smelter');
     await db
       .update(planetResources)
@@ -238,7 +240,8 @@ describe('production orders', () => {
       quantity: 10,
     });
     expect(blocked.canStart).toBe(false);
-    expect(blocked.blockedReason?.details?.resourceId).toBe('energy');
+    expect(blocked.blockedReason?.code).toBe('production_insufficient_energy');
+    expect(blocked.blockedReason?.details?.energyPerHour).toBeGreaterThan(0);
 
     const generator = await createProductionPlanet('fuel_generator');
     await db.insert(researchProgress).values({
@@ -266,5 +269,40 @@ describe('production orders', () => {
     expect(fuelPreview.canStart).toBe(true);
     expect(fuelPreview.output.amount).toBeCloseTo(90 * 1.18, 4);
     expect(fuelPreview.output.amount).toBeGreaterThan(methanePreview.output.amount);
+  });
+
+  it('pauses queued production when energy runs out and resumes after charge returns', async () => {
+    const { user, planet, building } = await createProductionPlanet('smelter');
+    const order = await productionService.start(user.id, {
+      planetId: planet.id,
+      buildingId: building.id,
+      recipeId: 'steel_from_iron_water',
+      quantity: 5,
+    });
+
+    await db
+      .update(planetResources)
+      .set({ amount: '0', regenRate: '0', lastUpdateAt: new Date() })
+      .where(and(eq(planetResources.planetId, planet.id), eq(planetResources.resourceId, 'energy')));
+
+    await productionService.processDueOrders({ userId: user.id, planetId: planet.id });
+    const paused = await db.query.productionOrders.findFirst({
+      where: eq(productionOrders.id, order.id),
+    });
+    expect(paused?.status).toBe('paused');
+    expect(paused?.pausedAt).toBeTruthy();
+
+    await db
+      .update(planetResources)
+      .set({ amount: '100', regenRate: '0', lastUpdateAt: new Date() })
+      .where(and(eq(planetResources.planetId, planet.id), eq(planetResources.resourceId, 'energy')));
+
+    await productionService.processDueOrders({ userId: user.id, planetId: planet.id });
+    const resumed = await db.query.productionOrders.findFirst({
+      where: eq(productionOrders.id, order.id),
+    });
+    expect(resumed?.status).toBe('queued');
+    expect(resumed?.pausedAt).toBeNull();
+    expect(resumed?.completesAt.getTime()).toBeGreaterThan(order.completesAt ? new Date(order.completesAt).getTime() : 0);
   });
 });

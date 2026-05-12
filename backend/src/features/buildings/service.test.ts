@@ -270,6 +270,111 @@ describe('Buildings Service - POST /buildings/build', () => {
     expect(body.details).toMatchObject({ resourceId: 'iron', limit: 2, current: 2 });
   });
 
+  it('switches an existing extractor target and blocks full deposit targets', async () => {
+    const { app, token, userId } = await createTestUser();
+
+    const [neutralSystem] = await db.insert(systems).values({
+      isHome: false,
+      sectorX: 5,
+      sectorY: 5,
+      sectorZ: 0,
+      x: '500.00',
+      y: '500.00',
+      z: '0.00',
+      name: `Retarget ${Math.random()}`,
+      seed: 792,
+    }).returning();
+
+    const [orePlanet] = await db.insert(planets).values({
+      systemId: neutralSystem.id,
+      biome: 'rocky',
+      size: 12,
+      slotCount: 8,
+      name: `Retarget Colony ${Math.random()}`,
+    }).returning();
+
+    await db.insert(colonies).values({
+      ownerId: userId,
+      planetId: orePlanet.id,
+    });
+    await db.insert(buildings).values({
+      planetId: orePlanet.id,
+      typeId: 'command_center',
+      level: 1,
+      slotIndex: 0,
+    });
+    const [mine] = await db.insert(buildings).values({
+      planetId: orePlanet.id,
+      typeId: 'mine',
+      selectedResourceId: 'iron',
+      level: 1,
+      slotIndex: 1,
+    }).returning();
+    await db.insert(richness).values([
+      { planetId: orePlanet.id, resourceId: 'iron', value: 2 },
+      { planetId: orePlanet.id, resourceId: 'carbon', value: 1 },
+    ]);
+    await db.insert(planetResources).values([
+      { planetId: orePlanet.id, resourceId: 'iron', amount: '1000', regenRate: '50' },
+      { planetId: orePlanet.id, resourceId: 'carbon', amount: '1000', regenRate: '0' },
+    ]);
+
+    const switched = await app.inject({
+      method: 'POST',
+      url: '/buildings/resource',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        buildingId: mine.id,
+        selectedResourceId: 'carbon',
+      },
+    });
+
+    expect(switched.statusCode).toBe(200);
+    expect(switched.json()).toMatchObject({
+      success: true,
+      buildingId: mine.id,
+      selectedResourceId: 'carbon',
+    });
+
+    const updatedMine = await db.query.buildings.findFirst({
+      where: eq(buildings.id, mine.id),
+    });
+    expect(updatedMine?.selectedResourceId).toBe('carbon');
+
+    const syncedResources = await db.query.planetResources.findMany({
+      where: eq(planetResources.planetId, orePlanet.id),
+    });
+    const regenByResource = Object.fromEntries(
+      syncedResources.map((resource) => [resource.resourceId, Number(resource.regenRate)]),
+    );
+    expect(regenByResource.iron).toBe(0);
+    expect(regenByResource.carbon).toBeGreaterThan(0);
+
+    const [secondMine] = await db.insert(buildings).values({
+      planetId: orePlanet.id,
+      typeId: 'mine',
+      selectedResourceId: 'iron',
+      level: 1,
+      slotIndex: 2,
+    }).returning();
+
+    const blocked = await app.inject({
+      method: 'POST',
+      url: '/buildings/resource',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        buildingId: secondMine.id,
+        selectedResourceId: 'carbon',
+      },
+    });
+
+    expect(blocked.statusCode).toBe(400);
+    expect(blocked.json()).toMatchObject({
+      code: 'building_blocked_deposit_limit',
+      details: { resourceId: 'carbon', limit: 1, current: 1 },
+    });
+  });
+
   it('should return 400 when planet has no free slots', async () => {
     const { app, token, userId } = await createTestUser();
 
@@ -531,7 +636,7 @@ describe('Buildings Service - POST /buildings/build', () => {
     expect(body.message).toContain('oil deposit');
   });
 
-  it('should allow refinery construction without an oil deposit when processing deps are met', async () => {
+  it('should allow refinery construction without smelter dependency or oil deposit', async () => {
     const { app, token, userId } = await createTestUser();
 
     const userSystem = await db.query.systems.findFirst({
@@ -566,17 +671,6 @@ describe('Buildings Service - POST /buildings/build', () => {
       .set({ level: 3 })
       .where(eq(buildings.planetId, userPlanet!.id));
 
-    await db.insert(buildings).values([
-      {
-        planetId: userPlanet!.id,
-        typeId: 'smelter',
-        level: 2,
-        slotIndex: 1,
-        queueAction: null,
-        queueCompletesAt: null,
-      },
-    ]);
-
     const response = await app.inject({
       method: 'POST',
       url: '/buildings/build',
@@ -584,7 +678,7 @@ describe('Buildings Service - POST /buildings/build', () => {
       payload: {
         planetId: userPlanet!.id,
         typeId: 'refinery',
-        slotIndex: 2,
+        slotIndex: 1,
       },
     });
 

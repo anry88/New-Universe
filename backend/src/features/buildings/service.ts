@@ -442,6 +442,101 @@ export class BuildingService {
     });
   }
 
+  async changeExtractorResource(
+    userId: string,
+    buildingId: string,
+    selectedResourceId: string,
+  ): Promise<{ success: boolean; buildingId: string; selectedResourceId: string }> {
+    const normalizedSelectedResourceId = selectedResourceId.trim();
+    if (!normalizedSelectedResourceId) {
+      throw new BuildingOperationError(
+        'Selected resource is required',
+        'building_blocked_resource_selection_required',
+        { typeId: 'unknown', acceptedResourceIds: [] },
+      );
+    }
+
+    const building = await db.query.buildings.findFirst({
+      where: eq(buildings.id, buildingId),
+    });
+    const settlement = building
+      ? await getPlayerPlanetSettlement(userId, building.planetId)
+      : null;
+
+    if (!building || !settlement?.isSettled) {
+      throw new Error('Building not found or not owned by user');
+    }
+
+    if (building.queueAction) {
+      throw new Error('Building is currently in queue');
+    }
+
+    if (!isSelectableExtractorType(building.typeId)) {
+      throw new Error('Building does not support resource switching');
+    }
+
+    const typeInfo = await db.query.buildingTypes.findFirst({
+      where: eq(buildingTypes.id, building.typeId),
+    });
+    if (!typeInfo) {
+      throw new Error('Building type not found');
+    }
+
+    return db.transaction(async (tx) => {
+      const [locked] = await tx
+        .select()
+        .from(buildings)
+        .where(eq(buildings.id, buildingId))
+        .for('update');
+
+      if (!locked || locked.queueAction || !isSelectableExtractorType(locked.typeId)) {
+        throw new Error('Building cannot switch resources right now');
+      }
+
+      const deposits = await loadPlanetDeposits(tx, locked.planetId);
+      const planetDepositResourceIds = deposits.map((row) => row.resourceId);
+      const output = typeInfo.baseOutput as BuildingOutput | null;
+      const oldResourceIds = resolveBuildingProducedResourceIds({
+        typeId: locked.typeId,
+        baseOutput: output,
+        planetResourceIds: planetDepositResourceIds,
+        selectedResourceId: locked.selectedResourceId,
+      });
+
+      await assertExtractorSelectionAvailable({
+        tx,
+        planetId: locked.planetId,
+        typeId: locked.typeId,
+        selectedResourceId: normalizedSelectedResourceId,
+        excludeBuildingId: locked.id,
+      });
+
+      await tx
+        .update(buildings)
+        .set({ selectedResourceId: normalizedSelectedResourceId })
+        .where(eq(buildings.id, locked.id));
+
+      const newResourceIds = resolveBuildingProducedResourceIds({
+        typeId: locked.typeId,
+        baseOutput: output,
+        planetResourceIds: planetDepositResourceIds,
+        selectedResourceId: normalizedSelectedResourceId,
+      });
+
+      await recalculateProductionRegenForResources(
+        tx,
+        locked.planetId,
+        [...oldResourceIds, ...newResourceIds],
+      );
+
+      return {
+        success: true,
+        buildingId: locked.id,
+        selectedResourceId: normalizedSelectedResourceId,
+      };
+    });
+  }
+
   async upgrade(userId: string, buildingId: string): Promise<ConstructionStatus> {
     const building = await db.query.buildings.findFirst({
       where: eq(buildings.id, buildingId),
