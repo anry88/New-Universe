@@ -11,12 +11,14 @@ function costSum(cost: Record<string, number>): number {
 }
 
 describe('research catalog', () => {
-  it('exposes exactly five tiers per branch (7 × 5 nodes)', () => {
-    expect(RESEARCH_TECH_TREE).toHaveLength(35);
+  it('exposes exactly five tiers per branch', () => {
+    expect(RESEARCH_TECH_TREE).toHaveLength(RESEARCH_CATALOG.length * 5);
     for (const branch of RESEARCH_CATALOG) {
       const levels = branch.levels.map((entry: ResearchLevelCatalogEntry) => entry.level);
       expect(levels).toEqual([1, 2, 3, 4, 5]);
     }
+    expect(RESEARCH_CATALOG.some((branch) => branch.branch === 'energy')).toBe(true);
+    expect(RESEARCH_CATALOG.some((branch) => branch.branch === 'weapons')).toBe(true);
   });
 
   it('keeps localized names/descriptions and positive multipliers when effects exist', () => {

@@ -51,6 +51,7 @@ export const RESEARCH_BRANCH_LABELS: Record<string, { en: string; ru: string }> 
   energy: { en: 'Energy', ru: 'Энергетика' },
   sensors: { en: 'Sensors', ru: 'Сенсоры' },
   logistics: { en: 'Logistics', ru: 'Логистика' },
+  weapons: { en: 'Weapons', ru: 'Вооружение' },
   jump_drive: { en: 'Jump Drive', ru: 'Прыжковый двигатель' },
 };
 

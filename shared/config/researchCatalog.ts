@@ -1,5 +1,5 @@
 /**
- * Canonical research tech tree (7 branches × 5 tiers = 35 nodes).
+ * Canonical research tech tree (8 branches × 5 tiers = 40 nodes).
  *
  * Economics curve (P2.1-417 / P2.2-007):
  * - Between tier **1→2**, total `Σ cost` and `timeSec` scale by **≥ 2.0×** (early onboarding).
@@ -204,6 +204,58 @@ export const RESEARCH_CATALOG: ResearchBranchCatalog[] = [
           { target: 'energyStorage', multiplier: 1.5 },
           { target: 'energyEfficiency', multiplier: 0.82 },
         ],
+      ),
+    ],
+  },
+  {
+    branch: 'weapons',
+    branchName: { ru: 'Вооружение', en: 'Weapons' },
+    branchDescription: { ru: 'Подготовка к боевым технологиям.', en: 'Prepares combat technology progression.' },
+    levels: [
+      mkLevel(
+        'weapons',
+        1,
+        { ru: 'Вооружение I', en: 'Weapons I' },
+        { ru: 'Базовая подготовка вооружений', en: 'Basic weapons training.' },
+        { iron: 260, silicon: 130 },
+        researchTime('core', 1),
+        [],
+      ),
+      mkLevel(
+        'weapons',
+        2,
+        { ru: 'Вооружение II', en: 'Weapons II' },
+        { ru: 'Средняя подготовка вооружений', en: 'Intermediate combat systems training.' },
+        { iron: 520, silicon: 260 },
+        researchTime('core', 2),
+        [],
+      ),
+      mkLevel(
+        'weapons',
+        3,
+        { ru: 'Вооружение III', en: 'Weapons III' },
+        { ru: 'Продвинутая подготовка вооружений', en: 'Advanced combat systems training.' },
+        { iron: 1300, silicon: 650 },
+        researchTime('core', 3),
+        [],
+      ),
+      mkLevel(
+        'weapons',
+        4,
+        { ru: 'Вооружение IV', en: 'Weapons IV' },
+        { ru: 'Экспертная подготовка вооружений', en: 'Expert combat systems training.' },
+        { iron: 3250, silicon: 1625 },
+        researchTime('core', 4),
+        [],
+      ),
+      mkLevel(
+        'weapons',
+        5,
+        { ru: 'Вооружение V', en: 'Weapons V' },
+        { ru: 'Мастерство вооружений', en: 'Mastery of combat systems.' },
+        { iron: 8125, silicon: 4062 },
+        researchTime('core', 5),
+        [],
       ),
     ],
   },

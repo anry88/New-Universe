@@ -150,7 +150,7 @@ Procedural world generation primitives and visibility checks. Contains the home-
 
 Tech tree definitions and starting research on a planet.
 
-- **`data.ts`** — exports `TECH_TREE` and `getResearchDef(branch, level)` backed by **`shared/config/researchCatalog.ts`** (seven branches × **five** tiers); building prerequisites use catalog id `lab`, and all research costs use seeded resource ids (`iron`, `silicon`, `tritium`, ...).
+- **`data.ts`** — exports `TECH_TREE` and `getResearchDef(branch, level)` backed by **`shared/config/researchCatalog.ts`** (eight branches × **five** tiers); building prerequisites use catalog id `lab`, and all research costs use seeded resource ids (`iron`, `silicon`, `tritium`, ...).
 - **`gates.ts`** — progression gates: `loadUserResearchLevels(userId, db)`, `meetsResearchRequirement`, and `assertResearchRequirement` enforce unlock rules from `config/research-unlocks.ts` for buildings, ships, colonization, cargo routes, and NPC market orders.
 - **`completion.ts`** — `processCompletedResearch(db, options?)` scans due `research_progress` rows (`completes_at <= now`), optionally scoped to one user, increments `level` exactly once per completion, clears the timer, calls `invalidateResearchEffectsCache`, and inserts a `research_done` notification unless active-session sync passed `skipNotification`.
 - **`effects.ts`** — typed research-effects engine with deterministic stacking. Exports `getResearchEffectsForUser(userId)` plus apply helpers for production, storage, energy generation/storage/efficiency, ship speed, sensor range, and build time. Exports `invalidateResearchEffectsCache(userId)` as a hook after tier completions (no-op until memoization exists).

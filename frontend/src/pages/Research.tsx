@@ -22,6 +22,7 @@ const BRANCH_COLORS: Record<string, string> = {
   engineering: '#5BD7FF',
   engines: '#9FE0B5',
   energy: '#F4D35E',
+  weapons: '#FF5A6E',
   sensors: '#E0B0FF',
   logistics: '#7DD8E8',
   jump_drive: '#F4B84A',
