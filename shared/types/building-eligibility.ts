@@ -154,11 +154,20 @@ export function resolvePlanetResourceBlockedReason(input: {
     }
   }
 
-  if (input.typeId === 'oil_pump' || input.typeId === 'refinery') {
+  if (input.typeId === 'oil_pump') {
     if (!resourceIds.has('oil')) {
       return {
         code: 'building_blocked_planet_resource',
         details: { resourceId: 'oil', acceptedResourceIds: ['oil'] },
+      };
+    }
+  }
+
+  if (input.typeId === 'biomass_harvester') {
+    if (!resourceIds.has('biomass')) {
+      return {
+        code: 'building_blocked_planet_resource',
+        details: { resourceId: 'biomass', acceptedResourceIds: ['biomass'] },
       };
     }
   }
@@ -191,7 +200,15 @@ export function resolveBuildingProducedResourceIds(input: {
   }
 
   if (input.typeId === 'refinery') {
-    return resourceSet.has('oil') ? ['fuel'] : [];
+    return [];
+  }
+
+  if (input.typeId === 'smelter' || input.typeId === 'fabrication_bay' || input.typeId === 'cryo_factory') {
+    return [];
+  }
+
+  if (input.typeId === 'biomass_harvester') {
+    return resourceSet.has('biomass') ? ['biomass'] : [];
   }
 
   const resourceId = input.baseOutput?.resourceId;

@@ -17,6 +17,7 @@ export type BuildingTypeId =
   | 'drill'
   | 'storage'
   | 'oil_pump'
+  | 'biomass_harvester'
   | 'smelter'
   | 'refinery'
   | 'fabrication_bay'
@@ -108,6 +109,19 @@ export const IconOilPump: React.FC<BuildingIconProps> = ({ size, tone }) => (
     <path d="M24 32 L34 28 L44 32" />
     <path d="M44 32 L44 50" />
     <ellipse cx="34" cy="54" rx="10" ry="3" fill={tone ?? '#5BD7FF'} fillOpacity="0.3" />
+  </Icon>
+);
+
+export const IconBiomassHarvester: React.FC<BuildingIconProps> = ({ size, tone }) => (
+  <Icon size={size} tone={tone}>
+    <path d="M16 50 L16 30 Q16 18 28 14 L40 10 Q48 8 52 16 Q56 24 48 30 L36 38 Q26 44 16 50 Z" fill={tone ?? '#5BD7FF'} fillOpacity="0.12" />
+    <path d="M20 46 Q30 34 48 16" />
+    <path d="M28 38 Q24 30 28 22" />
+    <path d="M36 32 Q34 24 38 16" />
+    <path d="M42 28 Q48 28 52 34" />
+    <circle cx="21" cy="49" r="2" fill={tone ?? '#5BD7FF'} fillOpacity="0.45" />
+    <circle cx="30" cy="43" r="1.6" fill={tone ?? '#5BD7FF'} fillOpacity="0.35" />
+    <path d="M12 54 L48 54" />
   </Icon>
 );
 
@@ -273,6 +287,7 @@ const BUILDING_CATEGORY_BY_TYPE: Record<BuildingTypeId, BuildingCategoryKey> = {
   drill: 'extraction',
   storage: 'logistics',
   oil_pump: 'extraction',
+  biomass_harvester: 'extraction',
   smelter: 'processing',
   refinery: 'processing',
   fabrication_bay: 'processing',
@@ -289,6 +304,7 @@ export const BUILDING_BY_TYPE: Record<BuildingTypeId, BuildingDef> = {
   drill: { Icon: IconDrill, label: 'Fluid Extractor', labels: { en: 'Fluid Extractor', ru: 'Экстрактор' }, cat: 'Extraction', cats: BUILDING_CATEGORY_LABELS.extraction },
   storage: { Icon: IconStorage, label: 'Storage', labels: { en: 'Storage', ru: 'Склад' }, cat: 'Logistics', cats: BUILDING_CATEGORY_LABELS.logistics },
   oil_pump: { Icon: IconOilPump, label: 'Oil Pump', labels: { en: 'Oil Pump', ru: 'Нефтекачка' }, cat: 'Extraction', cats: BUILDING_CATEGORY_LABELS.extraction },
+  biomass_harvester: { Icon: IconBiomassHarvester, label: 'Biomass Harvester', labels: { en: 'Biomass Harvester', ru: 'Биореактор' }, cat: 'Extraction', cats: BUILDING_CATEGORY_LABELS.extraction },
   smelter: { Icon: IconSmelter, label: 'Smelter', labels: { en: 'Smelter', ru: 'Завод' }, cat: 'Processing', cats: BUILDING_CATEGORY_LABELS.processing },
   refinery: { Icon: IconRefinery, label: 'Refinery', labels: { en: 'Refinery', ru: 'НПЗ' }, cat: 'Processing', cats: BUILDING_CATEGORY_LABELS.processing },
   fabrication_bay: { Icon: IconFabricationBay, label: 'Fabrication Bay', labels: { en: 'Fabrication Bay', ru: 'Цех электроники' }, cat: 'Processing', cats: BUILDING_CATEGORY_LABELS.processing },

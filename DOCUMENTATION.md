@@ -39,7 +39,7 @@ The `tools/` folder hosts offline agents (not bundled into Docker images). Today
 - Logging: Pino instance from `lib/logger.ts`, switched to `pino-pretty` in development.
 - Request IDs: every incoming request gets a UUID via `middleware/request-id.ts` and the ID is exposed under the `requestId` log key.
 - Sentry: `lib/sentry.ts` is imported as the very first module to capture early-startup errors; it stays disabled when `SENTRY_DSN` is empty.
-- Routes: `/health` (`routes/health.ts`), `/webhook/telegram` (`routes/bot.ts`), `/auth/telegram` (`features/auth/routes.ts`), `/me` and `PATCH /me/preferences` (`features/me/routes.ts`; active-session sync finalizes due timers before returning state and preferences persist the active UI locale), `/buildings/*` including **`POST /buildings/rush`** (`features/buildings/routes.ts`), `/resources/convert` (`features/resources/routes.ts`), `/ships/build`, `/ships/queue`, **`POST /ships/rush`** (`features/ships/routes.ts`), `/expeditions` (`features/expeditions/routes.ts`), `/expeditions/jump` (`features/expeditions/routes.ts`), `/research/start`, **`POST /research/rush`** (`features/research/routes.ts`), `/tutorial/sync` (`features/tutorial/routes.ts`), `/market/offers` (`routes/market.ts`), `/market/orders` (`routes/market.ts`), `/market/orders/:orderId/cancel` (`routes/market.ts`), `/multiplayer/sectors/:sx/:sy/:sz/presence` (`routes/multiplayer.ts`).
+- Routes: `/health` (`routes/health.ts`), `/webhook/telegram` (`routes/bot.ts`), `/auth/telegram` (`features/auth/routes.ts`), `/me` and `PATCH /me/preferences` (`features/me/routes.ts`; active-session sync finalizes due timers before returning state and preferences persist the active UI locale), `/buildings/*` including **`POST /buildings/rush`** (`features/buildings/routes.ts`), `/resources/convert`, `/resources/buy-with-diamonds`, and `/resources/production/*` for explicit production recipes/orders (`features/resources/routes.ts`), `/ships/build`, `/ships/queue`, **`POST /ships/rush`** (`features/ships/routes.ts`), `/expeditions` (`features/expeditions/routes.ts`), `/expeditions/jump` (`features/expeditions/routes.ts`), `/research/start`, **`POST /research/rush`** (`features/research/routes.ts`), `/tutorial/sync` (`features/tutorial/routes.ts`), `/market/offers` (`routes/market.ts`), `/market/orders` (`routes/market.ts`), `/market/orders/:orderId/cancel` (`routes/market.ts`), `/multiplayer/sectors/:sx/:sy/:sz/presence` (`routes/multiplayer.ts`).
 
 ### Workers
 
@@ -53,6 +53,7 @@ The `tools/` folder hosts offline agents (not bundled into Docker images). Today
 - **`cargo-routes`**: Completes interplanetary resource transfers triggered from the API; handles atomicity, idempotency, and resource delivery.
 - **`research`**: Applies finished lab timers (`research_progress.completes_at`), bumps completed tier levels once, triggers effect-cache invalidation hooks, and queues `research_done` notifications only for offline/worker completions.
 - **`market`**: Every ~15 seconds runs `processNpcMarketFulfillment` to settle open NPC orders (sell: credits iron once inventory fits; buy: delivers purchased goods after `delivery_ready_at`, clamps to storage caps, refunds unused iron).
+- **`production-orders`**: Every 30 seconds runs `ProductionService.processDueOrders` so explicit refinery/smelter/fabricator/cryo jobs grant their outputs after inputs were reserved at start time.
 
 
 ### Telegram Bot
@@ -67,7 +68,7 @@ The bot entry point is `POST /webhook/telegram`. Incoming updates are dispatched
 `backend/src/db/index.ts` opens a `postgres-js` connection from `DATABASE_URL` and exposes a typed Drizzle client via `db`. The schema is split per domain under `backend/src/db/schema/` and re-exported from `backend/src/db/schema.ts`:
 
 - `users` — Telegram-linked player accounts, onboarding progression (`tutorial_step` exposed in code as `tutorialStepCompleted`, `tutorial_completed_at`), **`preferred_locale`** (`en`/`ru`, initialized from Telegram `language_code` on first login and editable in Profile), plus **`diamonds`** (premium currency for rush-build; starter grant on first registration via env `DIAMOND_STARTING_GRANT`).
-- `resources`, `richness`, `planet_resources` — universe resource catalog (24 seeded resources across tiers 1–4, including `oil`, `fuel`, `steel`, and `electronics`) and per-planet inventory. **`richness`** is the deposit source exposed to the client as `PlanetResource.richness`; new colonies initialize `planet_resources.regenRate = 0` until matching extraction buildings complete. Building completion updates **`planet_resources.regenRate`** from `building_types.baseOutput` (`oil_pump` → `oil`, `refinery` → `fuel`, `smelter` → `steel`, `fabrication_bay` → `electronics`, mines/drills → local deposits); the NPC market is not required for those baselines.
+- `resources`, `richness`, `planet_resources` — universe resource catalog (24 seeded resources across tiers 1–4, including `oil`, `fuel`, `steel`, `electronics`, and `biomass`) and per-planet inventory. **`richness`** is the deposit source exposed to the client as `PlanetResource.richness`; new colonies initialize `planet_resources.regenRate = 0` until matching extraction buildings complete. Building completion updates **`planet_resources.regenRate`** only for passive producers (`mine`, `drill`, `oil_pump`, `biomass_harvester`, solar/storage support rows); crafted goods such as `steel`, `electronics`, `fuel`, `ice`, and `water` are produced by explicit production orders instead of automatic regen.
 - `systems`, `planets` — generated star systems and their planets, including biome and slot count.
 - `building_types`, `buildings` — building catalog and per-planet build queue rows. Catalog rows may set **`max_per_planet`** / **`max_global`** (nullable integers) so uniqueness rules such as one Command Center per planet or one Laboratory account-wide stay aligned between seeds, API payloads (`GET /buildings/types`), and UI eligibility (`shared/types/building-eligibility.ts`). Command Center upgrades use a non-empty `iron`/`carbon`/`silicon` `baseCost` with the normal upgrade multiplier. Eligibility can take an optional **`dependencyBuildings`** snapshot so structures still in the initial build queue do not satisfy prerequisite levels until construction finishes, and shared planet-resource gates prevent extractors/feedstock buildings on planets without matching deposits.
 - `research_branches`, `research_progress` — research tree definitions and per-user progress. Active rows expose derived `startedAt` through `/me` so progress bars can be computed exactly without schema changes.
@@ -76,6 +77,7 @@ The bot entry point is `POST /webhook/telegram`. Incoming updates are dispatched
 - `expeditions` — scheduled expedition jobs with `eta` / `status` index.
 - `notifications` — push notification log with `pending` and `sentAt` tracking.
 - `market_offers`, `market_orders`, `market_order_fills` — NPC/player market offer book, user orders, and fill history with explicit order lifecycle states and delivery references. Orders store `planet_id` (settlement for fulfillment) and `delivery_ready_at` (NPC buy ETA); fulfillment inserts matching `market_order_fills` rows.
+- `production_orders` — explicit manufacturing jobs for player-selected recipes. Starting an order atomically spends inputs, stores the intended outputs, and later worker/online sync grants the result when `completes_at` is due.
 - `colonies` — player-owned colonies on discovered neutral planets and on discovered non-capital planets inside the player's own home system; foreign home systems stay protected.
 
 NPC broker pricing parameters live in `backend/src/config/market-prices.ts`; the deterministic quote algorithm is implemented in `backend/src/features/market/pricing.ts`. `market-prices.test.ts` keeps tier alignment with seeded resources and asserts there is no trivial NPC buy/sell arbitrage at neutral stock (epic **P2-EPIC-MARKET-NPC** gate).
@@ -107,7 +109,7 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 - `pages/Market.tsx` — market UI for browsing buy/sell quotes, submitting NPC market orders, and tracking pending order ETA.
 - `pages/Research.tsx` — Cosmic Atlas tech tree (**levels 1–5** per branch, synced with `frontend/src/lib/tech-tree.ts` / `@shared/config/researchCatalog`); lab/prerequisite/resource gating (BuildDialog-style blocking copy), tier detail sheet, optimistic research starts, live countdown chips, and diamond rush for the active tier.
 - `pages/onboarding/Onboarding.tsx` — Cosmic tutorial overlay: step list with reward copy from `@shared/config/tutorialRewards`, periodic `POST /tutorial/sync`, **Continue** returns to Home without forcing `/onboarding` again until the player re-opens tutorial or completes it (`sessionStorage` + lifted App state).
-- `pages/PlanetDetail.tsx` — detailed planet screen with infrastructure slots, building construction, and upgrade dialogs; unsettled discovered planets show their survey data but keep building slots locked until colonization. Build previews use `/me` resource richness plus shared eligibility helpers so useless planet/building combinations are disabled before the API call.
+- `pages/PlanetDetail.tsx` — detailed planet screen with infrastructure slots, building construction, upgrade dialogs, and explicit production entry points for smelters/refineries/fabricators/cryo factories; unsettled discovered planets show their survey data but keep building slots locked until colonization. Build previews use `/me` resource richness plus shared eligibility helpers so useless planet/building combinations are disabled before the API call.
 - `components/ExpeditionDialog.tsx` — launch dialog for scouts, cargo, and colonizers. Colonizers require a discovered unsettled home-system planet target and reserve one-way fuel for settlement instead of behaving like return-trip scouts.
 - `components/ResourceBar.tsx` — displays planet resources with animated real-time regeneration.
 - `components/PlanetView.tsx` — shows the current focus planet overview.
@@ -115,7 +117,8 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 - `components/CargoTransferDialog.tsx` — interplanetary logistics interface for moving resources between colonies.
 - `components/Tutorial.tsx` — full-screen onboarding overlay UI used by `Onboarding.tsx`.
 - `components/BuildingSlot.tsx` — presentational component for an infrastructure slot.
-- `components/UpgradeDialog.tsx` & `components/BuildDialog.tsx` — dialogs for managing buildings; the build dialog groups options into localized category sections (energy, extraction, processing, logistics, shipbuilding, progress, special).
+- `components/ProductionDialog.tsx` — recipe picker and production-order confirmation sheet. It previews server-side input costs, duration, storage/resource blocks, and active orders before starting a job that spends inputs immediately.
+- `components/UpgradeDialog.tsx` & `components/BuildDialog.tsx` — dialogs for managing buildings; the upgrade dialog links production-capable buildings into `ProductionDialog`, and the build dialog groups options into localized category sections (energy, extraction, processing, logistics, shipbuilding, progress, special).
 
 ### Shared types and config
 
@@ -130,10 +133,11 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 - `ships.ts` — fleet DTOs including active build `queueStartedAt` for local ETA/progress rendering.
 - `market.ts` — market offer and order contracts shared between frontend market hooks and backend market routes.
 - `world.ts` — world DTOs including `Planet.isColonized`, which lets the frontend separate survey visibility from settlement ownership, `PlanetResource.richness` for deposit-aware UI gates, plus active building `queueStartedAt`.
+- `production.ts` — explicit production recipe/order DTOs used by `/resources/production/*` and the production dialog.
 
 `shared/format/` holds locale-aware and deterministic display helpers — **`homeSystemNaming.ts`** templates EN/RU home-system titles and `{shortTag}-N` planet codes shared with world generation; **`systemMapLayout.ts`** keeps the frontend orbital map and worker pass-by discovery on the same flat geometry, including biome orbit ordering, one-planet orbit slots, and sprite-size-based discovery radius.
 
-`shared/config/` holds deterministic catalogs duplicated only when both backend and browser need identical numbers — today **`researchCatalog.ts`** (full tech tree + scaling notes), **`buildingResearchGates.ts`**, and **`tutorialRewards.ts`** (tutorial iron/water bundles + EN/RU UI summaries).
+`shared/config/` holds deterministic catalogs duplicated only when both backend and browser need identical numbers — today **`researchCatalog.ts`** (full tech tree + scaling notes), **`buildingResearchGates.ts`**, **`productionRecipes.ts`** (manual manufacturing recipes), and **`tutorialRewards.ts`** (tutorial iron/water bundles + EN/RU UI summaries).
 
 ## Local environment
 

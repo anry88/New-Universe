@@ -10,7 +10,7 @@ This is the backend application source. It is a Fastify v5 + TypeScript project 
 - [`lib/`](lib/README.md) — shared infrastructure: env validation, logger, Sentry, Telegram `initData` validation.
 - [`middleware/`](middleware/README.md) — Fastify hooks: request ID generator, Telegram auth `preHandler`.
 - [`routes/`](routes/README.md) — top-level routes that are not feature-scoped (`/health`, `/webhook/telegram`, `/market/*`).
-- [`workers/`](workers/README.md) — BullMQ workers for periodic ticks (expeditions, buildings, ships, research, notifications, cargo).
+- [`workers/`](workers/README.md) — BullMQ workers for periodic ticks (expeditions, buildings, ships, research, production orders, notifications, cargo).
 - `types/` — global TypeScript module augmentations.
 
 ## Top-level files
@@ -20,7 +20,7 @@ This is the backend application source. It is a Fastify v5 + TypeScript project 
   2. Builds a Fastify instance with the Pino `logger`, disables built-in request logging in production, sets the request ID generator from `middleware/request-id.ts`, and labels the ID as `requestId`.
   3. Adds a `preHandler` hook that creates a per-request child logger with `userId` once `request.user` has been attached by an auth middleware.
   4. Registers `@fastify/cors` and `@fastify/helmet` globally.
-  5. Registers `healthRoutes`, `botRoutes`, `authRoutes` (mounted at `/auth`), `meRoutes` (mounted at `/me`, including active-session timer finalization), `buildingsRoutes` (mounted at `/buildings`), `resourcesRoutes` (mounted at `/resources`), `shipsRoutes` (mounted at `/ships`), `expeditionsRoutes` (mounted at `/expeditions`), `researchRoutes` (mounted at `/research`, including `/research/rush`), `tutorialRoutes` (mounted at `/tutorial`), and `marketRoutes` (`/market/offers`, `/market/orders`, `/market/orders/:orderId/cancel`).
+  5. Registers `healthRoutes`, `botRoutes`, `authRoutes` (mounted at `/auth`), `meRoutes` (mounted at `/me`, including active-session timer finalization), `buildingsRoutes` (mounted at `/buildings`), `resourcesRoutes` (mounted at `/resources`, including `/resources/production/*`), `shipsRoutes` (mounted at `/ships`), `expeditionsRoutes` (mounted at `/expeditions`), `researchRoutes` (mounted at `/research`, including `/research/rush`), `tutorialRoutes` (mounted at `/tutorial`), and `marketRoutes` (`/market/offers`, `/market/orders`, `/market/orders/:orderId/cancel`).
   6. Calls `fastify.listen({ port: env.PORT, host: '0.0.0.0' })`. On failure, logs and exits with code `1`.
 - **`test-env.ts`** — Vitest environment shim that pre-populates the env vars Zod requires, so `lib/env.ts` does not abort the process when tests load it. Imported via `vitest-setup.ts`.
 - **`vitest-setup.ts`** — Vitest `setupFiles` entry. Runs once per worker before tests, currently delegates to `test-env.ts`.

@@ -3178,6 +3178,84 @@
       "verify": "Backend tests for building upgrade/eligibility/colony bootstrap pass; frontend build or focused BuildDialog tests pass; manual smoke: gas giant cannot build mine, oil-less planet cannot build oil_pump, new colony has zero passive regen until producer completion.",
       "notes": "Keep the change in a dedicated worktree/branch. Prefer shared eligibility/category metadata so backend and frontend cannot drift. Avoid hidden passive production: richness describes deposits, production comes from completed buildings.",
       "prompt": "[TASK P2.2-001] Экономика и доступность зданий по планетам\n\nОПИСАНИЕ\nУточнить экономику и UX строительства: апгрейды command_center должны иметь растущую стоимость в доступных базовых ресурсах (iron, carbon, silicon), каталог построек в UI должен быть сгруппирован по понятным категориям, бесполезные для планеты здания должны быть заблокированы до постановки в очередь, а новые колонии не должны получать пассивную добычу из richness без построенных добывающих зданий.\n\nACCEPTANCE CRITERIA\n  1. command_center больше не апгрейдится бесплатно: каждый уровень после 1 требует iron/carbon/silicon с монотонно растущей стоимостью; тесты покрывают успешный upgrade и отказ при нехватке ресурсов\n  2. Список доступных построек в BuildDialog/PlanetDetail сгруппирован по категориям: энергия, добыча, переработка, логистика/строительство кораблей, прогресс, специальные/особые; порядок категорий стабилен и локализован в RU/EN\n  3. Backend eligibility блокирует постройку зданий, которые не могут принести пользу на выбранной планете: mine требует металлический ресурс в richness/planet_resources, oil_pump требует oil, drill требует поддерживаемый fluid/gas/ice/water deposit, а другие deposit-bound здания используют явные правила вместо одной проверки biome\n  4. Frontend показывает те же причины блокировки до отправки build request и не даёт поставить бесполезное здание в очередь\n  5. Колонизированные планеты сохраняют richness/deposit rows, но planet_resources.regenRate для природных ресурсов после bootstrap равен 0 до завершения соответствующего добывающего здания; стартовый bootstrap остаётся одноразовым запасом, а не постоянной добычей\n  6. Завершение/снос добывающего здания пересчитывает regen только для ресурсов, которые реально производит это здание на этой планете\n  7. Документация backend/src/db/README.md, backend/src/features/buildings/README.md, backend/src/features/colonies/README.md, frontend/src/README.md и DOCUMENTATION.md обновлена под новую модель\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/seed/catalog-rows.ts\n  - backend/src/features/buildings/\n  - backend/src/features/colonies/bootstrap.ts\n  - backend/src/features/resources/\n  - backend/src/workers/tick-buildings.ts\n  - shared/types/building-eligibility.ts\n  - frontend/src/components/BuildDialog.tsx\n  - frontend/src/pages/PlanetDetail.tsx\n  - frontend/src/locales/\n  - DOCUMENTATION.md\n  - backend/src/db/README.md\n  - backend/src/features/buildings/README.md\n  - backend/src/features/colonies/README.md\n  - frontend/src/README.md\n\nЗАВИСИМОСТИ\n  P1-161, P1-162, P2-COL-002, P2.1-409, P2.1-411, P2.1-412\n\nКАК ПРОВЕРИТЬ\n  Backend tests for building upgrade/eligibility/colony bootstrap pass; frontend build or focused BuildDialog tests pass; manual smoke: gas giant cannot build mine, oil-less planet cannot build oil_pump, new colony has zero passive regen until producer completion.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Keep the change in a dedicated worktree/branch. Prefer shared eligibility/category metadata so backend and frontend cannot drift. Avoid hidden passive production: richness describes deposits, production comes from completed buildings."
+    },
+    {
+      "id": "P2.2-002",
+      "epic": "EPIC-P2.2-BUILDING-ECONOMY",
+      "size": "S",
+      "title": "Карта: информация по планете, закрытие карточки и добыча на шахтах",
+      "description": "Доделать отдельную задачу для карты и шахт в рамках эпика P2.2: на тапе по открытой планете показывать добываемые ресурсы, закрывать карточку планеты тапом по свободной области карты, перенести cryo_factory в production/processing grouping и исправить добычу mine на планетах с несколькими подходящими депозитами.",
+      "acceptance": [
+        "Открытая карта показывает блок mineable resources для выбранной открытой планеты",
+        "Карточка планеты закрывается после тапа в свободное место карты",
+        "cryo_factory проходит в production/processing grouping в UI по текущему разделению зданий",
+        "На планете с несколькими подходящими депозитами шахта на уровне продакшна производит/аккумулирует несколько ресурсов согласно правилам локальных депозитов"
+      ],
+      "files": [
+        "shared/types/building-eligibility.ts",
+        "frontend/src/components/cosmic/SystemMap.tsx",
+        "frontend/src/components/cosmic/buildings.tsx",
+        "frontend/src/pages/SystemMap.tsx",
+        "backend/src/features/buildings/",
+        "backend/src/workers/tick-buildings.ts"
+      ],
+      "deps": [
+        "P2.2-001"
+      ],
+      "verify": "Manual smoke: selected open planet shows mineable resources, empty-map tap closes the card, cryo_factory appears under production/processing, and mine production on a planet with titanium + carbon + silicon accrues multiple matching resources. Add/update backend tests for multi-metal mine production.",
+      "notes": "Synced from GitHub issue #256. Root cause noted there: shared resolveBuildingProducedResourceIds did not include carbon and silicon in the metal-deposit input list for mine.",
+      "prompt": "[TASK P2.2-002] Карта: информация по планете, закрытие карточки и добыча на шахтах\n\nОПИСАНИЕ\nДоделать отдельную задачу для карты и шахт в рамках эпика P2.2: на тапе по открытой планете показывать добываемые ресурсы, закрывать карточку планеты тапом по свободной области карты, перенести cryo_factory в production/processing grouping и исправить добычу mine на планетах с несколькими подходящими депозитами.\n\nACCEPTANCE CRITERIA\n  1. Открытая карта показывает блок mineable resources для выбранной открытой планеты\n  2. Карточка планеты закрывается после тапа в свободное место карты\n  3. cryo_factory проходит в production/processing grouping в UI по текущему разделению зданий\n  4. На планете с несколькими подходящими депозитами шахта на уровне продакшна производит/аккумулирует несколько ресурсов согласно правилам локальных депозитов\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - shared/types/building-eligibility.ts\n  - frontend/src/components/cosmic/SystemMap.tsx\n  - frontend/src/components/cosmic/buildings.tsx\n  - frontend/src/pages/SystemMap.tsx\n  - backend/src/features/buildings/\n  - backend/src/workers/tick-buildings.ts\n\nЗАВИСИМОСТИ\n  P2.2-001\n\nКАК ПРОВЕРИТЬ\n  Manual smoke: selected open planet shows mineable resources, empty-map tap closes the card, cryo_factory appears under production/processing, and mine production on a planet with titanium + carbon + silicon accrues multiple matching resources. Add/update backend tests for multi-metal mine production.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Synced from GitHub issue #256. Root cause noted there: shared resolveBuildingProducedResourceIds did not include carbon and silicon in the metal-deposit input list for mine."
+    },
+    {
+      "id": "P2.2-003",
+      "epic": "EPIC-P2.2-BUILDING-ECONOMY",
+      "size": "XL",
+      "title": "Ручная переработка ресурсов и здание биомассы",
+      "description": "Перевести производственные здания с автоматической добычи на явные производственные заказы игрока и добавить отдельное здание для добычи биомассы. Игрок выбирает рецепт, количество результата, видит требуемые входные ресурсы, время и модификаторы от уровня здания/исследований, после подтверждения входные ресурсы списываются сразу, а переработка завершается через единый production flow. Биомасса больше не добывается текущими универсальными средствами.",
+      "acceptance": [
+        "В каталоге зданий появляется отдельное biomass-здание для добычи биомассы с RU/EN названием, описанием, категорией добычи, eligibility по подходящим биомам/deposit rules и новой иконкой в стиле Cosmic Atlas",
+        "Текущие заводы и перерабатывающие здания больше не добавляют автоматический regenRate для steel, electronics, fuel, water/ice conversion и других crafted ресурсов; завершение/апгрейд/снос таких зданий не создаёт скрытую пассивную генерацию",
+        "Backend вводит явные production recipes и production orders: игрок выбирает здание, рецепт и количество выхода; API возвращает preview входных ресурсов, длительности, итогового выхода и причин блокировки",
+        "При старте production order сервер атомарно проверяет владение планетой, наличие подходящего здания, доступность рецепта, складские остатки и capacity; входные ресурсы списываются сразу, а результат начисляется только после завершения процесса",
+        "Smelter производит steel по рецепту iron + water с масштабированием количества; UI показывает требуемое железо и воду до подтверждения",
+        "Electronics производится через fabrication/electronics building с несколькими компонентами, включая silicon, copper и минимум один продвинутый компонент/материал; рецепт не должен быть одноресурсным",
+        "Cryo/processing building поддерживает ice ↔ water как явные рецепты с разными потерями/затратами и понятным preview",
+        "Refinery поддерживает несколько рецептов fuel: из methane требуется больше сырья, чем из oil; система допускает расширение альтернативных рецептов без изменения API",
+        "Уровень здания и research effects меняют стоимость входных ресурсов, длительность или выход production recipes детерминированно; frontend не рассчитывает бонусы как источник истины",
+        "Frontend даёт игроку выбрать рецепт и количество, показывает input requirements, дефицит ресурсов, длительность, итоговый output, disabled state и confirmation перед стартом; ошибки сервера локализованы RU/EN",
+        "Production orders покрыты backend tests для preview/start/complete, списания ресурсов, отказов при нехватке ресурсов и модификаторов level/research; frontend покрывает выбор количества, preview и disabled/confirm states",
+        "Документация backend/src/db/README.md, backend/src/features/buildings/README.md, backend/src/features/resources/README.md, frontend/src/README.md, shared/README.md и DOCUMENTATION.md обновлена под новую production-модель"
+      ],
+      "files": [
+        "backend/src/db/seed/catalog-rows.ts",
+        "backend/src/db/schema/",
+        "backend/src/features/buildings/",
+        "backend/src/features/resources/",
+        "backend/src/features/research/effects.ts",
+        "backend/src/workers/",
+        "shared/types/",
+        "frontend/src/components/",
+        "frontend/src/components/cosmic/buildings.tsx",
+        "frontend/src/pages/PlanetDetail.tsx",
+        "frontend/src/locales/",
+        "tools/balance-sim/src/catalog.ts",
+        "DOCUMENTATION.md",
+        "backend/src/db/README.md",
+        "backend/src/features/buildings/README.md",
+        "backend/src/features/resources/README.md",
+        "frontend/src/README.md",
+        "shared/README.md"
+      ],
+      "deps": [
+        "P2.2-001",
+        "P2-RES-001",
+        "P2.1-406",
+        "P2.1-412",
+        "P2.1-418"
+      ],
+      "verify": "Backend production recipe/order tests pass; frontend production UI tests/build pass; manual smoke: biomass requires the new biomass building, steel preview shows iron+water, fuel can be produced from methane or oil with different input ratios, and crafted resources do not accrue passively while idle.",
+      "notes": "Keep resource conversion server-authoritative. Prefer a recipe catalog shared to frontend for display only, while preview/start remains validated by backend. Add the biomass building icon in the existing Cosmic Atlas building icon style rather than a generic placeholder.",
+      "prompt": "[TASK P2.2-003] Ручная переработка ресурсов и здание биомассы\n\nОПИСАНИЕ\nПеревести производственные здания с автоматической добычи на явные производственные заказы игрока и добавить отдельное здание для добычи биомассы. Игрок выбирает рецепт, количество результата, видит требуемые входные ресурсы, время и модификаторы от уровня здания/исследований, после подтверждения входные ресурсы списываются сразу, а переработка завершается через единый production flow. Биомасса больше не добывается текущими универсальными средствами.\n\nACCEPTANCE CRITERIA\n  1. В каталоге зданий появляется отдельное biomass-здание для добычи биомассы с RU/EN названием, описанием, категорией добычи, eligibility по подходящим биомам/deposit rules и новой иконкой в стиле Cosmic Atlas\n  2. Текущие заводы и перерабатывающие здания больше не добавляют автоматический regenRate для steel, electronics, fuel, water/ice conversion и других crafted ресурсов; завершение/апгрейд/снос таких зданий не создаёт скрытую пассивную генерацию\n  3. Backend вводит явные production recipes и production orders: игрок выбирает здание, рецепт и количество выхода; API возвращает preview входных ресурсов, длительности, итогового выхода и причин блокировки\n  4. При старте production order сервер атомарно проверяет владение планетой, наличие подходящего здания, доступность рецепта, складские остатки и capacity; входные ресурсы списываются сразу, а результат начисляется только после завершения процесса\n  5. Smelter производит steel по рецепту iron + water с масштабированием количества; UI показывает требуемое железо и воду до подтверждения\n  6. Electronics производится через fabrication/electronics building с несколькими компонентами, включая silicon, copper и минимум один продвинутый компонент/материал; рецепт не должен быть одноресурсным\n  7. Cryo/processing building поддерживает ice ↔ water как явные рецепты с разными потерями/затратами и понятным preview\n  8. Refinery поддерживает несколько рецептов fuel: из methane требуется больше сырья, чем из oil; система допускает расширение альтернативных рецептов без изменения API\n  9. Уровень здания и research effects меняют стоимость входных ресурсов, длительность или выход production recipes детерминированно; frontend не рассчитывает бонусы как источник истины\n  10. Frontend даёт игроку выбрать рецепт и количество, показывает input requirements, дефицит ресурсов, длительность, итоговый output, disabled state и confirmation перед стартом; ошибки сервера локализованы RU/EN\n  11. Production orders покрыты backend tests для preview/start/complete, списания ресурсов, отказов при нехватке ресурсов и модификаторов level/research; frontend покрывает выбор количества, preview и disabled/confirm states\n  12. Документация backend/src/db/README.md, backend/src/features/buildings/README.md, backend/src/features/resources/README.md, frontend/src/README.md, shared/README.md и DOCUMENTATION.md обновлена под новую production-модель\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/seed/catalog-rows.ts\n  - backend/src/db/schema/\n  - backend/src/features/buildings/\n  - backend/src/features/resources/\n  - backend/src/features/research/effects.ts\n  - backend/src/workers/\n  - shared/types/\n  - frontend/src/components/\n  - frontend/src/components/cosmic/buildings.tsx\n  - frontend/src/pages/PlanetDetail.tsx\n  - frontend/src/locales/\n  - tools/balance-sim/src/catalog.ts\n  - DOCUMENTATION.md\n  - backend/src/db/README.md\n  - backend/src/features/buildings/README.md\n  - backend/src/features/resources/README.md\n  - frontend/src/README.md\n  - shared/README.md\n\nЗАВИСИМОСТИ\n  P2.2-001, P2-RES-001, P2.1-406, P2.1-412, P2.1-418\n\nКАК ПРОВЕРИТЬ\n  Backend production recipe/order tests pass; frontend production UI tests/build pass; manual smoke: biomass requires the new biomass building, steel preview shows iron+water, fuel can be produced from methane or oil with different input ratios, and crafted resources do not accrue passively while idle.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Keep resource conversion server-authoritative. Prefer a recipe catalog shared to frontend for display only, while preview/start remains validated by backend. Add the biomass building icon in the existing Cosmic Atlas building icon style rather than a generic placeholder."
     }
   ]
 }

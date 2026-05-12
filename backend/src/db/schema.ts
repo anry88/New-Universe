@@ -11,3 +11,4 @@ export * from './schema/notifications.js';
 export * from './schema/market.js';
 export * from './schema/colonies.js';
 export * from './schema/multiplayer.js';
+export * from './schema/production.js';

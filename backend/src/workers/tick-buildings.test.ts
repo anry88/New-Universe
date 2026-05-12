@@ -131,11 +131,14 @@ describe('Tick Buildings Worker', () => {
     expect(Number(pr!.regenRate)).toBeCloseTo(50 / 3, 4);
   });
 
-  it('should insert steel production when smelter completes (no prior steel row)', async () => {
+  it('should not create passive steel regen when smelter completes', async () => {
     const user = await createTestUser();
     const planetId = await getHomePlanetId(user.id);
 
     const past = new Date(Date.now() - 5000);
+    await db
+      .delete(planetResources)
+      .where(and(eq(planetResources.planetId, planetId), eq(planetResources.resourceId, 'steel')));
 
     await db.insert(buildings).values({
       planetId,
@@ -151,8 +154,7 @@ describe('Tick Buildings Worker', () => {
     const steel = await db.query.planetResources.findFirst({
       where: and(eq(planetResources.planetId, planetId), eq(planetResources.resourceId, 'steel')),
     });
-    expect(steel).toBeDefined();
-    expect(Number(steel!.regenRate)).toBe(36);
+    expect(steel).toBeUndefined();
   });
 
   it('should create a notification when building completes', async () => {
