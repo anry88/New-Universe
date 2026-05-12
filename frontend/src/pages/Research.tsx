@@ -5,6 +5,7 @@ import { TECH_TREE_DATA, BRANCHES, RESEARCH_MAX_LEVEL, type TechTreeEntry } from
 import { evaluateResearchEligibility } from '../lib/research-eligibility';
 import { ResourceBar } from '../components/ResourceBar';
 import { RequirementList } from '../components/RequirementList';
+import { ResearchQueue } from '../components/ResearchQueue';
 import { TechTreeNode, type TechTreeNodeVisualState } from '../components/TechTreeNode';
 import { CosmicBackground, CosmicBottomNav } from '../components/cosmic/atoms';
 import { ChevronLeft, X } from 'lucide-react';
@@ -14,6 +15,7 @@ import { resolveBuildingType } from '../components/cosmic/buildings';
 import { estimateRushDiamondCost } from '@shared/types/diamonds';
 import { formatTimerDuration, timerSnapshot } from '../lib/timers';
 import { useI18n } from '../lib/i18n';
+import { getActiveResearch, researchStartBlockedByActive } from '../lib/research-queue';
 
 const BRANCH_COLORS: Record<string, string> = {
   mining: '#C7A582',
@@ -25,16 +27,9 @@ const BRANCH_COLORS: Record<string, string> = {
   jump_drive: '#F4B84A',
 };
 
-type DetailPanel =
-  | null
-  | { kind: 'tier'; def: TechTreeEntry }
-  | { kind: 'complete'; branchId: string };
+type DetailPanel = null | { kind: 'tier'; def: TechTreeEntry } | { kind: 'complete'; branchId: string };
 
-function tierVisual(
-  level: number,
-  completedLevel: number,
-  completesAt: string | null | undefined,
-): TechTreeNodeVisualState {
+function tierVisual(level: number, completedLevel: number, completesAt: string | null | undefined): TechTreeNodeVisualState {
   const now = Date.now();
   const timerActive = Boolean(completesAt && new Date(completesAt).getTime() > now);
   if (completedLevel >= level) return 'completed';
@@ -59,6 +54,12 @@ function formatEffectLines(effects: TechTreeEntry['effects'], t: (key: string, p
 
 const TIER_LEVELS = Array.from({ length: RESEARCH_MAX_LEVEL }, (_, i) => (i + 1) as 1 | 2 | 3 | 4 | 5);
 
+function researchActionError(error: unknown, fallback: string, t: (key: string) => string): string {
+  const message = error instanceof Error ? error.message : fallback;
+  if (message === 'Research queue is busy') return t('research.queueBusyError');
+  return message;
+}
+
 export function ResearchPage() {
   const { data: meData } = useMe();
   const startResearch = useStartResearch();
@@ -71,6 +72,8 @@ export function ResearchPage() {
   const homePlanet = meData?.homeSystem?.planets?.[0];
   const homePlanetId = homePlanet?.id;
   const homePlanetResources = homePlanet?.resources;
+  const activeResearch = getActiveResearch(meData?.research);
+  const activeResearchDef = activeResearch ? TECH_TREE_DATA.find((entry) => entry.branch === activeResearch.branch && entry.level === activeResearch.level + 1) : undefined;
 
   const labBuilding = homePlanet?.buildings?.find((b) => {
     const def = resolveBuildingType(b.typeId);
@@ -80,6 +83,11 @@ export function ResearchPage() {
 
   const handleStart = async (def: TechTreeEntry) => {
     if (!homePlanetId) return;
+    const queueBlock = researchStartBlockedByActive(def.branch, meData?.research);
+    if (queueBlock) {
+      setActionError(t('research.queueBusyError'));
+      return;
+    }
     setActionError(null);
     try {
       await startResearch.mutateAsync({
@@ -89,8 +97,7 @@ export function ResearchPage() {
       });
       setPanel(null);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : t('research.couldNotStart');
-      setActionError(msg);
+      setActionError(researchActionError(e, t('research.couldNotStart'), t));
     }
   };
 
@@ -100,8 +107,7 @@ export function ResearchPage() {
       await rushResearch.mutateAsync(branch);
       setPanel(null);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : t('research.couldNotRush');
-      setActionError(msg);
+      setActionError(researchActionError(e, t('research.couldNotRush'), t));
     }
   };
 
@@ -113,12 +119,7 @@ export function ResearchPage() {
 
       <div className="page-head" style={{ position: 'relative', zIndex: 2 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button
-            type="button"
-            aria-label={t('common.back')}
-            onClick={() => navigate('/')}
-            style={{ padding: 4, borderRadius: 999, color: 'var(--text-dim)' }}
-          >
+          <button type="button" aria-label={t('common.back')} onClick={() => navigate('/')} style={{ padding: 4, borderRadius: 999, color: 'var(--text-dim)' }}>
             <ChevronLeft size={20} />
           </button>
           <div>
@@ -127,8 +128,8 @@ export function ResearchPage() {
           </div>
         </div>
         <div className="page-stat">
-          <div className="ps-v">{meData?.research?.filter((r) => (r.level ?? 0) > 0).length ?? 0}</div>
-          <div className="ps-l">{t('research.active').toUpperCase()}</div>
+          <div className="ps-v">{activeResearch ? '1/1' : '0/1'}</div>
+          <div className="ps-l">{t('research.queue').toUpperCase()}</div>
         </div>
       </div>
 
@@ -139,9 +140,7 @@ export function ResearchPage() {
             const completedLevel = progress?.level ?? 0;
             const accent = BRANCH_COLORS[branch.id] ?? '#5BD7FF';
 
-            const nextDef = TECH_TREE_DATA.find(
-              (t) => t.branch === branch.id && t.level === completedLevel + 1,
-            );
+            const nextDef = TECH_TREE_DATA.find((t) => t.branch === branch.id && t.level === completedLevel + 1);
 
             const openNextPanel = () => {
               if (completedLevel >= RESEARCH_MAX_LEVEL) {
@@ -217,7 +216,9 @@ export function ResearchPage() {
                 </div>
                 {completedLevel > 0 && tierDefForCompleted(branch.id, completedLevel) && (
                   <div className="tech-effect-line">
-                    {t('research.applied', { effects: formatEffectLines(tierDefForCompleted(branch.id, completedLevel)!.effects, t) })}
+                    {t('research.applied', {
+                      effects: formatEffectLines(tierDefForCompleted(branch.id, completedLevel)!.effects, t),
+                    })}
                   </div>
                 )}
               </div>
@@ -226,7 +227,10 @@ export function ResearchPage() {
         </div>
       </div>
 
-      <CosmicBottomNav />
+      <div className="fixed-bottom-ui">
+        <ResearchQueue research={meData?.research} rushPricing={meData?.rushPricing ?? null} diamondBalance={meData?.diamonds ?? 0} />
+        <CosmicBottomNav />
+      </div>
 
       {panel?.kind === 'tier' && (
         <TierDetailSheet
@@ -238,6 +242,8 @@ export function ResearchPage() {
           rushResearch={rushResearch}
           diamondBalance={meData?.diamonds ?? 0}
           rushPricing={meData?.rushPricing ?? null}
+          activeResearchBranch={activeResearch?.branch ?? null}
+          activeResearchName={activeResearchDef?.name[locale] ?? activeResearch?.branch ?? null}
           error={actionError}
           onClose={() => setPanel(null)}
           onStart={() => handleStart(panel.def)}
@@ -252,9 +258,7 @@ export function ResearchPage() {
             <div className="bd-head" style={{ display: 'flex', justifyContent: 'space-between' }}>
               <div>
                 <div className="bd-tag">{t('research.branchComplete').toUpperCase()}</div>
-                <div className="bd-title">
-                  {BRANCHES.find((b) => b.id === panel.branchId)?.name[locale] ?? panel.branchId}
-                </div>
+                <div className="bd-title">{BRANCHES.find((b) => b.id === panel.branchId)?.name[locale] ?? panel.branchId}</div>
                 <div className="bd-sub">{t('research.allTiers', { count: RESEARCH_MAX_LEVEL })}</div>
               </div>
               <button type="button" aria-label={t('common.close')} onClick={() => setPanel(null)} style={{ color: 'var(--text-faint)' }}>
@@ -281,6 +285,8 @@ interface TierDetailSheetProps {
   rushResearch: ReturnType<typeof useRushResearch>;
   diamondBalance: number;
   rushPricing: import('@shared/types/diamonds').RushPricing | null;
+  activeResearchBranch: string | null;
+  activeResearchName: string | null;
   error: string | null;
   onClose: () => void;
   onStart: () => void;
@@ -296,6 +302,8 @@ function TierDetailSheet({
   rushResearch,
   diamondBalance,
   rushPricing,
+  activeResearchBranch,
+  activeResearchName,
   error,
   onClose,
   onStart,
@@ -303,14 +311,8 @@ function TierDetailSheet({
 }: TierDetailSheetProps) {
   const { locale, t } = useI18n();
   const eligibility = evaluateResearchEligibility(def, labLevel, research, planetResources, locale);
-  const activeProgress =
-    research?.find(
-      (row) =>
-        row.branch === def.branch &&
-        row.level === def.level - 1 &&
-        row.completesAt &&
-        new Date(row.completesAt).getTime() > Date.now(),
-    ) ?? null;
+  const activeProgress = research?.find((row) => row.branch === def.branch && row.level === def.level - 1 && row.completesAt && new Date(row.completesAt).getTime() > Date.now()) ?? null;
+  const blockedByResearchQueue = Boolean(activeResearchBranch && activeResearchBranch !== def.branch && !activeProgress);
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
@@ -327,26 +329,29 @@ function TierDetailSheet({
         nowMs: now,
       })
     : null;
-  const rushCost =
-    activeTimer && rushPricing
-      ? estimateRushDiamondCost(
-          activeTimer.remainingSec,
-          rushPricing.diamondsPerMinute,
-          rushPricing.maxPerAction,
-        )
-      : 0;
+  const rushCost = activeTimer && rushPricing ? estimateRushDiamondCost(activeTimer.remainingSec, rushPricing.diamondsPerMinute, rushPricing.maxPerAction) : 0;
   const canRush = Boolean(activeTimer && rushPricing) && diamondBalance >= rushCost;
 
   return (
     <div className="bd-backdrop" onClick={onClose}>
       <div className="bd-sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
         <div className="bd-handle" />
-        <div className="bd-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div
+          className="bd-head"
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+          }}
+        >
           <div>
             <div className="bd-tag">{t('research.active').toUpperCase()}</div>
             <div className="bd-title">{def.name[locale]}</div>
             <div className="bd-sub">
-              {t('research.levelBranch', { level: def.level, branch: def.branch })}
+              {t('research.levelBranch', {
+                level: def.level,
+                branch: def.branch,
+              })}
             </div>
           </div>
           <button type="button" aria-label={t('common.close')} onClick={onClose} style={{ color: 'var(--text-faint)' }}>
@@ -354,7 +359,16 @@ function TierDetailSheet({
           </button>
         </div>
         <div className="bd-list">
-          <p style={{ color: 'var(--text-dim)', fontSize: 13, lineHeight: 1.5, margin: 0 }}>{def.description[locale]}</p>
+          <p
+            style={{
+              color: 'var(--text-dim)',
+              fontSize: 13,
+              lineHeight: 1.5,
+              margin: 0,
+            }}
+          >
+            {def.description[locale]}
+          </p>
 
           <div className="tech-effect-block">
             <div className="tech-effect-label">{t('research.effects')}</div>
@@ -365,7 +379,9 @@ function TierDetailSheet({
             <div className="tech-effect-block">
               <div className="tech-effect-label">{t('research.activeResearch')}</div>
               <div className="tech-effect-body">
-                {t('research.remaining', { time: formatTimerDuration(activeTimer.remainingSec) })}
+                {t('research.remaining', {
+                  time: formatTimerDuration(activeTimer.remainingSec),
+                })}
               </div>
               <div className="qstrip-bar" style={{ marginTop: 8 }}>
                 <div
@@ -380,22 +396,33 @@ function TierDetailSheet({
             </div>
           )}
 
+          {!activeTimer && blockedByResearchQueue && (
+            <div className="tech-lock-block" data-testid="research-queue-block">
+              <div className="tech-effect-label">{t('research.queueBusy')}</div>
+              <p className="tech-lock-line">
+                {t('research.queueBusyDetail', {
+                  name: activeResearchName ?? activeResearchBranch ?? '',
+                })}
+              </p>
+            </div>
+          )}
+
           {!activeTimer && !eligibility.ok && (
             <div className="tech-lock-block">
               <div className="tech-effect-label">{t('research.blocked')}</div>
               {eligibility.labMessage && <p className="tech-lock-line">{eligibility.labMessage}</p>}
               {eligibility.resourceMessage && (
                 <p className="tech-lock-line" data-testid="research-block-resources">
-                  {t('research.needResources', { resources: eligibility.resourceMessage })}
+                  {t('research.needResources', {
+                    resources: eligibility.resourceMessage,
+                  })}
                 </p>
               )}
-              {eligibility.missingResearch.length > 0 && (
-                <RequirementList title={t('research.prerequisites')} missing={eligibility.missingResearch} locale={locale} />
-              )}
+              {eligibility.missingResearch.length > 0 && <RequirementList title={t('research.prerequisites')} missing={eligibility.missingResearch} locale={locale} />}
             </div>
           )}
 
-          <div className={`bopt${!eligibility.ok ? ' locked' : ''}`} style={{ cursor: 'default' }}>
+          <div className={`bopt${!eligibility.ok || blockedByResearchQueue ? ' locked' : ''}`} style={{ cursor: 'default' }}>
             <div className="bopt-icon">
               <svg width="32" height="32" viewBox="0 0 64 64" fill="none" stroke="var(--accent)" strokeWidth="1.6">
                 <path d="M26 10 L38 10" />
@@ -413,7 +440,7 @@ function TierDetailSheet({
                     .map(([res, amount]) => `${getResourceSymbol(res)} ${amount}`)
                     .join('  ·  ')}
                 </span>
-                <span className="bopt-time">{def.timeSec}s</span>
+                <span className="bopt-time">{formatTimerDuration(def.timeSec)}</span>
               </div>
             </div>
             <span aria-hidden="true" />
@@ -428,11 +455,7 @@ function TierDetailSheet({
           <button
             type="button"
             onClick={activeTimer ? onRush : onStart}
-            disabled={
-              activeTimer
-                ? rushResearch.isPending || !canRush
-                : startResearch.isPending || !eligibility.ok
-            }
+            disabled={activeTimer ? rushResearch.isPending || !canRush : startResearch.isPending || !eligibility.ok || blockedByResearchQueue}
             className="cosmic-cta"
             style={{ width: '100%', padding: '14px', marginTop: 8 }}
           >
@@ -442,13 +465,15 @@ function TierDetailSheet({
                 : !rushPricing
                   ? t('common.syncingPrice')
                   : canRush
-                  ? t('research.finishNow', { cost: rushCost })
-                  : t('research.needDiamonds', { cost: rushCost })
+                    ? t('research.finishNow', { cost: rushCost })
+                    : t('research.needDiamonds', { cost: rushCost })
               : startResearch.isPending
                 ? t('research.starting')
-                : eligibility.ok
-                  ? t('research.initiate')
-                  : t('common.locked')}
+                : blockedByResearchQueue
+                  ? t('research.queueBusyCta')
+                  : eligibility.ok
+                    ? t('research.initiate')
+                    : t('common.locked')}
           </button>
         </div>
       </div>

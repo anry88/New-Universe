@@ -158,8 +158,13 @@ export interface BuildSlotData {
 }
 
 const formatEta = (sec: number) => {
-  const m = Math.floor(sec / 60);
-  const s = Math.floor(sec % 60);
+  const total = Math.max(0, Math.floor(sec));
+  const d = Math.floor(total / 86400);
+  const h = Math.floor((total % 86400) / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m.toString().padStart(2, '0')}m`;
   return `${m}m ${s.toString().padStart(2, '0')}s`;
 };
 
@@ -266,6 +271,7 @@ const PlanetRailInner: React.FC<PlanetRailProps> = ({ planets, current, onSelect
 
 export interface QueueStripProps {
   title: string;
+  subtitle?: string;
   etaSec: number;
   progressPct: number;
   hidden?: boolean;
@@ -274,26 +280,16 @@ export interface QueueStripProps {
   /** Current diamond balance (for disabling rush). */
   diamondBalance?: number;
   rushBusy?: boolean;
+  rushLabel?: string;
+  rushTitle?: string;
+  notEnoughRushTitle?: string;
   onRush?: () => void;
 }
 
-export const QueueStrip: React.FC<QueueStripProps> = ({
-  title,
-  etaSec,
-  progressPct,
-  hidden,
-  rushCost,
-  diamondBalance,
-  rushBusy,
-  onRush,
-}) => {
+export const QueueStrip: React.FC<QueueStripProps> = ({ title, subtitle, etaSec, progressPct, hidden, rushCost, diamondBalance, rushBusy, rushLabel, rushTitle, notEnoughRushTitle, onRush }) => {
   const { t } = useI18n();
   if (hidden) return null;
-  const showRush =
-    typeof rushCost === 'number' &&
-    rushCost > 0 &&
-    typeof diamondBalance === 'number' &&
-    typeof onRush === 'function';
+  const showRush = typeof rushCost === 'number' && rushCost > 0 && typeof diamondBalance === 'number' && typeof onRush === 'function';
   const cantAfford = showRush && diamondBalance < rushCost;
 
   return (
@@ -306,6 +302,7 @@ export const QueueStrip: React.FC<QueueStripProps> = ({
       </div>
       <div className="qstrip-body">
         <div className="qstrip-title">{title}</div>
+        {subtitle && <div className="qstrip-subtitle">{subtitle}</div>}
         <div className="qstrip-bar">
           <div className="qstrip-fill" style={{ width: Math.min(100, Math.max(0, progressPct)) + '%' }} />
         </div>
@@ -319,9 +316,9 @@ export const QueueStrip: React.FC<QueueStripProps> = ({
             data-testid="queue-rush-button"
             disabled={cantAfford || rushBusy}
             onClick={onRush}
-            title={cantAfford ? t('build.notEnoughDiamonds') : t('build.rushTitle', { cost: rushCost })}
+            title={cantAfford ? (notEnoughRushTitle ?? t('build.notEnoughDiamonds')) : (rushTitle ?? t('build.rushTitle', { cost: rushCost }))}
           >
-            {rushBusy ? '…' : `◆ ${rushCost} ${t('build.rush')}`}
+            {rushBusy ? '…' : `◆ ${rushCost} ${rushLabel ?? t('build.rush')}`}
           </button>
         )}
       </div>

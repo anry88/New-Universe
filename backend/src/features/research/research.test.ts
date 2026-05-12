@@ -4,7 +4,7 @@ import { researchRoutes } from './routes.js';
 import { authRoutes } from '../auth/routes.js';
 import { db } from '../../db/index.js';
 import { buildings, planetResources, planets, researchProgress, systems } from '../../db/schema.js';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNotNull } from 'drizzle-orm';
 import crypto from 'crypto';
 import { env } from '../../lib/env.js';
 import { getResearchDef } from './data.js';
@@ -109,5 +109,50 @@ describe('Research Routes', () => {
     expect(progress).toBeTruthy();
     expect(progress?.level).toBe(0);
     expect(progress?.completesAt).toBeTruthy();
+  });
+
+  it('rejects starting a second branch while one research timer is active', async () => {
+    const { app, token, userId } = await createTestUser();
+    const planetId = await getHomePlanetId(userId);
+
+    await db.insert(buildings).values({
+      planetId,
+      typeId: 'lab',
+      slotIndex: 1,
+      level: 1,
+    });
+
+    const first = await app.inject({
+      method: 'POST',
+      url: '/research/start',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        branch: 'mining',
+        planetId,
+      },
+    });
+    expect(first.statusCode).toBe(200);
+
+    const second = await app.inject({
+      method: 'POST',
+      url: '/research/start',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        branch: 'engineering',
+        planetId,
+      },
+    });
+
+    expect(second.statusCode).toBe(400);
+    expect(second.json()).toMatchObject({
+      error: 'Research queue is busy',
+      activeBranch: 'mining',
+    });
+
+    const activeRows = await db.query.researchProgress.findMany({
+      where: and(eq(researchProgress.userId, userId), isNotNull(researchProgress.completesAt)),
+    });
+    expect(activeRows).toHaveLength(1);
+    expect(activeRows[0]?.branch).toBe('mining');
   });
 });
