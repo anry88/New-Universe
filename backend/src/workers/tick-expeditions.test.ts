@@ -220,6 +220,80 @@ describe("Tick Expeditions Worker", () => {
     expect(updated!.eta.getTime()).toBeGreaterThan(Date.now());
   });
 
+  it("completes cargo transfers one-way instead of starting a return phase", async () => {
+    const { ship, originPlanet, originSystem } = await createSetup();
+
+    const [targetPlanet] = await db
+      .insert(planets)
+      .values({
+        systemId: originSystem.id,
+        name: "Cargo Target",
+        biome: "green",
+        size: 10,
+        slotCount: 8,
+      })
+      .returning();
+
+    await db.insert(planetResources).values({
+      planetId: targetPlanet.id,
+      resourceId: "iron",
+      amount: "100.0000",
+      regenRate: "0",
+    });
+
+    await db
+      .update(ships)
+      .set({ cargoJson: { iron: 50 } })
+      .where(eq(ships.id, ship.id));
+
+    const [expedition] = await db
+      .insert(expeditions)
+      .values({
+        shipId: ship.id,
+        type: "cargo_transfer",
+        originPlanetId: originPlanet.id,
+        targetPlanetId: targetPlanet.id,
+        targetX: "1",
+        targetY: "0",
+        targetZ: "0",
+        status: "in_flight",
+        eta: new Date(Date.now() - 1000),
+        result: {
+          deliveryMode: "one_way",
+          resources: [{ resourceId: "iron", amount: 50 }],
+          loads: [{ resourceId: "iron", amount: 50 }],
+          totalCargo: 50,
+          maxCargo: 5000,
+          distance: 1,
+          speed: 10,
+          engineFactor: 1,
+        },
+      })
+      .returning();
+
+    await processExpeditions();
+
+    const updatedExpedition = await db.query.expeditions.findFirst({
+      where: eq(expeditions.id, expedition.id),
+    });
+    expect(updatedExpedition!.status).toBe("completed");
+
+    const updatedShip = await db.query.ships.findFirst({
+      where: eq(ships.id, ship.id),
+    });
+    expect(updatedShip!.status).toBe("idle");
+    expect(updatedShip!.locationPlanetId).toBe(targetPlanet.id);
+    expect(updatedShip!.cargoJson).toEqual({});
+
+    const targetIron = await db.query.planetResources.findFirst({
+      where: and(
+        eq(planetResources.planetId, targetPlanet.id),
+        eq(planetResources.resourceId, "iron"),
+      ),
+    });
+    expect(Number(targetIron!.amount)).toBe(150);
+  });
+
   it("should transition from returning to completed upon arrival at home", async () => {
     const { ship, originPlanet } = await createSetup();
 

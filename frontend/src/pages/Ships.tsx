@@ -16,9 +16,15 @@ import type { Building, Planet } from "@shared/types/world";
 import { getResourceSymbol } from "../components/cosmic/resources";
 import { timerSnapshot } from "../lib/timers";
 import { useI18n } from "../lib/i18n";
+import {
+  resolveShipBuildBlockedReason,
+  type ShipBuildBlockedReason,
+} from "../lib/ship-build-eligibility";
+import { resolveBuildingType } from "../components/cosmic/buildings";
 
 const SHIP_CLASS_TAG: Record<string, string> = {
   scout: "SCOUT",
+  cargo_light: "CARGO",
   cargo: "CARGO",
   colonizer: "COLONIZE",
   jump: "JUMP",
@@ -78,23 +84,40 @@ export function ShipsPage() {
   const selectedPlanet =
     shipyardPlanets.find((planet) => planet.id === resolvedPlanetId) ?? null;
 
-  const hasRequiredBuilding = (
-    planetBuildings: Building[],
-    typeId: string,
-    minLevel: number,
-  ) => {
+  const buildingLevel = (planetBuildings: Building[], typeId: string) => {
     const level =
       planetBuildings.find((building) => building.typeId === typeId)?.level ??
       0;
-    return level >= minLevel;
+    return level;
   };
 
-  const canBuildShip = (planet: Planet, shipTypeId: string) => {
-    const type = getShipType(shipTypeId);
-    if (!type) return false;
-    return type.requiredBuildings.every((req) =>
-      hasRequiredBuilding(planet.buildings ?? [], req.typeId, req.level),
-    );
+  const formatRequirement = (planet: Planet | null, typeId: string, level: number) => {
+    const building = resolveBuildingType(typeId);
+    const current = planet ? buildingLevel(planet.buildings ?? [], typeId) : 0;
+    return `${building.labels[locale]} L${level} (${t("ships.currentLevel", { level: current })})`;
+  };
+
+  const formatBuildBlock = (reason: ShipBuildBlockedReason) => {
+    if (reason.type === "missingBuilding") {
+      if (reason.typeId === "shipyard") {
+        return t("ships.blocked.shipyardLevel", {
+          level: reason.requiredLevel,
+          current: reason.currentLevel,
+        });
+      }
+      const building = resolveBuildingType(reason.typeId);
+      return t("ships.blocked.buildingLevel", {
+        building: building.labels[locale],
+        level: reason.requiredLevel,
+        current: reason.currentLevel,
+      });
+    }
+
+    return t("ships.blocked.resource", {
+      resource: getResourceSymbol(reason.resourceId),
+      required: reason.required,
+      available: reason.available,
+    });
   };
 
   const handleBuildShip = async (typeSlug: string) => {
@@ -238,11 +261,17 @@ export function ShipsPage() {
 
                 {(shipTypes ?? []).map((type) => {
                   const requirements = type.requiredBuildings
-                    .map((req) => `${req.typeId} L${req.level}`)
+                    .map((req) =>
+                      formatRequirement(selectedPlanet, req.typeId, req.level),
+                    )
                     .join(", ");
-                  const canBuild = selectedPlanet
-                    ? canBuildShip(selectedPlanet, type.id)
-                    : false;
+                  const blockedReason = selectedPlanet
+                    ? resolveShipBuildBlockedReason(selectedPlanet, type)
+                    : null;
+                  const canBuild = selectedPlanet ? blockedReason === null : false;
+                  const blockedText = blockedReason
+                    ? formatBuildBlock(blockedReason)
+                    : null;
 
                   return (
                     <div key={type.id} className="ship-row">
@@ -268,6 +297,11 @@ export function ShipsPage() {
                         <div className="ship-loc">
                           {t("ships.requires")}: {requirements || t("common.none")}
                         </div>
+                        {blockedText ? (
+                          <div className="ship-loc" style={{ color: "#fca5a5" }}>
+                            {blockedText}
+                          </div>
+                        ) : null}
                         <button
                           type="button"
                           disabled={
