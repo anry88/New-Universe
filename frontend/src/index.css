@@ -917,6 +917,14 @@ body {
   color: var(--text);
   margin-bottom: 4px;
 }
+.qstrip-subtitle {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  margin: -1px 0 5px;
+  text-transform: uppercase;
+}
 .qstrip-bar {
   height: 3px;
   background: rgba(255, 255, 255, 0.05);

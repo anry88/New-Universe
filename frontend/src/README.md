@@ -18,7 +18,7 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
   - **`homeSystemTitle.ts`** — `formatHomeSystemTitleForUser()` builds localized home-system banners from `/me` (`@shared/format/homeSystemNaming`).
   - **`uiLocale.ts`** — compatibility re-export for `getUiLocale()` and `UiLocale`; new code should import from `locale.ts` / `i18n.tsx`.
   - **`sentry.ts`** — Sentry browser init.
-  - **`tech-tree.ts`**, **`research-eligibility.ts`** — research UI helpers and tests.
+  - **`tech-tree.ts`**, **`research-eligibility.ts`**, **`research-queue.ts`** — research UI helpers and tests. `research-queue.ts` identifies the single active research timer and blocks starts for other branches while that timer is running.
 - `hooks/` — custom React hooks.
   - **`useAuth.ts`** — manages JWT session state in memory via Zustand.
   - **`useMarket.ts`** — market offers query, create-order mutation, pending-order cache, and error normalization for market-specific UI states.
@@ -37,7 +37,7 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
   - **`SectorMap.tsx`** — Phase 3 sector map: queries `GET /multiplayer/sectors/:sx/:sy/:sz/presence`, supports manual sector coordinates (global search within numeric sector grid), renders Pixi markers via `SectorRenderer`.
   - **`Ships.tsx`** — fleet management screen with two tabs: roster (`/ships`) and shipyard build queue/planner (`/ships?tab=shipyard`) wired to `POST /ships/build`; ships in `building` show ETA/progress from `GET /ships/queue`, schedule a queue refresh at completion, and support rush completion via `POST /ships/rush`.
   - **`Market.tsx`** — utility economy market screen with buy/sell price browsing, order submission, and pending-order ETA tracking.
-  - **`Research.tsx`** — tech-tree screen (Cosmic Atlas): seven branches × **five** tiers aligned with `@shared/config/researchCatalog` (including Energy), branch blurbs, localized applied-effects summary, per-tier `TechTreeNode` states (completed / in-progress timer / next pending / locked), tier detail sheet with lab/prereq/resource blocking (BuildDialog-style), optimistic start via `useStartResearch`, and active-tier diamond rush via `useRushResearch`.
+  - **`Research.tsx`** — tech-tree screen (Cosmic Atlas): seven branches × **five** tiers aligned with `@shared/config/researchCatalog` (including Energy), branch blurbs, localized applied-effects summary, per-tier `TechTreeNode` states (completed / in-progress timer / next pending / locked), tier detail sheet with lab/prereq/resource/queue blocking (BuildDialog-style), optimistic start via `useStartResearch`, and active-tier diamond rush via `useRushResearch`.
 - `components/` — reusable presentational components.
   - `pixi/` — canvas-based rendering components using PixiJS.
     - **`SystemRenderer.tsx`** — top-down system map renderer. Handles orbits, planets, star, and ship markers with pan/zoom logic.
@@ -51,6 +51,7 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
   - **`cosmic/buildings.test.ts`** — Vitest coverage for `resolveBuildingType` (known id resolution plus unknown-id fallback to the safe default icon).
   - **`cosmic/SystemMap.tsx`** — exports `CosmicSystemRenderer` (SVG orbital home-system map; pan/pinch/zoom) and optional `expeditionPick` for mission UI: tap-to-aim a flat sector ΔXY route point, colonizer target selection on discovered planets, draft trail from `launchPlanetId`, active expedition trails filtered to in-flight/returning rows, nine one-planet orbit guide rings that ignore obfuscated `unknown` placeholders from `/me`, ship interpolation in both directions without inline status labels, and undiscovered planets hidden from their real map positions until the backend marks them discovered. The selected-planet card now also shows mineable deposits and can be dismissed by tapping free space.
   - **`BuildQueue.tsx`** — displays the current build queue head with countdown timers and progress from server-derived `queueStartedAt`, polls `GET /buildings/queue` for **`rushPricing`**, computes live rush cost via `@shared/types/diamonds` (`estimateRushDiamondCost`), and calls **`POST /buildings/rush`** with loading/disabled states tied to `useMe().diamonds`.
+  - **`ResearchQueue.tsx`** — fixed bottom research queue strip for the one active research timer. It reuses Cosmic `QueueStrip`, shows localized queue-lock status, computes live rush cost from shared diamond pricing, and calls `POST /research/rush`.
   - **`BuildingSlot.tsx`** — wraps the Cosmic `BuildSlot` atom for planet infrastructure slots, including queue progress, server-derived energy disabled state, and battery charge display.
   - **`BuildDialog.tsx`** — Cosmic Atlas bottom sheet for picking a building type on an empty slot; groups options into localized category sections, sorts building options inside those sections by unlock progression (dependency gate/depth), applies dashed/low-opacity styling when `blockedReasonFor` reports a shared `BuildBlockedReason`, shows current energy balance (`+produced / -consumed / net`) plus stored battery charge with per-option projected net after build, opens an inline hint (`build-block-reason`) on tap, and only calls `POST /buildings/build` when the row is eligible.
   - **`CargoTransferDialog.tsx`** — interplanetary logistics interface for moving resources between colonies.
@@ -59,6 +60,7 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
   - **`ProductionDialog.tsx`** — compact production-order sheet for buildings with recipes. It fetches `/resources/production/recipes`, previews selected output quantity via `/resources/production/preview`, shows required material/energy inputs, duration, and queued-order remaining-time countdowns, confirms input spend, and starts orders through `/resources/production/start`.
   - **`RequirementList.tsx`** — compact list of missing `{ branch, level }` research prerequisites for gated UI actions; uses localized research branch labels from `@shared/types/research`.
   - **`TechTreeNode.tsx`** — single-tier chip for Cosmic `tech-node` styles: completed/active countdown/pending/locked visuals using `timerSnapshot()` so progress can use server `startedAt`.
+  - **`cosmic/atoms.tsx`** — shared Cosmic Atlas atoms including `QueueStrip`; the strip supports long-duration ETA formatting, optional status subtitle copy, and custom rush labels for building and research queues.
   - **`Tutorial.tsx`** — reusable full-screen onboarding overlay with step list, per-step reward blurbs from `@shared/config/tutorialRewards`, **Continue** (back to game without skip), **Skip for now**, and **Back to game** when complete.
 - `locales/` — flat EN/RU dictionaries used by `lib/i18n.tsx`; see [`locales/README.md`](./locales/README.md).
 - `assets/` — static assets imported by Vite (currently empty).
@@ -87,6 +89,8 @@ The folders above are reserved by `AGENTS.md` (`Engineering Rules` → "Keep fro
 - **`tech-tree.ts`** — `TECH_TREE_DATA` (levels **1–5** per branch, costs/times/descriptions/effects, including Energy) and `BRANCHES` metadata imported from `@shared/config/researchCatalog` (same source as `backend/src/config/research-catalog.ts`).
 - **`tech-tree.test.ts`** — asserts seven branches × five tiers stay aligned with `RESEARCH_MAX_LEVEL` for epic **P2-EPIC-RESEARCH** UI coverage.
 - **`research-eligibility.ts`** — `evaluateResearchEligibility` mirrors `/research/start` lab + prerequisite checks for UI lock copy; optional `planetResources` adds resource-shortage messaging aligned with server deductions.
+- **`research-queue.ts`** — `getActiveResearch()` and `researchStartBlockedByActive()` implement the frontend one-active-research queue rule.
+- **`research-queue.test.ts`** — Vitest coverage for active-timer detection, due-row ignore behavior, and blocking another branch while one timer is active.
 - **`production.ts`** — `defaultProductionRecipeId`, `canStartProduction`, and `productionBlockedText` keep production dialog controls deterministic and translate structured server block reasons.
 - **`production.test.ts`** — Vitest coverage for production helper selection, disabled state, and localized block messages.
 - **`timers.ts`** — pure local timer helpers for countdown/progress snapshots and compact duration labels. Network synchronization stays in hooks (`useMe`, `useShipQueue`) and fires at due timestamps, not every UI tick.

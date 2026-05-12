@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../lib/api';
 import type { User } from '@shared/types/user';
-import type { RushResearchResponse } from '@shared/types/research';
+import type { RushResearchResponse, StartResearchRequest, StartResearchResponse } from '@shared/types/research';
 
 export interface StartResearchVariables {
   branch: string;
@@ -15,17 +15,18 @@ export function useStartResearch() {
 
   return useMutation({
     mutationFn: (body: StartResearchVariables) =>
-      apiFetch<{ success: boolean; completesAt: string; startedAt?: string }>('/research/start', {
+      apiFetch<StartResearchResponse>('/research/start', {
         method: 'POST',
-        body: JSON.stringify({ branch: body.branch, planetId: body.planetId }),
+        body: JSON.stringify({
+          branch: body.branch,
+          planetId: body.planetId,
+        } satisfies StartResearchRequest),
       }),
     onMutate: async (vars) => {
       await queryClient.cancelQueries({ queryKey: ['me'] });
       const previous = queryClient.getQueryData<User>(['me']);
       const optimisticStartedAt = new Date().toISOString();
-      const optimisticCompletesAt = new Date(
-        Date.now() + vars.estimatedDurationSec * 1000,
-      ).toISOString();
+      const optimisticCompletesAt = new Date(Date.now() + vars.estimatedDurationSec * 1000).toISOString();
 
       queryClient.setQueryData<User>(['me'], (old) => {
         if (!old) return old;

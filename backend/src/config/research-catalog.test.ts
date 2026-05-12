@@ -61,6 +61,16 @@ describe('research catalog', () => {
       }
     }
   });
+
+  it('uses P2.2 minute/hour-scale timers for the one-slot research queue', () => {
+    for (const branch of RESEARCH_CATALOG) {
+      expect(branch.levels[0].timeSec).toBeGreaterThanOrEqual(10 * 60);
+      expect(branch.levels[4].timeSec).toBeGreaterThanOrEqual(24 * 60 * 60);
+    }
+
+    const jumpDrive = RESEARCH_CATALOG.find((branch) => branch.branch === 'jump_drive');
+    expect(jumpDrive?.levels[4].timeSec).toBeGreaterThanOrEqual(72 * 60 * 60);
+  });
 });
 
 /** Maps acceptance for epic P2-EPIC-RESEARCH: every tech branch completable through catalog max level at the API layer (`getResearchDef`). */

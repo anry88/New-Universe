@@ -14,6 +14,15 @@ export interface ResearchProgress {
 
 export interface StartResearchRequest {
   branch: string;
+  planetId: string;
+}
+
+export interface StartResearchResponse {
+  success: boolean;
+  branch: string;
+  level: number;
+  completesAt: string;
+  startedAt: string;
 }
 
 export interface RushResearchRequest {
