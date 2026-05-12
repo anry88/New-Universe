@@ -1,17 +1,20 @@
 import { describe, expect, it, beforeAll } from 'vitest';
 import { db } from '../../db/index.js';
 import { launchCargoTransfer } from './cargo-transfer.js';
-import { users, planets, systems, ships, planetResources, colonies, researchProgress } from '../../db/schema.js';
+import { users, planets, systems, ships, planetResources, colonies, researchProgress, buildings } from '../../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import { seedShipTypes } from '../../db/seed/ship-types.js';
+import { seedBuildingTypes } from '../../db/seed/building-types.js';
 
 describe('cargoTransfer', () => {
   let userId: string;
   let originPlanetId: string;
   let targetPlanetId: string;
+  let capitalPlanetId: string;
   let cargoShipId: string;
 
   beforeAll(async () => {
+    await seedBuildingTypes();
     await seedShipTypes();
 
     // Setup test user
@@ -57,6 +60,27 @@ describe('cargoTransfer', () => {
       planetId: originPlanetId,
     });
 
+    const [capitalPlanet] = await db.insert(planets).values({
+      systemId: originSystem.id,
+      biome: 'green',
+      size: 10,
+      slotCount: 8,
+      name: 'Capital Planet',
+    }).returning();
+    capitalPlanetId = capitalPlanet.id;
+
+    await db.insert(buildings).values({
+      planetId: capitalPlanetId,
+      typeId: 'command_center',
+      level: 1,
+      slotIndex: 0,
+    });
+
+    await db.insert(planetResources).values([
+      { planetId: capitalPlanetId, resourceId: 'iron', amount: '1000', regenRate: '0' },
+      { planetId: capitalPlanetId, resourceId: 'silicon', amount: '500', regenRate: '0' },
+    ]);
+
     // Setup target system and planet
     const [targetSystem] = await db.insert(systems).values({
       ownerId: userId,
@@ -92,10 +116,9 @@ describe('cargoTransfer', () => {
     ]);
 
     // Setup cargo ship
-    // Note: Scout has some cargo capacity in seed data (usually 100)
     const [ship] = await db.insert(ships).values({
       ownerId: userId,
-      typeId: 'scout',
+      typeId: 'cargo_light',
       locationPlanetId: originPlanetId,
       status: 'idle',
     }).returning();
@@ -200,6 +223,49 @@ describe('cargoTransfer', () => {
     expect(updatedShip!.cargoJson).toEqual({ iron: 4500, silicon: 500 });
   });
 
+  it('supports cargo transfer from the home capital without a colonies row', async () => {
+    const [ship] = await db.insert(ships).values({
+      ownerId: userId,
+      typeId: 'cargo_light',
+      locationPlanetId: capitalPlanetId,
+      status: 'idle',
+    }).returning();
+
+    const result = await launchCargoTransfer(userId, {
+      shipId: ship.id,
+      targetPlanetId,
+      resources: [{ resourceId: 'iron', amount: 100 }],
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.expedition.originPlanetId).toBe(capitalPlanetId);
+    expect(result.expedition.targetPlanetId).toBe(targetPlanetId);
+  });
+
+  it('supports cargo transfer to the home capital without a colonies row', async () => {
+    await db
+      .update(planetResources)
+      .set({ amount: '1000.0000' })
+      .where(and(eq(planetResources.planetId, originPlanetId), eq(planetResources.resourceId, 'iron')));
+
+    const [ship] = await db.insert(ships).values({
+      ownerId: userId,
+      typeId: 'cargo_light',
+      locationPlanetId: originPlanetId,
+      status: 'idle',
+    }).returning();
+
+    const result = await launchCargoTransfer(userId, {
+      shipId: ship.id,
+      targetPlanetId: capitalPlanetId,
+      resources: [{ resourceId: 'iron', amount: 100 }],
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.expedition.originPlanetId).toBe(originPlanetId);
+    expect(result.expedition.targetPlanetId).toBe(capitalPlanetId);
+  });
+
   it('rejects transfer if ship is already moving', async () => {
     await expect(launchCargoTransfer(userId, {
       shipId: cargoShipId,
@@ -215,8 +281,23 @@ describe('cargoTransfer', () => {
     await expect(launchCargoTransfer(userId, {
       shipId: cargoShipId,
       targetPlanetId,
-      resources: [{ resourceId: 'iron', amount: 1000 }] // Capacity is small for scout
+      resources: [{ resourceId: 'iron', amount: 6000 }]
     })).rejects.toThrow(/exceeds ship capacity/);
+  });
+
+  it('rejects scout ships even if they have small cargo capacity', async () => {
+    const [ship] = await db.insert(ships).values({
+      ownerId: userId,
+      typeId: 'scout',
+      locationPlanetId: originPlanetId,
+      status: 'idle',
+    }).returning();
+
+    await expect(launchCargoTransfer(userId, {
+      shipId: ship.id,
+      targetPlanetId,
+      resources: [{ resourceId: 'iron', amount: 10 }],
+    })).rejects.toThrow('Ship cannot transfer cargo');
   });
 
   it('rejects transfer to the same planet', async () => {

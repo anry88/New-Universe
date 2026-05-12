@@ -15,6 +15,7 @@ import { useState, useMemo, useCallback } from "react";
 import { CosmicBackground } from "./cosmic/atoms";
 import { CosmicSystemRenderer } from "./cosmic/SystemMap";
 import { useI18n } from "../lib/i18n";
+import { systemMapPlanetDistanceLy } from "@shared/format/systemMapLayout";
 
 interface ExpeditionDialogProps {
   ship: Ship;
@@ -71,18 +72,47 @@ export function ExpeditionDialog({
     () => meData?.planets?.find((p) => p.id === ship.locationPlanetId),
     [meData?.planets, ship.locationPlanetId],
   );
+  const selectedTargetPlanet = useMemo(
+    () => colonizationTargets.find((planet) => planet.id === targetPlanetId) ?? null,
+    [colonizationTargets, targetPlanetId],
+  );
   const fuelAvailable = useMemo(() => {
     const row = shipPlanet?.resources?.find((r) => r.resourceId === "fuel");
     return Math.floor(Number(row?.amount ?? 0));
   }, [shipPlanet?.resources]);
 
   const distance = useMemo(() => {
+    if (
+      isColonizer &&
+      selectedTargetPlanet &&
+      ship.locationPlanetId &&
+      homeSystem?.planets
+    ) {
+      const sameSystemDistance = systemMapPlanetDistanceLy(
+        homeSystem.planets,
+        Number(homeSystem.seed),
+        ship.locationPlanetId,
+        selectedTargetPlanet.id,
+      );
+      if (sameSystemDistance !== null) return sameSystemDistance;
+    }
+
     return Math.sqrt(
       Math.pow(target.x - originX, 2) +
         Math.pow(target.y - originY, 2) +
         Math.pow(target.z - originZ, 2),
     );
-  }, [target, originX, originY, originZ]);
+  }, [
+    homeSystem?.planets,
+    homeSystem?.seed,
+    isColonizer,
+    originX,
+    originY,
+    originZ,
+    selectedTargetPlanet,
+    ship.locationPlanetId,
+    target,
+  ]);
 
   const effectiveDistance = targetPlanetId ? Math.max(1, distance) : distance;
 

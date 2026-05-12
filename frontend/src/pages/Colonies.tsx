@@ -1,18 +1,40 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useColonies } from '../hooks/useColonies';
 import { CosmicBottomNav } from '../components/cosmic/atoms';
 import { ResourceBar } from '../components/ResourceBar';
 import { CargoTransferDialog } from '../components/CargoTransferDialog';
 import { Planet } from '@shared/types/world';
 import { Globe, Package, Navigation, ChevronRight } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useI18n } from '../lib/i18n';
 
 export function ColoniesPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useI18n();
   const { planets, focalPlanetId, focalPlanet, setFocalPlanetId, isLoading } = useColonies();
   const [transferOrigin, setTransferOrigin] = useState<Planet | null>(null);
+
+  useEffect(() => {
+    if (isLoading) return;
+    const params = new URLSearchParams(location.search);
+    const cargoOriginId = params.get('cargoOrigin');
+    if (!cargoOriginId) return;
+
+    const origin = planets.find((planet) => planet.id === cargoOriginId);
+    if (!origin) return;
+
+    setFocalPlanetId(origin.id);
+    setTransferOrigin(origin);
+    params.delete('cargoOrigin');
+    navigate(
+      {
+        pathname: location.pathname,
+        search: params.toString() ? `?${params.toString()}` : '',
+      },
+      { replace: true },
+    );
+  }, [isLoading, location.pathname, location.search, navigate, planets, setFocalPlanetId]);
 
   if (isLoading) {
     return (

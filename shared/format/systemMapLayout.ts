@@ -154,6 +154,24 @@ export function buildSystemMapLayouts(
   });
 }
 
+export function systemMapPlanetDistanceLy(
+  planets: SystemMapPlanetInput[],
+  systemSeed: number,
+  originPlanetId: string,
+  targetPlanetId: string,
+  worldUnitsPerLy = SYSTEM_MAP_WORLD_UNITS_PER_LY,
+): number | null {
+  const layouts = buildSystemMapLayouts(planets, systemSeed);
+  const origin = layouts.find((layout) => layout.id === originPlanetId);
+  const target = layouts.find((layout) => layout.id === targetPlanetId);
+
+  if (!origin || !target || worldUnitsPerLy <= 0) {
+    return null;
+  }
+
+  return Math.hypot(target.x - origin.x, target.y - origin.y) / worldUnitsPerLy;
+}
+
 export function systemMapPlanetDiscoveryRadius(
   planet: Pick<SystemMapPlanetLayout, "spriteSize">,
 ): number {

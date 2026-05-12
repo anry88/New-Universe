@@ -226,11 +226,11 @@ describe('Phase 2 regression suite', () => {
 
     const colonyPlanetId = targetPlanet.id;
 
-    const [scout] = await db
+    const [cargoShip] = await db
       .insert(ships)
       .values({
         ownerId: userId,
-        typeId: 'scout',
+        typeId: 'cargo_light',
         locationPlanetId: homePlanetId,
         status: 'idle',
       })
@@ -245,7 +245,7 @@ describe('Phase 2 regression suite', () => {
       url: '/cargo/transfer',
       headers: { authorization: `Bearer ${token}` },
       body: {
-        shipId: scout.id,
+        shipId: cargoShip.id,
         targetPlanetId: colonyPlanetId,
         resources: [{ resourceId: 'iron', amount: cargoQty }],
       },
