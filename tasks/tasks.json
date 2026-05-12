@@ -3548,6 +3548,51 @@
       "verify": "Backend tests for cargo transfer launch and colonizer distance/ETA preview; frontend tests/build for Ships and Colonies cargo flows. Manual smoke: cargo from Colonies sends selected resources one-way; cargo selected on Ships does not launch as scout; colonizer ETA changes with target distance.",
       "notes": "Prefer routing cargo ships into the existing CargoTransferDialog instead of extending ExpeditionDialog with a second cargo-specific launch mode. Keep route math shared with the current system map layout where possible.",
       "prompt": "[TASK P2.2-011] Регрессии cargo-перевозчика и ETA колонизатора\n\nОПИСАНИЕ\nИсправить cargo-перевозчик и колонизатор. Cargo_light не должен отправляться как scout из экрана кораблей; рабочий путь запуска cargo — экран колоний/планеты с выбором груза, destination и load lines. Этот flow должен реально создавать one-way cargo transfer между поселениями игрока, включая стартовую столицу. Колонизатор должен считать расстояние и ETA по реальному положению цели, а не показывать/использовать 1 единицу и 1 минуту для любой планеты. Описания кораблей нужно очистить от мета-информации.\n\nACCEPTANCE CRITERIA\n  1. Экран кораблей не запускает cargo_light как scout-style expedition туда-обратно\n  2. Cargo transfer из Colonies/planet flow позволяет выбрать грузы и успешно отправляет one-way transfer через `/cargo/transfer`, включая маршруты из/в стартовую столицу\n  3. Ошибки cargo transfer локализованы и видны пользователю\n  4. Colonizer preview/launch использует реальную distance и ETA по целевой планете\n  5. Backend сохраняет server-authoritative validation: cargo не создаёт scout expedition, colonizer не использует hardcoded distance\n  6. Описания кораблей в RU/EN очищены от meta/task/balance/internal implementation copy\n  7. Обновлены focused tests, shared contracts и документация\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/cargo/\n  - backend/src/features/expeditions/\n  - backend/src/features/ships/\n  - backend/src/routes/cargo.ts\n  - backend/src/workers/cargo-routes.ts\n  - frontend/src/components/CargoTransferDialog.tsx\n  - frontend/src/components/ExpeditionDialog.tsx\n  - frontend/src/pages/Colonies.tsx\n  - frontend/src/pages/Ships.tsx\n  - frontend/src/locales/\n  - shared/types/\n  - DOCUMENTATION.md\n  - backend/src/features/README.md\n  - backend/src/routes/README.md\n  - frontend/src/README.md\n  - shared/README.md\n\nЗАВИСИМОСТИ\n  P2-COL-002, P2-COL-004, P2-COL-005, P2.2-008\n\nКАК ПРОВЕРИТЬ\n  Backend tests for cargo transfer launch and colonizer distance/ETA preview; frontend tests/build for Ships and Colonies cargo flows. Manual smoke: cargo from Colonies sends selected resources one-way; cargo selected on Ships does not launch as scout; colonizer ETA changes with target distance.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Prefer routing cargo ships into the existing CargoTransferDialog instead of extending ExpeditionDialog with a second cargo-specific launch mode. Keep route math shared with the current system map layout where possible."
+    },
+    {
+      "id": "P2.2-012",
+      "epic": "EPIC-P2.2-BUILDING-ECONOMY",
+      "size": "M",
+      "title": "Баланс добычи и лимиты уровней построек",
+      "description": "Настроить добычу выбранных ресурсов так, чтобы скорость зависела от редкости и потребности ресурса, а не только от типа добывающего здания. Ограничить все building_types десятым уровнем, запретить апгрейд обычных построек выше уровня Command Center на этой планете и добавить реалистичные дополнительные материалы для апгрейдов на L6+ только из ресурсов, доступных в домашней системе или производимых из них.",
+      "acceptance": [
+        "Скорость добычи выбранного ресурса определяется по resourceId: например iron добывается быстрее silicon в одной и той же mine, а редкие ресурсы имеют меньший rate",
+        "Backend пересчитывает planet_resources.regenRate с учетом resource-specific extraction rates при строительстве, апгрейде и переключении добычи",
+        "Frontend build/upgrade dialogs показывают тот же resource-specific yield, что использует backend",
+        "Все building_types в seed-каталоге имеют maxLevel = 10",
+        "Backend запрещает апгрейд любой постройки, кроме command_center, если следующий уровень будет выше текущего уровня command_center на этой планете",
+        "Апгрейд command_center остается доступен до L10 и не блокируется собственным уровнем",
+        "Начиная с апгрейда на L6, стоимость получает дополнительные реалистичные материалы из домашней экономики: aluminum, titanium, steel, copper, water, oil/methane/sulfur где уместно; неподходящие материалы вроде biomass для spaceport/shipyard не используются",
+        "Balance simulator mirrors changed building caps, upgrade costs, and extraction rates",
+        "Обновлены task record, shared config/types, backend/frontend tests and adjacent README/DOCUMENTATION"
+      ],
+      "files": [
+        "tasks/tasks.json",
+        "shared/config/",
+        "shared/types/building-eligibility.ts",
+        "backend/src/db/seed/catalog-rows.ts",
+        "backend/src/db/seed/audit.ts",
+        "backend/src/features/buildings/",
+        "frontend/src/components/BuildDialog.tsx",
+        "frontend/src/components/UpgradeDialog.tsx",
+        "frontend/src/pages/PlanetDetail.tsx",
+        "tools/balance-sim/src/catalog.ts",
+        "tools/balance-sim/src/simulate.ts",
+        "DOCUMENTATION.md",
+        "backend/src/db/README.md",
+        "backend/src/features/buildings/README.md",
+        "frontend/src/README.md",
+        "shared/README.md",
+        "tools/balance-sim/README.md"
+      ],
+      "deps": [
+        "P2.2-001",
+        "P2.2-009",
+        "P2.2-010"
+      ],
+      "verify": "Backend focused tests: catalog audit, building eligibility/resource rates, building upgrade caps/high-tier costs. Frontend build or focused component/unit tests for build/upgrade yield preview. Balance sim tests/build if available.",
+      "notes": "Keep the rate/cost constants shared so backend, frontend, and balance-sim do not drift. Extra L6+ upgrade resources must stay within home-system availability or home-system production chains.",
+      "prompt": "[TASK P2.2-012] Баланс добычи и лимиты уровней построек\n\nОПИСАНИЕ\nНастроить добычу выбранных ресурсов так, чтобы скорость зависела от редкости и потребности ресурса, а не только от типа добывающего здания. Ограничить все building_types десятым уровнем, запретить апгрейд обычных построек выше уровня Command Center на этой планете и добавить реалистичные дополнительные материалы для апгрейдов на L6+ только из ресурсов, доступных в домашней системе или производимых из них.\n\nACCEPTANCE CRITERIA\n  1. Скорость добычи выбранного ресурса определяется по resourceId: iron добывается быстрее silicon в одной и той же mine\n  2. Backend пересчитывает regenRate с учетом resource-specific extraction rates\n  3. Frontend build/upgrade dialogs показывают тот же yield, что использует backend\n  4. Все building_types имеют maxLevel = 10\n  5. Нельзя апгрейдить обычную постройку выше уровня Command Center на этой планете\n  6. Command Center можно апгрейдить до L10 без блокировки собственным уровнем\n  7. Апгрейды на L6+ получают дополнительные реалистичные материалы из домашней экономики, без неподходящих ресурсов вроде biomass для spaceport/shipyard\n  8. Balance simulator mirrors changed caps, costs, and extraction rates\n  9. Обновлены task record, shared config/types, tests and adjacent README/DOCUMENTATION\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - tasks/tasks.json\n  - shared/config/\n  - shared/types/building-eligibility.ts\n  - backend/src/db/seed/catalog-rows.ts\n  - backend/src/db/seed/audit.ts\n  - backend/src/features/buildings/\n  - frontend/src/components/BuildDialog.tsx\n  - frontend/src/components/UpgradeDialog.tsx\n  - frontend/src/pages/PlanetDetail.tsx\n  - tools/balance-sim/src/catalog.ts\n  - tools/balance-sim/src/simulate.ts\n  - DOCUMENTATION.md\n  - backend/src/db/README.md\n  - backend/src/features/buildings/README.md\n  - frontend/src/README.md\n  - shared/README.md\n  - tools/balance-sim/README.md\n\nЗАВИСИМОСТИ\n  P2.2-001, P2.2-009, P2.2-010\n\nКАК ПРОВЕРИТЬ\n  Backend focused tests: catalog audit, building eligibility/resource rates, building upgrade caps/high-tier costs. Frontend build or focused component/unit tests for build/upgrade yield preview.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Keep the rate/cost constants shared so backend, frontend, and balance-sim do not drift. Extra L6+ upgrade resources must stay within home-system availability or home-system production chains."
     }
   ]
 }

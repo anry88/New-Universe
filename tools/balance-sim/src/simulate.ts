@@ -3,7 +3,10 @@ import {
   COLONIZATION,
   RESEARCH_TIERS,
   SHIPS,
+  buildingUpgradeResourceCosts,
+  buildingUpgradeTimeSeconds,
   type BuildingId,
+  MAX_BUILDING_LEVEL,
 } from './catalog.js';
 import {
   applyBuildTimeSeconds,
@@ -19,6 +22,8 @@ import type {
   ScenarioSummary,
   StructureStep,
 } from './types.js';
+
+const COMMAND_CENTER_TYPE_ID = 'command_center';
 
 const DT = 60;
 const CATALOG_NOTE =
@@ -39,13 +44,8 @@ function upgradeCostAndTime(
   const meta = BUILDINGS[typeId];
   const baseCost = ('baseCost' in meta ? meta.baseCost : {}) as Record<string, number>;
   const baseTimeSec = 'baseTimeSec' in meta ? meta.baseTimeSec : 0;
-  const costMultiplier = Math.pow(1.6, currentLevel);
-  const timeMultiplier = Math.pow(1.8, currentLevel);
-  const cost: Record<string, number> = {};
-  for (const [k, v] of Object.entries(baseCost)) {
-    cost[k] = Math.ceil(v * costMultiplier);
-  }
-  const timeSec = applyBuildTimeSeconds(Math.ceil(baseTimeSec * timeMultiplier), fx);
+  const cost = buildingUpgradeResourceCosts({ typeId, baseCost, currentLevel });
+  const timeSec = applyBuildTimeSeconds(buildingUpgradeTimeSeconds(baseTimeSec, currentLevel), fx);
   return { cost, timeSec };
 }
 
@@ -226,6 +226,15 @@ export function simulateScenario(
       const id = step.buildingId;
       if (depsSatisfied(id, levels)) {
         const curLevel = levels[id] ?? 0;
+        const commandCenterCapOk =
+          step.kind === 'build' ||
+          id === COMMAND_CENTER_TYPE_ID ||
+          curLevel + 1 <= (levels.command_center ?? 0);
+        const maxLevelOk = step.kind === 'build' || curLevel < MAX_BUILDING_LEVEL;
+        if (!commandCenterCapOk || !maxLevelOk) {
+          stallByResource.command_center = (stallByResource.command_center ?? 0) + DT;
+          continue;
+        }
         const costs =
           step.kind === 'build'
             ? buildCostAndTime(id, fx2)

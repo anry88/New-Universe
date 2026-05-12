@@ -8,8 +8,8 @@ Deterministic offline simulator for first-week economy progression (resources, b
 - **`scenarios/first-week.json`** — beginner vs optimized fixture definitions (`marketChunks` expands into granular NPC trades).
 - **`expected-ranges.json`** — inclusive milestone bands validated by tests / `npm run verify`.
 - **`artifacts/`** — generated JSON summaries (`artifacts/latest-summary.json` last run pointer). Ignored by git except `.gitkeep`.
-- **`src/catalog.ts`** — numeric mirrors of backend seeds/config (keep synchronized when balance changes). Includes **`HOME_SYSTEM_BASE_BIOME_IDS`** / fixed **`HOME_SYSTEM_PLANET_COUNT_* = 9`** aligned with `backend/src/features/world/biomes.ts` and `home-system-generator.ts`. Passive producers (`mine`, `drill`, `oil_pump`, `biomass_harvester`) list `output`, energy infrastructure (`battery`, `solar_plant`, `wind_turbine`, `fuel_generator`) mirrors storage/generation/charge recipes, ship construction mirrors catalog gates such as `cargo_light` requiring shipyard L2 and capital-planet resources, Energy research tiers mirror the shared catalog for early simulation, while processors (`smelter`, `refinery`, `fabrication_bay`, `cryo_factory`) list manual `recipes` and independent Command Center gates rather than depending on each other.
-- **`src/simulate.ts`** — discrete-time integrator with parallel NPC trade resolution (no single serial trade blocks unrelated fills). It applies passive generation only for extractor-style buildings; crafted resources are modeled through explicit scenario actions/recipes rather than automatic processor output.
+- **`src/catalog.ts`** — numeric mirrors of backend seeds/config (keep synchronized when balance changes). Includes **`HOME_SYSTEM_BASE_BIOME_IDS`** / fixed **`HOME_SYSTEM_PLANET_COUNT_* = 9`** aligned with `backend/src/features/world/biomes.ts` and `home-system-generator.ts`. Passive producers (`mine`, `drill`, `oil_pump`, `biomass_harvester`) mirror shared per-resource extraction rates, every building row mirrors the shared **L10** cap, energy infrastructure (`battery`, `solar_plant`, `wind_turbine`, `fuel_generator`) mirrors storage/generation/charge recipes, ship construction mirrors catalog gates such as `cargo_light` requiring shipyard L2 and capital-planet resources, Energy research tiers mirror the shared catalog for early simulation, while processors (`smelter`, `refinery`, `fabrication_bay`, `cryo_factory`) list manual `recipes` and independent Command Center gates rather than depending on each other.
+- **`src/simulate.ts`** — discrete-time integrator with parallel NPC trade resolution (no single serial trade blocks unrelated fills). It applies passive generation only for extractor-style buildings; crafted resources are modeled through explicit scenario actions/recipes rather than automatic processor output. Building upgrades use shared L10 / Command Center cap checks and the shared L6+ extra-cost helper.
 - **`src/cli.ts`** — loads a scenario file, writes artifacts, optional `--verify`.
 
 ## Upgrade time & cost curve
@@ -17,11 +17,13 @@ Deterministic offline simulator for first-week economy progression (resources, b
 The simulator mirrors backend building upgrades:
 
 - Upgrade from level **L** → **L+1**: resource cost scales by **1.6^L** (per resource, rounded); build time scales by **1.8^L** × `baseTimeSec`, then research modifiers from `src/effects.ts`.
+- Upgrades targeting **level 6+** add the shared high-tier material kit for that building (for example ship infrastructure uses steel/titanium/aluminum, not biomass).
+- Non-Command-Center buildings cannot upgrade beyond the completed Command Center level on that planet; all building types cap at **L10**.
 - Command Center `baseTimeSec` and `baseCost` match seeds (`catalog.ts`); genesis home capital starts with a completed CC (see `home-system-generator`), and colonizer settlement creates the first completed CC on the target planet. Later CC upgrades spend the same basic resources as the backend (`iron`, `carbon`, `silicon`) through the normal **1.6^L** cost curve.
 
 ## Sync contract
 
-When you change production economics in the live game, update **`src/catalog.ts`** (and scenario labels if intent shifts). Document each adjustment in the PR that touches backend seeds or `colonization-rules`.
+When you change production economics in the live game, update **`src/catalog.ts`** / **`src/simulate.ts`** (and scenario labels if intent shifts). Keep local simulator constants aligned with `shared/config/`; the simulator runs as a standalone package and mirrors those values explicitly. Document each adjustment in the PR that touches backend seeds or `colonization-rules`.
 
 ## Verification
 

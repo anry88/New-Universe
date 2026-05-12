@@ -13,6 +13,7 @@ import { processCompletedBuildings } from './tick-buildings.js';
 import { generateHomeSystem } from '../features/world/home-system-generator.js';
 import { seedBuildingTypes } from '../db/seed/building-types.js';
 import { seedResources } from '../db/seed/resources.js';
+import { extractionRateForResource } from '@shared/config/resourceExtractionRates.js';
 
 async function createTestUser() {
   const [user] = await db.insert(users).values({
@@ -138,7 +139,7 @@ describe('Tick Buildings Worker', () => {
       ),
     });
     expect(pr).toBeDefined();
-    expect(Number(pr!.regenRate)).toBeCloseTo(50, 4);
+    expect(Number(pr!.regenRate)).toBeCloseTo(extractionRateForResource('iron'), 4);
   });
 
   it('should initialize battery-backed energy storage when energy buildings complete', async () => {

@@ -139,9 +139,9 @@ describe('planet resource construction rules', () => {
       resolveBuildingProducedResourceIds({
         typeId: 'mine',
         baseOutput: { resourceId: 'iron', baseRate: 50 },
-        planetResourceIds: ['aluminum', 'copper', 'water'],
+        planetResourceIds: ['aluminum', 'copper', 'sulfur', 'water'],
       }),
-    ).toEqual(['aluminum', 'copper']);
+    ).toEqual(['aluminum', 'copper', 'sulfur']);
 
     expect(
       resolveBuildingProducedResourceIds({
@@ -158,7 +158,7 @@ describe('planet resource construction rules', () => {
         planetResourceIds: ['aluminum', 'copper'],
         resourceId: 'aluminum',
       }),
-    ).toBe(25);
+    ).toBe(11);
 
     expect(
       resolveBuildingProducedResourceIds({
@@ -177,7 +177,25 @@ describe('planet resource construction rules', () => {
         selectedResourceId: 'copper',
         resourceId: 'copper',
       }),
-    ).toBe(50);
+    ).toBe(28);
+
+    expect(
+      resolveBuildingProductionRateForResource({
+        typeId: 'mine',
+        baseOutput: { resourceId: 'iron', baseRate: 50 },
+        planetResourceIds: ['iron', 'silicon'],
+        selectedResourceId: 'iron',
+        resourceId: 'iron',
+      }),
+    ).toBeGreaterThan(
+      resolveBuildingProductionRateForResource({
+        typeId: 'mine',
+        baseOutput: { resourceId: 'iron', baseRate: 50 },
+        planetResourceIds: ['iron', 'silicon'],
+        selectedResourceId: 'silicon',
+        resourceId: 'silicon',
+      }),
+    );
 
     expect(
       resolveBuildingProducedResourceIds({

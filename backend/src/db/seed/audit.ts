@@ -1,5 +1,10 @@
 import type { ResearchBranchCatalog } from '@shared/config/researchCatalog.js';
 import { PRODUCTION_RECIPES } from '@shared/config/productionRecipes.js';
+import { EXTRACTABLE_RESOURCE_RATES_PER_HOUR } from '@shared/config/resourceExtractionRates.js';
+import {
+  HIGH_TIER_UPGRADE_COSTS_BY_BUILDING,
+  MAX_BUILDING_LEVEL,
+} from '@shared/config/buildingUpgradeEconomy.js';
 import { RESOURCE_BASELINE_PRICE } from '../../config/market-prices.js';
 import { RESEARCH_CATALOG } from '../../config/research-catalog.js';
 import {
@@ -95,6 +100,14 @@ export function runCatalogAudit(): CatalogAuditResult {
 
   for (const row of RESOURCE_CATALOG_ROWS) {
     isNonEmptyLocalizedName(row.name, `resource "${row.id}"`, errors);
+    const expectedExtractionRate = EXTRACTABLE_RESOURCE_RATES_PER_HOUR[
+      row.id as keyof typeof EXTRACTABLE_RESOURCE_RATES_PER_HOUR
+    ];
+    if (expectedExtractionRate != null && row.baseRegenRate !== expectedExtractionRate) {
+      errors.push(
+        `resource "${row.id}": baseRegenRate ${row.baseRegenRate} does not match shared extraction rate ${expectedExtractionRate}`,
+      );
+    }
     const tier = row.tier;
     if (!Number.isInteger(tier) || tier < 1 || tier > 4) {
       errors.push(`resource "${row.id}": tier must be integer 1–4, got ${tier}`);
@@ -114,9 +127,23 @@ export function runCatalogAudit(): CatalogAuditResult {
 
   for (const row of BUILDING_TYPE_CATALOG_ROWS) {
     isNonEmptyLocalizedName(row.name, `building "${row.id}"`, errors);
+    if (row.maxLevel !== MAX_BUILDING_LEVEL) {
+      errors.push(`building "${row.id}": maxLevel must be ${MAX_BUILDING_LEVEL}, got ${row.maxLevel}`);
+    }
     for (const dep of row.deps ?? []) {
       if (!buildingSet.has(dep.typeId)) {
         errors.push(`building "${row.id}": dependency references unknown building type "${dep.typeId}"`);
+      }
+    }
+  }
+
+  for (const [buildingId, extraCosts] of Object.entries(HIGH_TIER_UPGRADE_COSTS_BY_BUILDING)) {
+    if (!buildingSet.has(buildingId)) {
+      errors.push(`high-tier upgrade costs reference unknown building "${buildingId}"`);
+    }
+    for (const rid of Object.keys(extraCosts)) {
+      if (!resourceSet.has(rid)) {
+        errors.push(`high-tier upgrade costs for "${buildingId}" reference unknown resource "${rid}"`);
       }
     }
   }

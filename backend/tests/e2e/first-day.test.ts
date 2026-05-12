@@ -150,6 +150,11 @@ describe('E2E: First Day Flow', () => {
     expect(mine!.level).toBe(1);
     expect(mine!.selectedResourceId).toBe('iron');
 
+    // Mine L2 is now gated by the local Command Center level.
+    await db.update(buildings)
+      .set({ level: 2 })
+      .where(and(eq(buildings.planetId, planetId), eq(buildings.typeId, 'command_center')));
+
     // 3. Upgrade the Mine
     const upgradeRes = await app.inject({
       method: 'POST',
@@ -157,7 +162,7 @@ describe('E2E: First Day Flow', () => {
       headers: { authorization: `Bearer ${token}` },
       body: { buildingId: mine!.id },
     });
-    expect(upgradeRes.statusCode).toBe(200);
+    expect(upgradeRes.statusCode, `Upgrade failed: ${JSON.stringify(upgradeRes.json())}`).toBe(200);
 
     // Fast-forward: Complete upgrade
     await db.update(buildings)

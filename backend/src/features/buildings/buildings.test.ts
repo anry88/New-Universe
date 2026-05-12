@@ -92,6 +92,10 @@ describe('Building Service', () => {
   });
 
   it('should start upgrading an existing building', async () => {
+    await db.update(buildings)
+      .set({ level: 2 })
+      .where(eq(buildings.planetId, planetId));
+
     const typeId = 'mine';
     const [building] = await db.insert(buildings).values({
       planetId,

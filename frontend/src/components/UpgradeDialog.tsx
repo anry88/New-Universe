@@ -1,7 +1,14 @@
 import React from 'react';
 import type { Building } from '@shared/types/world';
 import type { BuildingType, BuildBlockedReason } from '@shared/types/buildings';
-import { formatBuildBlockedMessage } from '@shared/types/building-eligibility';
+import {
+  formatBuildBlockedMessage,
+  resolveBuildingProductionRateForResource,
+} from '@shared/types/building-eligibility';
+import {
+  buildingUpgradeResourceCosts,
+  buildingUpgradeTimeSeconds,
+} from '@shared/config/buildingUpgradeEconomy';
 import { getBuildingCategory, resolveBuildingType } from './cosmic/buildings';
 import { getResourceLabel, getResourceSymbol } from './cosmic/resources';
 import { useI18n } from '../lib/i18n';
@@ -19,6 +26,7 @@ interface UpgradeDialogProps {
   onOpenProduction?: () => void;
   resourceChoices?: BuildDialogResourceChoice[];
   resourceSwitchBlockedReason?: (resourceId: string) => BuildBlockedReason | null;
+  upgradeBlockedReason?: BuildBlockedReason | null;
   onChangeResource?: (buildingId: string, resourceId: string) => void;
   isProcessing: boolean;
   /** Biome accent override; defaults to Atlas cyan. */
@@ -27,9 +35,8 @@ interface UpgradeDialogProps {
 
 /**
  * Bottom-sheet upgrade dialog using the Cosmic Atlas design language.
- * Cost scaling matches the existing client-side logic (×2 per level) so the
- * preview stays consistent with the legacy implementation until the backend
- * exposes a canonical "next-level cost" endpoint.
+ * Cost and time previews use the shared upgrade-economy helpers so they stay
+ * aligned with backend spending.
  */
 export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
   building,
@@ -42,6 +49,7 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
   onOpenProduction,
   resourceChoices = [],
   resourceSwitchBlockedReason,
+  upgradeBlockedReason = null,
   onChangeResource,
   isProcessing,
   accent = '#5BD7FF',
@@ -51,12 +59,15 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
   if (!isOpen || !building || !typeInfo) return null;
 
   const def = resolveBuildingType(typeInfo.id);
-  const multiplier = Math.pow(2, building.level);
-  const costs = Object.entries(typeInfo.baseCost).map(([resId, amount]) => ({
+  const costs = Object.entries(buildingUpgradeResourceCosts({
+    typeId: typeInfo.id,
+    baseCost: typeInfo.baseCost,
+    currentLevel: building.level,
+  })).map(([resId, amount]) => ({
     resId,
-    amount: Math.floor(amount * multiplier),
+    amount,
   }));
-  const buildTime = Math.floor(typeInfo.baseTimeSec * multiplier);
+  const buildTime = buildingUpgradeTimeSeconds(typeInfo.baseTimeSec, building.level);
   const minutes = Math.floor(buildTime / 60);
   const seconds = buildTime % 60;
 
@@ -91,6 +102,12 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
               <button type="button" className="bd-block-hint-ok" onClick={() => setExplainedReason(null)}>
                 {t('build.ok')}
               </button>
+            </div>
+          ) : null}
+
+          {upgradeBlockedReason ? (
+            <div className="bd-block-hint" role="status" data-testid="upgrade-block-reason">
+              <div className="bd-block-hint-text">{formatBuildBlockedMessage(upgradeBlockedReason, locale)}</div>
             </div>
           ) : null}
 
@@ -143,6 +160,17 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
                   const outputResourceId = building.selectedResourceId ?? output.resourceId;
                   const curLvl = building.level;
                   const nextLvl = curLvl + 1;
+                  const outputRatePerLevel = outputResourceId && output.baseRate
+                    ? resolveBuildingProductionRateForResource({
+                        typeId: typeInfo.id,
+                        baseOutput: output,
+                        planetResourceIds: resourceChoices.length > 0
+                          ? resourceChoices.map((choice) => choice.resourceId)
+                          : [outputResourceId],
+                        selectedResourceId: building.selectedResourceId,
+                        resourceId: outputResourceId,
+                      })
+                    : 0;
                   const consumesEnergyOnlyDuringProcess = recipesForBuildingType(typeInfo.id).length > 0;
                   const idleEnergyConsumption = consumesEnergyOnlyDuringProcess ? 0 : typeInfo.energyConsumption;
                   
@@ -153,9 +181,9 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
                           {t('build.extracting')}: {getResourceLabel(building.selectedResourceId, locale)}
                         </span>
                       )}
-                      {outputResourceId && output.baseRate && (
+                      {outputResourceId && outputRatePerLevel > 0 && (
                         <span className="bstat">
-                          {t('build.yield')}: {output.baseRate * curLvl} → {output.baseRate * nextLvl} {getResourceSymbol(outputResourceId)}/h
+                          {t('build.yield')}: {outputRatePerLevel * curLvl} → {outputRatePerLevel * nextLvl} {getResourceSymbol(outputResourceId)}/h
                         </span>
                       )}
                       {output.cap && (
@@ -207,7 +235,7 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
           <button
             type="button"
             onClick={() => onAction(building.id)}
-            disabled={isProcessing}
+            disabled={isProcessing || Boolean(upgradeBlockedReason)}
             className="cosmic-cta"
             style={{ width: '100%', padding: '14px', marginTop: '8px' }}
           >
