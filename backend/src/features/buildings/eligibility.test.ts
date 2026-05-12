@@ -6,10 +6,17 @@ import {
   resolveBuildingProductionRateForResource,
   resolvePlanetResourceBlockedReason,
 } from '@shared/types/building-eligibility.js';
-import type { ResearchUnlockRequirement } from '@shared/config/buildingResearchGates.js';
+import { BUILDING_RESEARCH_GATES, type ResearchUnlockRequirement } from '@shared/config/buildingResearchGates.js';
 
 describe('resolveBuildBlockedReason', () => {
   const emptyGate: ResearchUnlockRequirement | undefined = undefined;
+
+  it('keeps Battery and Solar Plant available without completed Energy research', () => {
+    expect(BUILDING_RESEARCH_GATES.battery).toBeUndefined();
+    expect(BUILDING_RESEARCH_GATES.solar_plant).toBeUndefined();
+    expect(BUILDING_RESEARCH_GATES.wind_turbine).toEqual({ branch: 'energy', level: 1 });
+    expect(BUILDING_RESEARCH_GATES.fuel_generator).toEqual({ branch: 'energy', level: 2 });
+  });
 
   it('blocks second command center on the same planet', () => {
     const reason = resolveBuildBlockedReason({
@@ -67,6 +74,23 @@ describe('resolveBuildBlockedReason', () => {
       researchGate: { branch: 'mining', level: 1 },
     });
     expect(reason?.code).toBe('building_blocked_research');
+  });
+
+  it('localizes Energy research blocks for advanced generators', () => {
+    const reason = resolveBuildBlockedReason({
+      typeId: 'wind_turbine',
+      deps: [{ typeId: 'command_center', level: 1 }],
+      maxPerPlanet: null,
+      maxGlobal: null,
+      planetBuildings: [{ typeId: 'command_center', level: 1 }],
+      globalCountForType: 0,
+      researchLevels: new Map([['energy', 0]]),
+      researchGate: { branch: 'energy', level: 1 },
+    });
+
+    expect(reason?.code).toBe('building_blocked_research');
+    expect(formatBuildBlockedMessage(reason!, 'en')).toContain('Energy research level 1');
+    expect(formatBuildBlockedMessage(reason!, 'ru')).toContain('«Энергетика» уровня 1');
   });
 
   it('does not treat a command center still under construction as a dependency', () => {

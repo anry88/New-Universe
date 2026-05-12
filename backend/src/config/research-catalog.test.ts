@@ -31,6 +31,17 @@ describe('research catalog', () => {
     }
   });
 
+  it('includes Energy as the level-0 infrastructure branch with typed energy effects', () => {
+    const energyBranch = RESEARCH_CATALOG.find((branch) => branch.branch === 'energy');
+    expect(energyBranch).toBeDefined();
+    expect(energyBranch?.branchName).toEqual({ ru: 'Энергетика', en: 'Energy' });
+
+    const targets = new Set(energyBranch?.levels.flatMap((level) => level.effects.map((effect) => effect.target)) ?? []);
+    expect(targets.has('energyGeneration')).toBe(true);
+    expect(targets.has('energyStorage')).toBe(true);
+    expect(targets.has('energyEfficiency')).toBe(true);
+  });
+
   it('applies P2.1-417 cost/time scaling (≥2.0× for L1→L2, ≥2.5× for deeper tiers)', () => {
     for (const branch of RESEARCH_CATALOG) {
       let prevCost = 0;

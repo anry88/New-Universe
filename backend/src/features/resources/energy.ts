@@ -3,6 +3,13 @@ import { systemMapPlanetOrbitSlot } from '@shared/format/systemMapLayout.js';
 import type { BuildingEnergyState, PlanetEnergyStatus } from '@shared/types/world.js';
 import { db as defaultDb } from '../../db/index.js';
 import { planetResources, planets } from '../../db/schema.js';
+import {
+  applyEnergyGeneration,
+  applyEnergyRequirement,
+  applyEnergyStorage,
+  getResearchEffectsForUser,
+  type ResearchEffects,
+} from '../research/effects.js';
 
 export const ENERGY_RESOURCE_ID = 'energy';
 export const BATTERY_BUILDING_TYPE_ID = 'battery';
@@ -25,6 +32,9 @@ type PlanetEnergyInput = {
   name: string;
   biome: string;
   size: number;
+  system?: {
+    ownerId: string | null;
+  } | null;
   buildings?: BuildingRow[];
 };
 
@@ -37,6 +47,17 @@ export interface ResolvedPlanetEnergyState extends PlanetEnergyStatus {
   netRate: number;
   buildingStates: Record<string, BuildingEnergyState>;
 }
+
+const NO_RESEARCH_EFFECTS: ResearchEffects = {
+  resourceProductionMultiplier: 1,
+  resourceStorageMultiplier: 1,
+  energyGenerationMultiplier: 1,
+  energyStorageMultiplier: 1,
+  energyEfficiencyMultiplier: 1,
+  shipSpeedMultiplier: 1,
+  sensorRangeMultiplier: 1,
+  buildTimeMultiplier: 1,
+};
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -59,44 +80,49 @@ function isOperational(building: BuildingRow): boolean {
   return building.queueAction !== 'build' && building.level > 0;
 }
 
-function energyCapacityForBuilding(building: BuildingRow): number {
+function energyCapacityForBuilding(building: BuildingRow, effects: ResearchEffects): number {
   if (building.typeId !== BATTERY_BUILDING_TYPE_ID || !isOperational(building)) return 0;
   const output = building.type?.baseOutput ?? {};
   const cap = typeof output.energyCap === 'number' ? output.energyCap : 0;
-  return cap * building.level;
+  return applyEnergyStorage(cap * building.level, effects);
 }
 
-function energyProductionForBuilding(planet: PlanetEnergyInput, building: BuildingRow): number {
+function energyProductionForBuilding(
+  planet: PlanetEnergyInput,
+  building: BuildingRow,
+  effects: ResearchEffects,
+): number {
   if (!isOperational(building)) return 0;
   const output = building.type?.baseOutput ?? {};
   const baseEnergy = typeof output.energy === 'number' ? output.energy : 0;
   if (baseEnergy <= 0) return 0;
 
   if (building.typeId === 'solar_plant') {
-    return baseEnergy * building.level * solarEnergyMultiplier(planet);
+    return applyEnergyGeneration(baseEnergy * building.level * solarEnergyMultiplier(planet), effects);
   }
 
   if (building.typeId === 'wind_turbine') {
-    return baseEnergy * building.level * windEnergyMultiplier(planet);
+    return applyEnergyGeneration(baseEnergy * building.level * windEnergyMultiplier(planet), effects);
   }
 
-  return baseEnergy * building.level;
+  return applyEnergyGeneration(baseEnergy * building.level, effects);
 }
 
-function energyConsumptionForBuilding(building: BuildingRow): number {
+function energyConsumptionForBuilding(building: BuildingRow, effects: ResearchEffects): number {
   if (!isOperational(building)) return 0;
-  return Math.max(0, Number(building.type?.energyConsumption ?? 0)) * building.level;
+  return applyEnergyRequirement(Math.max(0, Number(building.type?.energyConsumption ?? 0)) * building.level, effects);
 }
 
 function resolveEnergyStateFromRows(
   planet: PlanetEnergyInput,
   energyRow: EnergyResourceRow,
   now = new Date(),
+  effects: ResearchEffects = NO_RESEARCH_EFFECTS,
 ): ResolvedPlanetEnergyState {
   const operationalBuildings = planet.buildings?.filter(isOperational) ?? [];
-  const capacity = operationalBuildings.reduce((sum, building) => sum + energyCapacityForBuilding(building), 0);
-  const produced = operationalBuildings.reduce((sum, building) => sum + energyProductionForBuilding(planet, building), 0);
-  const consumed = operationalBuildings.reduce((sum, building) => sum + energyConsumptionForBuilding(building), 0);
+  const capacity = operationalBuildings.reduce((sum, building) => sum + energyCapacityForBuilding(building, effects), 0);
+  const produced = operationalBuildings.reduce((sum, building) => sum + energyProductionForBuilding(planet, building, effects), 0);
+  const consumed = operationalBuildings.reduce((sum, building) => sum + energyConsumptionForBuilding(building, effects), 0);
   const netRate = produced - consumed;
 
   const startingAmount = Math.max(0, Number(energyRow?.amount ?? 0));
@@ -109,9 +135,9 @@ function resolveEnergyStateFromRows(
 
   const buildingStates: Record<string, BuildingEnergyState> = {};
   for (const building of planet.buildings ?? []) {
-    const production = energyProductionForBuilding(planet, building);
-    const consumption = energyConsumptionForBuilding(building);
-    const capacityForBuilding = energyCapacityForBuilding(building);
+    const production = energyProductionForBuilding(planet, building, effects);
+    const consumption = energyConsumptionForBuilding(building, effects);
+    const capacityForBuilding = energyCapacityForBuilding(building, effects);
     if (production <= 0 && consumption <= 0 && capacityForBuilding <= 0) continue;
 
     buildingStates[building.id] = {
@@ -149,6 +175,11 @@ export async function resolvePlanetEnergyState(
           type: true,
         },
       },
+      system: {
+        columns: {
+          ownerId: true,
+        },
+      },
     },
   });
 
@@ -172,7 +203,11 @@ export async function resolvePlanetEnergyState(
     ),
   });
 
-  return resolveEnergyStateFromRows(planet, energyRow ?? null);
+  const effects = planet.system?.ownerId
+    ? await getResearchEffectsForUser(planet.system.ownerId, database)
+    : NO_RESEARCH_EFFECTS;
+
+  return resolveEnergyStateFromRows(planet, energyRow ?? null, new Date(), effects);
 }
 
 export async function syncEnergyResourceRow(

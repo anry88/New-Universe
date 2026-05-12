@@ -13,6 +13,9 @@ import type { ResearchDefinition, ResourceId } from '../types/research.js';
 export type ResearchEffectTarget =
   | 'resourceProduction'
   | 'resourceStorage'
+  | 'energyGeneration'
+  | 'energyStorage'
+  | 'energyEfficiency'
   | 'shipSpeed'
   | 'sensorRange'
   | 'buildTime';
@@ -101,15 +104,88 @@ export const RESEARCH_CATALOG: ResearchBranchCatalog[] = [
     ],
   },
   {
-    branch: 'weapons',
-    branchName: { ru: 'Вооружение', en: 'Weapons' },
-    branchDescription: { ru: 'Подготовка ветки боевых технологий.', en: 'Prepares combat technology progression.' },
+    branch: 'energy',
+    branchName: { ru: 'Энергетика', en: 'Energy' },
+    branchDescription: {
+      ru: 'Развитие генерации, хранения и потерь энергии.',
+      en: 'Improves generation, storage, and energy losses.',
+    },
     levels: [
-      mkLevel('weapons', 1, { ru: 'Вооружение I', en: 'Weapons I' }, { ru: 'Базовая подготовка вооружений', en: 'Base weapon systems training' }, { iron: 260, silicon: 130 }, 180, []),
-      mkLevel('weapons', 2, { ru: 'Вооружение II', en: 'Weapons II' }, { ru: 'Средний уровень вооружений', en: 'Intermediate weapon systems' }, { iron: 520, silicon: 260 }, 390, []),
-      mkLevel('weapons', 3, { ru: 'Вооружение III', en: 'Weapons III' }, { ru: 'Продвинутый уровень вооружений', en: 'Advanced weapon systems' }, { iron: 1300, silicon: 650 }, 975, []),
-      mkLevel('weapons', 4, { ru: 'Вооружение IV', en: 'Weapons IV' }, { ru: 'Экспертные боевые системы', en: 'Expert combat systems integration' }, { iron: 3250, silicon: 1625 }, 2437, []),
-      mkLevel('weapons', 5, { ru: 'Вооружение V', en: 'Weapons V' }, { ru: 'Мастерство вооружений', en: 'Weapons mastery doctrine' }, { iron: 8125, silicon: 4062 }, 6093, []),
+      mkLevel(
+        'energy',
+        1,
+        { ru: 'Энергетика I', en: 'Energy I' },
+        {
+          ru: 'Открывает ветротурбины и повышает выработку энергии на 8%',
+          en: 'Unlocks wind turbines and increases energy generation by 8%',
+        },
+        { iron: 260, silicon: 130 },
+        180,
+        [{ target: 'energyGeneration', multiplier: 1.08 }],
+      ),
+      mkLevel(
+        'energy',
+        2,
+        { ru: 'Энергетика II', en: 'Energy II' },
+        {
+          ru: 'Открывает топливные генераторы и повышает ёмкость аккумуляторов на 15%',
+          en: 'Unlocks fuel generators and increases battery capacity by 15%',
+        },
+        { iron: 520, silicon: 260 },
+        390,
+        [
+          { target: 'energyGeneration', multiplier: 1.12 },
+          { target: 'energyStorage', multiplier: 1.15 },
+        ],
+      ),
+      mkLevel(
+        'energy',
+        3,
+        { ru: 'Энергетика III', en: 'Energy III' },
+        {
+          ru: 'Улучшает силовые шины: +18% выработки, +25% ёмкости, -8% энергозатрат',
+          en: 'Improves power buses: +18% generation, +25% storage, -8% energy demand',
+        },
+        { iron: 1300, silicon: 650 },
+        975,
+        [
+          { target: 'energyGeneration', multiplier: 1.18 },
+          { target: 'energyStorage', multiplier: 1.25 },
+          { target: 'energyEfficiency', multiplier: 0.92 },
+        ],
+      ),
+      mkLevel(
+        'energy',
+        4,
+        { ru: 'Энергетика IV', en: 'Energy IV' },
+        {
+          ru: 'Снижает потери сети: +24% выработки, +35% ёмкости, -13% энергозатрат',
+          en: 'Reduces grid losses: +24% generation, +35% storage, -13% energy demand',
+        },
+        { iron: 3250, silicon: 1625 },
+        2437,
+        [
+          { target: 'energyGeneration', multiplier: 1.24 },
+          { target: 'energyStorage', multiplier: 1.35 },
+          { target: 'energyEfficiency', multiplier: 0.87 },
+        ],
+      ),
+      mkLevel(
+        'energy',
+        5,
+        { ru: 'Энергетика V', en: 'Energy V' },
+        {
+          ru: 'Оптимизирует энергосеть колонии: +32% выработки, +50% ёмкости, -18% энергозатрат',
+          en: 'Optimizes the colony grid: +32% generation, +50% storage, -18% energy demand',
+        },
+        { iron: 8125, silicon: 4062 },
+        6093,
+        [
+          { target: 'energyGeneration', multiplier: 1.32 },
+          { target: 'energyStorage', multiplier: 1.5 },
+          { target: 'energyEfficiency', multiplier: 0.82 },
+        ],
+      ),
     ],
   },
   {

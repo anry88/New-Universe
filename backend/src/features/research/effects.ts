@@ -2,25 +2,21 @@ import { db as defaultDb } from '../../db/index.js';
 import { researchProgress } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 import type { ResearchProgress } from '@shared/types/research.js';
-import type { ResearchLevelCatalogEntry } from '@shared/config/researchCatalog.js';
+import type { ResearchEffectTarget, ResearchLevelCatalogEntry } from '@shared/config/researchCatalog.js';
 import { RESEARCH_TECH_TREE } from '../../config/research-catalog.js';
-
-type EffectTarget =
-  | 'resourceProduction'
-  | 'resourceStorage'
-  | 'shipSpeed'
-  | 'sensorRange'
-  | 'buildTime';
 
 export interface ResearchEffectModifier {
   source: string;
-  target: EffectTarget;
+  target: ResearchEffectTarget;
   multiplier: number;
 }
 
 export interface ResearchEffects {
   resourceProductionMultiplier: number;
   resourceStorageMultiplier: number;
+  energyGenerationMultiplier: number;
+  energyStorageMultiplier: number;
+  energyEfficiencyMultiplier: number;
   shipSpeedMultiplier: number;
   sensorRangeMultiplier: number;
   buildTimeMultiplier: number;
@@ -29,6 +25,9 @@ export interface ResearchEffects {
 const DEFAULT_EFFECTS: ResearchEffects = {
   resourceProductionMultiplier: 1,
   resourceStorageMultiplier: 1,
+  energyGenerationMultiplier: 1,
+  energyStorageMultiplier: 1,
+  energyEfficiencyMultiplier: 1,
   shipSpeedMultiplier: 1,
   sensorRangeMultiplier: 1,
   buildTimeMultiplier: 1,
@@ -84,6 +83,15 @@ export function composeResearchEffects(modifiers: ResearchEffectModifier[]): Res
       case 'resourceStorage':
         acc.resourceStorageMultiplier *= m;
         break;
+      case 'energyGeneration':
+        acc.energyGenerationMultiplier *= m;
+        break;
+      case 'energyStorage':
+        acc.energyStorageMultiplier *= m;
+        break;
+      case 'energyEfficiency':
+        acc.energyEfficiencyMultiplier *= m;
+        break;
       case 'shipSpeed':
         acc.shipSpeedMultiplier *= m;
         break;
@@ -124,6 +132,18 @@ export function applyProductionRate(baseRegenRate: number, effects: ResearchEffe
 
 export function applyStorageCap(baseStorageCap: number, effects: ResearchEffects): number {
   return baseStorageCap * effects.resourceStorageMultiplier;
+}
+
+export function applyEnergyGeneration(baseEnergyPerHour: number, effects: ResearchEffects): number {
+  return baseEnergyPerHour * effects.energyGenerationMultiplier;
+}
+
+export function applyEnergyStorage(baseEnergyCap: number, effects: ResearchEffects): number {
+  return baseEnergyCap * effects.energyStorageMultiplier;
+}
+
+export function applyEnergyRequirement(baseEnergyRequired: number, effects: ResearchEffects): number {
+  return baseEnergyRequired * effects.energyEfficiencyMultiplier;
 }
 
 export function applyShipSpeed(baseSpeed: number, effects: ResearchEffects): number {

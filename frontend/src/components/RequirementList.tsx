@@ -1,6 +1,6 @@
 import React from 'react';
 import type { ResearchRequirementRef } from '@shared/types/research';
-import { RESEARCH_BRANCH_LABELS_EN } from '@shared/types/research';
+import { researchBranchLabel } from '@shared/types/research';
 import { useI18n } from '../lib/i18n';
 
 export interface RequirementListProps {
@@ -12,10 +12,7 @@ export interface RequirementListProps {
 }
 
 function branchLabel(branch: string, locale: 'en' | 'ru'): string {
-  if (locale === 'ru') {
-    return branch;
-  }
-  return RESEARCH_BRANCH_LABELS_EN[branch] ?? branch;
+  return researchBranchLabel(branch, locale);
 }
 
 /**

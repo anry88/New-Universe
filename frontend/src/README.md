@@ -37,7 +37,7 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
   - **`SectorMap.tsx`** — Phase 3 sector map: queries `GET /multiplayer/sectors/:sx/:sy/:sz/presence`, supports manual sector coordinates (global search within numeric sector grid), renders Pixi markers via `SectorRenderer`.
   - **`Ships.tsx`** — fleet management screen with two tabs: roster (`/ships`) and shipyard build queue/planner (`/ships?tab=shipyard`) wired to `POST /ships/build`; ships in `building` show ETA/progress from `GET /ships/queue`, schedule a queue refresh at completion, and support rush completion via `POST /ships/rush`.
   - **`Market.tsx`** — utility economy market screen with buy/sell price browsing, order submission, and pending-order ETA tracking.
-  - **`Research.tsx`** — tech-tree screen (Cosmic Atlas): seven branches × **five** tiers aligned with `@shared/config/researchCatalog`, branch blurbs, per-tier `TechTreeNode` states (completed / in-progress timer / next pending / locked), applied-effects summary, tier detail sheet with lab/prereq/resource blocking (BuildDialog-style), optimistic start via `useStartResearch`, and active-tier diamond rush via `useRushResearch`.
+  - **`Research.tsx`** — tech-tree screen (Cosmic Atlas): seven branches × **five** tiers aligned with `@shared/config/researchCatalog` (including Energy), branch blurbs, localized applied-effects summary, per-tier `TechTreeNode` states (completed / in-progress timer / next pending / locked), tier detail sheet with lab/prereq/resource blocking (BuildDialog-style), optimistic start via `useStartResearch`, and active-tier diamond rush via `useRushResearch`.
 - `components/` — reusable presentational components.
   - `pixi/` — canvas-based rendering components using PixiJS.
     - **`SystemRenderer.tsx`** — top-down system map renderer. Handles orbits, planets, star, and ship markers with pan/zoom logic.
@@ -57,7 +57,7 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
   - **`ExpeditionDialog.tsx`** — mission launch on a **single** Galaxy map: `CosmicSystemRenderer` with `expeditionPick` (tap from the star to set a flat sector XY route point for scouts, or choose a discovered target planet for colonizers), safe-area layout, server-calculated fuel preview (round-trip except one-way colonizer deployment), and no manual fuel or ΔZ input.
   - **`MarketOrderDialog.tsx`** — modal form for creating buy/sell NPC market orders with resource selection, quantity, and clear validation error states.
   - **`ProductionDialog.tsx`** — compact production-order sheet for buildings with recipes. It fetches `/resources/production/recipes`, previews selected output quantity via `/resources/production/preview`, shows required material/energy inputs, duration, and queued-order remaining-time countdowns, confirms input spend, and starts orders through `/resources/production/start`.
-  - **`RequirementList.tsx`** — compact list of missing `{ branch, level }` research prerequisites for gated UI actions; uses `RESEARCH_BRANCH_LABELS_EN` from `@shared/types/research`.
+  - **`RequirementList.tsx`** — compact list of missing `{ branch, level }` research prerequisites for gated UI actions; uses localized research branch labels from `@shared/types/research`.
   - **`TechTreeNode.tsx`** — single-tier chip for Cosmic `tech-node` styles: completed/active countdown/pending/locked visuals using `timerSnapshot()` so progress can use server `startedAt`.
   - **`Tutorial.tsx`** — reusable full-screen onboarding overlay with step list, per-step reward blurbs from `@shared/config/tutorialRewards`, **Continue** (back to game without skip), **Skip for now**, and **Back to game** when complete.
 - `locales/` — flat EN/RU dictionaries used by `lib/i18n.tsx`; see [`locales/README.md`](./locales/README.md).
@@ -84,7 +84,7 @@ The folders above are reserved by `AGENTS.md` (`Engineering Rules` → "Keep fro
 
 ## `lib/`
 
-- **`tech-tree.ts`** — `TECH_TREE_DATA` (levels **1–5** per branch, costs/times/descriptions/effects) and `BRANCHES` metadata imported from `@shared/config/researchCatalog` (same source as `backend/src/config/research-catalog.ts`).
+- **`tech-tree.ts`** — `TECH_TREE_DATA` (levels **1–5** per branch, costs/times/descriptions/effects, including Energy) and `BRANCHES` metadata imported from `@shared/config/researchCatalog` (same source as `backend/src/config/research-catalog.ts`).
 - **`tech-tree.test.ts`** — asserts seven branches × five tiers stay aligned with `RESEARCH_MAX_LEVEL` for epic **P2-EPIC-RESEARCH** UI coverage.
 - **`research-eligibility.ts`** — `evaluateResearchEligibility` mirrors `/research/start` lab + prerequisite checks for UI lock copy; optional `planetResources` adds resource-shortage messaging aligned with server deductions.
 - **`production.ts`** — `defaultProductionRecipeId`, `canStartProduction`, and `productionBlockedText` keep production dialog controls deterministic and translate structured server block reasons.

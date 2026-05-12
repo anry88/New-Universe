@@ -241,6 +241,15 @@ describe('production orders', () => {
     expect(blocked.blockedReason?.details?.resourceId).toBe('energy');
 
     const generator = await createProductionPlanet('fuel_generator');
+    await db.insert(researchProgress).values({
+      userId: generator.user.id,
+      branch: 'energy',
+      level: 3,
+    }).onConflictDoUpdate({
+      target: [researchProgress.userId, researchProgress.branch],
+      set: { level: 3 },
+    });
+
     const fuelPreview = await productionService.preview(generator.user.id, {
       planetId: generator.planet.id,
       buildingId: generator.building.id,
@@ -255,6 +264,7 @@ describe('production orders', () => {
     });
 
     expect(fuelPreview.canStart).toBe(true);
+    expect(fuelPreview.output.amount).toBeCloseTo(90 * 1.18, 4);
     expect(fuelPreview.output.amount).toBeGreaterThan(methanePreview.output.amount);
   });
 });
