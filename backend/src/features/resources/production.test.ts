@@ -197,12 +197,14 @@ describe('production orders', () => {
       recipeId: 'electronics_standard',
       quantity: 10,
     });
-    expect(electronicsPreview.inputs.map((input) => input.resourceId).sort()).toEqual([
+    const electronicsInputIds = electronicsPreview.inputs.map((input) => input.resourceId).sort();
+    expect(electronicsInputIds.filter((resourceId) => resourceId !== 'energy')).toEqual([
       'copper',
       'silicon',
       'silicon_carbide',
       'steel',
     ]);
+    expect(electronicsInputIds).toContain('energy');
 
     const refinery = await createProductionPlanet('refinery');
     const oilPreview = await productionService.preview(refinery.user.id, {
