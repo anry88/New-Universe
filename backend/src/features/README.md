@@ -36,7 +36,7 @@ Telegram Bot logic and webhook handling.
 - **`README.md`** — [Detailed bot documentation](./bot/README.md).
 - **`service.ts`** — `BotService` singleton for processing Telegram updates.
 - **`webhook.ts`** — Dispatcher for incoming Telegram updates.
-- **`commands.ts`** — Implementation of bot commands like `/start`.
+- **`commands.ts`** — `handleStartCommand` and admin-only `/add_diamond` command handling (with allowlist and wallet updates).
 - **`push.ts`** — `sendPush(userId, type, payload)` service to queue push notifications in the database.
 
 
@@ -79,6 +79,7 @@ Resource accrual, transactions, conversion, and explicit production orders. [Det
 
 - **`routes.ts`** — `resourcesRoutes(app)` registers `POST /convert`, `POST /buy-with-diamonds`, `GET /planets/:id`, and `/production/*` recipe/order endpoints (mounted at `/resources` from `index.ts`). JWT required for mutating endpoints. `POST /buy-with-diamonds` accepts `{ planetId, resourceId, amount }`; `POST /production/start` accepts `{ planetId, buildingId, recipeId, quantity }`.
 - **`convert.ts`** — `convertResources(userId, { planetId, from, to, amount })` converts ice ↔ water on a player-owned planet. Validates planet ownership, checks for a `cryo_factory` building (level ≥ 1), verifies energy availability (solar_plant production ≥ building consumption), then atomically spends the source resource and gains the target resource. Ice→water converts at 1:1; water→ice incurs a 5% loss (100 → 95). Also exports `buyResourceWithDiamonds` with rarity-aware pricing derived from `resources.tier` (`units-per-diamond` curve per tier), deducts `users.diamonds`, then credits `planet_resources`.
+- **`wallet.ts`** — `grantDiamondsToUserByUsername` supports admin wallet updates by username.
 - **`convert.test.ts`** — Vitest integration suite covering conversion flow plus buy-with-diamonds success and validation failures.
 - **`accrual.ts`** — exports `computeCurrentResources(planetId, tx?)` which lazily computes current resource amounts without writing to the database. For each resource: `amount += regenRate × (now - lastUpdateAt)`. Respects `defaultStorageCap` from the `resources` table and applies research production/storage multipliers via `features/research/effects.ts`. Returns array of `{ resourceId, amount, regenRate, lastUpdateAt, storageCap }`.
   - Does NOT write to the database - this is a read-only computation for lazy updates.
