@@ -1,6 +1,32 @@
 import { z } from 'zod';
 import dotenv from 'dotenv';
 
+function parseAdminTelegramIds(value?: string): bigint[] {
+  if (!value) {
+    return [];
+  }
+
+  return value
+    .split(',')
+    .map((raw) => raw.trim())
+    .filter((raw) => raw.length > 0)
+    .map((raw) => {
+      const parsed = (() => {
+        try {
+          return BigInt(raw);
+        } catch {
+          throw new Error(`Invalid ADMIN_TELEGRAM_IDS value: ${raw}`);
+        }
+      })();
+
+      if (parsed <= 0n) {
+        throw new Error(`Invalid ADMIN_TELEGRAM_IDS value: ${raw}`);
+      }
+
+      return parsed;
+    });
+}
+
 dotenv.config();
 
 const envSchema = z.object({
@@ -13,6 +39,7 @@ const envSchema = z.object({
   TELEGRAM_BOT_SECRET: z.string().default('dev-secret-change-me'),
   TELEGRAM_APP_URL: z.string().url().optional().or(z.literal('')).transform(v => v === '' ? undefined : v),
   PUBLIC_FRONTEND_URL: z.string().url().optional().or(z.literal('')).transform(v => v === '' ? undefined : v),
+  ADMIN_TELEGRAM_IDS: z.string().transform(parseAdminTelegramIds).optional().default(''),
   JWT_SECRET: z.string().min(8),
   SENTRY_DSN: z.string().url().optional().or(z.literal('')).transform(v => v === '' ? undefined : v),
   MARKET_NPC_DELIVERY_SECONDS: z.coerce.number().int().min(0).default(120),

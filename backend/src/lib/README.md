@@ -12,6 +12,7 @@ Shared infrastructure used across features, middleware, and routes. Anything in 
   - `REDIS_URL` (URL, required).
   - `TELEGRAM_BOT_TOKEN` (non-empty string, required).
   - `TELEGRAM_BOT_SECRET` (default `'dev-secret-change-me'`).
+  - `ADMIN_TELEGRAM_IDS` (comma-separated list of allowed Telegram user IDs for admin actions, e.g. `111,222`).
   - `JWT_SECRET` (≥ 8 chars, required).
   - `SENTRY_DSN` (URL or empty, normalized to `undefined` when empty).
   - `MARKET_NPC_DELIVERY_SECONDS` (integer ≥ 0, default `120`) — delay between placing an NPC **buy** order and cargo delivery (`delivery_ready_at`).
