@@ -26,6 +26,7 @@ import type {
   DemolishStatus,
 } from '@shared/types/buildings';
 import {
+  formatBuildBlockedMessage,
   isSelectableExtractorType,
   resolveBuildBlockedReason,
   resolveBuildingProducedResourceIds,
@@ -34,6 +35,7 @@ import {
   selectableResourceIdsForExtractor,
 } from '@shared/types/building-eligibility';
 import { BUILDING_RESEARCH_GATES } from '@shared/config/buildingResearchGates';
+import { COMMAND_CENTER_TYPE_ID } from '@shared/config/buildingUpgradeEconomy';
 import { recipesForBuildingType } from '@shared/config/productionRecipes';
 import { ChevronLeft } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -151,6 +153,13 @@ export function PlanetDetailPage() {
     return counts;
   }, [planet?.buildings, planetDepositResourceIds]);
 
+  const commandCenterLevel = useMemo(() => {
+    const commandCenter = planet?.buildings
+      ?.filter((building) => building.typeId === COMMAND_CENTER_TYPE_ID && building.queueAction !== 'build')
+      .sort((a, b) => b.level - a.level)[0];
+    return commandCenter?.level ?? 0;
+  }, [planet?.buildings]);
+
   const resourceChoicesForType = useCallback(
     (typeId: string): BuildDialogResourceChoice[] => {
       if (!isSelectableExtractorType(typeId)) return [];
@@ -256,6 +265,29 @@ export function PlanetDetailPage() {
       usedExtractorCountsByResourceId,
     ],
   );
+
+  const upgradeBlockedReasonForBuilding = useCallback(
+    (building: Building, typeInfo: BuildingType): BuildBlockedReason | null => {
+      if (building.level >= typeInfo.maxLevel) {
+        return {
+          code: 'building_blocked_max_level',
+          details: { maxLevel: typeInfo.maxLevel },
+        };
+      }
+
+      const requiredLevel = building.level + 1;
+      if (building.typeId !== COMMAND_CENTER_TYPE_ID && requiredLevel > commandCenterLevel) {
+        return {
+          code: 'building_blocked_command_center_level',
+          details: { commandCenterLevel, requiredLevel },
+        };
+      }
+
+      return null;
+    },
+    [commandCenterLevel],
+  );
+
   const currentEnergy = useMemo(() => {
     if (!planet) return { produced: 0, consumed: 0 };
     if (planet.energy) {
@@ -379,7 +411,20 @@ export function PlanetDetailPage() {
       });
       setSelectedBuilding(null);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : t('build.failedUpgrade');
+      const errorData = err instanceof Error ? (err as Error & { data?: unknown }).data : null;
+      const blockedReason =
+        errorData !== null &&
+        typeof errorData === 'object' &&
+        'code' in errorData &&
+        'details' in errorData
+          ? ({
+              code: (errorData as { code: BuildBlockedReason['code'] }).code,
+              details: (errorData as { details: BuildBlockedReason['details'] }).details,
+            } as BuildBlockedReason)
+          : null;
+      const message = blockedReason
+        ? formatBuildBlockedMessage(blockedReason, locale)
+        : err instanceof Error ? err.message : t('build.failedUpgrade');
       alert(message);
       queryClient.setQueryData(['me'], previousMeData);
     } finally {
@@ -447,6 +492,9 @@ export function PlanetDetailPage() {
   const selectedBuildingType = selectedBuilding
     ? buildingTypes.find((t) => t.id === selectedBuilding.typeId)
     : undefined;
+  const selectedUpgradeBlockedReason = selectedBuilding && selectedBuildingType
+    ? upgradeBlockedReasonForBuilding(selectedBuilding, selectedBuildingType)
+    : null;
   const selectedBuildingCanProduce =
     selectedBuildingType ? recipesForBuildingType(selectedBuildingType.id).length > 0 : false;
 
@@ -588,6 +636,7 @@ export function PlanetDetailPage() {
             ? (resourceId) => resourceSwitchBlockedReasonForBuilding(selectedBuilding, resourceId)
             : undefined
         }
+        upgradeBlockedReason={selectedUpgradeBlockedReason}
         onChangeResource={handleChangeExtractorResource}
         isProcessing={isProcessing}
         accent={accent}

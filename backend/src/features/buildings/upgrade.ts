@@ -2,6 +2,11 @@ import { db as defaultDb } from '../../db/index.js';
 import { buildings, buildingTypes, planets, systems } from '../../db/schema.js';
 import { eq, and, sql } from 'drizzle-orm';
 import { spendResources } from '../resources/transactions.js';
+import {
+  buildingUpgradeResourceCosts,
+  buildingUpgradeTimeSeconds,
+  COMMAND_CENTER_TYPE_ID,
+} from '@shared/config/buildingUpgradeEconomy.js';
 
 export interface UpgradeResult {
   success: boolean;
@@ -78,20 +83,39 @@ export async function upgradeBuilding(
     };
   }
 
-  /** Matches `BuildingService.upgrade`: scale from current completed level index. */
-  const costMultiplier = Math.pow(1.6, building.level);
-  const timeMultiplier = Math.pow(1.8, building.level);
+  if (building.typeId !== COMMAND_CENTER_TYPE_ID) {
+    const commandCenter = await db.query.buildings.findFirst({
+      where: and(
+        eq(buildings.planetId, building.planetId),
+        eq(buildings.typeId, COMMAND_CENTER_TYPE_ID),
+        sql`${buildings.queueAction} IS DISTINCT FROM 'build'`,
+      ),
+      orderBy: (table: any, { desc }: any) => [desc(table.level)],
+    });
+    const requiredLevel = building.level + 1;
+    const commandCenterLevel = commandCenter?.level ?? 0;
+    if (requiredLevel > commandCenterLevel) {
+      return {
+        success: false,
+        status: 400,
+        error: `Command Center level ${requiredLevel} is required on this planet before upgrading to level ${requiredLevel}. Current: ${commandCenterLevel}.`,
+      };
+    }
+  }
 
   const baseCost = type.baseCost as Record<string, number>;
-  const costEntries = Object.entries(baseCost);
-  const scaledCosts: { resourceId: string; amount: number }[] = costEntries.map(
-    ([resourceId, amount]) => ({
-      resourceId,
-      amount: Math.ceil(amount * costMultiplier),
+  const scaledCosts: { resourceId: string; amount: number }[] = Object.entries(
+    buildingUpgradeResourceCosts({
+      typeId: building.typeId,
+      baseCost,
+      currentLevel: building.level,
     }),
-  );
+  ).map(([resourceId, amount]) => ({
+      resourceId,
+      amount,
+    }));
 
-  const upgradeTimeSec = Math.ceil(type.baseTimeSec * timeMultiplier);
+  const upgradeTimeSec = buildingUpgradeTimeSeconds(type.baseTimeSec, building.level);
   const queueCompletesAt = new Date(Date.now() + upgradeTimeSec * 1000);
 
   const result = await db.transaction(async (tx) => {

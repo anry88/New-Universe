@@ -8,6 +8,102 @@
  * - backend/src/features/world/biomes.ts (`HOME_SYSTEM_BASE_BIOMES`) / home-system-generator.ts (planet counts, capital slots)
  */
 
+/** Mirrors `shared/config/buildingUpgradeEconomy.ts`. */
+export const MAX_BUILDING_LEVEL = 10;
+export const BUILDING_UPGRADE_COST_MULTIPLIER = 1.6;
+export const BUILDING_UPGRADE_TIME_MULTIPLIER = 1.8;
+export const HIGH_TIER_UPGRADE_START_LEVEL = 6;
+
+/** Mirrors `shared/config/resourceExtractionRates.ts`. */
+export const EXTRACTABLE_RESOURCE_RATES_PER_HOUR = {
+  water: 64,
+  iron: 72,
+  carbon: 58,
+  silicon: 34,
+  methane: 46,
+  copper: 28,
+  aluminum: 22,
+  titanium: 14,
+  ice: 30,
+  oil: 24,
+  sulfur: 24,
+  mercury: 8,
+  magnesium: 8,
+  lead: 7,
+  uranium: 3,
+  cobalt: 5,
+  silicon_carbide: 6,
+  tritium: 2,
+  iridium: 2,
+  biomass: 4,
+} as const;
+
+/** Mirrors `HIGH_TIER_UPGRADE_COSTS_BY_BUILDING` in shared upgrade economy. */
+export const HIGH_TIER_UPGRADE_COSTS_BY_BUILDING = {
+  command_center: { aluminum: 24, steel: 16 },
+  mine: { aluminum: 10, steel: 12 },
+  drill: { aluminum: 12, titanium: 6 },
+  storage: { aluminum: 14, steel: 10 },
+  battery: { aluminum: 16, copper: 10 },
+  oil_pump: { steel: 14, titanium: 8 },
+  biomass_harvester: { aluminum: 10, water: 80 },
+  smelter: { aluminum: 12, titanium: 8 },
+  refinery: { steel: 18, sulfur: 6, titanium: 10 },
+  fabrication_bay: { copper: 18, steel: 10, titanium: 8 },
+  spaceport: { aluminum: 12, steel: 26, titanium: 14 },
+  shipyard: { aluminum: 16, steel: 32, titanium: 18 },
+  lab: { copper: 16, steel: 8, titanium: 10 },
+  cryo_factory: { aluminum: 18, titanium: 8 },
+  solar_plant: { aluminum: 14, copper: 10 },
+  wind_turbine: { aluminum: 18, titanium: 8 },
+  fuel_generator: { copper: 10, steel: 18, titanium: 8 },
+} as const satisfies Record<string, Record<string, number>>;
+
+function scaleResourceCostMap(costs: Record<string, number>, multiplier: number): Record<string, number> {
+  const scaled: Record<string, number> = {};
+  for (const [resourceId, amount] of Object.entries(costs)) {
+    const nextAmount = Math.floor(amount * multiplier);
+    if (nextAmount > 0) scaled[resourceId] = nextAmount;
+  }
+  return scaled;
+}
+
+function mergeResourceCostMaps(...maps: Record<string, number>[]): Record<string, number> {
+  const merged: Record<string, number> = {};
+  for (const map of maps) {
+    for (const [resourceId, amount] of Object.entries(map)) {
+      merged[resourceId] = (merged[resourceId] ?? 0) + amount;
+    }
+  }
+  return merged;
+}
+
+export function buildingUpgradeResourceCosts(input: {
+  typeId: string;
+  baseCost: Record<string, number>;
+  currentLevel: number;
+}): Record<string, number> {
+  const baseCosts = scaleResourceCostMap(
+    input.baseCost,
+    Math.pow(BUILDING_UPGRADE_COST_MULTIPLIER, input.currentLevel),
+  );
+  const targetLevel = input.currentLevel + 1;
+  if (targetLevel < HIGH_TIER_UPGRADE_START_LEVEL) return baseCosts;
+
+  const extraBase = HIGH_TIER_UPGRADE_COSTS_BY_BUILDING[input.typeId];
+  if (!extraBase) return baseCosts;
+
+  const extraCosts = scaleResourceCostMap(
+    extraBase,
+    Math.pow(BUILDING_UPGRADE_COST_MULTIPLIER, targetLevel - HIGH_TIER_UPGRADE_START_LEVEL),
+  );
+  return mergeResourceCostMaps(baseCosts, extraCosts);
+}
+
+export function buildingUpgradeTimeSeconds(baseTimeSec: number, currentLevel: number): number {
+  return Math.floor(baseTimeSec * Math.pow(BUILDING_UPGRADE_TIME_MULTIPLIER, currentLevel));
+}
+
 /** Mirrors `HOME_SYSTEM_BASE_BIOMES` in `backend/src/features/world/biomes.ts`. */
 export const HOME_SYSTEM_BASE_BIOME_IDS = [
   'green',
@@ -28,6 +124,7 @@ export const BUILDINGS = {
     baseCost: { iron: 80, carbon: 40, silicon: 10 } as Record<string, number>,
     baseTimeSec: 600,
     category: 'base',
+    maxLevel: MAX_BUILDING_LEVEL,
     /** Mirrors seeded `building_types.max_per_planet`. */
     maxPerPlanet: 1 as const,
   },
@@ -36,7 +133,8 @@ export const BUILDINGS = {
     baseCost: { iron: 120, carbon: 40 },
     baseTimeSec: 300,
     category: 'production',
-    output: { resourceId: 'iron', baseRate: 50 },
+    maxLevel: MAX_BUILDING_LEVEL,
+    output: { resourceId: 'iron', baseRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.iron },
   },
   drill: {
     deps: [
@@ -46,13 +144,15 @@ export const BUILDINGS = {
     baseCost: { silicon: 100, carbon: 80 },
     baseTimeSec: 360,
     category: 'production',
-    output: { resourceId: 'water', baseRate: 60 },
+    maxLevel: MAX_BUILDING_LEVEL,
+    output: { resourceId: 'water', baseRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.water },
   },
   battery: {
     deps: [{ typeId: 'command_center', level: 1 }],
     baseCost: { iron: 120, silicon: 90, carbon: 40 },
     baseTimeSec: 420,
     category: 'energy',
+    maxLevel: MAX_BUILDING_LEVEL,
     energyStoragePerLevel: 500,
   },
   storage: {
@@ -60,6 +160,7 @@ export const BUILDINGS = {
     baseCost: { iron: 150, carbon: 50 },
     baseTimeSec: 600,
     category: 'logistics',
+    maxLevel: MAX_BUILDING_LEVEL,
     storageBonusPerLevel: 5000,
   },
   oil_pump: {
@@ -67,20 +168,23 @@ export const BUILDINGS = {
     baseCost: { iron: 220, silicon: 140, carbon: 120 },
     baseTimeSec: 720,
     category: 'production',
-    output: { resourceId: 'oil', baseRate: 45 },
+    maxLevel: MAX_BUILDING_LEVEL,
+    output: { resourceId: 'oil', baseRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.oil },
   },
   biomass_harvester: {
     deps: [{ typeId: 'command_center', level: 2 }],
     baseCost: { iron: 180, carbon: 160, water: 120 },
     baseTimeSec: 840,
     category: 'production',
-    output: { resourceId: 'biomass', baseRate: 4 },
+    maxLevel: MAX_BUILDING_LEVEL,
+    output: { resourceId: 'biomass', baseRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.biomass },
   },
   smelter: {
     deps: [{ typeId: 'command_center', level: 3 }],
     baseCost: { iron: 400, silicon: 200 },
     baseTimeSec: 900,
     category: 'production',
+    maxLevel: MAX_BUILDING_LEVEL,
     recipes: ['steel_from_iron_water'],
   },
   fabrication_bay: {
@@ -88,6 +192,7 @@ export const BUILDINGS = {
     baseCost: { iron: 450, silicon: 350, carbon: 150, steel: 120 },
     baseTimeSec: 1200,
     category: 'production',
+    maxLevel: MAX_BUILDING_LEVEL,
     recipes: ['electronics_standard'],
   },
   refinery: {
@@ -95,6 +200,7 @@ export const BUILDINGS = {
     baseCost: { iron: 550, silicon: 320, steel: 180 },
     baseTimeSec: 1500,
     category: 'production',
+    maxLevel: MAX_BUILDING_LEVEL,
     recipes: ['fuel_from_oil', 'fuel_from_methane'],
   },
   cryo_factory: {
@@ -102,6 +208,7 @@ export const BUILDINGS = {
     baseCost: { iron: 600, silicon: 200, magnesium: 50 },
     baseTimeSec: 2700,
     category: 'production',
+    maxLevel: MAX_BUILDING_LEVEL,
     recipes: ['water_from_ice', 'ice_from_water'],
   },
   spaceport: {
@@ -109,18 +216,21 @@ export const BUILDINGS = {
     baseCost: { iron: 500, carbon: 500 },
     baseTimeSec: 1200,
     category: 'ships',
+    maxLevel: MAX_BUILDING_LEVEL,
   },
   shipyard: {
     deps: [{ typeId: 'spaceport', level: 2 }],
     baseCost: { iron: 800, silicon: 400 },
     baseTimeSec: 1800,
     category: 'ships',
+    maxLevel: MAX_BUILDING_LEVEL,
   },
   lab: {
     deps: [{ typeId: 'command_center', level: 3 }],
     baseCost: { iron: 300, silicon: 600 },
     baseTimeSec: 1800,
     category: 'progress',
+    maxLevel: MAX_BUILDING_LEVEL,
     /** Mirrors seeded `building_types.max_global`. */
     maxGlobal: 1 as const,
   },
@@ -129,6 +239,7 @@ export const BUILDINGS = {
     baseCost: { silicon: 150, iron: 50 },
     baseTimeSec: 600,
     category: 'energy',
+    maxLevel: MAX_BUILDING_LEVEL,
     output: { energy: 50 },
   },
   wind_turbine: {
@@ -136,6 +247,7 @@ export const BUILDINGS = {
     baseCost: { iron: 140, aluminum: 60, silicon: 60 },
     baseTimeSec: 720,
     category: 'energy',
+    maxLevel: MAX_BUILDING_LEVEL,
     output: { energy: 38 },
   },
   fuel_generator: {
@@ -143,6 +255,7 @@ export const BUILDINGS = {
     baseCost: { iron: 220, silicon: 120, steel: 80 },
     baseTimeSec: 900,
     category: 'energy',
+    maxLevel: MAX_BUILDING_LEVEL,
     recipes: ['energy_from_fuel', 'energy_from_oil', 'energy_from_methane'],
   },
 } as const;

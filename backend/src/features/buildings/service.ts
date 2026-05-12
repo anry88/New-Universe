@@ -25,6 +25,12 @@ import {
   resolvePlanetResourceBlockedReason,
   isSelectableExtractorType,
 } from '@shared/types/building-eligibility.js';
+import {
+  buildingUpgradeResourceCosts,
+  buildingUpgradeTimeSeconds,
+  COMMAND_CENTER_TYPE_ID,
+  mergeResourceCostMaps,
+} from '@shared/config/buildingUpgradeEconomy.js';
 import { BuildingOperationError } from './building-operation-error.js';
 import { countUserBuildingsOfType } from './count-user-buildings.js';
 import { BUILDING_TYPE_CATALOG_ROWS } from '../../db/seed/catalog-rows.js';
@@ -252,6 +258,41 @@ async function recalculateProductionRegenForBuildingType(
     planetResourceIds: planetDepositResourceIds,
   });
   await recalculateProductionRegenForResources(tx, planetId, affectedResourceIds);
+}
+
+async function loadCommandCenterLevel(tx: any, planetId: string): Promise<number> {
+  const commandCenter = await tx.query.buildings.findFirst({
+    where: and(
+      eq(buildings.planetId, planetId),
+      eq(buildings.typeId, COMMAND_CENTER_TYPE_ID),
+      sql`${buildings.queueAction} IS DISTINCT FROM 'build'`,
+    ),
+    orderBy: (table: any, { desc }: any) => [desc(table.level)],
+  });
+  return commandCenter?.level ?? 0;
+}
+
+async function assertUpgradeWithinCommandCenterLevel(input: {
+  tx: any;
+  planetId: string;
+  typeId: string;
+  currentLevel: number;
+}): Promise<void> {
+  if (input.typeId === COMMAND_CENTER_TYPE_ID) return;
+
+  const requiredLevel = input.currentLevel + 1;
+  const commandCenterLevel = await loadCommandCenterLevel(input.tx, input.planetId);
+  if (requiredLevel <= commandCenterLevel) return;
+
+  const blocked = {
+    code: 'building_blocked_command_center_level',
+    details: { commandCenterLevel, requiredLevel },
+  } as const;
+  throw new BuildingOperationError(
+    formatBuildBlockedMessage(blocked, 'en'),
+    blocked.code,
+    blocked.details,
+  );
 }
 
 export class BuildingService {
@@ -569,7 +610,15 @@ export class BuildingService {
     }
 
     if (building.level >= typeInfo.maxLevel) {
-      throw new Error('Maximum level reached');
+      const blocked = {
+        code: 'building_blocked_max_level',
+        details: { maxLevel: typeInfo.maxLevel },
+      } as const;
+      throw new BuildingOperationError(
+        formatBuildBlockedMessage(blocked, 'en'),
+        blocked.code,
+        blocked.details,
+      );
     }
 
     if (isSelectableExtractorType(building.typeId)) {
@@ -596,18 +645,14 @@ export class BuildingService {
       throw new Error('Build queue is full (max 1 building at a time)');
     }
 
-    /**
-     * Upgrade cost and time scaling:
-     * - Cost multiplier: 1.6 ^ current_level
-     * - Time multiplier: 1.8 ^ current_level
-     * This provides a steeper curve than the initial 1.5, reaching 24h+ build times around level 11.
-     */
-    const costMultiplier = Math.pow(1.6, building.level);
-    const timeMultiplier = Math.pow(1.8, building.level);
     const costs = typeInfo.baseCost as Record<string, number>;
-    const resourceCosts = Object.entries(costs).map(([resourceId, amount]) => ({
+    const resourceCosts = Object.entries(buildingUpgradeResourceCosts({
+      typeId: building.typeId,
+      baseCost: costs,
+      currentLevel: building.level,
+    })).map(([resourceId, amount]) => ({
       resourceId,
-      amount: Math.floor(amount * costMultiplier),
+      amount,
     }));
 
     const researchEffects = await getResearchEffectsForUser(userId, db);
@@ -623,6 +668,13 @@ export class BuildingService {
         });
       }
 
+      await assertUpgradeWithinCommandCenterLevel({
+        tx,
+        planetId: building.planetId,
+        typeId: building.typeId,
+        currentLevel: building.level,
+      });
+
       if (resourceCosts.length > 0) {
         const spendResult = await spendResources(building.planetId, resourceCosts, tx);
         if (!spendResult.success) {
@@ -630,7 +682,7 @@ export class BuildingService {
         }
       }
 
-      const baseUpgradeTime = Math.floor(typeInfo.baseTimeSec * timeMultiplier);
+      const baseUpgradeTime = buildingUpgradeTimeSeconds(typeInfo.baseTimeSec, building.level);
       const buildTime = applyBuildTimeSeconds(baseUpgradeTime, researchEffects);
       const completesAt = new Date(Date.now() + buildTime * 1000);
 
@@ -885,23 +937,24 @@ export class BuildingService {
       throw new Error('Building type not found');
     }
 
-    /**
-     * Total cost spent on building of level L:
-     * baseCost + baseCost * 2^1 + baseCost * 2^2 + ... + baseCost * 2^(L-1)
-     * = baseCost * (1 + 2 + 4 + ... + 2^(L-1))
-     * = baseCost * (2^L - 1)
-     * 
-     * Refund is 50% of total spent. Rounding is floor (in favor of bank).
-     */
+    /** Refund is 50% of initial build plus completed upgrade spends. */
     const baseCosts = typeInfo.baseCost as Record<string, number>;
+    let totalSpentByResource: Record<string, number> = { ...baseCosts };
+    for (let currentLevel = 1; currentLevel < building.level; currentLevel++) {
+      totalSpentByResource = mergeResourceCostMaps(
+        totalSpentByResource,
+        buildingUpgradeResourceCosts({
+          typeId: building.typeId,
+          baseCost: baseCosts,
+          currentLevel,
+        }),
+      );
+    }
+
     const refundChanges: { resourceId: string; amount: number }[] = [];
     const refundMap: Record<string, number> = {};
 
-    for (const [resourceId, amount] of Object.entries(baseCosts)) {
-      let totalSpent = 0;
-      for (let l = 0; l < building.level; l++) {
-        totalSpent += Math.floor(amount * Math.pow(1.6, l));
-      }
+    for (const [resourceId, totalSpent] of Object.entries(totalSpentByResource)) {
       const refundAmount = Math.floor(totalSpent * 0.5);
       if (refundAmount > 0) {
         refundChanges.push({ resourceId, amount: refundAmount });

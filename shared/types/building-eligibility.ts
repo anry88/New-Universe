@@ -1,6 +1,7 @@
 import type { BuildBlockedReason, BuildingOutput } from './buildings.js';
 import { researchBranchLabel } from './research.js';
 import type { ResearchUnlockRequirement } from '../config/buildingResearchGates.js';
+import { extractionRateForResource } from '../config/resourceExtractionRates.js';
 
 export const METAL_DEPOSIT_RESOURCE_IDS = [
   'iron',
@@ -8,6 +9,7 @@ export const METAL_DEPOSIT_RESOURCE_IDS = [
   'aluminum',
   'carbon',
   'silicon',
+  'sulfur',
   'titanium',
   'mercury',
   'magnesium',
@@ -67,6 +69,8 @@ function resourceLabel(resourceId: string, lang: 'en' | 'ru'): string {
       return lang === 'ru' ? 'углерода' : 'carbon';
     case 'silicon':
       return lang === 'ru' ? 'кремния' : 'silicon';
+    case 'sulfur':
+      return lang === 'ru' ? 'серы' : 'sulfur';
     case 'titanium':
       return lang === 'ru' ? 'титана' : 'titanium';
     case 'water':
@@ -350,6 +354,14 @@ export function resolveBuildingProductionRateForResource(input: {
   const producedResourceIds = resolveBuildingProducedResourceIds(input);
   if (!producedResourceIds.includes(input.resourceId)) return 0;
 
+  if (isSelectableExtractorType(input.typeId)) {
+    const resourceRate = extractionRateForResource(input.resourceId, baseRate);
+    if (!input.selectedResourceId && (input.typeId === 'mine' || input.typeId === 'drill')) {
+      return resourceRate / Math.max(1, producedResourceIds.length);
+    }
+    return resourceRate;
+  }
+
   if (!input.selectedResourceId && (input.typeId === 'mine' || input.typeId === 'drill')) {
     return baseRate / Math.max(1, producedResourceIds.length);
   }
@@ -393,6 +405,14 @@ export function formatBuildBlockedMessage(reason: BuildBlockedReason, lang: 'en'
       return lang === 'ru'
         ? `Лимит месторождений ${resourceLabel(reason.details.resourceId, lang)} исчерпан (${reason.details.current}/${reason.details.limit}).`
         : `${resourceLabel(reason.details.resourceId, lang)} deposit limit reached (${reason.details.current}/${reason.details.limit}).`;
+    case 'building_blocked_max_level':
+      return lang === 'ru'
+        ? `Достигнут максимальный уровень здания (${reason.details.maxLevel}).`
+        : `Building is already at max level (${reason.details.maxLevel}).`;
+    case 'building_blocked_command_center_level':
+      return lang === 'ru'
+        ? `Для апгрейда до уровня ${reason.details.requiredLevel} нужен командный центр уровня ${reason.details.requiredLevel} на этой планете. Сейчас: ${reason.details.commandCenterLevel}.`
+        : `Command Center level ${reason.details.requiredLevel} is required on this planet before upgrading to level ${reason.details.requiredLevel}. Current: ${reason.details.commandCenterLevel}.`;
     default:
       return lang === 'en' ? 'Cannot build.' : 'Строительство недоступно.';
   }

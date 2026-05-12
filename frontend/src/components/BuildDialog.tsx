@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import type { BuildingType, BuildBlockedReason } from '@shared/types/buildings';
-import { formatBuildBlockedMessage } from '@shared/types/building-eligibility';
+import {
+  formatBuildBlockedMessage,
+  resolveBuildingProductionRateForResource,
+} from '@shared/types/building-eligibility';
 import {
   BUILDING_CATEGORY_ORDER,
   getBuildingCategoryKey,
@@ -164,6 +167,17 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
                   const consumesEnergyOnlyDuringProcess = recipesForBuildingType(type.id).length > 0;
                   const idleEnergyConsumption = consumesEnergyOnlyDuringProcess ? 0 : Math.max(0, type.energyConsumption ?? 0);
                   const outputResourceId = selectedResourceId ?? output.resourceId;
+                  const outputRate = outputResourceId && output.baseRate
+                    ? resolveBuildingProductionRateForResource({
+                        typeId: type.id,
+                        baseOutput: output,
+                        planetResourceIds: resourceChoices.length > 0
+                          ? resourceChoices.map((choice) => choice.resourceId)
+                          : [outputResourceId],
+                        selectedResourceId,
+                        resourceId: outputResourceId,
+                      })
+                    : 0;
                   const projectedProduced = producedNow + (output.energy ?? 0);
                   const projectedConsumed = consumedNow + idleEnergyConsumption;
                   const projectedNet = projectedProduced - projectedConsumed;
@@ -234,9 +248,9 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
                           </div>
                         ) : null}
                         <div className="bopt-stats">
-                          {outputResourceId && output.baseRate && (
+                          {outputResourceId && outputRate > 0 && (
                             <span className="bstat">
-                              {t('build.yield')}: +{output.baseRate} {getResourceSymbol(outputResourceId)}/h
+                              {t('build.yield')}: +{outputRate} {getResourceSymbol(outputResourceId)}/h
                             </span>
                           )}
                           {output.cap && (

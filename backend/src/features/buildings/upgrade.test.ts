@@ -8,6 +8,7 @@ import { planets, systems, buildings, buildingTypes, planetResources } from '../
 import { eq, and } from 'drizzle-orm';
 import crypto from 'crypto';
 import { env } from '../../lib/env.js';
+import { buildingUpgradeResourceCosts, MAX_BUILDING_LEVEL } from '@shared/config/buildingUpgradeEconomy.js';
 
 describe('Building Upgrade - POST /buildings/upgrade', () => {
   const botToken = env.TELEGRAM_BOT_TOKEN;
@@ -80,9 +81,41 @@ describe('Building Upgrade - POST /buildings/upgrade', () => {
     return record ? Number(record.amount) : 0;
   }
 
+  async function setCommandCenterLevel(planetId: string, level: number): Promise<void> {
+    await db.update(buildings)
+      .set({ level })
+      .where(and(eq(buildings.planetId, planetId), eq(buildings.typeId, 'command_center')));
+  }
+
+  async function setBuildingTypeMaxLevel(typeId: string, maxLevel: number): Promise<void> {
+    await db.update(buildingTypes)
+      .set({ maxLevel })
+      .where(eq(buildingTypes.id, typeId));
+  }
+
+  async function setResourceAmount(planetId: string, resourceId: string, amount: number): Promise<void> {
+    const existing = await db.query.planetResources.findFirst({
+      where: and(eq(planetResources.planetId, planetId), eq(planetResources.resourceId, resourceId)),
+    });
+    if (existing) {
+      await db.update(planetResources)
+        .set({ amount: String(amount), regenRate: existing.regenRate, lastUpdateAt: new Date() })
+        .where(and(eq(planetResources.planetId, planetId), eq(planetResources.resourceId, resourceId)));
+    } else {
+      await db.insert(planetResources).values({
+        planetId,
+        resourceId,
+        amount: String(amount),
+        regenRate: '0',
+        lastUpdateAt: new Date(),
+      });
+    }
+  }
+
   it('should upgrade a building successfully', async () => {
     const { app, token, userId } = await createTestUser();
     const planetId = await getHomePlanetId(userId);
+    await setCommandCenterLevel(planetId, 2);
 
     const [building] = await db.insert(buildings).values({
       planetId,
@@ -99,7 +132,7 @@ describe('Building Upgrade - POST /buildings/upgrade', () => {
       payload: { buildingId: building.id },
     });
 
-    expect(response.statusCode).toBe(200);
+    expect(response.statusCode, JSON.stringify(response.json())).toBe(200);
     const body = response.json();
     expect(body.success).toBe(true);
     expect(body.queueItem).toBeDefined();
@@ -138,12 +171,13 @@ describe('Building Upgrade - POST /buildings/upgrade', () => {
   it('should return 400 when building is already at max level', async () => {
     const { app, token, userId } = await createTestUser();
     const planetId = await getHomePlanetId(userId);
+    await setBuildingTypeMaxLevel('command_center', MAX_BUILDING_LEVEL);
 
     const [building] = await db.insert(buildings).values({
       planetId,
       typeId: 'command_center',
       slotIndex: 0,
-      level: 20,
+      level: MAX_BUILDING_LEVEL,
     }).returning();
 
     const response = await app.inject({
@@ -155,12 +189,13 @@ describe('Building Upgrade - POST /buildings/upgrade', () => {
 
     expect(response.statusCode).toBe(400);
     const body = response.json();
-    expect(body.message).toContain('Maximum level reached');
+    expect(body.message).toContain('max level');
   });
 
   it('should return 400 when building is already in a queue', async () => {
     const { app, token, userId } = await createTestUser();
     const planetId = await getHomePlanetId(userId);
+    await setCommandCenterLevel(planetId, 2);
 
     const [building] = await db.insert(buildings).values({
       planetId,
@@ -186,6 +221,7 @@ describe('Building Upgrade - POST /buildings/upgrade', () => {
   it('should return 400 when planet build queue is full', async () => {
     const { app, token, userId } = await createTestUser();
     const planetId = await getHomePlanetId(userId);
+    await setCommandCenterLevel(planetId, 2);
 
     const [upgradeTarget] = await db.insert(buildings).values({
       planetId,
@@ -219,6 +255,7 @@ describe('Building Upgrade - POST /buildings/upgrade', () => {
   it('should calculate upgrade cost using base_cost * 1.6^level', async () => {
     const { app, token, userId } = await createTestUser();
     const planetId = await getHomePlanetId(userId);
+    await setCommandCenterLevel(planetId, 2);
 
     const ironBefore = await getResourceAmount(planetId, 'iron');
 
@@ -243,10 +280,85 @@ describe('Building Upgrade - POST /buildings/upgrade', () => {
       payload: { buildingId: building.id },
     });
 
-    expect(response.statusCode).toBe(200);
+    expect(response.statusCode, JSON.stringify(response.json())).toBe(200);
 
     const ironAfter = await getResourceAmount(planetId, 'iron');
     expect(ironAfter).toBeCloseTo(ironBefore - scaledIron, 1);
+  });
+
+  it('rejects non-command-center upgrades above the local command center level', async () => {
+    const { app, token, userId } = await createTestUser();
+    const planetId = await getHomePlanetId(userId);
+
+    const [building] = await db.insert(buildings).values({
+      planetId,
+      typeId: 'mine',
+      selectedResourceId: 'iron',
+      slotIndex: 2,
+      level: 1,
+    }).returning();
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/buildings/upgrade',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { buildingId: building.id },
+    });
+
+    expect(response.statusCode).toBe(400);
+    const body = response.json();
+    expect(body.code).toBe('building_blocked_command_center_level');
+    expect(body.details).toMatchObject({ commandCenterLevel: 1, requiredLevel: 2 });
+  });
+
+  it('adds realistic home-system materials for upgrades targeting level 6+', async () => {
+    const { app, token, userId } = await createTestUser();
+    const planetId = await getHomePlanetId(userId);
+    await setCommandCenterLevel(planetId, 6);
+
+    for (const resourceId of ['iron', 'carbon', 'steel', 'aluminum', 'titanium']) {
+      await setResourceAmount(planetId, resourceId, 100000);
+    }
+
+    const [spaceport] = await db.insert(buildings).values({
+      planetId,
+      typeId: 'spaceport',
+      slotIndex: 4,
+      level: 5,
+    }).returning();
+
+    const typeInfo = await db.query.buildingTypes.findFirst({
+      where: eq(buildingTypes.id, 'spaceport'),
+    });
+    const expectedCosts = buildingUpgradeResourceCosts({
+      typeId: 'spaceport',
+      baseCost: typeInfo!.baseCost as Record<string, number>,
+      currentLevel: 5,
+    });
+    expect(expectedCosts).toMatchObject({ steel: 26, titanium: 14, aluminum: 12 });
+    expect(expectedCosts).not.toHaveProperty('biomass');
+
+    const before = Object.fromEntries(
+      await Promise.all(
+        Object.keys(expectedCosts).map(async (resourceId) => [
+          resourceId,
+          await getResourceAmount(planetId, resourceId),
+        ]),
+      ),
+    );
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/buildings/upgrade',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { buildingId: spaceport.id },
+    });
+
+    expect(response.statusCode).toBe(200);
+
+    for (const [resourceId, amount] of Object.entries(expectedCosts)) {
+      expect(await getResourceAmount(planetId, resourceId)).toBeCloseTo(Number(before[resourceId]) - amount, 1);
+    }
   });
 
   it('charges basic resources for command center upgrades', async () => {

@@ -61,6 +61,14 @@ export type BuildBlockedReason =
   | {
       code: 'building_blocked_deposit_limit';
       details: { resourceId: string; limit: number; current: number };
+    }
+  | {
+      code: 'building_blocked_max_level';
+      details: { maxLevel: number };
+    }
+  | {
+      code: 'building_blocked_command_center_level';
+      details: { commandCenterLevel: number; requiredLevel: number };
     };
 
 export interface BuildRequest {
