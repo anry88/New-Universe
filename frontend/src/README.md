@@ -37,7 +37,7 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
   - **`SectorMap.tsx`** — Phase 3 sector map: queries `GET /multiplayer/sectors/:sx/:sy/:sz/presence`, supports manual sector coordinates (global search within numeric sector grid), renders Pixi markers via `SectorRenderer`.
   - **`Ships.tsx`** — fleet management screen with two tabs: roster (`/ships`) and shipyard build queue/planner (`/ships?tab=shipyard`) wired to `POST /ships/build`; ships in `building` show ETA/progress from `GET /ships/queue`, schedule a queue refresh at completion, and support rush completion via `POST /ships/rush`.
   - **`Market.tsx`** — utility economy market screen with buy/sell price browsing, order submission, and pending-order ETA tracking.
-  - **`Research.tsx`** — tech-tree screen (Cosmic Atlas): seven branches × **five** tiers aligned with `@shared/config/researchCatalog` (including Energy), branch blurbs, localized applied-effects summary, per-tier `TechTreeNode` states (completed / in-progress timer / next pending / locked), tier detail sheet with lab/prereq/resource/queue blocking (BuildDialog-style), optimistic start via `useStartResearch`, and active-tier diamond rush via `useRushResearch`.
+- **`Research.tsx`** — tech-tree screen (Cosmic Atlas): eight branches × **five** tiers aligned with `@shared/config/researchCatalog` (including Energy and Weapons), branch blurbs, localized applied-effects summary, per-tier `TechTreeNode` states (completed / in-progress timer / next pending / locked), tier detail sheet with lab/prereq/resource/queue blocking (BuildDialog-style), optimistic start via `useStartResearch`, and active-tier diamond rush via `useRushResearch`.
 - `components/` — reusable presentational components.
   - `pixi/` — canvas-based rendering components using PixiJS.
     - **`SystemRenderer.tsx`** — top-down system map renderer. Handles orbits, planets, star, and ship markers with pan/zoom logic.
@@ -86,8 +86,8 @@ The folders above are reserved by `AGENTS.md` (`Engineering Rules` → "Keep fro
 
 ## `lib/`
 
-- **`tech-tree.ts`** — `TECH_TREE_DATA` (levels **1–5** per branch, costs/times/descriptions/effects, including Energy) and `BRANCHES` metadata imported from `@shared/config/researchCatalog` (same source as `backend/src/config/research-catalog.ts`).
-- **`tech-tree.test.ts`** — asserts seven branches × five tiers stay aligned with `RESEARCH_MAX_LEVEL` for epic **P2-EPIC-RESEARCH** UI coverage.
+- **`tech-tree.ts`** — `TECH_TREE_DATA` (levels **1–5** per branch, costs/times/descriptions/effects, including Energy and Weapons) and `BRANCHES` metadata imported from `@shared/config/researchCatalog` (same source as `backend/src/config/research-catalog.ts`).
+- **`tech-tree.test.ts`** — asserts all research branches × five tiers stay aligned with `RESEARCH_MAX_LEVEL` for epic **P2-EPIC-RESEARCH** UI coverage.
 - **`research-eligibility.ts`** — `evaluateResearchEligibility` mirrors `/research/start` lab + prerequisite checks for UI lock copy; optional `planetResources` adds resource-shortage messaging aligned with server deductions.
 - **`research-queue.ts`** — `getActiveResearch()` and `researchStartBlockedByActive()` implement the frontend one-active-research queue rule.
 - **`research-queue.test.ts`** — Vitest coverage for active-timer detection, due-row ignore behavior, and blocking another branch while one timer is active.
