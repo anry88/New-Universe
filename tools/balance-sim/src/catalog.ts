@@ -67,7 +67,7 @@ export const BUILDINGS = {
     baseCost: { iron: 180, carbon: 160, water: 120 },
     baseTimeSec: 840,
     category: 'production',
-    output: { resourceId: 'biomass', baseRate: 18 },
+    output: { resourceId: 'biomass', baseRate: 4 },
   },
   smelter: {
     deps: [{ typeId: 'command_center', level: 3 }],

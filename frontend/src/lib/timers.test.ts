@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { timerSnapshot } from './timers';
+import { formatTimerDuration, timerSnapshot } from './timers';
 
 describe('timerSnapshot', () => {
   it('computes remaining time and progress from explicit server timestamps', () => {
@@ -36,5 +36,13 @@ describe('timerSnapshot', () => {
     expect(snapshot.remainingSec).toBe(0);
     expect(snapshot.progressPct).toBe(100);
     expect(snapshot.isDue).toBe(true);
+  });
+});
+
+describe('formatTimerDuration', () => {
+  it('formats production and queue countdowns as remaining durations', () => {
+    expect(formatTimerDuration(65)).toBe('1m 05s');
+    expect(formatTimerDuration(3723)).toBe('1h 02m 03s');
+    expect(formatTimerDuration(0)).toBe('0m 00s');
   });
 });

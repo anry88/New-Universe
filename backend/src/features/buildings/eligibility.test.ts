@@ -138,7 +138,7 @@ describe('planet resource construction rules', () => {
     expect(
       resolveBuildingProducedResourceIds({
         typeId: 'biomass_harvester',
-        baseOutput: { resourceId: 'biomass', baseRate: 18 },
+        baseOutput: { resourceId: 'biomass', baseRate: 4 },
         planetResourceIds: ['biomass', 'water'],
       }),
     ).toEqual(['biomass']);

@@ -9,7 +9,7 @@ import type {
 import type { Building } from '@shared/types/world';
 import { apiFetch } from '../lib/api';
 import { canStartProduction, defaultProductionRecipeId, productionBlockedText } from '../lib/production';
-import { formatTimerDuration } from '../lib/timers';
+import { formatTimerDuration, timerSnapshot } from '../lib/timers';
 import { useI18n } from '../lib/i18n';
 import { getResourceSymbol } from './cosmic/resources';
 
@@ -26,6 +26,14 @@ function formatAmount(value: number): string {
   return value.toLocaleString(undefined, {
     maximumFractionDigits: value < 10 ? 2 : 1,
   });
+}
+
+function formatResourceAmount(change: { resourceId: string; amount: number }, prefix = ''): string {
+  return `${prefix}${formatAmount(change.amount)} ${getResourceSymbol(change.resourceId)}`;
+}
+
+function formatResourceList(changes: { resourceId: string; amount: number }[], prefix = ''): string {
+  return changes.map((change) => formatResourceAmount(change, prefix)).join(' · ');
 }
 
 export const ProductionDialog: React.FC<ProductionDialogProps> = ({
@@ -45,6 +53,7 @@ export const ProductionDialog: React.FC<ProductionDialogProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [nowMs, setNowMs] = useState(Date.now());
 
   useEffect(() => {
     if (!isOpen || !building) return;
@@ -110,6 +119,13 @@ export const ProductionDialog: React.FC<ProductionDialogProps> = ({
   );
   const queuedOrders = orders.filter((order) => order.status === 'queued' && order.buildingId === building?.id);
   const blocked = productionBlockedText(preview, locale);
+
+  useEffect(() => {
+    if (!isOpen || queuedOrders.length === 0) return;
+    setNowMs(Date.now());
+    const interval = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, [isOpen, queuedOrders.length]);
 
   if (!isOpen || !building) return null;
 
@@ -183,15 +199,16 @@ export const ProductionDialog: React.FC<ProductionDialogProps> = ({
                   <button
                     key={recipe.id}
                     type="button"
-                    className={`bopt${recipe.id === selectedRecipeId ? ' active' : ''}`}
+                    className={`prod-card${recipe.id === selectedRecipeId ? ' active' : ''}`}
                     onClick={() => setSelectedRecipeId(recipe.id)}
                   >
-                    <div>
-                      <div className="bopt-row">
-                        <span className="bopt-name">{recipe.name[locale]}</span>
-                        <span className="bopt-locked">{getResourceSymbol(recipe.output.resourceId)}</span>
-                      </div>
-                      <div className="bopt-desc">{recipe.description[locale]}</div>
+                    <div className="prod-card-head">
+                      <span className="prod-card-title">{recipe.name[locale]}</span>
+                      <span className="prod-pill">{formatResourceAmount(recipe.output, '+')}</span>
+                    </div>
+                    <div className="prod-detail-line">
+                      <span className="prod-detail-label">{t('production.inputs')}</span>
+                      <span className="prod-detail-value">{formatResourceList(recipe.inputs, '-')}</span>
                     </div>
                   </button>
                 ))}
@@ -212,15 +229,7 @@ export const ProductionDialog: React.FC<ProductionDialogProps> = ({
                 step={1}
                 value={quantity}
                 onChange={(event) => setQuantity(Number(event.target.value))}
-                style={{
-                  width: '100%',
-                  border: '1px solid var(--line-strong)',
-                  borderRadius: 8,
-                  background: 'rgba(0,0,0,0.22)',
-                  color: 'var(--text)',
-                  padding: '12px',
-                  fontFamily: 'var(--font-mono)',
-                }}
+                className="prod-input"
               />
             </section>
           ) : null}
@@ -230,23 +239,20 @@ export const ProductionDialog: React.FC<ProductionDialogProps> = ({
               <div className="bd-category-head">
                 <span className="bd-category-title">{t('production.preview')}</span>
               </div>
-              <div className="bopt" style={{ cursor: 'default' }}>
-                <div>
-                  <div className="bopt-row">
-                    <span className="bopt-name">
-                      +{formatAmount(preview.output.amount)} {getResourceSymbol(preview.output.resourceId)}
-                    </span>
-                    <span className="bopt-locked">{formatTimerDuration(preview.durationSec)}</span>
-                  </div>
-                  <div className="bopt-desc">
-                    {preview.inputs.map((input) => (
-                      <span key={input.resourceId} style={{ display: 'inline-block', marginRight: 10 }}>
-                        -{formatAmount(input.amount)} {getResourceSymbol(input.resourceId)}
-                      </span>
-                    ))}
-                  </div>
-                  {blocked ? <div className="bopt-desc" style={{ color: '#FFB27A' }}>{blocked}</div> : null}
+              <div className="prod-summary">
+                <div className="prod-detail-line">
+                  <span className="prod-detail-label">{t('production.output')}</span>
+                  <span className="prod-detail-value strong">{formatResourceAmount(preview.output, '+')}</span>
                 </div>
+                <div className="prod-detail-line">
+                  <span className="prod-detail-label">{t('production.inputs')}</span>
+                  <span className="prod-detail-value">{formatResourceList(preview.inputs, '-')}</span>
+                </div>
+                <div className="prod-detail-line">
+                  <span className="prod-detail-label">{t('production.duration')}</span>
+                  <span className="prod-detail-value">{formatTimerDuration(preview.durationSec)}</span>
+                </div>
+                {blocked ? <div className="prod-blocked">{blocked}</div> : null}
               </div>
             </section>
           ) : null}
@@ -258,14 +264,22 @@ export const ProductionDialog: React.FC<ProductionDialogProps> = ({
                 <span className="bd-category-count">{queuedOrders.length}</span>
               </div>
               {queuedOrders.map((order) => (
-                <div key={order.id} className="bopt" style={{ cursor: 'default' }}>
-                  <div>
-                    <div className="bopt-row">
-                      <span className="bopt-name">
-                        {order.outputs.map((output) => `+${formatAmount(output.amount)} ${getResourceSymbol(output.resourceId)}`).join(', ')}
-                      </span>
-                      <span className="bopt-locked">{new Date(order.completesAt).toLocaleTimeString()}</span>
-                    </div>
+                <div key={order.id} className="prod-order">
+                  <div className="prod-card-head">
+                    <span className="prod-card-title">
+                      {order.outputs.map((output) => formatResourceAmount(output, '+')).join(', ')}
+                    </span>
+                    <span className="prod-pill">
+                      {t('production.remaining', {
+                        time: formatTimerDuration(
+                          timerSnapshot({
+                            completesAt: order.completesAt,
+                            startedAt: order.startedAt,
+                            nowMs,
+                          }).remainingSec,
+                        ),
+                      })}
+                    </span>
                   </div>
                 </div>
               ))}

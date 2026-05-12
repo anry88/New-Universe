@@ -94,9 +94,7 @@ describe('Home System Generator', () => {
       const tritium = pRes.find(r => r.resourceId === 'tritium');
       if (tritium) {
         tritiumFound = true;
-        const rate = parseFloat(tritium.regenRate);
-        expect(rate).toBeGreaterThanOrEqual(3);
-        expect(rate).toBeLessThanOrEqual(8);
+        expect(Number(tritium.regenRate)).toBe(0);
       }
     }
     expect(tritiumFound).toBe(true);
@@ -109,6 +107,26 @@ describe('Home System Generator', () => {
       for (const r of pRich) {
         expect(forbidden).not.toContain(r.resourceId);
       }
+    }
+  });
+
+  it('starts all home-system resource rows without passive regen', async () => {
+    const [user] = await db.insert(users).values({
+      tgId: BigInt(Math.floor(Math.random() * 1000000000)),
+      tgUsername: 'testuser_zero_regen',
+    }).returning();
+
+    const systemId = await generateHomeSystem(user.id);
+    const systemPlanets = await db.query.planets.findMany({
+      where: eq(planets.systemId, systemId),
+    });
+
+    for (const planet of systemPlanets) {
+      const rows = await db.query.planetResources.findMany({
+        where: eq(planetResources.planetId, planet.id),
+      });
+      expect(rows.length).toBeGreaterThan(0);
+      expect(rows.every((row) => Number(row.regenRate) === 0)).toBe(true);
     }
   });
 
