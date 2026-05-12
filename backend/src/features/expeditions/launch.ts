@@ -16,6 +16,7 @@ import {
 } from "../research/effects.js";
 import { checkColonizationGates } from "../colonies/colonization-rules.js";
 import { colonyService } from "../colonies/colonies.js";
+import { systemMapPlanetDistanceLy } from "@shared/format/systemMapLayout.js";
 
 export interface LaunchExpeditionRequest {
   shipId: string;
@@ -51,6 +52,8 @@ type ShipLaunchRow = {
   shipSpeed: string;
   shipFuelConsumption: string;
   shipCargoCapacity: number;
+  originSystemId: string;
+  originSystemSeed: number;
   originX: number;
   originY: number;
   originZ: number;
@@ -141,6 +144,8 @@ export async function launchExpedition(
       shipSpeed: shipTypes.speed,
       shipFuelConsumption: shipTypes.fuelConsumption,
       shipCargoCapacity: shipTypes.cargo,
+      originSystemId: systems.id,
+      originSystemSeed: systems.seed,
       originX: systems.sectorX,
       originY: systems.sectorY,
       originZ: systems.sectorZ,
@@ -186,6 +191,14 @@ export async function launchExpedition(
     };
   }
 
+  if (shipRow.shipRole === "logistics") {
+    return {
+      success: false,
+      status: 400,
+      error: "Cargo ships must use cargo transfer",
+    };
+  }
+
   if (shipRow.shipRole === "colonization" && !targetPlanetId) {
     return {
       success: false,
@@ -203,6 +216,7 @@ export async function launchExpedition(
   }
 
   let resolvedTargetPlanetId: string | null = null;
+  let sameSystemPlanetDistance: number | null = null;
   if (targetPlanetId) {
     if (shipRow.shipRole !== "recon" && shipRow.shipRole !== "colonization") {
       return {
@@ -278,6 +292,18 @@ export async function launchExpedition(
       }
     }
 
+    if (targetPlanet.systemId === shipRow.originSystemId) {
+      const systemPlanets = await defaultDb.query.planets.findMany({
+        where: eq(planets.systemId, shipRow.originSystemId),
+      });
+      sameSystemPlanetDistance = systemMapPlanetDistanceLy(
+        systemPlanets,
+        Number(shipRow.originSystemSeed),
+        shipRow.originPlanetId,
+        targetPlanet.id,
+      );
+    }
+
     resolvedTargetPlanetId = targetPlanetId;
   }
 
@@ -286,7 +312,7 @@ export async function launchExpedition(
   // discovery logic (which never used Z in layout space).
   const ox = Number(shipRow.originX);
   const oy = Number(shipRow.originY);
-  const distance = Math.hypot(targetX - ox, targetY - oy);
+  const distance = sameSystemPlanetDistance ?? Math.hypot(targetX - ox, targetY - oy);
   const travelDistance = resolvedTargetPlanetId
     ? Math.max(1, distance)
     : distance;

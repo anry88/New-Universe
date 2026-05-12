@@ -1,11 +1,8 @@
 import { db as defaultDb } from '../../db/index.js';
 import {
   expeditions,
-  planets,
-  colonies,
   ships,
   shipTypes,
-  systems,
   notifications,
 } from '../../db/schema.js';
 import { eq, and } from 'drizzle-orm';
@@ -14,6 +11,7 @@ import { applyShipSpeed, getResearchEffectsForUser } from '../research/effects.j
 import { CARGO_TRANSFER_RESEARCH_GATE } from '../../config/research-unlocks.js';
 import { assertResearchRequirement, loadUserResearchLevels } from '../research/gates.js';
 import type { CargoTransferLoad, CargoTransferRequest } from '@shared/types/cargo.js';
+import { getPlayerPlanetSettlement } from '../colonies/ownership.js';
 
 type CargoTransferResultPayload = {
   deliveryMode?: 'one_way';
@@ -84,6 +82,7 @@ export async function launchCargoTransfer(
         status: ships.status,
         locationPlanetId: ships.locationPlanetId,
         typeId: ships.typeId,
+        role: shipTypes.role,
         cargoCapacity: shipTypes.cargo,
         speed: shipTypes.speed,
       })
@@ -96,41 +95,35 @@ export async function launchCargoTransfer(
     if (!ship) throw new Error('Ship not found or access denied');
     if (ship.status !== 'idle') throw new Error('Ship is not idle');
     if (!ship.locationPlanetId) throw new Error('Ship is not on a planet');
+    if (ship.role !== 'logistics') throw new Error('Ship cannot transfer cargo');
 
-    // 2. Validate target planet ownership
-    const targetRows = await tx
-      .select({
-        id: planets.id,
-        ownerId: colonies.ownerId,
-        x: systems.sectorX,
-        y: systems.sectorY,
-        z: systems.sectorZ,
-      })
-      .from(planets)
-      .innerJoin(systems, eq(planets.systemId, systems.id))
-      .leftJoin(colonies, eq(planets.id, colonies.planetId))
-      .where(eq(planets.id, targetPlanetId))
-      .limit(1);
+    // 2. Validate settlement ownership for both ends. The capital does not
+    // have a `colonies` row, so use the shared settlement helper instead of
+    // checking only the colonies table.
+    const [originSettlement, targetSettlement] = await Promise.all([
+      getPlayerPlanetSettlement(userId, ship.locationPlanetId, tx),
+      getPlayerPlanetSettlement(userId, targetPlanetId, tx),
+    ]);
 
-    const target = targetRows[0];
-    if (!target) throw new Error('Target planet not found');
-    if (target.ownerId !== userId) throw new Error('Target planet is not owned by you');
-    if (target.id === ship.locationPlanetId) throw new Error('Target planet must be different from origin');
+    if (!originSettlement) throw new Error('Origin planet not found');
+    if (!originSettlement.isSettled) throw new Error('Origin planet is not owned by you');
+    if (!targetSettlement) throw new Error('Target planet not found');
+    if (!targetSettlement.isSettled) throw new Error('Target planet is not owned by you');
+    if (targetSettlement.planet.id === ship.locationPlanetId) throw new Error('Target planet must be different from origin');
 
-    // 3. Get origin coordinates
-    const originRows = await tx
-      .select({
-        x: systems.sectorX,
-        y: systems.sectorY,
-        z: systems.sectorZ,
-      })
-      .from(planets)
-      .innerJoin(systems, eq(planets.systemId, systems.id))
-      .where(eq(planets.id, ship.locationPlanetId))
-      .limit(1);
-
-    const origin = originRows[0];
-    if (!origin) throw new Error('Origin planet not found');
+    const originSystem = originSettlement.planet.system as { sectorX: number; sectorY: number; sectorZ: number };
+    const targetSystem = targetSettlement.planet.system as { sectorX: number; sectorY: number; sectorZ: number };
+    const origin = {
+      x: Number(originSystem.sectorX),
+      y: Number(originSystem.sectorY),
+      z: Number(originSystem.sectorZ),
+    };
+    const target = {
+      id: targetSettlement.planet.id,
+      x: Number(targetSystem.sectorX),
+      y: Number(targetSystem.sectorY),
+      z: Number(targetSystem.sectorZ),
+    };
 
     // 4. Validate cargo capacity
     const totalCargo = sumCargoLoads(loads);

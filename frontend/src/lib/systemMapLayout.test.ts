@@ -3,6 +3,7 @@ import {
   buildSystemMapOrbitGuideRadii,
   SYSTEM_MAP_ORBIT_BASE,
   SYSTEM_MAP_ORBIT_STEP,
+  systemMapPlanetDistanceLy,
 } from '@shared/format/systemMapLayout';
 
 describe('system map layout helpers', () => {
@@ -16,5 +17,20 @@ describe('system map layout helpers', () => {
 
     expect(radii).toHaveLength(9);
     expect(radii.at(-1)).toBe(SYSTEM_MAP_ORBIT_BASE + 8 * SYSTEM_MAP_ORBIT_STEP);
+  });
+
+  it('computes real same-system planet distance instead of a constant fallback', () => {
+    const distance = systemMapPlanetDistanceLy(
+      [
+        { id: 'capital', name: 'abcd-1', biome: 'green', size: 22 },
+        { id: 'outer', name: 'abcd-9', biome: 'ice', size: 24 },
+      ],
+      123,
+      'capital',
+      'outer',
+    );
+
+    expect(distance).not.toBeNull();
+    expect(distance!).toBeGreaterThan(1);
   });
 });

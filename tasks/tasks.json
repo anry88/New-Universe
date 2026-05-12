@@ -3507,6 +3507,49 @@
       "prompt": "[TASK P2.2-010] Постройки: переключение добычи и процессы переработки\n\nОПИСАНИЕ\nДоделать post-build UX и серверные правила для добывающих и перерабатывающих построек: уже построенные шахты/экстракторы должны переключать добываемый ресурс с проверкой лимита месторождений, переработчики должны открываться независимо друг от друга, их описания должны говорить только о назначении, а текущие процессы переработки должны быть видны снаружи на карточке здания. Энергия для переработчиков расходуется только во время активного процесса; при дефиците энергии процесс ставится на паузу и продолжает таймер после восстановления питания.\n\nACCEPTANCE CRITERIA\n  1. Построенные добывающие здания позволяют сменить selectedResourceId через UI-переключатели, аналогичные выбору ресурса при строительстве\n  2. Backend валидирует смену selectedResourceId атомарно: нельзя переключиться на ресурс без месторождения или на ресурс, у которого уже достигнут лимит активных добывающих зданий\n  3. После смены ресурса добывающего здания сервер пересчитывает regenRate для старого и нового ресурсов\n  4. Перерабатывающие здания не зависят друг от друга в deps и открываются независимо\n  5. Описания добывающих и перерабатывающих зданий убирают мета-информацию и оставляют назначение\n  6. UI показывает текущие процессы на карточке здания и больше не называет production flow заказами\n  7. Производство не списывает всю энергию заранее и не создаёт idle-потребление для переработчиков\n  8. При нехватке энергии производство переходит в paused-состояние и продолжает после восстановления питания\n  9. Обновлены RU/EN локализация, shared contracts, тесты и документация\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/schema/production.ts\n  - backend/src/db/seed/catalog-rows.ts\n  - backend/src/features/buildings/\n  - backend/src/features/resources/\n  - backend/src/features/me/routes.ts\n  - backend/src/workers/production-orders.ts\n  - frontend/src/components/\n  - frontend/src/pages/PlanetDetail.tsx\n  - frontend/src/locales/\n  - shared/types/\n  - tools/balance-sim/src/catalog.ts\n  - DOCUMENTATION.md\n  - backend/src/db/README.md\n  - backend/src/features/buildings/README.md\n  - backend/src/features/resources/README.md\n  - backend/src/features/README.md\n  - frontend/src/README.md\n  - shared/README.md\n\nЗАВИСИМОСТИ\n  P2.2-003, P2.2-004, P2.2-009\n\nКАК ПРОВЕРИТЬ\n  Backend tests: extractor retargeting, production no upfront energy spend, pause/resume on energy shortage. Frontend build/tests: resource chips on existing extractor and current process card rendering. Manual smoke: switch mine target after build, blocked full deposit target, refinery build not blocked by smelter, processor card shows active/paused process.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Keep the behavior server-authoritative. Reuse shared extractor eligibility helpers for both build-time and post-build switching. Do not reintroduce processor passive regen or idle processor energy drain."
     },
     {
+      "id": "P2.2-011",
+      "epic": "EPIC-P2.2-BUILDING-ECONOMY",
+      "size": "M",
+      "title": "Регрессии cargo-перевозчика и ETA колонизатора",
+      "description": "Исправить два связанных регресса флота: грузовой перевозчик не должен запускаться как scout route из экрана кораблей, а должен отправляться только через cargo transfer flow с выбором грузов; отправка cargo из экрана колоний должна успешно создавать one-way перевозку. Для колонизатора preview и запуск должны использовать реальную дистанцию до цели и корректное ETA вместо константных 1 единицы / 1 минуты. Описания кораблей должны быть очищены от мета-информации и оставлять только игровое назначение.",
+      "acceptance": [
+        "На экране кораблей выбор cargo_light не запускает scout-style expedition туда-обратно и не показывает невозможный для cargo сценарий без выбора груза",
+        "Cargo-перевозка запускается из экрана колоний/планеты через выбор source, destination и load lines, успешно вызывает `/cargo/transfer` и создаёт one-way transfer между поселениями игрока, включая стартовую столицу",
+        "Ошибки cargo transfer показываются локализованно и не маскируются как безрезультатная отправка",
+        "Колонизатор при выборе целевой планеты получает distance и ETA из реальной геометрии карты/серверного preview, а не фиксированные 1 единицу и 1 минуту",
+        "Backend launch validation для colonizer и cargo остаётся server-authoritative: cargo не создаёт scout expedition, colonizer не игнорирует расстояние",
+        "RU/EN описания кораблей не содержат мета-информацию про task, баланс, временные ограничения или внутренние правила реализации",
+        "Добавлены/обновлены focused backend/frontend tests и соседние README/DOCUMENTATION под изменённый flow"
+      ],
+      "files": [
+        "backend/src/features/cargo/",
+        "backend/src/features/expeditions/",
+        "backend/src/features/ships/",
+        "backend/src/routes/cargo.ts",
+        "backend/src/workers/cargo-routes.ts",
+        "frontend/src/components/CargoTransferDialog.tsx",
+        "frontend/src/components/ExpeditionDialog.tsx",
+        "frontend/src/pages/Colonies.tsx",
+        "frontend/src/pages/Ships.tsx",
+        "frontend/src/locales/",
+        "shared/types/",
+        "DOCUMENTATION.md",
+        "backend/src/features/README.md",
+        "backend/src/routes/README.md",
+        "frontend/src/README.md",
+        "shared/README.md"
+      ],
+      "deps": [
+        "P2-COL-002",
+        "P2-COL-004",
+        "P2-COL-005",
+        "P2.2-008"
+      ],
+      "verify": "Backend tests for cargo transfer launch and colonizer distance/ETA preview; frontend tests/build for Ships and Colonies cargo flows. Manual smoke: cargo from Colonies sends selected resources one-way; cargo selected on Ships does not launch as scout; colonizer ETA changes with target distance.",
+      "notes": "Prefer routing cargo ships into the existing CargoTransferDialog instead of extending ExpeditionDialog with a second cargo-specific launch mode. Keep route math shared with the current system map layout where possible.",
+      "prompt": "[TASK P2.2-011] Регрессии cargo-перевозчика и ETA колонизатора\n\nОПИСАНИЕ\nИсправить cargo-перевозчик и колонизатор. Cargo_light не должен отправляться как scout из экрана кораблей; рабочий путь запуска cargo — экран колоний/планеты с выбором груза, destination и load lines. Этот flow должен реально создавать one-way cargo transfer между поселениями игрока, включая стартовую столицу. Колонизатор должен считать расстояние и ETA по реальному положению цели, а не показывать/использовать 1 единицу и 1 минуту для любой планеты. Описания кораблей нужно очистить от мета-информации.\n\nACCEPTANCE CRITERIA\n  1. Экран кораблей не запускает cargo_light как scout-style expedition туда-обратно\n  2. Cargo transfer из Colonies/planet flow позволяет выбрать грузы и успешно отправляет one-way transfer через `/cargo/transfer`, включая маршруты из/в стартовую столицу\n  3. Ошибки cargo transfer локализованы и видны пользователю\n  4. Colonizer preview/launch использует реальную distance и ETA по целевой планете\n  5. Backend сохраняет server-authoritative validation: cargo не создаёт scout expedition, colonizer не использует hardcoded distance\n  6. Описания кораблей в RU/EN очищены от meta/task/balance/internal implementation copy\n  7. Обновлены focused tests, shared contracts и документация\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/cargo/\n  - backend/src/features/expeditions/\n  - backend/src/features/ships/\n  - backend/src/routes/cargo.ts\n  - backend/src/workers/cargo-routes.ts\n  - frontend/src/components/CargoTransferDialog.tsx\n  - frontend/src/components/ExpeditionDialog.tsx\n  - frontend/src/pages/Colonies.tsx\n  - frontend/src/pages/Ships.tsx\n  - frontend/src/locales/\n  - shared/types/\n  - DOCUMENTATION.md\n  - backend/src/features/README.md\n  - backend/src/routes/README.md\n  - frontend/src/README.md\n  - shared/README.md\n\nЗАВИСИМОСТИ\n  P2-COL-002, P2-COL-004, P2-COL-005, P2.2-008\n\nКАК ПРОВЕРИТЬ\n  Backend tests for cargo transfer launch and colonizer distance/ETA preview; frontend tests/build for Ships and Colonies cargo flows. Manual smoke: cargo from Colonies sends selected resources one-way; cargo selected on Ships does not launch as scout; colonizer ETA changes with target distance.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Prefer routing cargo ships into the existing CargoTransferDialog instead of extending ExpeditionDialog with a second cargo-specific launch mode. Keep route math shared with the current system map layout where possible."
+    },
+    {
       "id": "P2.2-012",
       "epic": "EPIC-P2.2-BUILDING-ECONOMY",
       "size": "M",

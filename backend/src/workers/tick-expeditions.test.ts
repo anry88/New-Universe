@@ -15,6 +15,7 @@ import {
   notifications,
   colonies,
   researchProgress,
+  productionOrders,
 } from "../db/schema.js";
 import { eq, and } from "drizzle-orm";
 import {
@@ -137,6 +138,7 @@ describe("Tick Expeditions Worker", () => {
     await db.delete(buildings);
     await db.delete(notifications);
     await db.delete(researchProgress);
+    await db.delete(productionOrders);
     await db.delete(planetResources);
     await db.delete(richness);
     await db.delete(planets);

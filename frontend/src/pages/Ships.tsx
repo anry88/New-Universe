@@ -21,6 +21,7 @@ import {
   type ShipBuildBlockedReason,
 } from "../lib/ship-build-eligibility";
 import { resolveBuildingType } from "../components/cosmic/buildings";
+import { isCargoTransferShip, isCargoTransferShipType } from "../lib/fleet";
 
 const SHIP_CLASS_TAG: Record<string, string> = {
   scout: "SCOUT",
@@ -371,6 +372,7 @@ export function ShipsPage() {
 
             {ships.map((ship) => {
               const type = getShipType(ship.typeId);
+              const isCargoShip = isCargoTransferShip(ship, shipTypes);
               const cls =
                 SHIP_CLASS_TAG[ship.typeId.toLowerCase()] ??
                 ship.typeId.slice(0, 6).toUpperCase();
@@ -421,19 +423,33 @@ export function ShipsPage() {
                     <div className="ship-loc">{shipLocation}</div>
                     <button
                       type="button"
-                      disabled={!isIdle}
-                      onClick={() => setSelectedShip(ship)}
+                      disabled={!isIdle || (isCargoShip && !ship.locationPlanetId)}
+                      onClick={() => {
+                        if (isCargoShip) {
+                          navigate(`/colonies?cargoOrigin=${ship.locationPlanetId}`);
+                          return;
+                        }
+                        setSelectedShip(ship);
+                      }}
                       className="cosmic-cta"
                       style={{
                         marginTop: 6,
                         padding: "6px 12px",
                         fontSize: 11,
-                        opacity: isIdle ? 1 : 0.4,
-                        cursor: isIdle ? "pointer" : "not-allowed",
+                        opacity:
+                          isIdle && (!isCargoShip || ship.locationPlanetId)
+                            ? 1
+                            : 0.4,
+                        cursor:
+                          isIdle && (!isCargoShip || ship.locationPlanetId)
+                            ? "pointer"
+                            : "not-allowed",
                       }}
                     >
                       {isIdle
-                        ? t("ships.sendMission").toUpperCase()
+                        ? isCargoShip
+                          ? t("ships.openCargo").toUpperCase()
+                          : t("ships.sendMission").toUpperCase()
                         : isBuilding
                           ? t("ships.building").toUpperCase()
                           : expeditionEtaSec != null
@@ -491,7 +507,9 @@ export function ShipsPage() {
 
       <CosmicBottomNav />
 
-      {selectedShip && getShipType(selectedShip.typeId) && (
+      {selectedShip &&
+        getShipType(selectedShip.typeId) &&
+        !isCargoTransferShipType(getShipType(selectedShip.typeId)) && (
         <ExpeditionDialog
           ship={selectedShip}
           shipType={getShipType(selectedShip.typeId)!}
