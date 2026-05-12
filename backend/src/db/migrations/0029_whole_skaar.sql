@@ -1,0 +1,1 @@
+ALTER TABLE "production_orders" ADD COLUMN "paused_at" timestamp;

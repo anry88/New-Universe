@@ -10,6 +10,7 @@ import {
 } from './cosmic/buildings';
 import { getResourceLabel, getResourceSymbol } from './cosmic/resources';
 import { useI18n } from '../lib/i18n';
+import { recipesForBuildingType } from '@shared/config/productionRecipes';
 
 export interface BuildDialogResourceChoice {
   resourceId: string;
@@ -160,9 +161,11 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
                   const blocked = blockedReasonFor?.(type.id, selectedResourceId) ?? null;
                   const locked = Boolean(blocked);
                   const output = type.baseOutput;
+                  const consumesEnergyOnlyDuringProcess = recipesForBuildingType(type.id).length > 0;
+                  const idleEnergyConsumption = consumesEnergyOnlyDuringProcess ? 0 : Math.max(0, type.energyConsumption ?? 0);
                   const outputResourceId = selectedResourceId ?? output.resourceId;
                   const projectedProduced = producedNow + (output.energy ?? 0);
-                  const projectedConsumed = consumedNow + Math.max(0, type.energyConsumption ?? 0);
+                  const projectedConsumed = consumedNow + idleEnergyConsumption;
                   const projectedNet = projectedProduced - projectedConsumed;
                   return (
                     <div
@@ -251,9 +254,9 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
                               {t('common.energy')}: +{output.energy}
                             </span>
                           )}
-                          {type.energyConsumption > 0 && (
+                          {idleEnergyConsumption > 0 && (
                             <span className="bstat neg">
-                              {t('build.usage')}: -{type.energyConsumption} E
+                              {t('build.usage')}: -{idleEnergyConsumption} E
                             </span>
                           )}
                           {currentEnergy && (

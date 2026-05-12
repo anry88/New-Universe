@@ -1,6 +1,6 @@
 import type { ResourceId } from './research.js';
 
-export type ProductionOrderStatus = 'queued' | 'completed' | 'cancelled';
+export type ProductionOrderStatus = 'queued' | 'paused' | 'completed' | 'cancelled';
 
 export interface ResourceAmount {
   resourceId: ResourceId;
@@ -35,6 +35,7 @@ export interface ProductionPreviewResponse {
   inputs: ResourceAmount[];
   durationSec: number;
   completesAt: string;
+  energyPerHour?: number;
   canStart: boolean;
   blockedReason?: {
     code:
@@ -42,6 +43,7 @@ export interface ProductionPreviewResponse {
       | 'production_building_required'
       | 'production_invalid_quantity'
       | 'production_insufficient_resources'
+      | 'production_insufficient_energy'
       | 'production_output_capacity';
     message: { ru: string; en: string };
     details?: Record<string, unknown>;
@@ -61,6 +63,8 @@ export interface ProductionOrder {
   startedAt: string;
   completesAt: string;
   completedAt: string | null;
+  pausedAt?: string | null;
+  energyPerHour?: number;
 }
 
 export interface ProductionStartResponse {

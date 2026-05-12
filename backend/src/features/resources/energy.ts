@@ -1,8 +1,8 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { systemMapPlanetOrbitSlot } from '@shared/format/systemMapLayout.js';
 import type { BuildingEnergyState, PlanetEnergyStatus } from '@shared/types/world.js';
 import { db as defaultDb } from '../../db/index.js';
-import { planetResources, planets } from '../../db/schema.js';
+import { planetResources, planets, productionOrders } from '../../db/schema.js';
 import {
   applyEnergyGeneration,
   applyEnergyRequirement,
@@ -14,6 +14,7 @@ import {
 export const ENERGY_RESOURCE_ID = 'energy';
 export const BATTERY_BUILDING_TYPE_ID = 'battery';
 export const PASSIVE_ENERGY_PRODUCER_TYPES = new Set(['solar_plant', 'wind_turbine']);
+export const PROCESS_ENERGY_CONSUMER_TYPES = new Set(['smelter', 'refinery', 'fabrication_bay', 'cryo_factory']);
 
 type BuildingRow = {
   id: string;
@@ -36,6 +37,7 @@ type PlanetEnergyInput = {
     ownerId: string | null;
   } | null;
   buildings?: BuildingRow[];
+  activeProductionOrders?: { buildingId: string | null; status: string }[];
 };
 
 type EnergyResourceRow = {
@@ -110,7 +112,21 @@ function energyProductionForBuilding(
 
 function energyConsumptionForBuilding(building: BuildingRow, effects: ResearchEffects): number {
   if (!isOperational(building)) return 0;
+  if (PROCESS_ENERGY_CONSUMER_TYPES.has(building.typeId)) return 0;
   return applyEnergyRequirement(Math.max(0, Number(building.type?.energyConsumption ?? 0)) * building.level, effects);
+}
+
+function processEnergyConsumptionForBuilding(
+  building: BuildingRow,
+  activeProcessCount: number,
+  effects: ResearchEffects,
+): number {
+  if (!isOperational(building) || activeProcessCount <= 0) return 0;
+  if (!PROCESS_ENERGY_CONSUMER_TYPES.has(building.typeId)) return 0;
+  return applyEnergyRequirement(
+    Math.max(0, Number(building.type?.energyConsumption ?? 0)) * building.level * activeProcessCount,
+    effects,
+  );
 }
 
 function resolveEnergyStateFromRows(
@@ -120,9 +136,27 @@ function resolveEnergyStateFromRows(
   effects: ResearchEffects = NO_RESEARCH_EFFECTS,
 ): ResolvedPlanetEnergyState {
   const operationalBuildings = planet.buildings?.filter(isOperational) ?? [];
+  const activeProcessCountByBuildingId = new Map<string, number>();
+  for (const order of planet.activeProductionOrders ?? []) {
+    if (order.status !== 'queued' || !order.buildingId) continue;
+    activeProcessCountByBuildingId.set(
+      order.buildingId,
+      (activeProcessCountByBuildingId.get(order.buildingId) ?? 0) + 1,
+    );
+  }
   const capacity = operationalBuildings.reduce((sum, building) => sum + energyCapacityForBuilding(building, effects), 0);
   const produced = operationalBuildings.reduce((sum, building) => sum + energyProductionForBuilding(planet, building, effects), 0);
-  const consumed = operationalBuildings.reduce((sum, building) => sum + energyConsumptionForBuilding(building, effects), 0);
+  const consumed = operationalBuildings.reduce(
+    (sum, building) =>
+      sum +
+      energyConsumptionForBuilding(building, effects) +
+      processEnergyConsumptionForBuilding(
+        building,
+        activeProcessCountByBuildingId.get(building.id) ?? 0,
+        effects,
+      ),
+    0,
+  );
   const netRate = produced - consumed;
 
   const startingAmount = Math.max(0, Number(energyRow?.amount ?? 0));
@@ -136,7 +170,13 @@ function resolveEnergyStateFromRows(
   const buildingStates: Record<string, BuildingEnergyState> = {};
   for (const building of planet.buildings ?? []) {
     const production = energyProductionForBuilding(planet, building, effects);
-    const consumption = energyConsumptionForBuilding(building, effects);
+    const consumption =
+      energyConsumptionForBuilding(building, effects) +
+      processEnergyConsumptionForBuilding(
+        building,
+        activeProcessCountByBuildingId.get(building.id) ?? 0,
+        effects,
+      );
     const capacityForBuilding = energyCapacityForBuilding(building, effects);
     if (production <= 0 && consumption <= 0 && capacityForBuilding <= 0) continue;
 
@@ -207,7 +247,26 @@ export async function resolvePlanetEnergyState(
     ? await getResearchEffectsForUser(planet.system.ownerId, database)
     : NO_RESEARCH_EFFECTS;
 
-  return resolveEnergyStateFromRows(planet, energyRow ?? null, new Date(), effects);
+  let activeProductionOrders: { buildingId: string | null; status: string }[] = [];
+  if (database.query?.productionOrders?.findMany) {
+    activeProductionOrders = await database.query.productionOrders.findMany({
+      where: and(
+        eq(productionOrders.planetId, planetId),
+        inArray(productionOrders.status, ['queued', 'paused']),
+      ),
+      columns: {
+        buildingId: true,
+        status: true,
+      },
+    });
+  }
+
+  return resolveEnergyStateFromRows(
+    { ...planet, activeProductionOrders },
+    energyRow ?? null,
+    new Date(),
+    effects,
+  );
 }
 
 export async function syncEnergyResourceRow(

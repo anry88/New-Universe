@@ -1,9 +1,12 @@
 import React from 'react';
 import type { Building } from '@shared/types/world';
-import type { BuildingType } from '@shared/types/buildings';
+import type { BuildingType, BuildBlockedReason } from '@shared/types/buildings';
+import { formatBuildBlockedMessage } from '@shared/types/building-eligibility';
 import { getBuildingCategory, resolveBuildingType } from './cosmic/buildings';
 import { getResourceLabel, getResourceSymbol } from './cosmic/resources';
 import { useI18n } from '../lib/i18n';
+import type { BuildDialogResourceChoice } from './BuildDialog';
+import { recipesForBuildingType } from '@shared/config/productionRecipes';
 
 interface UpgradeDialogProps {
   building?: Building;
@@ -14,6 +17,9 @@ interface UpgradeDialogProps {
   onDemolish: (buildingId: string) => void;
   onOpenShipyard?: () => void;
   onOpenProduction?: () => void;
+  resourceChoices?: BuildDialogResourceChoice[];
+  resourceSwitchBlockedReason?: (resourceId: string) => BuildBlockedReason | null;
+  onChangeResource?: (buildingId: string, resourceId: string) => void;
   isProcessing: boolean;
   /** Biome accent override; defaults to Atlas cyan. */
   accent?: string;
@@ -34,9 +40,13 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
   onDemolish,
   onOpenShipyard,
   onOpenProduction,
+  resourceChoices = [],
+  resourceSwitchBlockedReason,
+  onChangeResource,
   isProcessing,
   accent = '#5BD7FF',
 }) => {
+  const [explainedReason, setExplainedReason] = React.useState<BuildBlockedReason | null>(null);
   const { locale, t } = useI18n();
   if (!isOpen || !building || !typeInfo) return null;
 
@@ -75,6 +85,15 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
         </div>
 
         <div className="bd-list">
+          {explainedReason ? (
+            <div className="bd-block-hint" role="status" data-testid="extractor-resource-block-reason">
+              <div className="bd-block-hint-text">{formatBuildBlockedMessage(explainedReason, locale)}</div>
+              <button type="button" className="bd-block-hint-ok" onClick={() => setExplainedReason(null)}>
+                {t('build.ok')}
+              </button>
+            </div>
+          ) : null}
+
           <div className="bopt" style={{ cursor: 'default' }}>
             <div className="bopt-icon">
               <def.Icon size={32} tone={accent} />
@@ -85,6 +104,38 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
                 <span className="bopt-locked">{getBuildingCategory(typeInfo.id, locale).toUpperCase()}</span>
               </div>
               <div className="bopt-desc">{typeInfo.description[locale]}</div>
+
+              {resourceChoices.length > 0 && onChangeResource ? (
+                <div className="bopt-resource-row" aria-label={t('build.depositChoice')} style={{ marginTop: 10 }}>
+                  {resourceChoices.map((choice) => {
+                    const selected = choice.resourceId === building.selectedResourceId;
+                    const blocked = selected ? null : resourceSwitchBlockedReason?.(choice.resourceId) ?? null;
+                    const full = Boolean(blocked && blocked.code === 'building_blocked_deposit_limit');
+                    return (
+                      <button
+                        key={choice.resourceId}
+                        type="button"
+                        className={`bopt-resource${selected ? ' selected' : ''}${full ? ' full' : ''}`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          if (isProcessing || selected) return;
+                          if (blocked) {
+                            setExplainedReason(blocked);
+                            return;
+                          }
+                          onChangeResource(building.id, choice.resourceId);
+                        }}
+                        disabled={isProcessing}
+                        aria-pressed={selected}
+                        aria-label={`${getResourceLabel(choice.resourceId, locale)} ${choice.used}/${choice.depositLimit}`}
+                      >
+                        <span>{getResourceSymbol(choice.resourceId)}</span>
+                        <span>{choice.used}/{choice.depositLimit}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
               
               <div className="bopt-stats">
                 {(() => {
@@ -92,6 +143,8 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
                   const outputResourceId = building.selectedResourceId ?? output.resourceId;
                   const curLvl = building.level;
                   const nextLvl = curLvl + 1;
+                  const consumesEnergyOnlyDuringProcess = recipesForBuildingType(typeInfo.id).length > 0;
+                  const idleEnergyConsumption = consumesEnergyOnlyDuringProcess ? 0 : typeInfo.energyConsumption;
                   
                   return (
                     <>
@@ -120,9 +173,9 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
                           {t('common.energy')}: {output.energy * curLvl} → {output.energy * nextLvl}
                         </span>
                       )}
-                      {typeInfo.energyConsumption > 0 && (
+                      {idleEnergyConsumption > 0 && (
                         <span className="bstat neg">
-                          {t('build.usage')}: -{typeInfo.energyConsumption} E
+                          {t('build.usage')}: -{idleEnergyConsumption} E
                         </span>
                       )}
                       {output.conversion && (

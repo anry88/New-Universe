@@ -84,30 +84,21 @@ export const BUILDINGS = {
     recipes: ['steel_from_iron_water'],
   },
   fabrication_bay: {
-    deps: [
-      { typeId: 'command_center', level: 3 },
-      { typeId: 'smelter', level: 1 },
-    ],
+    deps: [{ typeId: 'command_center', level: 3 }],
     baseCost: { iron: 450, silicon: 350, carbon: 150, steel: 120 },
     baseTimeSec: 1200,
     category: 'production',
     recipes: ['electronics_standard'],
   },
   refinery: {
-    deps: [
-      { typeId: 'command_center', level: 3 },
-      { typeId: 'smelter', level: 2 },
-    ],
+    deps: [{ typeId: 'command_center', level: 3 }],
     baseCost: { iron: 550, silicon: 320, steel: 180 },
     baseTimeSec: 1500,
     category: 'production',
     recipes: ['fuel_from_oil', 'fuel_from_methane'],
   },
   cryo_factory: {
-    deps: [
-      { typeId: 'spaceport', level: 2 },
-      { typeId: 'smelter', level: 3 },
-    ],
+    deps: [{ typeId: 'command_center', level: 3 }],
     baseCost: { iron: 600, silicon: 200, magnesium: 50 },
     baseTimeSec: 2700,
     category: 'production',

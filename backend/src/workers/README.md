@@ -12,7 +12,7 @@ This directory contains BullMQ workers for background processing and periodic ga
 - **`notifications.ts`** — processes pending notifications from the database. Every minute, it fetches all notifications with `pending=true`, groups them by user to respect rate limits (20/min), and sends them to Telegram.
 - **`research.ts`** — periodic BullMQ worker (30s) that runs `processCompletedResearch` from `features/research/completion.ts` to finalize due tech tiers, invalidate effect memoization hooks, and enqueue `research_done` notifications when the tier was not already acknowledged online.
 - **`market.ts`** — periodic BullMQ worker (15s) that runs `processNpcMarketFulfillment` from `features/market/fulfillment.ts` to credit iron for NPC sell orders, deliver buy orders after `delivery_ready_at`, and write `market_order_fills` idempotently.
-- **`production-orders.ts`** — periodic BullMQ worker (30s) that runs `ProductionService.processDueOrders` to complete queued manual production orders and credit their stored outputs.
+- **`production-orders.ts`** — periodic BullMQ worker (30s) that runs `ProductionService.processDueOrders` to pause production processes when active energy demand drains batteries, resume paused rows after charge returns, complete due queued rows, and credit their stored outputs.
 
 
 ## Adding a new worker

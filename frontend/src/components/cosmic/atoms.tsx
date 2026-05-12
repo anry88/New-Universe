@@ -155,6 +155,13 @@ export interface BuildSlotData {
   disabled?: boolean;
   energyStored?: number;
   energyCapacity?: number;
+  process?: {
+    outputLabel: string;
+    etaSec: number;
+    progressPct: number;
+    paused?: boolean;
+    extraCount?: number;
+  };
 }
 
 const formatEta = (sec: number) => {
@@ -213,6 +220,15 @@ export const BuildSlot: React.FC<BuildSlotProps> = ({ slot, biomeAccent, onClick
       )}
       {!slot.building && slot.disabled && (
         <div className="slot-energy-warning">{t('build.noPower')}</div>
+      )}
+      {!slot.building && slot.process && (
+        <div className={'slot-process' + (slot.process.paused ? ' paused' : '')}>
+          <span>{slot.process.outputLabel}</span>
+          <span>
+            {slot.process.paused ? t('production.paused') : formatEta(slot.process.etaSec)}
+            {slot.process.extraCount ? ` +${slot.process.extraCount}` : ''}
+          </span>
+        </div>
       )}
       {!slot.building && typeof slot.energyStored === 'number' && typeof slot.energyCapacity === 'number' && (
         <div className="slot-energy-charge">

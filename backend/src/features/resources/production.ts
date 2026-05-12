@@ -10,15 +10,21 @@ import { db as defaultDb } from '../../db/index.js';
 import { buildings, buildingTypes, planetResources, productionOrders, resources } from '../../db/schema.js';
 import {
   applyBuildTimeSeconds,
-  applyEnergyGeneration,
   applyEnergyRequirement,
+  applyEnergyGeneration,
   applyStorageCap,
   getResearchEffectsForUser,
   type ResearchEffects,
 } from '../research/effects.js';
 import { getPlayerPlanetSettlement } from '../colonies/ownership.js';
 import { spendResources, gainResources } from './transactions.js';
-import { ENERGY_RESOURCE_ID, energyRequirementForDuration, resolveEnergyOutputCapacity } from './energy.js';
+import {
+  ENERGY_RESOURCE_ID,
+  PROCESS_ENERGY_CONSUMER_TYPES,
+  resolveEnergyOutputCapacity,
+  resolvePlanetEnergyState,
+  syncEnergyResourceRow,
+} from './energy.js';
 
 const RESOURCE_SCALE = 10000;
 
@@ -66,7 +72,24 @@ function durationForQuantity(baseDurationSec: number, quantity: number, level: n
   return applyBuildTimeSeconds(baseSeconds, effects);
 }
 
-function mapOrder(row: typeof productionOrders.$inferSelect): ProductionOrder {
+function productionEnergyPerHour(input: {
+  recipeOutputResourceId: string;
+  buildingTypeId: string;
+  buildingLevel: number;
+  energyConsumption: number;
+  effects: ResearchEffects;
+}): number {
+  if (input.recipeOutputResourceId === ENERGY_RESOURCE_ID) return 0;
+  if (!PROCESS_ENERGY_CONSUMER_TYPES.has(input.buildingTypeId)) return 0;
+  return roundResourceAmount(
+    applyEnergyRequirement(
+      Math.max(0, input.energyConsumption) * Math.max(1, input.buildingLevel),
+      input.effects,
+    ),
+  );
+}
+
+function mapOrder(row: typeof productionOrders.$inferSelect, energyPerHour?: number): ProductionOrder {
   return {
     id: row.id,
     userId: row.userId,
@@ -80,6 +103,8 @@ function mapOrder(row: typeof productionOrders.$inferSelect): ProductionOrder {
     startedAt: row.startedAt.toISOString(),
     completesAt: row.completesAt.toISOString(),
     completedAt: row.completedAt?.toISOString() ?? null,
+    pausedAt: row.pausedAt?.toISOString() ?? null,
+    energyPerHour,
   };
 }
 
@@ -106,6 +131,7 @@ export class ProductionService {
       inputs: [],
       durationSec: 0,
       completesAt: new Date().toISOString(),
+      energyPerHour: 0,
       canStart: false,
       ...patch,
     });
@@ -171,17 +197,14 @@ export class ProductionService {
     const buildingType = await database.query.buildingTypes.findFirst({
       where: eq(buildingTypes.id, building.typeId),
     });
-    const energyRequired = recipe.output.resourceId === ENERGY_RESOURCE_ID
-      ? 0
-      : roundResourceAmount(
-          applyEnergyRequirement(
-            energyRequirementForDuration(Number(buildingType?.energyConsumption ?? 0), durationSec),
-            effects,
-          ),
-        );
-    const inputs = energyRequired > 0
-      ? [...recipeInputs, { resourceId: ENERGY_RESOURCE_ID as ResourceAmount['resourceId'], amount: energyRequired }]
-      : recipeInputs;
+    const energyPerHour = productionEnergyPerHour({
+      recipeOutputResourceId: recipe.output.resourceId,
+      buildingTypeId: building.typeId,
+      buildingLevel: building.level,
+      energyConsumption: Number(buildingType?.energyConsumption ?? 0),
+      effects,
+    });
+    const inputs = recipeInputs;
 
     const currentRows = await database
       .select({
@@ -200,17 +223,15 @@ export class ProductionService {
     );
     const missing = inputs.find((change) => (balance.get(change.resourceId) ?? 0) < change.amount);
     if (missing) {
-      const isEnergy = missing.resourceId === ENERGY_RESOURCE_ID;
       return baseResponse({
         output,
         inputs,
         durationSec,
         completesAt,
+        energyPerHour,
         blockedReason: {
           code: 'production_insufficient_resources',
-          message: isEnergy
-            ? { ru: 'Недостаточно заряда аккумуляторов.', en: 'Not enough stored energy.' }
-            : { ru: `Недостаточно ресурса ${missing.resourceId}.`, en: `Not enough ${missing.resourceId}.` },
+          message: { ru: `Недостаточно ресурса ${missing.resourceId}.`, en: `Not enough ${missing.resourceId}.` },
           details: {
             resourceId: missing.resourceId,
             required: missing.amount,
@@ -220,6 +241,32 @@ export class ProductionService {
       });
     }
 
+    if (energyPerHour > 0) {
+      const energyState = await resolvePlanetEnergyState(input.planetId, database);
+      const netAfterStart = energyState.produced - energyState.consumed - energyPerHour;
+      if (energyState.stored <= 0 && netAfterStart < 0) {
+        return baseResponse({
+          output,
+          inputs,
+          durationSec,
+          completesAt,
+          energyPerHour,
+          blockedReason: {
+            code: 'production_insufficient_energy',
+            message: {
+              ru: 'Недостаточно доступной энергии для запуска процесса.',
+              en: 'Not enough available energy to start this process.',
+            },
+            details: {
+              energyPerHour,
+              stored: energyState.stored,
+              netAfterStart,
+            },
+          },
+        });
+      }
+    }
+
     const capacity = await this.resolveOutputCapacity(input.planetId, output.resourceId, effects, database);
     if (capacity.currentAmount + output.amount > capacity.storageCap) {
       return baseResponse({
@@ -227,6 +274,7 @@ export class ProductionService {
         inputs,
         durationSec,
         completesAt,
+        energyPerHour,
         blockedReason: {
           code: 'production_output_capacity',
           message: { ru: 'Недостаточно места на складе для результата.', en: 'Not enough storage capacity for the output.' },
@@ -245,6 +293,7 @@ export class ProductionService {
       inputs,
       durationSec,
       completesAt,
+      energyPerHour,
       canStart: true,
       blockedReason: undefined,
     });
@@ -286,7 +335,9 @@ export class ProductionService {
         completesAt,
       }).returning();
 
-      return mapOrder(order);
+      await syncEnergyResourceRow(input.planetId, tx);
+
+      return mapOrder(order, preview.energyPerHour);
     });
   }
 
@@ -298,10 +349,79 @@ export class ProductionService {
       where: conditions,
       orderBy: (orders, { desc }) => [desc(orders.startedAt)],
     });
-    return rows.map(mapOrder);
+    return rows.map((row) => mapOrder(row));
+  }
+
+  private async syncPausedOrders(
+    options: { userId?: string; planetId?: string } = {},
+    database: any = defaultDb,
+  ): Promise<void> {
+    const conditions = [inArray(productionOrders.status, ['queued', 'paused'])];
+    if (options.userId) conditions.push(eq(productionOrders.userId, options.userId));
+    if (options.planetId) conditions.push(eq(productionOrders.planetId, options.planetId));
+
+    const activeOrders = await database.query.productionOrders.findMany({
+      where: and(...conditions),
+      orderBy: (orders: any, { asc }: any) => [asc(orders.startedAt)],
+    });
+
+    for (const order of activeOrders) {
+      await database.transaction(async (tx: any) => {
+        const [locked] = await tx
+          .select()
+          .from(productionOrders)
+          .where(
+            and(
+              eq(productionOrders.id, order.id),
+              inArray(productionOrders.status, ['queued', 'paused']),
+            ),
+          )
+          .for('update');
+        if (!locked) return;
+
+        const now = new Date();
+        const energyState = await resolvePlanetEnergyState(locked.planetId, tx);
+        const buildingEnergyState = locked.buildingId ? energyState.buildingStates[locked.buildingId] : undefined;
+
+        if (locked.status === 'queued' && buildingEnergyState?.disabled) {
+          await tx
+            .update(productionOrders)
+            .set({
+              status: 'paused',
+              pausedAt: now,
+              completesAt:
+                locked.completesAt.getTime() <= now.getTime()
+                  ? new Date(now.getTime() + 30_000)
+                  : locked.completesAt,
+            })
+            .where(eq(productionOrders.id, locked.id));
+          await syncEnergyResourceRow(locked.planetId, tx);
+          return;
+        }
+
+        if (locked.status === 'paused' && !energyState.shortage && (energyState.stored > 0 || energyState.netRate > 0)) {
+          const pausedAt = locked.pausedAt ?? now;
+          const pausedMs = Math.max(0, now.getTime() - pausedAt.getTime());
+          const shiftedCompletesAt = new Date(
+            Math.max(locked.completesAt.getTime() + pausedMs, now.getTime() + 1000),
+          );
+          await tx
+            .update(productionOrders)
+            .set({
+              status: 'queued',
+              pausedAt: null,
+              completesAt: shiftedCompletesAt,
+            })
+            .where(eq(productionOrders.id, locked.id));
+          await syncEnergyResourceRow(locked.planetId, tx);
+        }
+      });
+    }
   }
 
   async processDueOrders(options: { userId?: string; planetId?: string } = {}, database: any = defaultDb): Promise<number> {
+    await this.syncPausedOrders(options, database);
+
     const now = new Date();
     const conditions = [
       eq(productionOrders.status, 'queued'),
@@ -341,6 +461,7 @@ export class ProductionService {
           .update(productionOrders)
           .set({ status: 'completed', completedAt: new Date() })
           .where(eq(productionOrders.id, locked.id));
+        await syncEnergyResourceRow(locked.planetId, tx);
         completed += 1;
       });
     }
