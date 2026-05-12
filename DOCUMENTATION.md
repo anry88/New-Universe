@@ -60,8 +60,8 @@ The `tools/` folder hosts offline agents (not bundled into Docker images). Today
 
 The bot entry point is `POST /webhook/telegram`. Incoming updates are dispatched through `features/bot/service.ts`.
 - `/start` command: implemented in `features/bot/commands.ts`, sends a welcome message with an inline button to launch the Mini App via `web_app` type.
-- `/add_diamond` command: admin-only command in `features/bot/commands.ts` with aliases and `env.ADMIN_TELEGRAM_IDS` allowlist, `username + amount` input, and structured `admin.add_diamond` logging.
-- Update handling: `features/bot/webhook.ts` parses the update and routes it to command handlers.
+- `/add_diamond` command: admin-only command in `features/bot/commands.ts` with aliases and `env.ADMIN_TELEGRAM_IDS` allowlist, `username + amount` input, structured `admin.add_diamond` success logging, and structured rejection logs for invalid syntax, unauthorized actors, invalid amounts, and missing users.
+- Update handling: `features/bot/webhook.ts` parses the update and routes it to command handlers. `routes/bot.ts` logs safe webhook context for every incoming update so stale webhook/configuration problems are visible before command execution.
 
 ### Database (Drizzle ORM + Postgres)
 

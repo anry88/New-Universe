@@ -64,6 +64,38 @@ describe('Bot Feature', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it('should ignore unsupported slash commands', async () => {
+    const update: TelegramUpdate = {
+      update_id: 6,
+      message: {
+        message_id: 106,
+        chat: { id: 12345, type: 'private' },
+        text: '/unknown_command',
+        from: { id: 12345, first_name: 'Test User' },
+      },
+    };
+
+    await handleTelegramUpdate(update);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('should ignore empty text messages safely', async () => {
+    const update: TelegramUpdate = {
+      update_id: 7,
+      message: {
+        message_id: 107,
+        chat: { id: 12345, type: 'private' },
+        text: '   ',
+        from: { id: 12345, first_name: 'Test User' },
+      },
+    };
+
+    await handleTelegramUpdate(update);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('should add diamonds via add_diamond command for admin', async () => {
     const now = Date.now();
     const targetUsername = `cmd_admin_target_${now}`;
@@ -105,6 +137,51 @@ describe('Bot Feature', () => {
     const body = JSON.parse(options.body);
     expect(body.chat_id).toBe(12345);
     expect(body.text).toContain('Админ-операция');
+
+    await db.delete(users).where(eq(users.id, target.id));
+  });
+
+  it('should add diamonds via addressed add_diamond command for admin', async () => {
+    const now = Date.now();
+    const targetUsername = `cmd_admin_target_mention_${now}`;
+    const targetTgId = 710000 + now;
+
+    const [target] = await db
+      .insert(users)
+      .values({
+        tgId: BigInt(targetTgId),
+        tgUsername: targetUsername,
+        tgFirstName: 'Target',
+        diamonds: 100,
+      })
+      .returning({ id: users.id, diamonds: users.diamonds });
+
+    expect(target).toBeDefined();
+
+    const update: TelegramUpdate = {
+      update_id: 8,
+      message: {
+        message_id: 108,
+        chat: { id: 12345, type: 'private' },
+        text: `/add_diamond@TestBot @${targetUsername} 25`,
+        from: { id: 12345, first_name: 'Admin', language_code: 'en' },
+      },
+    };
+
+    await handleTelegramUpdate(update);
+
+    const fetched = await db.query.users.findFirst({
+      where: eq(users.id, target.id),
+      columns: { diamonds: true },
+    });
+
+    expect(fetched?.diamonds).toBe(125);
+
+    const [url, options] = fetchMock.mock.calls[0];
+    expect(url).toContain('/sendMessage');
+    const body = JSON.parse(options.body);
+    expect(body.chat_id).toBe(12345);
+    expect(body.text).toContain('Admin action');
 
     await db.delete(users).where(eq(users.id, target.id));
   });
