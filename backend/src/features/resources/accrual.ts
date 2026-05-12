@@ -6,6 +6,7 @@ import {
   applyStorageCap,
   getResearchEffectsForUser,
 } from '../research/effects.js';
+import { ENERGY_RESOURCE_ID, resolvePlanetEnergyState } from './energy.js';
 
 interface DBRecord {
   resourceId: string;
@@ -56,6 +57,7 @@ export async function computeCurrentResources(planetId: string, tx?: any) {
       }
     }
   }
+  const energyState = await resolvePlanetEnergyState(planetId, database);
 
   const records = await database
     .select({
@@ -74,18 +76,29 @@ export async function computeCurrentResources(planetId: string, tx?: any) {
   return records.map((record: DBRecord) => {
     const amount = Number(record.amount);
     const baseRegenRate = Number(record.regenRate);
-    const baseStorageCap = Number(record.storageCap) + buildingStorageCap; // Base + Buildings
+    const isEnergy = record.resourceId === ENERGY_RESOURCE_ID;
+    const baseStorageCap = isEnergy
+      ? energyState.capacity
+      : Number(record.storageCap) + buildingStorageCap; // Base + Buildings
     
-    const regenRate = researchEffects ? applyProductionRate(baseRegenRate, researchEffects) : baseRegenRate;
-    const storageCap = researchEffects ? applyStorageCap(baseStorageCap, researchEffects) : baseStorageCap;
+    const poweredRegenRate =
+      energyState.shortage && baseRegenRate > 0 && !isEnergy ? 0 : baseRegenRate;
+    const regenRate = isEnergy
+      ? energyState.netRate
+      : researchEffects ? applyProductionRate(poweredRegenRate, researchEffects) : poweredRegenRate;
+    const storageCap = isEnergy
+      ? baseStorageCap
+      : researchEffects ? applyStorageCap(baseStorageCap, researchEffects) : baseStorageCap;
     const lastUpdateAt = new Date(record.lastUpdateAt);
 
     const timeDiffMs = now.getTime() - lastUpdateAt.getTime();
     const timeDiffHours = timeDiffMs / 1000 / 3600;
-    const accrual = regenRate * timeDiffHours;
+    const accrual = isEnergy ? 0 : regenRate * timeDiffHours;
     
     let newAmount: number;
-    if (amount >= storageCap) {
+    if (isEnergy) {
+      newAmount = energyState.stored;
+    } else if (amount >= storageCap) {
       // Already at or over capacity: no production happens, but we DON'T cap down existing resources.
       newAmount = amount;
     } else {
@@ -116,6 +129,7 @@ export async function syncPlanetResources(planetId: string, tx?: any): Promise<v
       .update(planetResources)
       .set({
         amount: r.amount.toFixed(4),
+        ...(r.resourceId === ENERGY_RESOURCE_ID ? { regenRate: r.regenRate.toFixed(4) } : {}),
         lastUpdateAt: now,
       })
       .where(

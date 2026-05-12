@@ -15,6 +15,7 @@ export type BuildingTypeId =
   | 'command_center'
   | 'mine'
   | 'drill'
+  | 'battery'
   | 'storage'
   | 'oil_pump'
   | 'biomass_harvester'
@@ -25,7 +26,9 @@ export type BuildingTypeId =
   | 'shipyard'
   | 'lab'
   | 'cryo_factory'
-  | 'solar_plant';
+  | 'solar_plant'
+  | 'wind_turbine'
+  | 'fuel_generator';
 
 export interface BuildingIconProps {
   size?: number;
@@ -98,6 +101,18 @@ export const IconStorage: React.FC<BuildingIconProps> = ({ size, tone }) => (
     <path d="M46 36 L46 52" />
     <circle cx="14" cy="28" r="1.4" fill={tone ?? '#5BD7FF'} />
     <circle cx="14" cy="44" r="1.4" fill={tone ?? '#5BD7FF'} />
+  </Icon>
+);
+
+export const IconBattery: React.FC<BuildingIconProps> = ({ size, tone }) => (
+  <Icon size={size} tone={tone}>
+    <rect x="14" y="22" width="32" height="24" rx="3" fill={tone ?? '#5BD7FF'} fillOpacity="0.12" />
+    <path d="M46 29 L52 29 L52 39 L46 39" />
+    <path d="M22 28 L22 40" />
+    <path d="M28 28 L28 40" />
+    <path d="M34 28 L34 40" />
+    <path d="M18 52 L48 52" />
+    <path d="M30 12 L25 22 L34 22 L29 34" />
   </Icon>
 );
 
@@ -241,6 +256,28 @@ export const IconSolarPlant: React.FC<BuildingIconProps> = ({ size, tone }) => (
   </Icon>
 );
 
+export const IconWindTurbine: React.FC<BuildingIconProps> = ({ size, tone }) => (
+  <Icon size={size} tone={tone}>
+    <path d="M32 30 L32 54" />
+    <circle cx="32" cy="28" r="3" fill={tone ?? '#5BD7FF'} fillOpacity="0.35" />
+    <path d="M32 25 L30 10 Q36 16 35 26" fill={tone ?? '#5BD7FF'} fillOpacity="0.1" />
+    <path d="M35 30 L50 36 Q40 39 33 32" fill={tone ?? '#5BD7FF'} fillOpacity="0.1" />
+    <path d="M29 30 L16 40 Q18 29 30 27" fill={tone ?? '#5BD7FF'} fillOpacity="0.1" />
+    <path d="M22 54 L42 54" />
+  </Icon>
+);
+
+export const IconFuelGenerator: React.FC<BuildingIconProps> = ({ size, tone }) => (
+  <Icon size={size} tone={tone}>
+    <rect x="13" y="28" width="38" height="22" rx="2" fill={tone ?? '#5BD7FF'} fillOpacity="0.12" />
+    <path d="M18 28 L18 20 L28 14 L38 20 L38 28" />
+    <path d="M42 28 L42 18" />
+    <path d="M46 18 L38 18" />
+    <path d="M24 38 L31 38 L28 46 L36 34 L29 34 L32 28" />
+    <circle cx="45" cy="42" r="3" fill={tone ?? '#5BD7FF'} fillOpacity="0.35" />
+  </Icon>
+);
+
 export interface BuildingDef {
   Icon: React.FC<BuildingIconProps>;
   label: string;
@@ -285,6 +322,7 @@ const BUILDING_CATEGORY_BY_TYPE: Record<BuildingTypeId, BuildingCategoryKey> = {
   command_center: 'special',
   mine: 'extraction',
   drill: 'extraction',
+  battery: 'energy',
   storage: 'logistics',
   oil_pump: 'extraction',
   biomass_harvester: 'extraction',
@@ -296,12 +334,15 @@ const BUILDING_CATEGORY_BY_TYPE: Record<BuildingTypeId, BuildingCategoryKey> = {
   lab: 'progress',
   cryo_factory: 'processing',
   solar_plant: 'energy',
+  wind_turbine: 'energy',
+  fuel_generator: 'energy',
 };
 
 export const BUILDING_BY_TYPE: Record<BuildingTypeId, BuildingDef> = {
   command_center: { Icon: IconCommandCenter, label: 'Command Center', labels: { en: 'Command Center', ru: 'Командный центр' }, cat: 'Special', cats: BUILDING_CATEGORY_LABELS.special },
   mine: { Icon: IconMine, label: 'Metals Mine', labels: { en: 'Metals Mine', ru: 'Шахта' }, cat: 'Extraction', cats: BUILDING_CATEGORY_LABELS.extraction },
   drill: { Icon: IconDrill, label: 'Fluid Extractor', labels: { en: 'Fluid Extractor', ru: 'Экстрактор' }, cat: 'Extraction', cats: BUILDING_CATEGORY_LABELS.extraction },
+  battery: { Icon: IconBattery, label: 'Battery', labels: { en: 'Battery', ru: 'Аккумулятор' }, cat: 'Energy', cats: BUILDING_CATEGORY_LABELS.energy },
   storage: { Icon: IconStorage, label: 'Storage', labels: { en: 'Storage', ru: 'Склад' }, cat: 'Logistics', cats: BUILDING_CATEGORY_LABELS.logistics },
   oil_pump: { Icon: IconOilPump, label: 'Oil Pump', labels: { en: 'Oil Pump', ru: 'Нефтекачка' }, cat: 'Extraction', cats: BUILDING_CATEGORY_LABELS.extraction },
   biomass_harvester: { Icon: IconBiomassHarvester, label: 'Biomass Harvester', labels: { en: 'Biomass Harvester', ru: 'Биореактор' }, cat: 'Extraction', cats: BUILDING_CATEGORY_LABELS.extraction },
@@ -313,6 +354,8 @@ export const BUILDING_BY_TYPE: Record<BuildingTypeId, BuildingDef> = {
   lab: { Icon: IconLab, label: 'Research Lab', labels: { en: 'Research Lab', ru: 'Лаборатория' }, cat: 'Progress', cats: BUILDING_CATEGORY_LABELS.progress },
   cryo_factory: { Icon: IconCryoFactory, label: 'Cryo Factory', labels: { en: 'Cryo Factory', ru: 'Криозавод' }, cat: 'Processing', cats: BUILDING_CATEGORY_LABELS.processing },
   solar_plant: { Icon: IconSolarPlant, label: 'Solar Plant', labels: { en: 'Solar Plant', ru: 'Солнечная станция' }, cat: 'Energy', cats: BUILDING_CATEGORY_LABELS.energy },
+  wind_turbine: { Icon: IconWindTurbine, label: 'Wind Turbine', labels: { en: 'Wind Turbine', ru: 'Ветротурбина' }, cat: 'Energy', cats: BUILDING_CATEGORY_LABELS.energy },
+  fuel_generator: { Icon: IconFuelGenerator, label: 'Fuel Generator', labels: { en: 'Fuel Generator', ru: 'Топливный генератор' }, cat: 'Energy', cats: BUILDING_CATEGORY_LABELS.energy },
 };
 
 /**

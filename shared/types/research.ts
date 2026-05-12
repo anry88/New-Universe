@@ -59,6 +59,7 @@ export interface ResearchDefinition {
 }
 
 export type ResourceId =
+  | 'energy'
   | 'water'
   | 'iron'
   | 'carbon'

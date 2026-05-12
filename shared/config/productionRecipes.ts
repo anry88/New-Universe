@@ -101,6 +101,42 @@ export const PRODUCTION_RECIPES: ProductionRecipe[] = [
     ],
     baseDurationSec: 14,
   },
+  {
+    id: 'energy_from_fuel',
+    buildingTypeId: 'fuel_generator',
+    name: { ru: 'Заряд от топлива', en: 'Charge from Fuel' },
+    description: {
+      ru: 'Сжигает готовое топливо для быстрой зарядки аккумуляторов.',
+      en: 'Burns refined fuel for a fast battery charge.',
+    },
+    output: { resourceId: 'energy', amount: 90 },
+    inputs: [{ resourceId: 'fuel', amount: 1 }],
+    baseDurationSec: 20,
+  },
+  {
+    id: 'energy_from_oil',
+    buildingTypeId: 'fuel_generator',
+    name: { ru: 'Заряд от нефти', en: 'Charge from Oil' },
+    description: {
+      ru: 'Сжигает нефть напрямую: дешевле по инфраструктуре, но менее эффективно, чем готовое топливо.',
+      en: 'Burns oil directly: simpler infrastructure, but less efficient than refined fuel.',
+    },
+    output: { resourceId: 'energy', amount: 62 },
+    inputs: [{ resourceId: 'oil', amount: 1 }],
+    baseDurationSec: 28,
+  },
+  {
+    id: 'energy_from_methane',
+    buildingTypeId: 'fuel_generator',
+    name: { ru: 'Заряд от метана', en: 'Charge from Methane' },
+    description: {
+      ru: 'Сжигает метан с низкой энергоотдачей, но использует распространенные газовые залежи.',
+      en: 'Burns methane with lower yield, using common gas deposits.',
+    },
+    output: { resourceId: 'energy', amount: 34 },
+    inputs: [{ resourceId: 'methane', amount: 2 }],
+    baseDurationSec: 32,
+  },
 ];
 
 export function recipesForBuildingType(buildingTypeId: string): ProductionRecipe[] {

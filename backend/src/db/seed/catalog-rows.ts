@@ -11,6 +11,7 @@ export type BuildingCatalogRow = typeof buildingTypes.$inferInsert;
 export type ShipCatalogRow = typeof shipTypes.$inferInsert;
 
 export const RESOURCE_CATALOG_ROWS: ResourceCatalogRow[] = [
+  { id: 'energy', symbol: 'E', tier: 1, name: { ru: 'Энергия', en: 'Energy' }, baseRegenRate: 0, defaultStorageCap: 0 },
   { id: 'water', symbol: 'H₂O', tier: 1, name: { ru: 'Вода', en: 'Water' }, baseRegenRate: 60, defaultStorageCap: 5000 },
   { id: 'iron', symbol: 'Fe', tier: 1, name: { ru: 'Железо', en: 'Iron' }, baseRegenRate: 50, defaultStorageCap: 5000 },
   { id: 'carbon', symbol: 'C', tier: 1, name: { ru: 'Углерод', en: 'Carbon' }, baseRegenRate: 40, defaultStorageCap: 5000 },
@@ -137,6 +138,21 @@ export const BUILDING_TYPE_CATALOG_ROWS: BuildingCatalogRow[] = [
     baseTimeSec: 600,
     baseOutput: { cap: 5000 },
     energyConsumption: 5,
+  },
+  {
+    id: 'battery',
+    name: { ru: 'Аккумулятор', en: 'Battery' },
+    description: {
+      ru: 'Обязательное энергетическое хранилище колонии. Накапливает избыток генерации и питает здания при просадках.',
+      en: 'Mandatory colony energy storage. Stores surplus generation and powers buildings during deficits.',
+    },
+    category: 'energy',
+    maxLevel: 20,
+    deps: [{ typeId: 'command_center', level: 1 }],
+    baseCost: { iron: 120, silicon: 90, carbon: 40 },
+    baseTimeSec: 420,
+    baseOutput: { energyCap: 500 },
+    energyConsumption: 0,
   },
   {
     id: 'oil_pump',
@@ -297,6 +313,36 @@ export const BUILDING_TYPE_CATALOG_ROWS: BuildingCatalogRow[] = [
     baseCost: { silicon: 150, iron: 50 },
     baseTimeSec: 600,
     baseOutput: { energy: 50 },
+    energyConsumption: 0,
+  },
+  {
+    id: 'wind_turbine',
+    name: { ru: 'Ветротурбина', en: 'Wind Turbine' },
+    description: {
+      ru: 'Генерирует энергию из атмосферных потоков. Выход масштабируется от массы планеты через показатель размера.',
+      en: 'Generates energy from atmospheric currents. Output scales with planet mass through the size proxy.',
+    },
+    category: 'energy',
+    maxLevel: 20,
+    deps: [{ typeId: 'command_center', level: 1 }],
+    baseCost: { iron: 140, aluminum: 60, silicon: 60 },
+    baseTimeSec: 720,
+    baseOutput: { energy: 38 },
+    energyConsumption: 0,
+  },
+  {
+    id: 'fuel_generator',
+    name: { ru: 'Топливный генератор', en: 'Fuel Generator' },
+    description: {
+      ru: 'Заряжает аккумуляторы ручными рецептами из топлива, нефти или метана с разной энергоотдачей.',
+      en: 'Charges batteries through manual recipes from fuel, oil, or methane with different energy yields.',
+    },
+    category: 'energy',
+    maxLevel: 15,
+    deps: [{ typeId: 'command_center', level: 2 }],
+    baseCost: { iron: 220, silicon: 120, steel: 80 },
+    baseTimeSec: 900,
+    baseOutput: {},
     energyConsumption: 0,
   },
 ];

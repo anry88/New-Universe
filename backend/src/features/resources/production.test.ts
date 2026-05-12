@@ -63,6 +63,12 @@ describe('production orders', () => {
       level: buildingLevel,
       slotIndex: 1,
     }).returning();
+    await db.insert(buildings).values({
+      planetId: planet.id,
+      typeId: 'battery',
+      level: 2,
+      slotIndex: 2,
+    });
 
     await db.insert(planetResources).values([
       { planetId: planet.id, resourceId: 'iron', amount: '1000', regenRate: '0' },
@@ -75,8 +81,9 @@ describe('production orders', () => {
       { planetId: planet.id, resourceId: 'methane', amount: '1000', regenRate: '0' },
       { planetId: planet.id, resourceId: 'sulfur', amount: '1000', regenRate: '0' },
       { planetId: planet.id, resourceId: 'ice', amount: '1000', regenRate: '0' },
-      { planetId: planet.id, resourceId: 'fuel', amount: '0', regenRate: '0' },
+      { planetId: planet.id, resourceId: 'fuel', amount: '1000', regenRate: '0' },
       { planetId: planet.id, resourceId: 'electronics', amount: '0', regenRate: '0' },
+      { planetId: planet.id, resourceId: 'energy', amount: '500', regenRate: '0' },
     ]);
 
     return { user, planet, building };
@@ -109,6 +116,7 @@ describe('production orders', () => {
     const { user, planet, building } = await createProductionPlanet('smelter');
 
     const ironBefore = await resourceAmount(planet.id, 'iron');
+    const energyBefore = await resourceAmount(planet.id, 'energy');
     const steelBefore = await resourceAmount(planet.id, 'steel');
     const order = await productionService.start(user.id, {
       planetId: planet.id,
@@ -118,6 +126,7 @@ describe('production orders', () => {
     });
 
     expect(await resourceAmount(planet.id, 'iron')).toBeCloseTo(ironBefore - 10, 4);
+    expect(await resourceAmount(planet.id, 'energy')).toBeLessThan(energyBefore);
     expect(await resourceAmount(planet.id, 'steel')).toBeCloseTo(steelBefore, 4);
 
     await db
@@ -188,12 +197,14 @@ describe('production orders', () => {
       recipeId: 'electronics_standard',
       quantity: 10,
     });
-    expect(electronicsPreview.inputs.map((input) => input.resourceId).sort()).toEqual([
+    const electronicsInputIds = electronicsPreview.inputs.map((input) => input.resourceId).sort();
+    expect(electronicsInputIds.filter((resourceId) => resourceId !== 'energy')).toEqual([
       'copper',
       'silicon',
       'silicon_carbide',
       'steel',
     ]);
+    expect(electronicsInputIds).toContain('energy');
 
     const refinery = await createProductionPlanet('refinery');
     const oilPreview = await productionService.preview(refinery.user.id, {
@@ -211,5 +222,39 @@ describe('production orders', () => {
     const oilInput = oilPreview.inputs.find((input) => input.resourceId === 'oil')!.amount;
     const methaneInput = methanePreview.inputs.find((input) => input.resourceId === 'methane')!.amount;
     expect(methaneInput).toBeGreaterThan(oilInput);
+  });
+
+  it('blocks processing without stored energy and supports fuel-generator charge recipes', async () => {
+    const smelter = await createProductionPlanet('smelter');
+    await db
+      .update(planetResources)
+      .set({ amount: '0', regenRate: '0' })
+      .where(and(eq(planetResources.planetId, smelter.planet.id), eq(planetResources.resourceId, 'energy')));
+
+    const blocked = await productionService.preview(smelter.user.id, {
+      planetId: smelter.planet.id,
+      buildingId: smelter.building.id,
+      recipeId: 'steel_from_iron_water',
+      quantity: 10,
+    });
+    expect(blocked.canStart).toBe(false);
+    expect(blocked.blockedReason?.details?.resourceId).toBe('energy');
+
+    const generator = await createProductionPlanet('fuel_generator');
+    const fuelPreview = await productionService.preview(generator.user.id, {
+      planetId: generator.planet.id,
+      buildingId: generator.building.id,
+      recipeId: 'energy_from_fuel',
+      quantity: 1,
+    });
+    const methanePreview = await productionService.preview(generator.user.id, {
+      planetId: generator.planet.id,
+      buildingId: generator.building.id,
+      recipeId: 'energy_from_methane',
+      quantity: 1,
+    });
+
+    expect(fuelPreview.canStart).toBe(true);
+    expect(fuelPreview.output.amount).toBeGreaterThan(methanePreview.output.amount);
   });
 });

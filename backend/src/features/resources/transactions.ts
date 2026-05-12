@@ -2,6 +2,7 @@ import { db as defaultDb } from '../../db/index.js';
 import { planetResources } from '../../db/schema.js';
 import { eq, and, inArray } from 'drizzle-orm';
 import { syncPlanetResources } from './accrual.js';
+import { ENERGY_RESOURCE_ID, resolvePlanetEnergyState } from './energy.js';
 
 interface ResourceChange {
   resourceId: string;
@@ -109,11 +110,17 @@ async function gainResourcesInner(trx: any, planetId: string, gains: ResourceCha
       balance[record.resourceId] = Number(record.amount);
     }
 
+    const energyState = gains.some((gain) => gain.resourceId === ENERGY_RESOURCE_ID)
+      ? await resolvePlanetEnergyState(planetId, trx)
+      : null;
+
     // 3. Apply gains
     const now = new Date();
     for (const gain of gains) {
       const current = balance[gain.resourceId] || 0;
-      const newAmount = current + gain.amount;
+      const newAmount = gain.resourceId === ENERGY_RESOURCE_ID && energyState
+        ? Math.min(current + gain.amount, energyState.capacity)
+        : current + gain.amount;
       balance[gain.resourceId] = newAmount;
 
       await trx

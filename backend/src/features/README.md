@@ -9,7 +9,7 @@ Each subfolder is a single feature and is wired into Fastify from `backend/src/i
 Planet infrastructure management.
 
 - **`routes.ts`** — registers `GET /types`, `POST /build`, `POST /upgrade`, `POST /demolish`, `POST /sync/:planetId`, `GET /queue`, **`POST /rush`**.
-- **`service.ts`** — handles building logic, costs, queueing, **`rushQueuedBuilding`**, demolish, sync/finalize helpers, and planet-aware passive regen for extractors such as mines, drills, oil pumps, and biomass harvesters. `sync` finalizes completed queue items and recomputes passive rates for settled buildings on the planet so existing operational extractors pick up updated eligibility/output rules.
+- **`service.ts`** — handles building logic, costs, queueing, **`rushQueuedBuilding`**, demolish, sync/finalize helpers, planet-aware passive regen for extractors such as mines, drills, oil pumps, and biomass harvesters, plus energy storage/generation sync for `battery`, `solar_plant`, `wind_turbine`, and `fuel_generator`.
 - **`buildings.test.ts`**, **`rush.test.ts`**, etc. — integration tests for construction flows.
 
 ## `auth/`
@@ -78,7 +78,7 @@ Building construction and queue management. [Detailed documentation](./buildings
 Resource accrual, transactions, conversion, and explicit production orders. [Detailed documentation](./resources/README.md).
 
 - **`routes.ts`** — `resourcesRoutes(app)` registers `POST /convert`, `POST /buy-with-diamonds`, `GET /planets/:id`, and `/production/*` recipe/order endpoints (mounted at `/resources` from `index.ts`). JWT required for mutating endpoints. `POST /buy-with-diamonds` accepts `{ planetId, resourceId, amount }`; `POST /production/start` accepts `{ planetId, buildingId, recipeId, quantity }`.
-- **`convert.ts`** — `convertResources(userId, { planetId, from, to, amount })` converts ice ↔ water on a player-owned planet. Validates planet ownership, checks for a `cryo_factory` building (level ≥ 1), verifies energy availability (solar_plant production ≥ building consumption), then atomically spends the source resource and gains the target resource. Ice→water converts at 1:1; water→ice incurs a 5% loss (100 → 95). Also exports `buyResourceWithDiamonds` with rarity-aware pricing derived from `resources.tier` (`units-per-diamond` curve per tier), deducts `users.diamonds`, then credits `planet_resources`.
+- **`convert.ts`** — `convertResources(userId, { planetId, from, to, amount })` converts ice ↔ water on a player-owned planet. Validates planet ownership, checks for a `cryo_factory` building (level ≥ 1), then atomically spends the source resource plus stored `energy` before granting the target resource. Ice→water converts at 1:1; water→ice incurs a 5% loss (100 → 95). Also exports `buyResourceWithDiamonds` with rarity-aware pricing derived from `resources.tier` (`units-per-diamond` curve per tier), deducts `users.diamonds`, then credits `planet_resources`.
 - **`wallet.ts`** — `grantDiamondsToUserByUsername` supports admin wallet updates by username.
 - **`convert.test.ts`** — Vitest integration suite covering conversion flow plus buy-with-diamonds success and validation failures.
 - **`accrual.ts`** — exports `computeCurrentResources(planetId, tx?)` which lazily computes current resource amounts without writing to the database. For each resource: `amount += regenRate × (now - lastUpdateAt)`. Respects `defaultStorageCap` from the `resources` table and applies research production/storage multipliers via `features/research/effects.ts`. Returns array of `{ resourceId, amount, regenRate, lastUpdateAt, storageCap }`.
@@ -91,7 +91,7 @@ Resource accrual, transactions, conversion, and explicit production orders. [Det
   - If resource is insufficient → transaction rolls back, nothing spent.
   - `lastUpdateAt` synced with spend/gain.
 - **`transactions.test.ts`** — Vitest coverage asserting: successful spend, insufficient resource rollback, gain resources, sync `lastUpdateAt`, and multiple resource atomic handling.
-- **`production.ts`** — `ProductionService` exposes recipe listing, preview, start, order listing, and due-order processing. It validates settled-planet ownership and building type, applies building/research modifiers to input quantities/durations, spends inputs immediately, stores `production_orders`, and grants outputs when worker or online sync processes due rows.
+- **`production.ts`** — `ProductionService` exposes recipe listing, preview, start, order listing, and due-order processing. It validates settled-planet ownership and building type, applies building/research modifiers to input quantities/durations, includes stored `energy` in processor inputs, blocks before spending materials when charge is missing, stores `production_orders`, and grants outputs when worker or online sync processes due rows.
 - **`production.test.ts`** — Vitest integration suite covering steel inputs, immediate spend/deferred output, insufficient resources, building/research modifiers, electronics multi-input costs, and oil-vs-methane fuel recipes.
 
 ## `tutorial/`

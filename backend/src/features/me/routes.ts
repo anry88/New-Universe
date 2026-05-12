@@ -30,6 +30,7 @@ import {
   type UpdatePreferredLocaleRequest,
   type UpdatePreferredLocaleResponse,
 } from "@shared/types/locale.js";
+import { resolvePlanetEnergyState } from "../resources/energy.js";
 
 type UserRow = typeof users.$inferSelect;
 
@@ -264,12 +265,25 @@ export async function meRoutes(app: FastifyInstance) {
               where: eq(richness.planetId, planet.id),
             }),
           ]);
+          const energyState = await resolvePlanetEnergyState(planet.id, db);
           const richnessByResourceId = new Map(
             richnessRows.map((row) => [row.resourceId, row.value]),
           );
           return {
             ...planet,
             isDiscovered: true,
+            energy: {
+              stored: energyState.stored,
+              capacity: energyState.capacity,
+              produced: energyState.produced,
+              consumed: energyState.consumed,
+              net: energyState.net,
+              shortage: energyState.shortage,
+            },
+            buildings: (planet.buildings ?? []).map((building: any) => ({
+              ...building,
+              energy: energyState.buildingStates[building.id],
+            })),
             resources: res.map((r) => ({
               ...r,
               amount: r.amount.toString(),

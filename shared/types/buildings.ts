@@ -2,6 +2,7 @@ export interface BuildingOutput {
   resourceId?: string;
   baseRate?: number;
   cap?: number;
+  energyCap?: number;
   energy?: number;
   conversion?: {
     from: string;

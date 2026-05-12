@@ -9,6 +9,16 @@ export interface PlanetResource {
   storageCap: string;
 }
 
+export interface BuildingEnergyState {
+  stored?: number;
+  capacity?: number;
+  production?: number;
+  consumption?: number;
+  net?: number;
+  disabled?: boolean;
+  reason?: 'energy_shortage';
+}
+
 export interface Building {
   id: string;
   planetId: string;
@@ -18,6 +28,16 @@ export interface Building {
   queueAction?: 'build' | 'upgrade' | 'destroy';
   queueCompletesAt?: string | null;
   queueStartedAt?: string | null;
+  energy?: BuildingEnergyState;
+}
+
+export interface PlanetEnergyStatus {
+  stored: number;
+  capacity: number;
+  produced: number;
+  consumed: number;
+  net: number;
+  shortage: boolean;
 }
 
 export interface Planet {
@@ -30,6 +50,7 @@ export interface Planet {
   isDiscovered?: boolean;
   /** True only after the planet has an active Command Center/capital or colony record. */
   isColonized?: boolean;
+  energy?: PlanetEnergyStatus;
   resources?: PlanetResource[];
   buildings?: Building[];
 }

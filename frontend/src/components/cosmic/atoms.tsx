@@ -152,6 +152,9 @@ export interface BuildSlotData {
   building?: boolean;
   etaSec?: number;
   progressPct?: number;
+  disabled?: boolean;
+  energyStored?: number;
+  energyCapacity?: number;
 }
 
 const formatEta = (sec: number) => {
@@ -180,7 +183,7 @@ export const BuildSlot: React.FC<BuildSlotProps> = ({ slot, biomeAccent, onClick
   return (
     <button
       type="button"
-      className={'slot filled ' + (slot.building ? 'queued' : '')}
+      className={'slot filled ' + (slot.building ? 'queued ' : '') + (slot.disabled ? 'disabled' : '')}
       onClick={onClick}
       data-testid={`slot-${slot.idx}`}
     >
@@ -201,6 +204,14 @@ export const BuildSlot: React.FC<BuildSlotProps> = ({ slot, biomeAccent, onClick
             />
           </div>
           <div className="slot-progress-eta">▲ {formatEta(slot.etaSec ?? 0)}</div>
+        </div>
+      )}
+      {!slot.building && slot.disabled && (
+        <div className="slot-energy-warning">{t('build.noPower')}</div>
+      )}
+      {!slot.building && typeof slot.energyStored === 'number' && typeof slot.energyCapacity === 'number' && (
+        <div className="slot-energy-charge">
+          {t('build.charge')}: {Math.round(slot.energyStored)}/{Math.round(slot.energyCapacity)} E
         </div>
       )}
     </button>

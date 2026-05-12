@@ -139,6 +139,15 @@ export function PlanetDetailPage() {
   );
   const currentEnergy = useMemo(() => {
     if (!planet) return { produced: 0, consumed: 0 };
+    if (planet.energy) {
+      return {
+        produced: planet.energy.produced,
+        consumed: planet.energy.consumed,
+        stored: planet.energy.stored,
+        capacity: planet.energy.capacity,
+        net: planet.energy.net,
+      };
+    }
     const byId = new Map(buildingTypes.map((t) => [t.id, t]));
     let produced = 0;
     let consumed = 0;

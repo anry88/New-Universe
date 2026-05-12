@@ -133,7 +133,9 @@ describe('Resource Conversion - POST /resources/convert', () => {
 
     await addBuilding(planetId, 'cryo_factory', 1, 0);
     await addBuilding(planetId, 'solar_plant', 1, 1);
+    await addBuilding(planetId, 'battery', 1, 2);
     await ensureResource(planetId, 'ice', 200);
+    await ensureResource(planetId, 'energy', 500);
 
     const iceBefore = await getResourceAmount(planetId, 'ice');
     const waterBefore = await getResourceAmount(planetId, 'water');
@@ -169,7 +171,9 @@ describe('Resource Conversion - POST /resources/convert', () => {
 
     await addBuilding(planetId, 'cryo_factory', 1, 0);
     await addBuilding(planetId, 'solar_plant', 1, 1);
+    await addBuilding(planetId, 'battery', 1, 2);
     await ensureResource(planetId, 'ice', 0);
+    await ensureResource(planetId, 'energy', 500);
 
     const waterBefore = await getResourceAmount(planetId, 'water');
     expect(waterBefore).toBeGreaterThanOrEqual(100);
