@@ -6,17 +6,58 @@ import {
   ships,
   shipTypes,
   systems,
+  notifications,
 } from '../../db/schema.js';
 import { eq, and } from 'drizzle-orm';
-import { spendResources } from '../resources/transactions.js';
+import { gainResources, spendResources } from '../resources/transactions.js';
 import { applyShipSpeed, getResearchEffectsForUser } from '../research/effects.js';
 import { CARGO_TRANSFER_RESEARCH_GATE } from '../../config/research-unlocks.js';
 import { assertResearchRequirement, loadUserResearchLevels } from '../research/gates.js';
+import type { CargoTransferLoad, CargoTransferRequest } from '@shared/types/cargo.js';
 
-export interface CargoTransferRequest {
-  shipId: string;
-  targetPlanetId: string;
-  resources: { resourceId: string; amount: number }[];
+type CargoTransferResultPayload = {
+  deliveryMode?: 'one_way';
+  resources?: CargoTransferLoad[];
+  loads?: CargoTransferLoad[];
+  totalCargo?: number;
+  maxCargo?: number;
+  distance?: number;
+  speed?: number;
+  engineFactor?: number;
+};
+
+function normalizeCargoLoads(resources: CargoTransferLoad[]): CargoTransferLoad[] {
+  if (!Array.isArray(resources) || resources.length === 0) {
+    throw new Error('Resources are missing');
+  }
+
+  return resources.map((resource, index) => {
+    const resourceId = typeof resource?.resourceId === 'string'
+      ? resource.resourceId.trim()
+      : '';
+    const amount = Number(resource?.amount);
+
+    if (!resourceId) {
+      throw new Error(`Cargo load #${index + 1} resourceId is required`);
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new Error(`Cargo load #${index + 1} amount must be greater than 0`);
+    }
+
+    return { resourceId, amount };
+  });
+}
+
+function aggregateCargoLoads(loads: CargoTransferLoad[]): CargoTransferLoad[] {
+  const totals = new Map<string, number>();
+  for (const load of loads) {
+    totals.set(load.resourceId, (totals.get(load.resourceId) ?? 0) + load.amount);
+  }
+  return [...totals.entries()].map(([resourceId, amount]) => ({ resourceId, amount }));
+}
+
+function sumCargoLoads(loads: CargoTransferLoad[]): number {
+  return loads.reduce((sum, load) => sum + load.amount, 0);
 }
 
 /**
@@ -28,7 +69,8 @@ export async function launchCargoTransfer(
 ) {
   if (!request) throw new Error('Request body is missing');
   const { shipId, targetPlanetId, resources } = request;
-  if (!resources) throw new Error('Resources are missing');
+  const loads = normalizeCargoLoads(resources);
+  const reservedResources = aggregateCargoLoads(loads);
 
   const levels = await loadUserResearchLevels(userId, defaultDb);
   assertResearchRequirement(levels, CARGO_TRANSFER_RESEARCH_GATE, 'Cargo transfer');
@@ -91,7 +133,7 @@ export async function launchCargoTransfer(
     if (!origin) throw new Error('Origin planet not found');
 
     // 4. Validate cargo capacity
-    const totalCargo = resources.reduce((sum, r) => sum + r.amount, 0);
+    const totalCargo = sumCargoLoads(loads);
     if (totalCargo > ship.cargoCapacity) {
       throw new Error(`Cargo (${totalCargo}) exceeds ship capacity (${ship.cargoCapacity})`);
     }
@@ -109,7 +151,7 @@ export async function launchCargoTransfer(
     const eta = new Date(Date.now() + etaSeconds * 1000);
 
     // 6. Atomic resource reservation on origin
-    const spendResult = await spendResources(ship.locationPlanetId, resources, tx);
+    const spendResult = await spendResources(ship.locationPlanetId, reservedResources, tx);
     if (!spendResult.success) {
       throw new Error(spendResult.error || 'Failed to reserve resources');
     }
@@ -128,16 +170,21 @@ export async function launchCargoTransfer(
         status: 'in_flight',
         eta,
         result: {
-          resources,
+          deliveryMode: 'one_way',
+          resources: reservedResources,
+          loads,
           totalCargo,
+          maxCargo: ship.cargoCapacity,
           distance,
+          speed,
+          engineFactor: 1,
         },
       })
       .returning();
 
     // 8. Update ship state
     const cargoJson: Record<string, number> = {};
-    for (const r of resources) {
+    for (const r of reservedResources) {
       cargoJson[r.resourceId] = (cargoJson[r.resourceId] || 0) + r.amount;
     }
 
@@ -165,4 +212,75 @@ export async function launchCargoTransfer(
 
     return { success: true, expedition };
   });
+}
+
+export async function completeCargoTransfer(
+  expedition: typeof expeditions.$inferSelect,
+  shipId: string,
+  tx: any,
+  options: { skipNotifications?: boolean } = {},
+): Promise<boolean> {
+  if (expedition.status === 'completed') {
+    return false;
+  }
+  if (expedition.type !== 'cargo_transfer') {
+    throw new Error(`Invalid expedition type for cargo transfer: ${expedition.type}`);
+  }
+  if (!expedition.targetPlanetId) {
+    throw new Error('Cargo transfer is missing targetPlanetId');
+  }
+
+  const result = (expedition.result ?? {}) as CargoTransferResultPayload;
+  const resultLoads = result.resources?.length ? result.resources : result.loads ?? [];
+  const deliveryResources = aggregateCargoLoads(
+    normalizeCargoLoads(resultLoads),
+  );
+
+  const gainResult = await gainResources(expedition.targetPlanetId, deliveryResources, tx);
+  if (!gainResult.success) {
+    throw new Error(gainResult.error || 'Failed to apply resources to target planet');
+  }
+
+  await tx
+    .update(expeditions)
+    .set({
+      status: 'completed',
+      returnedAt: new Date(),
+      result: {
+        ...result,
+        deliveryMode: 'one_way',
+        resources: deliveryResources,
+      },
+    })
+    .where(eq(expeditions.id, expedition.id));
+
+  await tx
+    .update(ships)
+    .set({
+      status: 'idle',
+      locationPlanetId: expedition.targetPlanetId,
+      cargoJson: {},
+    })
+    .where(eq(ships.id, shipId));
+
+  const [ship] = await tx
+    .select()
+    .from(ships)
+    .where(eq(ships.id, shipId))
+    .limit(1);
+
+  if (ship && !options.skipNotifications) {
+    await tx.insert(notifications).values({
+      userId: ship.ownerId,
+      type: 'cargo_transfer_delivered',
+      payload: {
+        expeditionId: expedition.id,
+        shipId,
+        targetPlanetId: expedition.targetPlanetId,
+        resources: deliveryResources,
+      },
+    });
+  }
+
+  return true;
 }

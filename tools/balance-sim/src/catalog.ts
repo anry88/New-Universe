@@ -165,9 +165,9 @@ export const SHIPS = {
     requiredBuildings: [{ typeId: 'shipyard', level: 1 }],
   },
   cargo_light: {
-    buildCost: { iron: 300, aluminum: 100, electronics: 50 },
+    buildCost: { iron: 500, silicon: 300, carbon: 200, methane: 100 },
     buildTimeSec: 1200,
-    requiredBuildings: [{ typeId: 'shipyard', level: 1 }],
+    requiredBuildings: [{ typeId: 'shipyard', level: 2 }],
   },
   colonizer: {
     buildCost: { steel: 2500, silicon: 800, biomass: 400 },

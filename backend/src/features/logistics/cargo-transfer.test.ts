@@ -3,6 +3,7 @@ import { db } from '../../db/index.js';
 import { launchCargoTransfer } from './cargo-transfer.js';
 import { users, planets, systems, ships, planetResources, colonies, researchProgress } from '../../db/schema.js';
 import { eq, and } from 'drizzle-orm';
+import { seedShipTypes } from '../../db/seed/ship-types.js';
 
 describe('cargoTransfer', () => {
   let userId: string;
@@ -11,6 +12,8 @@ describe('cargoTransfer', () => {
   let cargoShipId: string;
 
   beforeAll(async () => {
+    await seedShipTypes();
+
     // Setup test user
     const [user] = await db.insert(users).values({
       tgId: BigInt(Math.floor(Math.random() * 1000000000)),
@@ -151,6 +154,50 @@ describe('cargoTransfer', () => {
     });
     expect(ship!.status).toBe('moving');
     expect(ship!.cargoJson).toEqual({ iron: 20, silicon: 10 });
+  });
+
+  it('supports multiple load lines in one cargo_light transfer up to 5000 units', async () => {
+    await db
+      .update(planetResources)
+      .set({ amount: '5000.0000' })
+      .where(and(eq(planetResources.planetId, originPlanetId), eq(planetResources.resourceId, 'iron')));
+    await db
+      .update(planetResources)
+      .set({ amount: '500.0000' })
+      .where(and(eq(planetResources.planetId, originPlanetId), eq(planetResources.resourceId, 'silicon')));
+
+    const [ship] = await db.insert(ships).values({
+      ownerId: userId,
+      typeId: 'cargo_light',
+      locationPlanetId: originPlanetId,
+      status: 'idle',
+    }).returning();
+
+    const result = await launchCargoTransfer(userId, {
+      shipId: ship.id,
+      targetPlanetId,
+      resources: [
+        { resourceId: 'iron', amount: 3000 },
+        { resourceId: 'iron', amount: 1500 },
+        { resourceId: 'silicon', amount: 500 },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+    const payload = result.expedition.result as any;
+    expect(payload.deliveryMode).toBe('one_way');
+    expect(payload.totalCargo).toBe(5000);
+    expect(payload.maxCargo).toBe(5000);
+    expect(payload.loads).toHaveLength(3);
+    expect(payload.resources).toEqual([
+      { resourceId: 'iron', amount: 4500 },
+      { resourceId: 'silicon', amount: 500 },
+    ]);
+
+    const updatedShip = await db.query.ships.findFirst({
+      where: eq(ships.id, ship.id),
+    });
+    expect(updatedShip!.cargoJson).toEqual({ iron: 4500, silicon: 500 });
   });
 
   it('rejects transfer if ship is already moving', async () => {

@@ -21,6 +21,7 @@ import { and, eq, inArray, or } from "drizzle-orm";
 import { logger } from "../lib/logger.js";
 import { env } from "../lib/env.js";
 import { checkVisibility } from "../features/world/visibility.js";
+import { completeCargoTransfer } from "../features/logistics/cargo-transfer.js";
 import {
   buildSystemMapLayouts,
   distancePointToSegment,
@@ -227,6 +228,15 @@ async function handleArrivalAtTarget(
   const result = expedition.result as any;
   const durationMs =
     ((result.distance * 60) / result.speed) * result.engineFactor * 1000;
+
+  if (expedition.type === "cargo_transfer") {
+    await completeCargoTransfer(expedition, expedition.shipId, tx, options);
+    logger.info(
+      { expeditionId: expedition.id, shipId: expedition.shipId },
+      "Cargo transfer reached target and completed one-way delivery",
+    );
+    return;
+  }
 
   if (expedition.type === "scout" || expedition.type === "recon_probe") {
     const [ship] = await tx
@@ -518,6 +528,12 @@ export async function processExpeditions(
             skipNotifications: options.skipNotifications,
           });
         } else if (expedition.status === "returning") {
+          if (expedition.type === "cargo_transfer") {
+            await completeCargoTransfer(expedition, expedition.shipId, tx, {
+              skipNotifications: options.skipNotifications,
+            });
+            return;
+          }
           await handleArrivalAtHome(expedition, tx, {
             skipNotifications: options.skipNotifications,
           });

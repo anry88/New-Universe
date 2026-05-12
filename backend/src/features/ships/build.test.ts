@@ -9,6 +9,7 @@ import { planets, systems, buildings, ships, planetResources, resources, notific
 import { eq, and, sql } from 'drizzle-orm';
 import crypto from 'crypto';
 import { env } from '../../lib/env.js';
+import { seedShipTypes } from '../../db/seed/ship-types.js';
 
 describe('Ship Building - POST /ships/build', () => {
   const botToken = env.TELEGRAM_BOT_TOKEN;
@@ -128,6 +129,58 @@ describe('Ship Building - POST /ships/build', () => {
     expect(body.ship.queueCompletesAt).toBeTruthy();
     expect(body.ship.ownerId).toBe(userId);
     expect(body.ship.locationPlanetId).toBe(planetId);
+  });
+
+  it('blocks cargo_light until shipyard L2 and then builds from capital resources', async () => {
+    await seedShipTypes();
+
+    const { app, token, userId } = await createTestUser();
+    const planetId = await getHomePlanetId(userId);
+
+    await db.insert(buildings).values({
+      planetId,
+      typeId: 'shipyard',
+      slotIndex: 1,
+      level: 1,
+    });
+
+    await ensureResource(planetId, 'iron', 500);
+    await ensureResource(planetId, 'silicon', 300);
+    await ensureResource(planetId, 'carbon', 200);
+    await ensureResource(planetId, 'methane', 100);
+
+    const blockedResponse = await app.inject({
+      method: 'POST',
+      url: '/ships/build',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        planetId,
+        typeSlug: 'cargo_light',
+      },
+    });
+
+    expect(blockedResponse.statusCode).toBe(400);
+    expect(blockedResponse.json().error).toContain('shipyard level 2');
+
+    await db
+      .update(buildings)
+      .set({ level: 2 })
+      .where(and(eq(buildings.planetId, planetId), eq(buildings.typeId, 'shipyard')));
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/ships/build',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        planetId,
+        typeSlug: 'cargo_light',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.ship.typeId).toBe('cargo_light');
+    expect(body.ship.status).toBe('building');
   });
 
   it('should return 400 without shipyard', async () => {

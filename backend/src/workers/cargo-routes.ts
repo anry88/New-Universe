@@ -1,10 +1,10 @@
 import { Worker } from 'bullmq';
 import { db } from '../db/index.js';
-import { expeditions, ships, notifications } from '../db/schema.js';
+import { expeditions } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { logger } from '../lib/logger.js';
 import { env } from '../lib/env.js';
-import { gainResources } from '../features/resources/transactions.js';
+import { completeCargoTransfer } from '../features/logistics/cargo-transfer.js';
 
 /**
  * Processes the arrival of a cargo transfer.
@@ -43,7 +43,10 @@ export async function processArriveCargo(job: any): Promise<void> {
       }
 
       const result = expedition.result as any;
-      if (!result || !result.resources || !expedition.targetPlanetId) {
+      const hasCargoLoads =
+        (Array.isArray(result?.resources) && result.resources.length > 0) ||
+        (Array.isArray(result?.loads) && result.loads.length > 0);
+      if (!result || !hasCargoLoads || !expedition.targetPlanetId) {
         logger.error({ expeditionId }, 'Cargo worker: Malformed expedition result or missing targetPlanetId');
         // Mark as failed to avoid infinite retries if the data is broken
         await tx
@@ -53,50 +56,7 @@ export async function processArriveCargo(job: any): Promise<void> {
         return;
       }
 
-      // 2. Add resources to target planet
-      const gainResult = await gainResources(expedition.targetPlanetId, result.resources, tx);
-      if (!gainResult.success) {
-        throw new Error(gainResult.error || 'Failed to apply resources to target planet');
-      }
-
-      // 3. Mark expedition as completed
-      await tx
-        .update(expeditions)
-        .set({
-          status: 'completed',
-          returnedAt: new Date(),
-        })
-        .where(eq(expeditions.id, expeditionId));
-
-      // 4. Update ship status and move to target planet
-      await tx
-        .update(ships)
-        .set({
-          status: 'idle',
-          locationPlanetId: expedition.targetPlanetId,
-          cargoJson: {}, // Clear cargo
-        })
-        .where(eq(ships.id, shipId));
-
-      // 5. Send notification
-      const [ship] = await tx
-        .select()
-        .from(ships)
-        .where(eq(ships.id, shipId))
-        .limit(1);
-
-      if (ship) {
-        await tx.insert(notifications).values({
-          userId: ship.ownerId,
-          type: 'cargo_transfer_delivered',
-          payload: {
-            expeditionId,
-            shipId,
-            targetPlanetId: expedition.targetPlanetId,
-            resources: result.resources,
-          },
-        });
-      }
+      await completeCargoTransfer(expedition, shipId, tx);
 
       logger.info({ expeditionId, shipId }, 'Cargo worker: Transfer completed successfully');
     });

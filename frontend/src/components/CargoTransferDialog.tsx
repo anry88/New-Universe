@@ -7,6 +7,7 @@ import { apiFetch } from '../lib/api';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { X, Package, Truck, AlertTriangle } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
+import type { CargoTransferRequest } from '@shared/types/cargo';
 
 interface CargoTransferDialogProps {
   originPlanet: Planet;
@@ -40,7 +41,7 @@ export function CargoTransferDialog({ originPlanet, onClose }: CargoTransferDial
   const capacity = selectedShipType?.cargo || 0;
 
   const transferMutation = useMutation({
-    mutationFn: (body: { shipId: string; targetPlanetId: string; resources: { resourceId: string; amount: number }[] }) => apiFetch('/cargo/transfer', {
+    mutationFn: (body: CargoTransferRequest) => apiFetch('/cargo/transfer', {
       method: 'POST',
       body: JSON.stringify(body),
     }),

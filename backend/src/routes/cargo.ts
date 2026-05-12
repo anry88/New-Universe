@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify';
 import jwt from 'jsonwebtoken';
 import { env } from '../lib/env.js';
 import { launchCargoTransfer } from '../features/logistics/cargo-transfer.js';
+import type { CargoTransferRequest } from '@shared/types/cargo.js';
 
 /**
  * Cargo transfer routes.
@@ -37,11 +38,7 @@ export async function cargoRoutes(app: FastifyInstance) {
    */
   app.post('/transfer', async (request, reply) => {
     const userId = (request as any).userId;
-    const { shipId, targetPlanetId, resources } = request.body as {
-      shipId: string;
-      targetPlanetId: string;
-      resources: { resourceId: string; amount: number }[];
-    };
+    const { shipId, targetPlanetId, resources } = (request.body ?? {}) as Partial<CargoTransferRequest>;
 
     if (!shipId || !targetPlanetId || !resources || !Array.isArray(resources)) {
       return reply.status(400).send({

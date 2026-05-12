@@ -190,7 +190,7 @@ Player colonies and settled planets.
 
 Interplanetary cargo transfers. [Detailed documentation](./logistics/README.md).
 
-- **`cargo-transfer.ts`** — `launchCargoTransfer(userId, request)` action module. Validates ownership, capacity, and planet state; reserves resources atomically; creates an `expeditions` record with type `cargo_transfer`; enqueues a BullMQ `arrive_cargo` job.
+- **`cargo-transfer.ts`** — `launchCargoTransfer(userId, request)` action module. Validates ownership, multi-load capacity, and planet state; reserves aggregated resources atomically; creates a one-way `expeditions` record with type `cargo_transfer`; enqueues a BullMQ `arrive_cargo` job and shares `completeCargoTransfer` with active-session expedition sync.
 - **`cargo-transfer.test.ts`** — integration tests for the cargo transfer flow.
 
 ## Adding a new feature module
