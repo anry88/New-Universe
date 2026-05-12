@@ -4,7 +4,7 @@ import { useMe } from '../hooks/useMe';
 import { apiFetch } from '../lib/api';
 import { BuildingSlot } from '../components/BuildingSlot';
 import { UpgradeDialog } from '../components/UpgradeDialog';
-import { BuildDialog } from '../components/BuildDialog';
+import { BuildDialog, type BuildDialogResourceChoice } from '../components/BuildDialog';
 import { ProductionDialog } from '../components/ProductionDialog';
 import { ResourceBar } from '../components/ResourceBar';
 import { BuildQueue } from '../components/BuildQueue';
@@ -19,7 +19,14 @@ import {
 } from '../components/cosmic/atoms';
 import type { Building, Planet } from '@shared/types/world';
 import type { BuildingType, BuildBlockedReason, ConstructionStatus, DemolishStatus } from '@shared/types/buildings';
-import { resolveBuildBlockedReason, resolvePlanetResourceBlockedReason } from '@shared/types/building-eligibility';
+import {
+  isSelectableExtractorType,
+  resolveBuildBlockedReason,
+  resolveBuildingProducedResourceIds,
+  resolveExtractorSelectionBlockedReason,
+  resolvePlanetResourceBlockedReason,
+  selectableResourceIdsForExtractor,
+} from '@shared/types/building-eligibility';
 import { BUILDING_RESEARCH_GATES } from '@shared/config/buildingResearchGates';
 import { recipesForBuildingType } from '@shared/config/productionRecipes';
 import { ChevronLeft } from 'lucide-react';
@@ -99,8 +106,62 @@ export function PlanetDetailPage() {
     return m;
   }, [meData?.research]);
 
+  const planetDepositRows = useMemo(() => {
+    const resourceRows = planet?.resources ?? [];
+    const hasRichnessData = resourceRows.some((res) => typeof res.richness === 'number');
+    return hasRichnessData
+      ? resourceRows
+          .filter((res) => (res.richness ?? 0) > 0)
+          .map((res) => ({ resourceId: res.resourceId, value: res.richness ?? 0 }))
+      : resourceRows.map((res) => ({ resourceId: res.resourceId, value: 1 }));
+  }, [planet]);
+
+  const planetDepositResourceIds = useMemo(
+    () => planetDepositRows.map((row) => row.resourceId),
+    [planetDepositRows],
+  );
+
+  const depositLimitsByResourceId = useMemo(
+    () => Object.fromEntries(planetDepositRows.map((row) => [row.resourceId, row.value])),
+    [planetDepositRows],
+  );
+
+  const usedExtractorCountsByResourceId = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const building of planet?.buildings ?? []) {
+      if (building.queueAction === 'destroy') continue;
+      if (!isSelectableExtractorType(building.typeId)) continue;
+
+      const producedResourceIds = resolveBuildingProducedResourceIds({
+        typeId: building.typeId,
+        planetResourceIds: planetDepositResourceIds,
+        selectedResourceId: building.selectedResourceId,
+      });
+
+      for (const resourceId of producedResourceIds) {
+        counts[resourceId] = (counts[resourceId] ?? 0) + 1;
+      }
+    }
+    return counts;
+  }, [planet?.buildings, planetDepositResourceIds]);
+
+  const resourceChoicesForType = useCallback(
+    (typeId: string): BuildDialogResourceChoice[] => {
+      if (!isSelectableExtractorType(typeId)) return [];
+      return selectableResourceIdsForExtractor({
+        typeId,
+        planetResourceIds: planetDepositResourceIds,
+      }).map((resourceId) => ({
+        resourceId,
+        depositLimit: depositLimitsByResourceId[resourceId] ?? 0,
+        used: usedExtractorCountsByResourceId[resourceId] ?? 0,
+      }));
+    },
+    [depositLimitsByResourceId, planetDepositResourceIds, usedExtractorCountsByResourceId],
+  );
+
   const blockedReasonForType = useCallback(
-    (typeId: string): BuildBlockedReason | null => {
+    (typeId: string, selectedResourceId?: string | null): BuildBlockedReason | null => {
       const typeRow = buildingTypes.find((t) => t.id === typeId);
       if (!typeRow || !planet) return null;
       const planetBuilt =
@@ -122,20 +183,31 @@ export function PlanetDetailPage() {
       });
       if (blocked) return blocked;
 
-      const resourceRows = planet.resources ?? [];
-      const hasRichnessData = resourceRows.some((res) => typeof res.richness === 'number');
-      const planetResourceIds = hasRichnessData
-        ? resourceRows.filter((res) => (res.richness ?? 0) > 0).map((res) => res.resourceId)
-        : resourceRows.map((res) => res.resourceId);
-      const planetBlocked = resolvePlanetResourceBlockedReason({
-        typeId: typeRow.id,
-        planetResourceIds,
-      });
+      const planetBlocked = isSelectableExtractorType(typeRow.id)
+        ? resolveExtractorSelectionBlockedReason({
+            typeId: typeRow.id,
+            selectedResourceId,
+            planetResourceIds: planetDepositResourceIds,
+            depositLimitsByResourceId,
+            usedExtractorCountsByResourceId,
+          })
+        : resolvePlanetResourceBlockedReason({
+            typeId: typeRow.id,
+            planetResourceIds: planetDepositResourceIds,
+          });
       if (planetBlocked) return planetBlocked;
 
       return null;
     },
-    [buildingTypes, planet, globalTypeCounts, researchLevels],
+    [
+      buildingTypes,
+      planet,
+      globalTypeCounts,
+      researchLevels,
+      planetDepositResourceIds,
+      depositLimitsByResourceId,
+      usedExtractorCountsByResourceId,
+    ],
   );
   const currentEnergy = useMemo(() => {
     if (!planet) return { produced: 0, consumed: 0 };
@@ -189,7 +261,7 @@ export function PlanetDetailPage() {
     }
   };
 
-  const handleBuild = async (typeId: string) => {
+  const handleBuild = async (typeId: string, selectedResourceId?: string | null) => {
     if (selectedSlot === null) return;
     setIsProcessing(true);
 
@@ -205,6 +277,7 @@ export function PlanetDetailPage() {
           id: 'temp-' + Date.now(),
           planetId: planet.id,
           typeId,
+          selectedResourceId: selectedResourceId ?? null,
           level: 1,
           slotIndex: selectedSlot,
           queueAction: 'build',
@@ -220,6 +293,7 @@ export function PlanetDetailPage() {
           planetId: planet.id,
           typeId,
           slotIndex: selectedSlot,
+          selectedResourceId: selectedResourceId ?? null,
         }),
       });
       setSelectedSlot(null);
@@ -406,6 +480,7 @@ export function PlanetDetailPage() {
         onAction={handleBuild}
         isProcessing={isProcessing}
         blockedReasonFor={blockedReasonForType}
+        resourceChoicesFor={resourceChoicesForType}
         accent={accent}
         planetLabel={`${planet.name} · ${getBiomeLabel(biome, locale)}`}
         currentEnergy={currentEnergy}

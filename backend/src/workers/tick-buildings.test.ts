@@ -52,6 +52,7 @@ describe('Tick Buildings Worker', () => {
     const [mine] = await db.insert(buildings).values({
       planetId,
       typeId: 'mine',
+      selectedResourceId: 'iron',
       slotIndex: 0,
       level: 1,
       queueAction: 'build',
@@ -78,6 +79,7 @@ describe('Tick Buildings Worker', () => {
     const [mine] = await db.insert(buildings).values({
       planetId,
       typeId: 'mine',
+      selectedResourceId: 'iron',
       slotIndex: 0,
       level: 2,
       queueAction: 'upgrade',
@@ -120,6 +122,7 @@ describe('Tick Buildings Worker', () => {
     await db.insert(buildings).values({
       planetId,
       typeId: 'mine',
+      selectedResourceId: 'iron',
       slotIndex: 0,
       level: 1,
       queueAction: 'build',
@@ -135,7 +138,7 @@ describe('Tick Buildings Worker', () => {
       ),
     });
     expect(pr).toBeDefined();
-    expect(Number(pr!.regenRate)).toBeCloseTo(50 / 3, 4);
+    expect(Number(pr!.regenRate)).toBeCloseTo(50, 4);
   });
 
   it('should initialize battery-backed energy storage when energy buildings complete', async () => {
@@ -206,6 +209,7 @@ describe('Tick Buildings Worker', () => {
     await db.insert(buildings).values({
       planetId,
       typeId: 'mine',
+      selectedResourceId: 'iron',
       slotIndex: 0,
       level: 1,
       queueAction: 'build',
@@ -263,6 +267,7 @@ describe('Tick Buildings Worker', () => {
     const [mine] = await db.insert(buildings).values({
       planetId,
       typeId: 'mine',
+      selectedResourceId: 'iron',
       slotIndex: 0,
       level: 1,
       queueAction: 'build',

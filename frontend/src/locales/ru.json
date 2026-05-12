@@ -38,6 +38,8 @@
   "build.capacity": "Вместимость",
   "build.usage": "Расход",
   "build.netAfter": "Баланс после постройки",
+  "build.depositChoice": "Выбор месторождения",
+  "build.extracting": "Добывает",
   "build.ok": "OK",
   "build.empty": "Пусто",
   "build.installations": "Постройки",

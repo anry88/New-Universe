@@ -1170,6 +1170,9 @@ body {
 .bopt:disabled {
   cursor: not-allowed;
 }
+.bopt.disabled {
+  cursor: not-allowed;
+}
 .bopt.locked {
   opacity: 0.55;
   border-style: dashed;
@@ -1225,6 +1228,36 @@ body {
   color: var(--text-dim);
   margin-top: 5px;
   line-height: 1.4;
+}
+.bopt-resource-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.bopt-resource {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--line-strong);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0;
+  cursor: pointer;
+}
+.bopt-resource.selected {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.bopt-resource.full:not(.selected) {
+  color: var(--warn);
+  border-style: dashed;
 }
 .bopt-stats {
   display: flex;

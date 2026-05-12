@@ -53,7 +53,7 @@ describe('Building Service', () => {
   });
 
   it('should start building in an empty slot', async () => {
-    const result = await buildingService.build(userId, planetId, 'mine', 1);
+    const result = await buildingService.build(userId, planetId, 'mine', 1, 'iron');
     expect(result.success).toBe(true);
     expect(result.queueItem).toBeDefined();
 
@@ -61,6 +61,7 @@ describe('Building Service', () => {
       where: (table, { eq }) => eq(table.id, result.queueItem!.id),
     });
     expect(building?.typeId).toBe('mine');
+    expect(building?.selectedResourceId).toBe('iron');
     expect(building?.slotIndex).toBe(1);
     expect(building?.queueAction).toBe('build');
   });
@@ -79,13 +80,14 @@ describe('Building Service', () => {
     await db.insert(buildings).values({
       planetId,
       typeId: 'mine',
+      selectedResourceId: 'iron',
       level: 1,
       slotIndex: 1,
       queueAction: null,
       queueCompletesAt: null,
     });
 
-    await expect(buildingService.build(userId, planetId, 'mine', 1))
+    await expect(buildingService.build(userId, planetId, 'mine', 1, 'iron'))
       .rejects.toThrow('Slot already occupied');
   });
 
@@ -94,6 +96,7 @@ describe('Building Service', () => {
     const [building] = await db.insert(buildings).values({
       planetId,
       typeId: typeId,
+      selectedResourceId: 'iron',
       level: 1,
       slotIndex: 2,
     }).returning();

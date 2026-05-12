@@ -9,7 +9,7 @@ Each subfolder is a single feature and is wired into Fastify from `backend/src/i
 Planet infrastructure management.
 
 - **`routes.ts`** — registers `GET /types`, `POST /build`, `POST /upgrade`, `POST /demolish`, `POST /sync/:planetId`, `GET /queue`, **`POST /rush`**.
-- **`service.ts`** — handles building logic, costs, queueing, **`rushQueuedBuilding`**, demolish, sync/finalize helpers, planet-aware passive regen for extractors such as mines, drills, oil pumps, and biomass harvesters, plus energy storage/generation sync for `battery`, `solar_plant`, `wind_turbine`, and `fuel_generator`.
+- **`service.ts`** — handles building logic, costs, queueing, **`rushQueuedBuilding`**, demolish, sync/finalize helpers, selected-resource passive regen for extractors such as mines, drills, oil pumps, and biomass harvesters with per-resource deposit limits, plus energy storage/generation sync for `battery`, `solar_plant`, `wind_turbine`, and `fuel_generator`.
 - **`buildings.test.ts`**, **`rush.test.ts`**, etc. — integration tests for construction flows.
 
 ## `auth/`
@@ -59,7 +59,7 @@ Player state retrieval.
 
 Building construction and queue management. [Detailed documentation](./buildings/README.md).
 
-- **`routes.ts`** — `buildingsRoutes(app)` registers `POST /build/build` (mounted at `/buildings` from `index.ts`, so the public path is `POST /buildings/build`). Requires a valid JWT in the `Authorization: Bearer <token>` header. Accepts `{ planetId, typeSlug }` in the request body.
+- **`routes.ts`** — `buildingsRoutes(app)` registers `POST /build/build` (mounted at `/buildings` from `index.ts`, so the public path is `POST /buildings/build`). Requires a valid JWT in the `Authorization: Bearer <token>` header. Accepts `{ planetId, typeId, slotIndex, selectedResourceId? }` in the request body.
 - **`service.ts`** — `BuildingService.build(userId, { planetId, typeSlug })` performs the full build flow:
   1. Validates the planet exists and has an active settlement for the requesting user.
   2. Looks up the building type from the catalog.

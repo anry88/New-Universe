@@ -87,6 +87,7 @@ describe('Building Upgrade - POST /buildings/upgrade', () => {
     const [building] = await db.insert(buildings).values({
       planetId,
       typeId: 'mine',
+      selectedResourceId: 'iron',
       slotIndex: 0,
       level: 1,
     }).returning();
@@ -189,6 +190,7 @@ describe('Building Upgrade - POST /buildings/upgrade', () => {
     const [upgradeTarget] = await db.insert(buildings).values({
       planetId,
       typeId: 'mine',
+      selectedResourceId: 'iron',
       slotIndex: 0,
       level: 1,
     }).returning();
@@ -229,6 +231,7 @@ describe('Building Upgrade - POST /buildings/upgrade', () => {
     const [building] = await db.insert(buildings).values({
       planetId,
       typeId: 'mine',
+      selectedResourceId: 'iron',
       slotIndex: 0,
       level: 1,
     }).returning();

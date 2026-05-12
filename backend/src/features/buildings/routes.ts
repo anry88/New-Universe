@@ -45,11 +45,11 @@ export async function buildingsRoutes(app: FastifyInstance) {
   });
 
   app.post('/build', async (request, reply) => {
-    const { planetId, typeId, slotIndex } = request.body as BuildRequest;
+    const { planetId, typeId, slotIndex, selectedResourceId } = request.body as BuildRequest;
     const userId = (request as any).userId;
 
     try {
-      const result = await buildingService.build(userId, planetId, typeId, slotIndex);
+      const result = await buildingService.build(userId, planetId, typeId, slotIndex, selectedResourceId);
       return result;
     } catch (err: unknown) {
       if (err instanceof BuildingOperationError) {
@@ -75,10 +75,19 @@ export async function buildingsRoutes(app: FastifyInstance) {
     try {
       const result = await buildingService.upgrade(userId, buildingId);
       return result;
-    } catch (err: any) {
+    } catch (err: unknown) {
+      if (err instanceof BuildingOperationError) {
+        return reply.status(400).send({
+          error: 'Bad Request',
+          message: err.message,
+          code: err.code,
+          details: err.details,
+        });
+      }
+      const e = err as { message?: string };
       return reply.status(400).send({
         error: 'Bad Request',
-        message: err.message,
+        message: e.message ?? 'Bad Request',
       });
     }
   });

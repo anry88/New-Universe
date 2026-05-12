@@ -28,6 +28,17 @@ export const FLUID_DEPOSIT_RESOURCE_IDS = [
 
 const METAL_DEPOSIT_SET = new Set<string>(METAL_DEPOSIT_RESOURCE_IDS);
 const FLUID_DEPOSIT_SET = new Set<string>(FLUID_DEPOSIT_RESOURCE_IDS);
+const BIOMASS_DEPOSIT_RESOURCE_IDS = ['biomass'] as const;
+const OIL_DEPOSIT_RESOURCE_IDS = ['oil'] as const;
+
+const EXTRACTOR_RESOURCE_IDS_BY_TYPE = {
+  mine: METAL_DEPOSIT_RESOURCE_IDS,
+  drill: FLUID_DEPOSIT_RESOURCE_IDS,
+  oil_pump: OIL_DEPOSIT_RESOURCE_IDS,
+  biomass_harvester: BIOMASS_DEPOSIT_RESOURCE_IDS,
+} as const;
+
+type ExtractorTypeId = keyof typeof EXTRACTOR_RESOURCE_IDS_BY_TYPE;
 
 function researchLevel(levels: Map<string, number> | Record<string, number>, branch: string): number {
   if (levels instanceof Map) {
@@ -46,9 +57,53 @@ function resourceLabel(resourceId: string, lang: 'en' | 'ru'): string {
       return lang === 'ru' ? 'металлов' : 'metal';
     case 'fluid_or_gas':
       return lang === 'ru' ? 'воды, метана, льда или нефти' : 'water, methane, ice or oil';
+    case 'iron':
+      return lang === 'ru' ? 'железа' : 'iron';
+    case 'copper':
+      return lang === 'ru' ? 'меди' : 'copper';
+    case 'aluminum':
+      return lang === 'ru' ? 'алюминия' : 'aluminum';
+    case 'carbon':
+      return lang === 'ru' ? 'углерода' : 'carbon';
+    case 'silicon':
+      return lang === 'ru' ? 'кремния' : 'silicon';
+    case 'titanium':
+      return lang === 'ru' ? 'титана' : 'titanium';
+    case 'water':
+      return lang === 'ru' ? 'воды' : 'water';
+    case 'methane':
+      return lang === 'ru' ? 'метана' : 'methane';
+    case 'ice':
+      return lang === 'ru' ? 'льда' : 'ice';
+    case 'oil':
+      return lang === 'ru' ? 'нефти' : 'oil';
+    case 'tritium':
+      return lang === 'ru' ? 'трития' : 'tritium';
+    case 'biomass':
+      return lang === 'ru' ? 'биомассы' : 'biomass';
     default:
       return resourceId;
   }
+}
+
+export function isSelectableExtractorType(typeId: string): typeId is ExtractorTypeId {
+  return typeId in EXTRACTOR_RESOURCE_IDS_BY_TYPE;
+}
+
+export function acceptedResourceIdsForExtractor(typeId: string): string[] {
+  if (!isSelectableExtractorType(typeId)) return [];
+  return [...EXTRACTOR_RESOURCE_IDS_BY_TYPE[typeId]];
+}
+
+export function selectableResourceIdsForExtractor(input: {
+  typeId: string;
+  planetResourceIds: Iterable<string>;
+}): string[] {
+  const acceptedResourceIds = new Set(acceptedResourceIdsForExtractor(input.typeId));
+  if (acceptedResourceIds.size === 0) return [];
+
+  const resourceIds = uniqueKnownResourceIds(input.planetResourceIds);
+  return resourceIds.filter((resourceId) => acceptedResourceIds.has(resourceId));
 }
 
 /**
@@ -176,6 +231,63 @@ export function resolvePlanetResourceBlockedReason(input: {
   return null;
 }
 
+export function resolveExtractorSelectionBlockedReason(input: {
+  typeId: string;
+  selectedResourceId?: string | null;
+  planetResourceIds: Iterable<string>;
+  depositLimitsByResourceId?: Record<string, number>;
+  usedExtractorCountsByResourceId?: Record<string, number>;
+}): BuildBlockedReason | null {
+  const acceptedResourceIds = acceptedResourceIdsForExtractor(input.typeId);
+  if (acceptedResourceIds.length === 0) return null;
+
+  const selectableResourceIds = selectableResourceIdsForExtractor({
+    typeId: input.typeId,
+    planetResourceIds: input.planetResourceIds,
+  });
+
+  if (selectableResourceIds.length === 0) {
+    return resolvePlanetResourceBlockedReason({
+      typeId: input.typeId,
+      planetResourceIds: input.planetResourceIds,
+    });
+  }
+
+  if (!input.selectedResourceId) {
+    return {
+      code: 'building_blocked_resource_selection_required',
+      details: {
+        typeId: input.typeId,
+        acceptedResourceIds: selectableResourceIds.length > 0 ? selectableResourceIds : acceptedResourceIds,
+      },
+    };
+  }
+
+  if (!acceptedResourceIds.includes(input.selectedResourceId) || !selectableResourceIds.includes(input.selectedResourceId)) {
+    return {
+      code: 'building_blocked_invalid_resource_selection',
+      details: {
+        typeId: input.typeId,
+        resourceId: input.selectedResourceId,
+        acceptedResourceIds: selectableResourceIds.length > 0 ? selectableResourceIds : acceptedResourceIds,
+      },
+    };
+  }
+
+  const limit = input.depositLimitsByResourceId?.[input.selectedResourceId];
+  if (limit != null && limit > 0) {
+    const current = input.usedExtractorCountsByResourceId?.[input.selectedResourceId] ?? 0;
+    if (current >= limit) {
+      return {
+        code: 'building_blocked_deposit_limit',
+        details: { resourceId: input.selectedResourceId, limit, current },
+      };
+    }
+  }
+
+  return null;
+}
+
 /**
  * Resolves the concrete resource ids a building can produce on a specific planet.
  * Extractors use local deposits; processors keep their fixed catalog output.
@@ -184,9 +296,18 @@ export function resolveBuildingProducedResourceIds(input: {
   typeId: string;
   baseOutput?: BuildingOutput | null;
   planetResourceIds: Iterable<string>;
+  selectedResourceId?: string | null;
 }): string[] {
   const resourceIds = uniqueKnownResourceIds(input.planetResourceIds);
   const resourceSet = new Set(resourceIds);
+  const selectedResourceId = input.selectedResourceId ?? null;
+
+  if (isSelectableExtractorType(input.typeId) && selectedResourceId) {
+    const acceptedResourceIds = acceptedResourceIdsForExtractor(input.typeId);
+    return acceptedResourceIds.includes(selectedResourceId) && resourceSet.has(selectedResourceId)
+      ? [selectedResourceId]
+      : [];
+  }
 
   if (input.typeId === 'mine') {
     return resourceIds.filter((resourceId) => METAL_DEPOSIT_SET.has(resourceId));
@@ -221,6 +342,7 @@ export function resolveBuildingProductionRateForResource(input: {
   baseOutput?: BuildingOutput | null;
   planetResourceIds: Iterable<string>;
   resourceId: string;
+  selectedResourceId?: string | null;
 }): number {
   const baseRate = input.baseOutput?.baseRate;
   if (typeof baseRate !== 'number' || baseRate <= 0) return 0;
@@ -228,7 +350,7 @@ export function resolveBuildingProductionRateForResource(input: {
   const producedResourceIds = resolveBuildingProducedResourceIds(input);
   if (!producedResourceIds.includes(input.resourceId)) return 0;
 
-  if (input.typeId === 'mine' || input.typeId === 'drill') {
+  if (!input.selectedResourceId && (input.typeId === 'mine' || input.typeId === 'drill')) {
     return baseRate / Math.max(1, producedResourceIds.length);
   }
 
@@ -259,6 +381,18 @@ export function formatBuildBlockedMessage(reason: BuildBlockedReason, lang: 'en'
       return lang === 'ru'
         ? `На этой планете нет подходящего месторождения: ${resourceLabel(reason.details.resourceId, lang)}.`
         : `This planet has no ${resourceLabel(reason.details.resourceId, lang)} deposit.`;
+    case 'building_blocked_resource_selection_required':
+      return lang === 'ru'
+        ? 'Выберите месторождение для этой добывающей постройки.'
+        : 'Select a deposit for this extraction building.';
+    case 'building_blocked_invalid_resource_selection':
+      return lang === 'ru'
+        ? `Эта постройка не может добывать ${resourceLabel(reason.details.resourceId, lang)} на выбранной планете.`
+        : `This building cannot extract ${resourceLabel(reason.details.resourceId, lang)} on the selected planet.`;
+    case 'building_blocked_deposit_limit':
+      return lang === 'ru'
+        ? `Лимит месторождений ${resourceLabel(reason.details.resourceId, lang)} исчерпан (${reason.details.current}/${reason.details.limit}).`
+        : `${resourceLabel(reason.details.resourceId, lang)} deposit limit reached (${reason.details.current}/${reason.details.limit}).`;
     default:
       return lang === 'en' ? 'Cannot build.' : 'Строительство недоступно.';
   }

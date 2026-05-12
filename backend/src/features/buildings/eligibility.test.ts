@@ -4,6 +4,7 @@ import {
   formatBuildBlockedMessage,
   resolveBuildingProducedResourceIds,
   resolveBuildingProductionRateForResource,
+  resolveExtractorSelectionBlockedReason,
   resolvePlanetResourceBlockedReason,
 } from '@shared/types/building-eligibility.js';
 import { BUILDING_RESEARCH_GATES, type ResearchUnlockRequirement } from '@shared/config/buildingResearchGates.js';
@@ -161,6 +162,25 @@ describe('planet resource construction rules', () => {
 
     expect(
       resolveBuildingProducedResourceIds({
+        typeId: 'mine',
+        baseOutput: { resourceId: 'iron', baseRate: 50 },
+        planetResourceIds: ['aluminum', 'copper'],
+        selectedResourceId: 'copper',
+      }),
+    ).toEqual(['copper']);
+
+    expect(
+      resolveBuildingProductionRateForResource({
+        typeId: 'mine',
+        baseOutput: { resourceId: 'iron', baseRate: 50 },
+        planetResourceIds: ['aluminum', 'copper'],
+        selectedResourceId: 'copper',
+        resourceId: 'copper',
+      }),
+    ).toBe(50);
+
+    expect(
+      resolveBuildingProducedResourceIds({
         typeId: 'biomass_harvester',
         baseOutput: { resourceId: 'biomass', baseRate: 4 },
         planetResourceIds: ['biomass', 'water'],
@@ -174,5 +194,31 @@ describe('planet resource construction rules', () => {
         planetResourceIds: ['iron', 'water'],
       }),
     ).toEqual([]);
+  });
+
+  it('blocks extractor choices when a selected deposit is invalid or exhausted', () => {
+    const missingSelection = resolveExtractorSelectionBlockedReason({
+      typeId: 'mine',
+      planetResourceIds: ['iron', 'carbon'],
+    });
+    expect(missingSelection?.code).toBe('building_blocked_resource_selection_required');
+
+    const invalidSelection = resolveExtractorSelectionBlockedReason({
+      typeId: 'mine',
+      selectedResourceId: 'water',
+      planetResourceIds: ['iron', 'carbon'],
+    });
+    expect(invalidSelection?.code).toBe('building_blocked_invalid_resource_selection');
+
+    const exhausted = resolveExtractorSelectionBlockedReason({
+      typeId: 'mine',
+      selectedResourceId: 'iron',
+      planetResourceIds: ['iron', 'carbon'],
+      depositLimitsByResourceId: { iron: 2, carbon: 1 },
+      usedExtractorCountsByResourceId: { iron: 2 },
+    });
+    expect(exhausted?.code).toBe('building_blocked_deposit_limit');
+    expect(formatBuildBlockedMessage(exhausted!, 'en')).toContain('deposit limit reached');
+    expect(formatBuildBlockedMessage(exhausted!, 'ru')).toContain('Лимит месторождений');
   });
 });

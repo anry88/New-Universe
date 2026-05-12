@@ -131,7 +131,7 @@ describe('E2E: First Day Flow', () => {
       method: 'POST',
       url: '/buildings/build',
       headers: { authorization: `Bearer ${token}` },
-      body: { planetId, typeId: 'mine', slotIndex: 1 },
+      body: { planetId, typeId: 'mine', slotIndex: 1, selectedResourceId: 'iron' },
     });
 
     expect(buildRes.statusCode, `Build failed: ${JSON.stringify(buildRes.json())}`).toBe(200);
@@ -148,6 +148,7 @@ describe('E2E: First Day Flow', () => {
       where: and(eq(buildings.planetId, planetId), eq(buildings.typeId, 'mine')),
     });
     expect(mine!.level).toBe(1);
+    expect(mine!.selectedResourceId).toBe('iron');
 
     // 3. Upgrade the Mine
     const upgradeRes = await app.inject({
