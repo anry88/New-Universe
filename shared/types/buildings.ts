@@ -49,12 +49,25 @@ export type BuildBlockedReason =
   | {
       code: 'building_blocked_planet_resource';
       details: { resourceId: string; acceptedResourceIds?: string[] };
+    }
+  | {
+      code: 'building_blocked_resource_selection_required';
+      details: { typeId: string; acceptedResourceIds: string[] };
+    }
+  | {
+      code: 'building_blocked_invalid_resource_selection';
+      details: { typeId: string; resourceId: string; acceptedResourceIds: string[] };
+    }
+  | {
+      code: 'building_blocked_deposit_limit';
+      details: { resourceId: string; limit: number; current: number };
     };
 
 export interface BuildRequest {
   planetId: string;
   typeId: string;
   slotIndex: number;
+  selectedResourceId?: string | null;
 }
 
 export interface UpgradeRequest {

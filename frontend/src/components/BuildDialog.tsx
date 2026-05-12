@@ -8,17 +8,25 @@ import {
   resolveBuildingType,
   type BuildingCategoryKey,
 } from './cosmic/buildings';
-import { getResourceSymbol } from './cosmic/resources';
+import { getResourceLabel, getResourceSymbol } from './cosmic/resources';
 import { useI18n } from '../lib/i18n';
+
+export interface BuildDialogResourceChoice {
+  resourceId: string;
+  depositLimit: number;
+  used: number;
+}
 
 interface BuildDialogProps {
   types: BuildingType[];
   isOpen: boolean;
   onClose: () => void;
-  onAction: (typeId: string) => void;
+  onAction: (typeId: string, selectedResourceId?: string | null) => void;
   isProcessing: boolean;
   /** Server/catalog-driven eligibility (grey-out + tap for reason). */
-  blockedReasonFor?: (typeId: string) => BuildBlockedReason | null;
+  blockedReasonFor?: (typeId: string, selectedResourceId?: string | null) => BuildBlockedReason | null;
+  /** Planet-local extraction targets for mine/drill/pump-style buildings. */
+  resourceChoicesFor?: (typeId: string) => BuildDialogResourceChoice[];
   /**
    * Optional accent override — typically the active planet's biome accent.
    * Defaults to the cyan Atlas accent.
@@ -51,11 +59,13 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
   onAction,
   isProcessing,
   blockedReasonFor,
+  resourceChoicesFor,
   accent = '#5BD7FF',
   planetLabel,
   currentEnergy,
 }) => {
   const [explainedReason, setExplainedReason] = useState<BuildBlockedReason | null>(null);
+  const [selectedResourceByType, setSelectedResourceByType] = useState<Record<string, string>>({});
   const { locale, t } = useI18n();
 
   if (!isOpen) return null;
@@ -141,26 +151,43 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
                   const costs = Object.entries(type.baseCost);
                   const minutes = Math.floor(type.baseTimeSec / 60);
                   const seconds = type.baseTimeSec % 60;
-                  const blocked = blockedReasonFor?.(type.id) ?? null;
+                  const resourceChoices = resourceChoicesFor?.(type.id) ?? [];
+                  const defaultResourceId =
+                    resourceChoices.find((choice) => choice.used < choice.depositLimit)?.resourceId ??
+                    resourceChoices[0]?.resourceId ??
+                    null;
+                  const selectedResourceId = selectedResourceByType[type.id] ?? defaultResourceId;
+                  const blocked = blockedReasonFor?.(type.id, selectedResourceId) ?? null;
                   const locked = Boolean(blocked);
                   const output = type.baseOutput;
+                  const outputResourceId = selectedResourceId ?? output.resourceId;
                   const projectedProduced = producedNow + (output.energy ?? 0);
                   const projectedConsumed = consumedNow + Math.max(0, type.energyConsumption ?? 0);
                   const projectedNet = projectedProduced - projectedConsumed;
                   return (
-                    <button
+                    <div
                       key={type.id}
-                      type="button"
-                      className={`bopt${locked ? ' locked' : ''}`}
+                      role="button"
+                      tabIndex={isProcessing ? -1 : 0}
+                      className={`bopt${locked ? ' locked' : ''}${isProcessing ? ' disabled' : ''}`}
                       onClick={() => {
                         if (isProcessing) return;
                         if (locked && blocked) {
                           setExplainedReason(blocked);
                           return;
                         }
-                        onAction(type.id);
+                        onAction(type.id, selectedResourceId);
                       }}
-                      disabled={isProcessing}
+                      onKeyDown={(event) => {
+                        if (event.key !== 'Enter' && event.key !== ' ') return;
+                        event.preventDefault();
+                        if (isProcessing) return;
+                        if (locked && blocked) {
+                          setExplainedReason(blocked);
+                          return;
+                        }
+                        onAction(type.id, selectedResourceId);
+                      }}
                       data-testid={`build-option-${type.id}`}
                       aria-disabled={locked || isProcessing}
                     >
@@ -173,10 +200,40 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
                           <span className="bopt-locked">{getBuildingCategoryLabel(group.key, locale).toUpperCase()}</span>
                         </div>
                         <div className="bopt-desc">{type.description[locale]}</div>
+                        {resourceChoices.length > 0 ? (
+                          <div className="bopt-resource-row" aria-label={t('build.depositChoice')}>
+                            {resourceChoices.map((choice) => {
+                              const selected = choice.resourceId === selectedResourceId;
+                              const full = choice.used >= choice.depositLimit;
+                              return (
+                                <button
+                                  key={choice.resourceId}
+                                  type="button"
+                                  className={`bopt-resource${selected ? ' selected' : ''}${full ? ' full' : ''}`}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    if (isProcessing) return;
+                                    setSelectedResourceByType((prev) => ({
+                                      ...prev,
+                                      [type.id]: choice.resourceId,
+                                    }));
+                                  }}
+                                  disabled={isProcessing}
+                                  data-resource-choice
+                                  aria-pressed={selected}
+                                  aria-label={`${getResourceLabel(choice.resourceId, locale)} ${choice.used}/${choice.depositLimit}`}
+                                >
+                                  <span>{getResourceSymbol(choice.resourceId)}</span>
+                                  <span>{choice.used}/{choice.depositLimit}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : null}
                         <div className="bopt-stats">
-                          {output.resourceId && output.baseRate && (
+                          {outputResourceId && output.baseRate && (
                             <span className="bstat">
-                              {t('build.yield')}: +{output.baseRate} {getResourceSymbol(output.resourceId)}/h
+                              {t('build.yield')}: +{output.baseRate} {getResourceSymbol(outputResourceId)}/h
                             </span>
                           )}
                           {output.cap && (
@@ -224,7 +281,7 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
                         </div>
                       </div>
                       <span aria-hidden="true" style={{ color: 'var(--text-faint)' }}>›</span>
-                    </button>
+                    </div>
                   );
                 })}
               </div>

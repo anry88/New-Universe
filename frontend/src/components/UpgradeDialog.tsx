@@ -2,7 +2,7 @@ import React from 'react';
 import type { Building } from '@shared/types/world';
 import type { BuildingType } from '@shared/types/buildings';
 import { getBuildingCategory, resolveBuildingType } from './cosmic/buildings';
-import { getResourceSymbol } from './cosmic/resources';
+import { getResourceLabel, getResourceSymbol } from './cosmic/resources';
 import { useI18n } from '../lib/i18n';
 
 interface UpgradeDialogProps {
@@ -89,14 +89,20 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
               <div className="bopt-stats">
                 {(() => {
                   const output = typeInfo.baseOutput;
+                  const outputResourceId = building.selectedResourceId ?? output.resourceId;
                   const curLvl = building.level;
                   const nextLvl = curLvl + 1;
                   
                   return (
                     <>
-                      {output.resourceId && output.baseRate && (
+                      {building.selectedResourceId && (
                         <span className="bstat">
-                          {t('build.yield')}: {output.baseRate * curLvl} → {output.baseRate * nextLvl} {getResourceSymbol(output.resourceId)}/h
+                          {t('build.extracting')}: {getResourceLabel(building.selectedResourceId, locale)}
+                        </span>
+                      )}
+                      {outputResourceId && output.baseRate && (
+                        <span className="bstat">
+                          {t('build.yield')}: {output.baseRate * curLvl} → {output.baseRate * nextLvl} {getResourceSymbol(outputResourceId)}/h
                         </span>
                       )}
                       {output.cap && (

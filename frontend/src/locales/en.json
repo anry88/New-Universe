@@ -38,6 +38,8 @@
   "build.capacity": "Capacity",
   "build.usage": "Usage",
   "build.netAfter": "Net after build",
+  "build.depositChoice": "Deposit choice",
+  "build.extracting": "Extracting",
   "build.ok": "OK",
   "build.empty": "Empty",
   "build.installations": "Installations",

@@ -1,6 +1,7 @@
 import { pgTable, uuid, text, integer, jsonb, timestamp } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { planets } from './world.js';
+import { resources } from './resources.js';
 
 export const buildingTypes = pgTable('building_types', {
   id: text('id').primaryKey(),
@@ -23,6 +24,7 @@ export const buildings = pgTable('buildings', {
   id: uuid('id').primaryKey().defaultRandom(),
   planetId: uuid('planet_id').references(() => planets.id).notNull(),
   typeId: text('type_id').references(() => buildingTypes.id).notNull(),
+  selectedResourceId: text('selected_resource_id').references(() => resources.id),
   level: integer('level').notNull().default(1),
   slotIndex: integer('slot_index').notNull(),
   queueAction: text('queue_action'),

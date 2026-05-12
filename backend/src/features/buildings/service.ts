@@ -21,7 +21,9 @@ import {
   formatBuildBlockedMessage,
   resolveBuildingProducedResourceIds,
   resolveBuildingProductionRateForResource,
+  resolveExtractorSelectionBlockedReason,
   resolvePlanetResourceBlockedReason,
+  isSelectableExtractorType,
 } from '@shared/types/building-eligibility.js';
 import { BuildingOperationError } from './building-operation-error.js';
 import { countUserBuildingsOfType } from './count-user-buildings.js';
@@ -35,12 +37,27 @@ type BuildingOutput = {
 };
 
 type BuildingTypeRow = InferSelectModel<typeof buildingTypes>;
+type PlanetDeposit = { resourceId: string; value: number };
+type BuildingProducerSnapshot = {
+  id: string;
+  typeId: string;
+  level: number;
+  queueAction: string | null;
+  selectedResourceId: string | null;
+};
 
-async function loadPlanetDepositResourceIds(tx: any, planetId: string): Promise<string[]> {
+async function loadPlanetDeposits(tx: any, planetId: string): Promise<PlanetDeposit[]> {
   const richnessRows = (await tx
-    .select({ resourceId: richness.resourceId })
+    .select({ resourceId: richness.resourceId, value: richness.value })
     .from(richness)
-    .where(eq(richness.planetId, planetId))) as { resourceId: string }[];
+    .where(eq(richness.planetId, planetId))) as PlanetDeposit[];
+
+  const deposits = new Map<string, number>();
+  for (const row of richnessRows) {
+    if (row.value > 0) {
+      deposits.set(row.resourceId, row.value);
+    }
+  }
 
   const legacyRegenRows = (await tx
     .select({ resourceId: planetResources.resourceId })
@@ -52,7 +69,105 @@ async function loadPlanetDepositResourceIds(tx: any, planetId: string): Promise<
       ),
     )) as { resourceId: string }[];
 
-  return [...new Set([...richnessRows, ...legacyRegenRows].map((row) => row.resourceId))];
+  for (const row of legacyRegenRows) {
+    if (!deposits.has(row.resourceId)) {
+      deposits.set(row.resourceId, 1);
+    }
+  }
+
+  return [...deposits.entries()].map(([resourceId, value]) => ({ resourceId, value }));
+}
+
+async function loadPlanetDepositResourceIds(tx: any, planetId: string): Promise<string[]> {
+  const deposits = await loadPlanetDeposits(tx, planetId);
+  return deposits.map((row) => row.resourceId);
+}
+
+function depositLimitsByResourceId(deposits: PlanetDeposit[]): Record<string, number> {
+  return Object.fromEntries(deposits.map((row) => [row.resourceId, row.value]));
+}
+
+async function loadUsedExtractorCountsByResourceId(
+  tx: any,
+  planetId: string,
+  planetDepositResourceIds: string[],
+  options: { excludeBuildingId?: string } = {},
+): Promise<Record<string, number>> {
+  const buildingsOnPlanet = (await tx
+    .select({
+      id: buildings.id,
+      typeId: buildings.typeId,
+      level: buildings.level,
+      queueAction: buildings.queueAction,
+      selectedResourceId: buildings.selectedResourceId,
+    })
+    .from(buildings)
+    .where(eq(buildings.planetId, planetId))) as BuildingProducerSnapshot[];
+
+  const counts: Record<string, number> = {};
+  for (const building of buildingsOnPlanet) {
+    if (building.id === options.excludeBuildingId) continue;
+    if (building.queueAction === 'destroy') continue;
+    if (!isSelectableExtractorType(building.typeId)) continue;
+
+    const producedResourceIds = resolveBuildingProducedResourceIds({
+      typeId: building.typeId,
+      planetResourceIds: planetDepositResourceIds,
+      selectedResourceId: building.selectedResourceId,
+    });
+
+    for (const resourceId of producedResourceIds) {
+      counts[resourceId] = (counts[resourceId] ?? 0) + 1;
+    }
+  }
+
+  return counts;
+}
+
+async function assertExtractorSelectionAvailable(input: {
+  tx: any;
+  planetId: string;
+  typeId: string;
+  selectedResourceId?: string | null;
+  excludeBuildingId?: string;
+}): Promise<void> {
+  const deposits = await loadPlanetDeposits(input.tx, input.planetId);
+  const planetDepositResourceIds = deposits.map((row) => row.resourceId);
+  if (input.selectedResourceId) {
+    await input.tx
+      .select({ resourceId: richness.resourceId })
+      .from(richness)
+      .where(
+        and(
+          eq(richness.planetId, input.planetId),
+          eq(richness.resourceId, input.selectedResourceId),
+        ),
+      )
+      .for('update');
+  }
+
+  const usedCounts = await loadUsedExtractorCountsByResourceId(
+    input.tx,
+    input.planetId,
+    planetDepositResourceIds,
+    { excludeBuildingId: input.excludeBuildingId },
+  );
+
+  const blocked = resolveExtractorSelectionBlockedReason({
+    typeId: input.typeId,
+    selectedResourceId: input.selectedResourceId,
+    planetResourceIds: planetDepositResourceIds,
+    depositLimitsByResourceId: depositLimitsByResourceId(deposits),
+    usedExtractorCountsByResourceId: usedCounts,
+  });
+
+  if (blocked) {
+    throw new BuildingOperationError(
+      formatBuildBlockedMessage(blocked, 'en'),
+      blocked.code,
+      blocked.details as Record<string, unknown>,
+    );
+  }
 }
 
 async function recalculateProductionRegenForResources(
@@ -65,9 +180,19 @@ async function recalculateProductionRegenForResources(
 
   const planetDepositResourceIds = await loadPlanetDepositResourceIds(tx, planetId);
   const buildingsOnPlanet = (await tx
-    .select({ typeId: buildings.typeId, level: buildings.level, queueAction: buildings.queueAction })
+    .select({
+      typeId: buildings.typeId,
+      level: buildings.level,
+      queueAction: buildings.queueAction,
+      selectedResourceId: buildings.selectedResourceId,
+    })
     .from(buildings)
-    .where(eq(buildings.planetId, planetId))) as { typeId: string; level: number; queueAction: string | null }[];
+    .where(eq(buildings.planetId, planetId))) as {
+      typeId: string;
+      level: number;
+      queueAction: string | null;
+      selectedResourceId: string | null;
+    }[];
 
   const typeIds = [...new Set(buildingsOnPlanet.map((b) => b.typeId))];
   const typeRows: BuildingTypeRow[] =
@@ -88,6 +213,7 @@ async function recalculateProductionRegenForResources(
         typeId: b.typeId,
         baseOutput: output,
         planetResourceIds: planetDepositResourceIds,
+        selectedResourceId: b.selectedResourceId,
         resourceId,
       }) * b.level;
     }
@@ -140,7 +266,13 @@ export class BuildingService {
     });
   }
 
-  async build(userId: string, planetId: string, typeId: string, slotIndex: number): Promise<ConstructionStatus> {
+  async build(
+    userId: string,
+    planetId: string,
+    typeId: string,
+    slotIndex: number,
+    selectedResourceId?: string | null,
+  ): Promise<ConstructionStatus> {
     const settlement = await getPlayerPlanetSettlement(userId, planetId);
     const planet = settlement?.planet;
 
@@ -214,10 +346,26 @@ export class BuildingService {
       );
     }
 
-    const planetResourceBlocked = resolvePlanetResourceBlockedReason({
-      typeId,
-      planetResourceIds: await loadPlanetDepositResourceIds(db, planetId),
-    });
+    const normalizedSelectedResourceId =
+      typeof selectedResourceId === 'string' && selectedResourceId.trim().length > 0
+        ? selectedResourceId.trim()
+        : null;
+
+    if (isSelectableExtractorType(typeId)) {
+      await assertExtractorSelectionAvailable({
+        tx: db,
+        planetId,
+        typeId,
+        selectedResourceId: normalizedSelectedResourceId,
+      });
+    }
+
+    const planetResourceBlocked = isSelectableExtractorType(typeId)
+      ? null
+      : resolvePlanetResourceBlockedReason({
+          typeId,
+          planetResourceIds: await loadPlanetDepositResourceIds(db, planetId),
+        });
 
     if (planetResourceBlocked) {
       throw new BuildingOperationError(
@@ -236,6 +384,15 @@ export class BuildingService {
     const researchEffects = await getResearchEffectsForUser(userId, db);
 
     return db.transaction(async (tx) => {
+      if (isSelectableExtractorType(typeId)) {
+        await assertExtractorSelectionAvailable({
+          tx,
+          planetId,
+          typeId,
+          selectedResourceId: normalizedSelectedResourceId,
+        });
+      }
+
       if (resourceCosts.length > 0) {
         const spendResult = await spendResources(planetId, resourceCosts, tx);
         if (!spendResult.success) {
@@ -248,6 +405,7 @@ export class BuildingService {
       const [newBuilding] = await tx.insert(buildings).values({
         planetId,
         typeId,
+        selectedResourceId: isSelectableExtractorType(typeId) ? normalizedSelectedResourceId : null,
         level: 1,
         slotIndex,
         queueAction: 'build',
@@ -319,6 +477,16 @@ export class BuildingService {
       throw new Error('Maximum level reached');
     }
 
+    if (isSelectableExtractorType(building.typeId)) {
+      await assertExtractorSelectionAvailable({
+        tx: db,
+        planetId: building.planetId,
+        typeId: building.typeId,
+        selectedResourceId: building.selectedResourceId,
+        excludeBuildingId: building.id,
+      });
+    }
+
     const queuedBuildings = await db
       .select({ count: sql<number>`COUNT(*)` })
       .from(buildings)
@@ -350,6 +518,16 @@ export class BuildingService {
     const researchEffects = await getResearchEffectsForUser(userId, db);
 
     return db.transaction(async (tx) => {
+      if (isSelectableExtractorType(building.typeId)) {
+        await assertExtractorSelectionAvailable({
+          tx,
+          planetId: building.planetId,
+          typeId: building.typeId,
+          selectedResourceId: building.selectedResourceId,
+          excludeBuildingId: building.id,
+        });
+      }
+
       if (resourceCosts.length > 0) {
         const spendResult = await spendResources(building.planetId, resourceCosts, tx);
         if (!spendResult.success) {

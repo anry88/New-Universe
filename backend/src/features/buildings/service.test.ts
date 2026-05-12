@@ -87,6 +87,7 @@ describe('Buildings Service - POST /buildings/build', () => {
         planetId: userPlanet!.id,
         typeId: 'mine',
         slotIndex: 1,
+        selectedResourceId: 'iron',
       },
     });
 
@@ -96,6 +97,11 @@ describe('Buildings Service - POST /buildings/build', () => {
     expect(body.queueItem).toBeDefined();
     expect(body.queueItem.id).toBeDefined();
     expect(body.queueItem.completesAt).toBeDefined();
+
+    const building = await db.query.buildings.findFirst({
+      where: eq(buildings.id, body.queueItem.id),
+    });
+    expect(building?.selectedResourceId).toBe('iron');
   });
 
   it('blocks construction on a discovered planet before colonizer settlement', async () => {
@@ -180,11 +186,88 @@ describe('Buildings Service - POST /buildings/build', () => {
         planetId: colonyPlanet.id,
         typeId: 'mine',
         slotIndex: 1,
+        selectedResourceId: 'iron',
       },
     });
 
     expect(response.statusCode).toBe(200);
     expect(response.json().success).toBe(true);
+  });
+
+  it('blocks a third mine on iron when the planet only has two iron deposits', async () => {
+    const { app, token, userId } = await createTestUser();
+
+    const [neutralSystem] = await db.insert(systems).values({
+      isHome: false,
+      sectorX: 4,
+      sectorY: 4,
+      sectorZ: 0,
+      x: '400.00',
+      y: '400.00',
+      z: '0.00',
+      name: `Iron Limit ${Math.random()}`,
+      seed: 791,
+    }).returning();
+
+    const [orePlanet] = await db.insert(planets).values({
+      systemId: neutralSystem.id,
+      biome: 'rocky',
+      size: 12,
+      slotCount: 8,
+      name: `Ore Colony ${Math.random()}`,
+    }).returning();
+
+    await db.insert(colonies).values({
+      ownerId: userId,
+      planetId: orePlanet.id,
+    });
+    await db.insert(buildings).values([
+      {
+        planetId: orePlanet.id,
+        typeId: 'command_center',
+        level: 1,
+        slotIndex: 0,
+      },
+      {
+        planetId: orePlanet.id,
+        typeId: 'mine',
+        selectedResourceId: 'iron',
+        level: 1,
+        slotIndex: 1,
+      },
+      {
+        planetId: orePlanet.id,
+        typeId: 'mine',
+        selectedResourceId: 'iron',
+        level: 1,
+        slotIndex: 2,
+      },
+    ]);
+    await db.insert(richness).values([
+      { planetId: orePlanet.id, resourceId: 'iron', value: 2 },
+      { planetId: orePlanet.id, resourceId: 'carbon', value: 1 },
+    ]);
+    await db.insert(planetResources).values([
+      { planetId: orePlanet.id, resourceId: 'iron', amount: '1000', regenRate: '0' },
+      { planetId: orePlanet.id, resourceId: 'carbon', amount: '1000', regenRate: '0' },
+    ]);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/buildings/build',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        planetId: orePlanet.id,
+        typeId: 'mine',
+        slotIndex: 3,
+        selectedResourceId: 'iron',
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    const body = response.json();
+    expect(body.code).toBe('building_blocked_deposit_limit');
+    expect(body.details).toMatchObject({ resourceId: 'iron', limit: 2, current: 2 });
   });
 
   it('should return 400 when planet has no free slots', async () => {
@@ -246,6 +329,7 @@ describe('Buildings Service - POST /buildings/build', () => {
         planetId: userPlanet!.id,
         typeId: 'mine',
         slotIndex: 1,
+        selectedResourceId: 'iron',
       },
     });
     expect(firstResponse.statusCode).toBe(200);
@@ -524,6 +608,7 @@ describe('Buildings Service - POST /buildings/build', () => {
     const [b] = await db.insert(buildings).values({
       planetId: userPlanet!.id,
       typeId: 'mine',
+      selectedResourceId: 'iron',
       slotIndex: 3,
       level: 0,
       queueAction: 'build',
@@ -569,6 +654,7 @@ describe('Buildings Service - POST /buildings/build', () => {
     await db.insert(buildings).values({
       planetId: userPlanet!.id,
       typeId: 'mine',
+      selectedResourceId: 'iron',
       slotIndex: 1,
       level: 1,
       queueAction: null,
@@ -591,8 +677,8 @@ describe('Buildings Service - POST /buildings/build', () => {
     );
 
     expect(regenByResource.iron).toBeGreaterThan(0);
-    expect(regenByResource.carbon).toBeGreaterThan(0);
-    expect(regenByResource.silicon).toBeGreaterThan(0);
+    expect(regenByResource.carbon ?? 0).toBe(0);
+    expect(regenByResource.silicon ?? 0).toBe(0);
   });
 
   it('should demolish a building and refund 50% of costs', async () => {

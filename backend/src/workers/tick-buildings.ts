@@ -1,23 +1,11 @@
 import { Worker, Queue } from 'bullmq';
 import { db } from '../db/index.js';
-import {
-  buildings,
-  buildingTypes,
-  planetResources,
-  notifications,
-  systems,
-  planets,
-} from '../db/schema.js';
-import { eq, and, sql, lte } from 'drizzle-orm';
+import { buildings } from '../db/schema.js';
+import { and, sql, lte } from 'drizzle-orm';
 import { logger } from '../lib/logger.js';
 import { env } from '../lib/env.js';
 
 const POLL_INTERVAL_MS = 30000;
-
-type BuildingOutput = {
-  resourceId?: string;
-  baseRate?: number;
-};
 
 import { buildingService } from '../features/buildings/service.js';
 

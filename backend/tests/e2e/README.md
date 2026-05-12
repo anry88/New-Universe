@@ -6,7 +6,7 @@ This directory contains end-to-end tests that validate full game loops.
 
 - **`first-day.test.ts`** — implements the "First Day" player journey (task P1-240).
   - Verifies registration and home system generation.
-  - Tests building construction and upgrades.
+  - Tests selected-resource mine construction and upgrades.
   - Simulates ship production and expedition launching.
   - Validates fog-of-war discovery mechanics and resource constraints.
 - **`colonization.test.ts`** — implements the "Colonization Lifecycle" scenario (task P2-COL-008).
