@@ -8,7 +8,14 @@ import type {
 } from '@shared/types/production.js';
 import { db as defaultDb } from '../../db/index.js';
 import { buildings, buildingTypes, planetResources, productionOrders, resources } from '../../db/schema.js';
-import { applyBuildTimeSeconds, applyStorageCap, getResearchEffectsForUser, type ResearchEffects } from '../research/effects.js';
+import {
+  applyBuildTimeSeconds,
+  applyEnergyGeneration,
+  applyEnergyRequirement,
+  applyStorageCap,
+  getResearchEffectsForUser,
+  type ResearchEffects,
+} from '../research/effects.js';
 import { getPlayerPlanetSettlement } from '../colonies/ownership.js';
 import { spendResources, gainResources } from './transactions.js';
 import { ENERGY_RESOURCE_ID, energyRequirementForDuration, resolveEnergyOutputCapacity } from './energy.js';
@@ -150,9 +157,14 @@ export class ProductionService {
       resourceId: change.resourceId,
       amount: roundResourceAmount(change.amount * quantity * inputMultiplier),
     }));
+    const baseOutputAmount = recipe.output.amount * quantity;
     const output = {
       resourceId: recipe.output.resourceId,
-      amount: roundResourceAmount(recipe.output.amount * quantity),
+      amount: roundResourceAmount(
+        recipe.output.resourceId === ENERGY_RESOURCE_ID
+          ? applyEnergyGeneration(baseOutputAmount, effects)
+          : baseOutputAmount,
+      ),
     };
     const durationSec = durationForQuantity(recipe.baseDurationSec, quantity, building.level, effects);
     const completesAt = new Date(Date.now() + durationSec * 1000).toISOString();
@@ -161,7 +173,12 @@ export class ProductionService {
     });
     const energyRequired = recipe.output.resourceId === ENERGY_RESOURCE_ID
       ? 0
-      : energyRequirementForDuration(Number(buildingType?.energyConsumption ?? 0), durationSec);
+      : roundResourceAmount(
+          applyEnergyRequirement(
+            energyRequirementForDuration(Number(buildingType?.energyConsumption ?? 0), durationSec),
+            effects,
+          ),
+        );
     const inputs = energyRequired > 0
       ? [...recipeInputs, { resourceId: ENERGY_RESOURCE_ID as ResourceAmount['resourceId'], amount: energyRequired }]
       : recipeInputs;

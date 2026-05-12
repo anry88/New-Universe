@@ -19,7 +19,7 @@ const BRANCH_COLORS: Record<string, string> = {
   mining: '#C7A582',
   engineering: '#5BD7FF',
   engines: '#9FE0B5',
-  weapons: '#FF5A6E',
+  energy: '#F4D35E',
   sensors: '#E0B0FF',
   logistics: '#7DD8E8',
   jump_drive: '#F4B84A',
@@ -47,7 +47,7 @@ function formatEffectLines(effects: TechTreeEntry['effects'], t: (key: string, p
   if (!effects.length) return t('research.passive');
   return effects
     .map((e) => {
-      const label = e.target;
+      const label = t(`research.effect.${e.target}`);
       if (e.multiplier < 1) {
         return `${label}: x${e.multiplier.toFixed(2)} (${t('research.reduction')})`;
       }

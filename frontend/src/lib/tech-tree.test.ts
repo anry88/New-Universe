@@ -18,5 +18,6 @@ describe('tech-tree (P2 research UI source)', () => {
       expect(counts.get(b.id)).toBe(5);
       expect(maxLevel.get(b.id)).toBe(5);
     }
+    expect(BRANCHES.some((branch) => branch.id === 'energy')).toBe(true);
   });
 });

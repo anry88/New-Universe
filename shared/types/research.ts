@@ -34,16 +34,25 @@ export interface ResearchRequirementRef {
   level: number;
 }
 
-/** Short English labels for tech-tree branches (keep aligned with `backend/src/config/research-catalog.ts`). */
-export const RESEARCH_BRANCH_LABELS_EN: Record<string, string> = {
-  mining: 'Resource Mining',
-  engineering: 'Engineering',
-  engines: 'Engines',
-  weapons: 'Weapons',
-  sensors: 'Sensors',
-  logistics: 'Logistics',
-  jump_drive: 'Jump Drive',
+/** Localized labels for tech-tree branches (keep aligned with `shared/config/researchCatalog.ts`). */
+export const RESEARCH_BRANCH_LABELS: Record<string, { en: string; ru: string }> = {
+  mining: { en: 'Resource Mining', ru: 'Добыча ресурсов' },
+  engineering: { en: 'Engineering', ru: 'Инженерия' },
+  engines: { en: 'Engines', ru: 'Двигатели' },
+  energy: { en: 'Energy', ru: 'Энергетика' },
+  sensors: { en: 'Sensors', ru: 'Сенсоры' },
+  logistics: { en: 'Logistics', ru: 'Логистика' },
+  jump_drive: { en: 'Jump Drive', ru: 'Прыжковый двигатель' },
 };
+
+/** Short English labels for tech-tree branches. */
+export const RESEARCH_BRANCH_LABELS_EN: Record<string, string> = Object.fromEntries(
+  Object.entries(RESEARCH_BRANCH_LABELS).map(([branch, labels]) => [branch, labels.en]),
+);
+
+export function researchBranchLabel(branch: string, locale: 'en' | 'ru'): string {
+  return RESEARCH_BRANCH_LABELS[branch]?.[locale] ?? branch;
+}
 
 export interface ResearchDefinition {
   branch: string;

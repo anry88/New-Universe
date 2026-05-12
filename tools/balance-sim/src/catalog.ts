@@ -208,6 +208,26 @@ export const RESEARCH_TIERS: Record<
     2: { cost: { iron: 460, silicon: 230 }, timeSec: 330, effects: [{ target: 'shipSpeed', multiplier: 1.1 }] },
     3: { cost: { iron: 820, silicon: 410 }, timeSec: 660, effects: [{ target: 'shipSpeed', multiplier: 1.15 }] },
   },
+  energy: {
+    1: { cost: { iron: 260, silicon: 130 }, timeSec: 180, effects: [{ target: 'energyGeneration', multiplier: 1.08 }] },
+    2: {
+      cost: { iron: 520, silicon: 260 },
+      timeSec: 390,
+      effects: [
+        { target: 'energyGeneration', multiplier: 1.12 },
+        { target: 'energyStorage', multiplier: 1.15 },
+      ],
+    },
+    3: {
+      cost: { iron: 1300, silicon: 650 },
+      timeSec: 975,
+      effects: [
+        { target: 'energyGeneration', multiplier: 1.18 },
+        { target: 'energyStorage', multiplier: 1.25 },
+        { target: 'energyEfficiency', multiplier: 0.92 },
+      ],
+    },
+  },
 };
 
 export const COLONIZATION = {

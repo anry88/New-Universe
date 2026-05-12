@@ -3,6 +3,9 @@ import { RESEARCH_TIERS } from './catalog.js';
 export interface ResearchEffects {
   resourceProductionMultiplier: number;
   resourceStorageMultiplier: number;
+  energyGenerationMultiplier: number;
+  energyStorageMultiplier: number;
+  energyEfficiencyMultiplier: number;
   shipSpeedMultiplier: number;
   sensorRangeMultiplier: number;
   buildTimeMultiplier: number;
@@ -11,6 +14,9 @@ export interface ResearchEffects {
 const DEFAULT_EFFECTS: ResearchEffects = {
   resourceProductionMultiplier: 1,
   resourceStorageMultiplier: 1,
+  energyGenerationMultiplier: 1,
+  energyStorageMultiplier: 1,
+  energyEfficiencyMultiplier: 1,
   shipSpeedMultiplier: 1,
   sensorRangeMultiplier: 1,
   buildTimeMultiplier: 1,
@@ -21,6 +27,9 @@ type EffectKey = keyof ResearchEffects;
 const TARGET_MAP: Record<string, EffectKey> = {
   resourceProduction: 'resourceProductionMultiplier',
   resourceStorage: 'resourceStorageMultiplier',
+  energyGeneration: 'energyGenerationMultiplier',
+  energyStorage: 'energyStorageMultiplier',
+  energyEfficiency: 'energyEfficiencyMultiplier',
   shipSpeed: 'shipSpeedMultiplier',
   sensorRange: 'sensorRangeMultiplier',
   buildTime: 'buildTimeMultiplier',
@@ -65,6 +74,18 @@ export function applyProductionRate(basePerHour: number, fx: ResearchEffects): n
 
 export function applyStorageCap(base: number, fx: ResearchEffects): number {
   return base * fx.resourceStorageMultiplier;
+}
+
+export function applyEnergyGeneration(base: number, fx: ResearchEffects): number {
+  return base * fx.energyGenerationMultiplier;
+}
+
+export function applyEnergyStorage(base: number, fx: ResearchEffects): number {
+  return base * fx.energyStorageMultiplier;
+}
+
+export function applyEnergyRequirement(base: number, fx: ResearchEffects): number {
+  return base * fx.energyEfficiencyMultiplier;
 }
 
 export function applyBuildTimeSeconds(baseSeconds: number, fx: ResearchEffects): number {

@@ -61,6 +61,7 @@
       "baseStorageCap": 250000,
       "structurePlan": [
         { "kind": "build", "buildingId": "mine" },
+        { "kind": "build", "buildingId": "solar_plant" },
         { "kind": "build", "buildingId": "drill" },
         { "kind": "build", "buildingId": "storage" },
         { "kind": "upgrade", "buildingId": "command_center" },

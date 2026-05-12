@@ -1,4 +1,5 @@
 import type { BuildBlockedReason, BuildingOutput } from './buildings.js';
+import { researchBranchLabel } from './research.js';
 import type { ResearchUnlockRequirement } from '../config/buildingResearchGates.js';
 
 export const METAL_DEPOSIT_RESOURCE_IDS = [
@@ -248,10 +249,12 @@ export function formatBuildBlockedMessage(reason: BuildBlockedReason, lang: 'en'
       return lang === 'ru'
         ? `Требуется здание ${reason.details.requiredTypeId} уровня ${reason.details.requiredLevel}.`
         : `Requires building ${reason.details.requiredTypeId} at level ${reason.details.requiredLevel}.`;
-    case 'building_blocked_research':
+    case 'building_blocked_research': {
+      const branchLabel = researchBranchLabel(reason.details.branch, lang);
       return lang === 'ru'
-        ? `Требуется исследование ${reason.details.branch} уровня ${reason.details.level}.`
-        : `Requires research ${reason.details.branch} level ${reason.details.level}.`;
+        ? `Требуется исследование «${branchLabel}» уровня ${reason.details.level}.`
+        : `Requires ${branchLabel} research level ${reason.details.level}.`;
+    }
     case 'building_blocked_planet_resource':
       return lang === 'ru'
         ? `На этой планете нет подходящего месторождения: ${resourceLabel(reason.details.resourceId, lang)}.`
