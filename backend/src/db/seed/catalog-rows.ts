@@ -165,7 +165,7 @@ export const BUILDING_TYPE_CATALOG_ROWS: BuildingCatalogRow[] = [
     deps: [{ typeId: 'command_center', level: 2 }],
     baseCost: { iron: 180, carbon: 160, water: 120 },
     baseTimeSec: 840,
-    baseOutput: { resourceId: 'biomass', baseRate: 18 },
+    baseOutput: { resourceId: 'biomass', baseRate: 4 },
     energyConsumption: 18,
   },
   {

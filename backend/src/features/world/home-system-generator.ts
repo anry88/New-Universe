@@ -285,11 +285,10 @@ export async function generateHomeSystem(userId: string, tx?: any) {
         ];
         if (t3t4forbidden.includes(resId)) continue;
 
-        // Most resources roll integer richness 1..3 (regen rate 10..30/h).
-        // Tritium is intentionally rarer — a starter system should be
-        // *able* to build a jump_ship without trading, but tritium should
-        // not flow as fast as iron. We keep the legacy float-richness
-        // band (0.3..0.8 → 3..8/h regen) for tritium.
+        // Most resources roll integer richness 1..3. Richness describes
+        // deposits only; passive collection starts later when an extractor
+        // building is completed. Tritium is intentionally rarer so the
+        // starter system can contain it without making it abundant.
         let resRichness: number;
         let storedRichness: number;
         if (resId === 'tritium') {
@@ -312,7 +311,7 @@ export async function generateHomeSystem(userId: string, tx?: any) {
           amount: isCapital
             ? String(CAPITAL_STARTING_RESOURCES[resId] ?? 1000)
             : '500',
-          regenRate: (resRichness * 10).toString(),
+          regenRate: '0',
         });
       }
 
