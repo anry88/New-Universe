@@ -66,6 +66,7 @@ services:
       SENTRY_DSN: ${SENTRY_DSN:-}
       PUBLIC_FRONTEND_URL: ${PUBLIC_FRONTEND_URL:-}
       TELEGRAM_APP_URL: ${TELEGRAM_APP_URL:-}
+      ADMIN_TELEGRAM_IDS: ${ADMIN_TELEGRAM_IDS:-}
     ports:
       - "3000:3000"
       - "4983:4983"
