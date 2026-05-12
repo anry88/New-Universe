@@ -1,6 +1,6 @@
 import { db as defaultDb } from '../../db/index.js';
 import { planets, systems, buildings, buildingTypes, users, resources, planetResources } from '../../db/schema.js';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { spendResources, gainResources } from './transactions.js';
 import { ENERGY_RESOURCE_ID, energyRequirementForDuration } from './energy.js';
 
