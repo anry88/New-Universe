@@ -3256,6 +3256,209 @@
       "verify": "Backend production recipe/order tests pass; frontend production UI tests/build pass; manual smoke: biomass requires the new biomass building, steel preview shows iron+water, fuel can be produced from methane or oil with different input ratios, and crafted resources do not accrue passively while idle.",
       "notes": "Keep resource conversion server-authoritative. Prefer a recipe catalog shared to frontend for display only, while preview/start remains validated by backend. Add the biomass building icon in the existing Cosmic Atlas building icon style rather than a generic placeholder.",
       "prompt": "[TASK P2.2-003] Ручная переработка ресурсов и здание биомассы\n\nОПИСАНИЕ\nПеревести производственные здания с автоматической добычи на явные производственные заказы игрока и добавить отдельное здание для добычи биомассы. Игрок выбирает рецепт, количество результата, видит требуемые входные ресурсы, время и модификаторы от уровня здания/исследований, после подтверждения входные ресурсы списываются сразу, а переработка завершается через единый production flow. Биомасса больше не добывается текущими универсальными средствами.\n\nACCEPTANCE CRITERIA\n  1. В каталоге зданий появляется отдельное biomass-здание для добычи биомассы с RU/EN названием, описанием, категорией добычи, eligibility по подходящим биомам/deposit rules и новой иконкой в стиле Cosmic Atlas\n  2. Текущие заводы и перерабатывающие здания больше не добавляют автоматический regenRate для steel, electronics, fuel, water/ice conversion и других crafted ресурсов; завершение/апгрейд/снос таких зданий не создаёт скрытую пассивную генерацию\n  3. Backend вводит явные production recipes и production orders: игрок выбирает здание, рецепт и количество выхода; API возвращает preview входных ресурсов, длительности, итогового выхода и причин блокировки\n  4. При старте production order сервер атомарно проверяет владение планетой, наличие подходящего здания, доступность рецепта, складские остатки и capacity; входные ресурсы списываются сразу, а результат начисляется только после завершения процесса\n  5. Smelter производит steel по рецепту iron + water с масштабированием количества; UI показывает требуемое железо и воду до подтверждения\n  6. Electronics производится через fabrication/electronics building с несколькими компонентами, включая silicon, copper и минимум один продвинутый компонент/материал; рецепт не должен быть одноресурсным\n  7. Cryo/processing building поддерживает ice ↔ water как явные рецепты с разными потерями/затратами и понятным preview\n  8. Refinery поддерживает несколько рецептов fuel: из methane требуется больше сырья, чем из oil; система допускает расширение альтернативных рецептов без изменения API\n  9. Уровень здания и research effects меняют стоимость входных ресурсов, длительность или выход production recipes детерминированно; frontend не рассчитывает бонусы как источник истины\n  10. Frontend даёт игроку выбрать рецепт и количество, показывает input requirements, дефицит ресурсов, длительность, итоговый output, disabled state и confirmation перед стартом; ошибки сервера локализованы RU/EN\n  11. Production orders покрыты backend tests для preview/start/complete, списания ресурсов, отказов при нехватке ресурсов и модификаторов level/research; frontend покрывает выбор количества, preview и disabled/confirm states\n  12. Документация backend/src/db/README.md, backend/src/features/buildings/README.md, backend/src/features/resources/README.md, frontend/src/README.md, shared/README.md и DOCUMENTATION.md обновлена под новую production-модель\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/seed/catalog-rows.ts\n  - backend/src/db/schema/\n  - backend/src/features/buildings/\n  - backend/src/features/resources/\n  - backend/src/features/research/effects.ts\n  - backend/src/workers/\n  - shared/types/\n  - frontend/src/components/\n  - frontend/src/components/cosmic/buildings.tsx\n  - frontend/src/pages/PlanetDetail.tsx\n  - frontend/src/locales/\n  - tools/balance-sim/src/catalog.ts\n  - DOCUMENTATION.md\n  - backend/src/db/README.md\n  - backend/src/features/buildings/README.md\n  - backend/src/features/resources/README.md\n  - frontend/src/README.md\n  - shared/README.md\n\nЗАВИСИМОСТИ\n  P2.2-001, P2-RES-001, P2.1-406, P2.1-412, P2.1-418\n\nКАК ПРОВЕРИТЬ\n  Backend production recipe/order tests pass; frontend production UI tests/build pass; manual smoke: biomass requires the new biomass building, steel preview shows iron+water, fuel can be produced from methane or oil with different input ratios, and crafted resources do not accrue passively while idle.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Keep resource conversion server-authoritative. Prefer a recipe catalog shared to frontend for display only, while preview/start remains validated by backend. Add the biomass building icon in the existing Cosmic Atlas building icon style rather than a generic placeholder."
+    },
+    {
+      "id": "P2.2-004",
+      "epic": "EPIC-P2.2-BUILDING-ECONOMY",
+      "size": "L",
+      "title": "Энергетика: аккумулятор, солнце, ветер и топливо",
+      "description": "Ввести энерго-модель для построек и производства: добавить новый тип здания «battery» (аккумулятор), сделать его обязательным хранилищем энергии и показывать заряженность на карточке здания, добавить генерацию через solar_plant, wind_turbine и fuel_generator. Выход энергии зависит от контекста планеты: солнечные панели должны сильнее работать на близких к звезде планетах, ветряки — от массы планеты, топливные установки — от загружаемого топлива (oil/gas/methane) с разной энергоотдачей и интерфейсом выбора рецепта зарядки на заводах.",
+      "acceptance": [
+        "Добавлено здание battery с типом, лимитом хранения и UI-индикатором заряда на карточке здания/списке",
+        "Солнечная станция использует коэффициент, зависящий от расстояния до центра системы/звезды (или близкой характеристики орбиты), при этом на дальних планетах эффективность заметно ниже",
+        "Ветряная станция масштабируется по массе планеты и не даёт одинаковый выход на всех типах мира",
+        "Топливная генерация использует загружаемый ресурс: oil/gas/methane (и т.п. по текущему каталогу) дают разное число энергии за единицу времени/ресурса",
+        "Система energy cap и transfer обеспечивает, что аккумуляторы не переполняются и не уходят ниже нуля при работе зданий",
+        "Списки зданий отображают доступный/нужный/избыточный уровень энергии; все добывающие и перерабатывающие здания при недостатке энергии переводятся в disabled state без списания ресурсов",
+        "Вычисление доступности зданий учитывает локальную энергоцепочку планеты (producer-consumer), а не только глобальные ресурсы"
+      ],
+      "files": [
+        "backend/src/db/schema/buildings.ts",
+        "backend/src/db/seed/catalog-rows.ts",
+        "backend/src/features/buildings/",
+        "backend/src/features/resources/",
+        "backend/src/features/research/",
+        "backend/src/workers/tick-buildings.ts",
+        "frontend/src/components/cosmic/buildings.tsx",
+        "frontend/src/components/BuildDialog.tsx",
+        "frontend/src/pages/PlanetDetail.tsx",
+        "frontend/src/locales/",
+        "shared/types/"
+      ],
+      "deps": [
+        "P2.2-001",
+        "P2.2-003",
+        "P2.1-412"
+      ],
+      "verify": "Backend unit/integration тесты на расчет energy producers/consumers и блокировку очередей; ручной смок на планетах с разной массой/расстоянием и разным аккумулятором, чтобы подтвердить корректный расчет и отключение зданий.",
+      "notes": "Добавить иконки battery/solar/wind/fuel в стиле Cosmic Atlas. Энергоуравнения должны быть server-authoritative, UI показывает preview/текущий заряд, но не пересчитывает в клиенте.",
+      "prompt": "[TASK P2.2-004] Энергетика: аккумулятор, солнце, ветер и топливо\n\nОПИСАНИЕ\nВвести энерго-модель для построек и производства: добавить батарею-аккумулятор, солнечную станцию, ветряную станцию и топливные генераторы. Эффективность зависит от параметров планеты и выбранного топлива, а недостача энергии отключает добычу и переработку.\n\nACCEPTANCE CRITERIA\n  1. Добавлено здание battery с лимитом хранения и индикатором заряда на UI карточки здания\n  2. solar_plant зависит от расстояния/орбиты планеты: близко к звезде — выше эффективность, на дальних — заметно ниже\n  3. wind_turbine зависит от массы планеты\n  4. fuel_generator принимает на вход ресурсы (oil/gas/methane и др.) и выдаёт разное количество энергии по рецептам\n  5. На недостатке энергии добывающие/перерабатывающие здания становятся disabled и не расходуют сырьё до восстановления энергии\n  6. Технически поддерживается storage cap для battery и корректная выдача/поглощение энергии в worker/таймерном проходе\n  7. Добавлены localized тексты и иконки в стиле Cosmic Atlas\n\nЗАВИСИМОСТИ\n  P2.2-001, P2.2-003, P2.1-412\n\nКАК ПРОВЕРИТЬ\n  Unit/integration backend tests power formulas + ручной смок для близкой/дальней планеты и low/high mass world.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Energy model остаётся в backend feature, UI — только отображение/preview и блокировка кнопок/таймеров."
+    },
+    {
+      "id": "P2.2-005",
+      "epic": "EPIC-P2.2-BUILDING-ECONOMY",
+      "size": "M",
+      "title": "Энергетика: ветка исследований и эффективность",
+      "description": "Добавить новую ветку исследований «Энергетика»: новые уровни открывают battery/solar/wind/fuel генерацию и апгрейды эффективности. На уровне исследования 0 battery и solar_plant должны быть доступны в каталоге, чтобы пользователь мог стартовать базовую энергосистему сразу после открытия ветки. Наращивание ветки увеличивает коэффициенты выработки, снижает потери и повышает ёмкость аккумуляторов.",
+      "acceptance": [
+        "В research tree появляется отдельная ветка «Энергетика» с понятной локализованной иерархией уровней",
+        "Доступные на уровне 0 здания/постройки: battery и solar_plant",
+        "Каждый следующий исследовательский уровень открывает минимум один новый энерго-аспект (новое здание/улучшение/рецепт)",
+        "Эффект исследований влияет на формулы энергии (yield/storage/efficiency) и проявляется и в backend API и UI",
+        "UI отображает причину блокировки энергопараметров до взятия нужного узла",
+        "Вся новая ветка входит в общий каталог исследований и не ломает 7x5 структуру экранов"
+      ],
+      "files": [
+        "backend/src/db/seed/catalog-rows.ts",
+        "backend/src/features/research/",
+        "backend/src/features/buildings/",
+        "frontend/src/lib/tech-tree.ts",
+        "frontend/src/pages/Research.tsx",
+        "frontend/src/locales/",
+        "DOCUMENTATION.md",
+        "shared/types/"
+      ],
+      "deps": [
+        "P2-RES-002",
+        "P2.2-004"
+      ],
+      "verify": "Исследования открывают battery/solar_plant на уровне 0 и влияют на реальные численные коэффициенты в backend worker-логике после каждого upgrade. Manual smoke: без 0 уровня ветки энергетики нет новых энергоблоков.",
+      "notes": "Для эффектов ветки лучше использовать shared modifier model с явным mth/curve в бэкенде, чтобы frontend использовал только readonly preview.",
+      "prompt": "[TASK P2.2-005] Энергетика: ветка исследований и эффективность\n\nОПИСАНИЕ\nДобавить новую ветку исследований «Энергетика», которая раскрывает новые типы генерации и улучшает энерго-параметры: battery и solar_plant доступны с нулевого уровня, далее через уровни открываются новые мощности и коэффициенты.\n\nACCEPTANCE CRITERIA\n  1. Отдельная ветка Energy в tech tree\n  2. battery и solar_plant доступны на уровне 0\n  3. Уровни ветки повышают коэффициенты генерации/ёмкости/процентов потерь\n  4. Исследования влияют на backend вычисления энергопроизводства\n  5. Причины блокировки и unlock-условия локализованы в RU/EN\n  6. Ветка корректно интегрирована с 7x5 research UI\n\nЗАВИСИМОСТИ\n  P2-RES-002, P2.2-004\n\nКАК ПРОВЕРИТЬ\n  Исследовать Energy ветку и проверить изменение фактических energy coefficients после завершения уровня.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Важно держать формулы на бэкенде: frontend только показывает время, стоимость и эффекты."
+    },
+    {
+      "id": "P2.2-006",
+      "epic": "EPIC-P2.2-BUILDING-ECONOMY",
+      "size": "S",
+      "title": "Админ-команда: начисление алмазов по нику",
+      "description": "Добавить Telegram command handler для админа: `/add_diamond <username> <amount>` (или эквивалентные алиасы). Команда должна проверять telegram_id отправителя через переменную ADMIN_TELEGRAM_IDS, находить пользователя по нику/username и начислять указанное число алмазов через существующий ресурсный/кошелёк-API, возвращая в чат success/failure с явной причиной ошибки (ник не найден, недопустимое число, ошибка валидации).",
+      "acceptance": [
+        "Команда доступна только отправителю, чей Telegram ID перечислен в ADMIN_TELEGRAM_IDS",
+        "Валидация синтаксиса: команда требует ник и число больше/равное 0",
+        "При успешной выдаче возвращается подтверждение и новый баланс",
+        "Если ник не найден/невалиден, бот возвращает понятный отказ",
+        "После каждого успешного начисления логируется событие/метка админ-операции",
+        "Команда использует существующую механику ресурсов, чтобы не допускать расхождений в балансе"
+      ],
+      "files": [
+        "backend/src/features/bot/",
+        "backend/src/features/auth/",
+        "backend/src/features/resources/",
+        "backend/src/lib/env.ts",
+        "backend/src/middleware/telegram-auth.ts",
+        "frontend/src/pages/Profile.tsx",
+        "DOCUMENTATION.md"
+      ],
+      "deps": [
+        "P1-120",
+        "P2.1-414",
+        "P1-122"
+      ],
+      "verify": "Ручной тест в Telegram: админ выдаёт алмазы известному пользователю, неадмин получает отказ, неизвестный ник получает отказ с текстом, баланс успешно меняется на /me.",
+      "notes": "Инициализировать ADMIN_TELEGRAM_IDS через env как список целых ID. Команда должна быть idempotent-safe при частичном парсинге.",
+      "prompt": "[TASK P2.2-006] Админ-команда: начисление алмазов по нику\n\nОПИСАНИЕ\nРеализовать Telegram команду администратора для начисления алмазов игроку по username. Доступ только по allowlist из env, с подробной валидацией входных данных и сообщениями успеха/ошибки.\n\nACCEPTANCE CRITERIA\n  1. Только админ (ADMIN_TELEGRAM_IDS) может вызывать команду\n  2. Валидация username + amount\n  3. Success-сообщение при начислении и ошибка при неудаче\n  4. Ответ об отсутствии пользователя при некорректном нике\n  5. Аудит в логах\n\nЗАВИСИМОСТИ\n  P1-120, P2.1-414, P1-122\n\nКАК ПРОВЕРИТЬ\n  Telegram smoke с админом и неадмином, plus /me баланс.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Не хардкодить ID в коде."
+    },
+    {
+      "id": "P2.2-007",
+      "epic": "EPIC-P2.2-BUILDING-ECONOMY",
+      "size": "L",
+      "title": "Исследования: одна активная задача и ускорители снизу",
+      "description": "Переработать экран исследований под единый UX-паттерн с очередью/ускорителями снизу как в стройке: визуально выделить ускорение и статус на нижней панели, пересмотреть длительности так, чтобы они действительно ощущались значительными, и ввести строгую очередь из одного исследования за раз (новое исследование можно ставить только после завершения текущего).",
+      "acceptance": [
+        "На экране Research есть нижняя панель ускорений/таймера, аналогичная паттерну post-build UI",
+        "Одновременно может выполняться только одно исследование; кнопки старта нового заблокированы до завершения текущего",
+        "Время исследований увеличено по кривой и соответствует ожидаемому ощущению прогресса, особенно в более высоких уровнях",
+        "Локализация статусов «занося очередь», «ускорить», «готово», «нужно улучшить» и т.п. соблюдает RU/EN",
+        "Снизу подсвечиваются ускорители и причины блокировки в явном виде",
+        "Смена вкладки/экранов не отменяет текущий research timer и не приводит к дублированию событий"
+      ],
+      "files": [
+        "frontend/src/pages/Research.tsx",
+        "frontend/src/components/ResearchQueue.tsx",
+        "frontend/src/components/cosmic/QueueStrip.tsx",
+        "backend/src/features/research/",
+        "backend/src/workers/tick-research.ts",
+        "frontend/src/locales/",
+        "shared/types/"
+      ],
+      "deps": [
+        "P2.1-404",
+        "P2.1-417",
+        "P2.1-418",
+        "P2-RES-004"
+      ],
+      "verify": "Frontend: проверка, что кнопка start disabled при занятой очереди и queue-strip показывает ускорение и статус внизу. Backend: один research_job на пользователя в статусе active; попытка добавить второй — валидируется с ошибкой.",
+      "notes": "Исследования и постройка могут использовать общий компонент ускорения/таймера при сохранении отдельных ограничений по типу процесса.",
+      "prompt": "[TASK P2.2-007] Исследования: одна активная задача и ускорители снизу\n\nОПИСАНИЕ\nСделать research queue UX единым с моделью queue build: ускорение и статус в нижней зоне, последовательная обработка (не более одного активного исследования), увеличенные реальныe значения времени.\n\nACCEPTANCE CRITERIA\n  1. Research screen bottom queue/accelerator\n  2. Технически одно активное исследование на профиль\n  3. Увеличенные realistic timer values по кривой\n  4. Локализованные статусы и причины блокировки RU/EN\n  5. Таймер устойчив к переключению вкладок\n\nЗАВИСИМОСТИ\n  P2.1-404, P2.1-417, P2.1-418, P2-RES-004\n\nКАК ПРОВЕРИТЬ\n  Ручной UI smoke + backend test на блокировку второго параллельного research."
+    },
+    {
+      "id": "P2.2-008",
+      "epic": "EPIC-P2.2-BUILDING-ECONOMY",
+      "size": "L",
+      "title": "Лёгкий транспортер: рецепты с планетой 1, объём 5000 и односторонняя доставка",
+      "description": "Переработать легкий транспортер в логистической линейке: сделать его крафт из ресурсов стартовой/первой планеты (без aluminum/electronics), увеличить вместимость перевозки до 5000 единиц с поддержкой сборных партий, изменить маршрут так, чтобы перевозка выполнялась от одной планеты к другой без обязательного возврата/обратного хода, и открыть постройку только после апгрейда верфи до L2.",
+      "acceptance": [
+        "Рецепт лёгкого транспорта не содержит aluminum и electronics; вместо них используются ресурсы, которые доступны на первой планете стартового игрока",
+        "Параметр maxCargo для lightweight_transporter равен 5000",
+        "Система маршрутизации поддерживает multi-load сборки: один transport_order может включать несколько позиционных партий в лимите 5000",
+        "Перевозка выполняет one-way перемещение между планетами без автозавершения возвратной фазы",
+        "UI не позволяет строить лёгкий транспортер до апгрейда shipyard до L2",
+        "Добавлены RU/EN тексты и проверка причин блокировки по уровню верфи и доступности ресурсов"
+      ],
+      "files": [
+        "backend/src/features/cargo/",
+        "backend/src/features/ships/",
+        "backend/src/features/colonies/",
+        "backend/src/db/seed/catalog-rows.ts",
+        "backend/src/db/schema/",
+        "frontend/src/components/",
+        "frontend/src/pages/Colonies.tsx",
+        "frontend/src/pages/SystemMap.tsx",
+        "frontend/src/locales/",
+        "shared/types/"
+      ],
+      "deps": [
+        "P2-COL-002",
+        "P2-COL-004",
+        "P2-COL-005",
+        "P1-170",
+        "P2-COL-007"
+      ],
+      "verify": "Ручной сценарий: на старте доступный cargo на первой планете → не содержит forbidden-ресурсы, лёгкий транспортер недоступен до L2 shipyard, после L2 доступен; перевозка 5000 единиц выполняется в одну сторону и не возвращает cargo в origin.",
+      "notes": "Проверить баланс route-time и расход топлива/энергии для нового паттерна доставки и обновить соответствующие статусы в справочниках и документации по колоннам.",
+      "prompt": "[TASK P2.2-008] Лёгкий транспортер: рецепты с планетой 1, объём 5000 и односторонняя доставка\n\nОПИСАНИЕ\nПеределать lightweight_transporter: изменить доступные материалы для крафта, повысить грузоподъемность и ограничение партий, пересобрать логику перемещения на one-way и поставить условие открытия после shipyard L2.\n\nACCEPTANCE CRITERIA\n  1. Рецепт без aluminum/electronics\n  2. maxCargo = 5000\n  3. Поддержка multi-load cargo до лимита\n  4. one-way маршрут между планетами\n  5. Строительство доступно только при shipyard L2\n\nЗАВИСИМОСТИ\n  P2-COL-002, P2-COL-004, P2-COL-005, P1-170, P2-COL-007\n\nКАК ПРОВЕРИТЬ\n  Manual smoke: попытка построить до L2 shipyard блокируется, после апгрейда доступен; перевозка на 5000 единиц не возвращается автоматически."
+    },
+    {
+      "id": "P2.2-009",
+      "epic": "EPIC-P2.2-BUILDING-ECONOMY",
+      "size": "S",
+      "title": "Добыча: выбор ресурса шахтами и насосами по лимиту месторождений",
+      "description": "Добавить выбор добываемого ресурса для добывающих зданий (mine, oil_pump и аналогов) аналогично производственным зданиям, и привязать его к реальному лимиту месторождений по планете: если ресурсов нет или уже израсходован лимит залежей, строительство/апгрейд/перезапуск такого добывающего здания блокируется.",
+      "acceptance": [
+        "Для каждого добывающего здания доступен выбор конкретного ресурса/конфига добычи",
+        "Выбранный ресурс влияет на логику дохода в tick/building проходе",
+        "Сервер проверяет лимит на планете по типу ресурса: нельзя иметь больше одновременно добывающих зданий этого типа ресурса, чем количество доступных залежей/источников",
+        "Пример: на одной планете с 2 железными залежами можно запускать одновременно только 2 mine с добычей iron",
+        "Аналогичные ограничения применяются к oil/gas/methane/ice/water и другим ресурсам с локальными источниками",
+        "При блокировке показываются локализованные причины в RU/EN",
+        "Добавлены/обновлены shared контракты и server validation для сохранения выбранного ресурса в состоянии здания"
+      ],
+      "files": [
+        "backend/src/db/schema/",
+        "backend/src/features/buildings/",
+        "backend/src/features/colonies/",
+        "backend/src/workers/tick-buildings.ts",
+        "frontend/src/components/",
+        "frontend/src/pages/PlanetDetail.tsx",
+        "frontend/src/locales/",
+        "shared/types/"
+      ],
+      "deps": [
+        "P2.2-002"
+      ],
+      "verify": "Backend unit/integration тесты: невозможность разместить/активировать 3-й mine по iron на планете с 2 залежами; ручной smoke: выбор ресурса в UI для mine/oil_pump работает и возвращает локализованную ошибку при лимите.",
+      "notes": "Рекомендуется переиспользовать существующий механизм production recipes/selection в общей модели buildingProductionProfile для единообразия UX и авторитетности валидации на backend.",
+      "prompt": "[TASK P2.2-009] Добыча: выбор ресурса шахтами и насосами по лимиту месторождений\n\nОПИСАНИЕ\nДобавить выбор добываемого ресурса для шахт и нефтяных насосов (и других добывающих зданий), аналогично выбранной логике в производственных зданиях. Нужно хранить выбор и валидировать его на сервере в привязке к планете: на планете доступно ограниченное число месторождений по каждому ресурсу, и это лимитирует число зданий, которые могут его добывать одновременно.\n\nACCEPTANCE CRITERIA\n  1. Для mine/oil_pump доступен выбор ресурса/продукта\n  2. Выбранный ресурс используется в производственном расчёте и сохраняется в состоянии здания\n  3. Сервер блокирует доп. post-build/upgrade/ререндер для ресурса, если лимит месторождений на планете исчерпан\n  4. На планете с 2 железными залежами одновременно работает максимум 2 mine по iron\n  5. Аналогично применимо к oil/gas/methane/ice/water и другим добываемым ресурсам\n  6. Клиент и сервер используют RU/EN сообщения о причине ограничения\n  7. Обновлены shared типы и контрактные тесты для выбранного ресурса\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/schema/\n  - backend/src/features/buildings/\n  - backend/src/features/colonies/\n  - backend/src/workers/tick-buildings.ts\n  - frontend/src/components/\n  - frontend/src/pages/PlanetDetail.tsx\n  - frontend/src/locales/\n  - shared/types/\n\nЗАВИСИМОСТИ\n  P2.2-002\n\nКАК ПРОВЕРИТЬ\n  Запустить unit/integration tests на лимиты добычи по ресурсам. Ручной smoke: выбор ресурса в карточке здания и блокировка третьей mine на планете с 2 железными залежами."
     }
   ]
 }

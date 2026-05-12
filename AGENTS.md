@@ -332,6 +332,8 @@ Do not treat generated planning PDFs or CSV files as implementation code.
 - Keep changes scoped to the task and its dependencies.
 - Add or update focused unit tests immediately when behavior, schemas, routes, services, or frontend flows change; do not leave tests as a follow-up unless a concrete blocker prevents it.
 - Prefer clear, boring implementation over new abstractions.
+- Если вы встречаете не локализованные тексты (включая подписи кнопок, описания, ошибки и сообщения состояния), их нужно локализовать на все доступные в игре языки (как минимум RU/EN) до закрытия задачи, вместо того чтобы оставлять hardcoded-строки или English-плейсхолдеры.
+- Если для сущности, которой в UI нужен визуальный ассет (здания, исследования, корабли, ресурсы и т.д.), отсутствует финальное изображение, нужно сгенерировать/добавить его в стиле Cosmic Atlas из дизайна проекта и подключить в работу, а не использовать заглушки.
 - Do not commit secrets. `.env` stays local and must not be committed.
 - Update the matching `README.md` files (see "Documentation Update Rules" below) in the same change as the code, so the documentation tree never drifts out of sync with the source tree.
 
