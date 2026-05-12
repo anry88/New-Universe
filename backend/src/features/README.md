@@ -9,7 +9,7 @@ Each subfolder is a single feature and is wired into Fastify from `backend/src/i
 Planet infrastructure management.
 
 - **`routes.ts`** — registers `GET /types`, `POST /build`, `POST /upgrade`, `POST /demolish`, `POST /sync/:planetId`, `GET /queue`, **`POST /rush`**.
-- **`service.ts`** — handles building logic, costs, queueing, **`rushQueuedBuilding`**, demolish, sync/finalize helpers, and planet-aware production regen. `sync` finalizes completed queue items and also recomputes production regen for all settled buildings on the planet so existing operational buildings pick up updated eligibility/output rules.
+- **`service.ts`** — handles building logic, costs, queueing, **`rushQueuedBuilding`**, demolish, sync/finalize helpers, and planet-aware passive regen for extractors such as mines, drills, oil pumps, and biomass harvesters. `sync` finalizes completed queue items and recomputes passive rates for settled buildings on the planet so existing operational extractors pick up updated eligibility/output rules.
 - **`buildings.test.ts`**, **`rush.test.ts`**, etc. — integration tests for construction flows.
 
 ## `auth/`
@@ -53,7 +53,7 @@ Sector map visibility for Phase 3.
 Player state retrieval.
 
 - **`routes.ts`** — `meRoutes(app)` registers `GET /me` and `PATCH /me/preferences`. Both require a valid JWT in the `Authorization: Bearer <token>` header. `GET /me` returns the database user record mapped to the `User` shared type (including `preferredLocale`), obfuscates undiscovered home planets, annotates discovered planets with `isColonized` so the UI can distinguish mapped bodies from buildable settlements, and includes only the current user's active expeditions so stale/foreign trails never leak into the map UI. `PATCH /me/preferences` accepts `{ preferredLocale }` (`en`/`ru`) and persists the player language preference for future sessions.
-- **`online-sync.ts`** — active-session completion service used by `GET /me`. It finalizes due buildings, research, ship builds, expeditions, and colonizer arrivals for the current user with notification suppression so Telegram pushes remain an offline fallback.
+- **`online-sync.ts`** — active-session completion service used by `GET /me`. It finalizes due buildings, research, ship builds, production orders, expeditions, and colonizer arrivals for the current user with notification suppression so Telegram pushes remain an offline fallback.
 
 ## `buildings/`
 
@@ -66,18 +66,18 @@ Building construction and queue management. [Detailed documentation](./buildings
   3. Checks that the planet has a free slot (`buildingCount < planet.slotCount`).
   4. Ensures the build queue is not full (max 1 concurrent build without premium).
   5. Verifies all dependency buildings exist at the required level.
-  5a. Applies shared planet-specific gates: mines require metal deposits, drills require fluid/gas/ice deposits, and oil-pump/refinery chains require oil.
+  5a. Applies shared planet-specific gates: mines require metal deposits, drills require fluid/gas/ice deposits, oil pumps require oil, and biomass harvesters require biomass. Refineries are processors and can use either oil or methane recipes, so they are not tied to an oil deposit.
   6. Deducts resource costs via `spendResources` (from `features/resources/transactions.ts`).
   7. Creates a `buildings` row with `queueAction='build'` and `queueCompletesAt = now + baseTime`.
   8. Enqueues a BullMQ delayed job for completion (non-blocking; gracefully handles unavailable Redis).
-  9. On queue completion, **`finalizeBuildingConstruction`** recomputes **`planet_resources.regenRate`** for resources the completed building can actually produce on that planet by summing producer levels and **inserts** a `planet_resources` row the first time that resource appears (steel/electronics included).
+  9. On queue completion, **`finalizeBuildingConstruction`** recomputes **`planet_resources.regenRate`** for resources the completed building can passively produce on that planet by summing producer levels and **inserts** a `planet_resources` row the first time that resource appears. Processors (`smelter`, `refinery`, `fabrication_bay`, `cryo_factory`) do not get passive crafted-resource regen; they use explicit production recipes.
 - **`service.test.ts`** — Vitest integration suite covering the full build flow: successful mine construction, free-slot exhaustion (via direct DB insert), queue limit enforcement, missing auth, unknown building type, and non-existent planet.
 
 ## `resources/`
 
-Resource accrual, transactions, and conversion.
+Resource accrual, transactions, conversion, and explicit production orders. [Detailed documentation](./resources/README.md).
 
-- **`routes.ts`** — `resourcesRoutes(app)` registers `POST /convert`, `POST /buy-with-diamonds`, and `GET /planets/:id` (mounted at `/resources` from `index.ts`). JWT required for mutating endpoints. `POST /buy-with-diamonds` accepts `{ planetId, resourceId, amount }`.
+- **`routes.ts`** — `resourcesRoutes(app)` registers `POST /convert`, `POST /buy-with-diamonds`, `GET /planets/:id`, and `/production/*` recipe/order endpoints (mounted at `/resources` from `index.ts`). JWT required for mutating endpoints. `POST /buy-with-diamonds` accepts `{ planetId, resourceId, amount }`; `POST /production/start` accepts `{ planetId, buildingId, recipeId, quantity }`.
 - **`convert.ts`** — `convertResources(userId, { planetId, from, to, amount })` converts ice ↔ water on a player-owned planet. Validates planet ownership, checks for a `cryo_factory` building (level ≥ 1), verifies energy availability (solar_plant production ≥ building consumption), then atomically spends the source resource and gains the target resource. Ice→water converts at 1:1; water→ice incurs a 5% loss (100 → 95). Also exports `buyResourceWithDiamonds` with rarity-aware pricing derived from `resources.tier` (`units-per-diamond` curve per tier), deducts `users.diamonds`, then credits `planet_resources`.
 - **`convert.test.ts`** — Vitest integration suite covering conversion flow plus buy-with-diamonds success and validation failures.
 - **`accrual.ts`** — exports `computeCurrentResources(planetId, tx?)` which lazily computes current resource amounts without writing to the database. For each resource: `amount += regenRate × (now - lastUpdateAt)`. Respects `defaultStorageCap` from the `resources` table and applies research production/storage multipliers via `features/research/effects.ts`. Returns array of `{ resourceId, amount, regenRate, lastUpdateAt, storageCap }`.
@@ -90,6 +90,8 @@ Resource accrual, transactions, and conversion.
   - If resource is insufficient → transaction rolls back, nothing spent.
   - `lastUpdateAt` synced with spend/gain.
 - **`transactions.test.ts`** — Vitest coverage asserting: successful spend, insufficient resource rollback, gain resources, sync `lastUpdateAt`, and multiple resource atomic handling.
+- **`production.ts`** — `ProductionService` exposes recipe listing, preview, start, order listing, and due-order processing. It validates settled-planet ownership and building type, applies building/research modifiers to input quantities/durations, spends inputs immediately, stores `production_orders`, and grants outputs when worker or online sync processes due rows.
+- **`production.test.ts`** — Vitest integration suite covering steel inputs, immediate spend/deferred output, insufficient resources, building/research modifiers, electronics multi-input costs, and oil-vs-methane fuel recipes.
 
 ## `tutorial/`
 

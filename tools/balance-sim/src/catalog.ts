@@ -33,15 +33,18 @@ export const BUILDINGS = {
   },
   mine: {
     deps: [{ typeId: 'command_center', level: 1 }],
-    baseCost: { iron: 100, silicon: 50 },
+    baseCost: { iron: 120, carbon: 40 },
     baseTimeSec: 300,
     category: 'production',
     output: { resourceId: 'iron', baseRate: 50 },
   },
   drill: {
-    deps: [{ typeId: 'command_center', level: 1 }],
-    baseCost: { carbon: 100, silicon: 50 },
-    baseTimeSec: 300,
+    deps: [
+      { typeId: 'command_center', level: 1 },
+      { typeId: 'solar_plant', level: 1 },
+    ],
+    baseCost: { silicon: 100, carbon: 80 },
+    baseTimeSec: 360,
     category: 'production',
     output: { resourceId: 'water', baseRate: 60 },
   },
@@ -59,12 +62,19 @@ export const BUILDINGS = {
     category: 'production',
     output: { resourceId: 'oil', baseRate: 45 },
   },
+  biomass_harvester: {
+    deps: [{ typeId: 'command_center', level: 2 }],
+    baseCost: { iron: 180, carbon: 160, water: 120 },
+    baseTimeSec: 840,
+    category: 'production',
+    output: { resourceId: 'biomass', baseRate: 18 },
+  },
   smelter: {
     deps: [{ typeId: 'command_center', level: 3 }],
     baseCost: { iron: 400, silicon: 200 },
     baseTimeSec: 900,
     category: 'production',
-    output: { resourceId: 'steel', baseRate: 36 },
+    recipes: ['steel_from_iron_water'],
   },
   fabrication_bay: {
     deps: [
@@ -74,17 +84,27 @@ export const BUILDINGS = {
     baseCost: { iron: 450, silicon: 350, carbon: 150, steel: 120 },
     baseTimeSec: 1200,
     category: 'production',
-    output: { resourceId: 'electronics', baseRate: 14 },
+    recipes: ['electronics_standard'],
   },
   refinery: {
     deps: [
-      { typeId: 'oil_pump', level: 1 },
+      { typeId: 'command_center', level: 3 },
       { typeId: 'smelter', level: 2 },
     ],
     baseCost: { iron: 550, silicon: 320, steel: 180 },
     baseTimeSec: 1500,
     category: 'production',
-    output: { resourceId: 'fuel', baseRate: 30 },
+    recipes: ['fuel_from_oil', 'fuel_from_methane'],
+  },
+  cryo_factory: {
+    deps: [
+      { typeId: 'spaceport', level: 2 },
+      { typeId: 'smelter', level: 3 },
+    ],
+    baseCost: { iron: 600, silicon: 200, magnesium: 50 },
+    baseTimeSec: 2700,
+    category: 'production',
+    recipes: ['water_from_ice', 'ice_from_water'],
   },
   spaceport: {
     deps: [{ typeId: 'command_center', level: 4 }],

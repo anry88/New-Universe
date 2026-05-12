@@ -1,0 +1,215 @@
+import { beforeAll, describe, expect, it } from 'vitest';
+import { eq, and } from 'drizzle-orm';
+import { db } from '../../db/index.js';
+import {
+  buildings,
+  planetResources,
+  planets,
+  productionOrders,
+  researchProgress,
+  systems,
+  users,
+} from '../../db/schema.js';
+import { seedBuildingTypes } from '../../db/seed/building-types.js';
+import { seedResources } from '../../db/seed/resources.js';
+import { seedResearchCatalog } from '../../db/seed/research.js';
+import { productionService } from './production.js';
+
+describe('production orders', () => {
+  beforeAll(async () => {
+    await seedResources();
+    await seedBuildingTypes();
+    await seedResearchCatalog();
+  });
+
+  async function createProductionPlanet(buildingTypeId = 'smelter', buildingLevel = 1) {
+    const [user] = await db.insert(users).values({
+      tgId: BigInt(Math.floor(Math.random() * 1_000_000_000)),
+      tgUsername: `production_${Math.random()}`,
+      tgFirstName: 'Production',
+    }).returning();
+
+    const [system] = await db.insert(systems).values({
+      ownerId: user.id,
+      isHome: true,
+      sectorX: 10,
+      sectorY: 10,
+      sectorZ: 0,
+      x: '0.00',
+      y: '0.00',
+      z: '0.00',
+      name: `Production System ${Math.random()}`,
+      seed: Math.floor(Math.random() * 1_000_000),
+    }).returning();
+
+    const [planet] = await db.insert(planets).values({
+      systemId: system.id,
+      biome: 'green',
+      size: 12,
+      slotCount: 8,
+      name: `Production Planet ${Math.random()}`,
+    }).returning();
+
+    await db.insert(buildings).values({
+      planetId: planet.id,
+      typeId: 'command_center',
+      level: 5,
+      slotIndex: 0,
+    });
+
+    const [building] = await db.insert(buildings).values({
+      planetId: planet.id,
+      typeId: buildingTypeId,
+      level: buildingLevel,
+      slotIndex: 1,
+    }).returning();
+
+    await db.insert(planetResources).values([
+      { planetId: planet.id, resourceId: 'iron', amount: '1000', regenRate: '0' },
+      { planetId: planet.id, resourceId: 'water', amount: '1000', regenRate: '0' },
+      { planetId: planet.id, resourceId: 'silicon', amount: '1000', regenRate: '0' },
+      { planetId: planet.id, resourceId: 'copper', amount: '1000', regenRate: '0' },
+      { planetId: planet.id, resourceId: 'steel', amount: '1000', regenRate: '0' },
+      { planetId: planet.id, resourceId: 'silicon_carbide', amount: '1000', regenRate: '0' },
+      { planetId: planet.id, resourceId: 'oil', amount: '1000', regenRate: '0' },
+      { planetId: planet.id, resourceId: 'methane', amount: '1000', regenRate: '0' },
+      { planetId: planet.id, resourceId: 'sulfur', amount: '1000', regenRate: '0' },
+      { planetId: planet.id, resourceId: 'ice', amount: '1000', regenRate: '0' },
+      { planetId: planet.id, resourceId: 'fuel', amount: '0', regenRate: '0' },
+      { planetId: planet.id, resourceId: 'electronics', amount: '0', regenRate: '0' },
+    ]);
+
+    return { user, planet, building };
+  }
+
+  async function resourceAmount(planetId: string, resourceId: string): Promise<number> {
+    const row = await db.query.planetResources.findFirst({
+      where: and(eq(planetResources.planetId, planetId), eq(planetResources.resourceId, resourceId)),
+    });
+    return Number(row?.amount ?? 0);
+  }
+
+  it('previews steel from iron and water', async () => {
+    const { user, planet, building } = await createProductionPlanet('smelter');
+
+    const preview = await productionService.preview(user.id, {
+      planetId: planet.id,
+      buildingId: building.id,
+      recipeId: 'steel_from_iron_water',
+      quantity: 10,
+    });
+
+    expect(preview.canStart).toBe(true);
+    expect(preview.output).toEqual({ resourceId: 'steel', amount: 10 });
+    expect(preview.inputs).toContainEqual({ resourceId: 'iron', amount: 20 });
+    expect(preview.inputs).toContainEqual({ resourceId: 'water', amount: 2 });
+  });
+
+  it('spends inputs immediately and grants output only after completion', async () => {
+    const { user, planet, building } = await createProductionPlanet('smelter');
+
+    const ironBefore = await resourceAmount(planet.id, 'iron');
+    const steelBefore = await resourceAmount(planet.id, 'steel');
+    const order = await productionService.start(user.id, {
+      planetId: planet.id,
+      buildingId: building.id,
+      recipeId: 'steel_from_iron_water',
+      quantity: 5,
+    });
+
+    expect(await resourceAmount(planet.id, 'iron')).toBeCloseTo(ironBefore - 10, 4);
+    expect(await resourceAmount(planet.id, 'steel')).toBeCloseTo(steelBefore, 4);
+
+    await db
+      .update(productionOrders)
+      .set({ completesAt: new Date(Date.now() - 1000) })
+      .where(eq(productionOrders.id, order.id));
+
+    const completed = await productionService.processDueOrders({ userId: user.id, planetId: planet.id });
+    expect(completed).toBe(1);
+    expect(await resourceAmount(planet.id, 'steel')).toBeCloseTo(steelBefore + 5, 4);
+
+    const repeated = await productionService.processDueOrders({ userId: user.id, planetId: planet.id });
+    expect(repeated).toBe(0);
+    expect(await resourceAmount(planet.id, 'steel')).toBeCloseTo(steelBefore + 5, 4);
+  });
+
+  it('rejects production when resources are insufficient', async () => {
+    const { user, planet, building } = await createProductionPlanet('smelter');
+
+    const preview = await productionService.preview(user.id, {
+      planetId: planet.id,
+      buildingId: building.id,
+      recipeId: 'steel_from_iron_water',
+      quantity: 10000,
+    });
+
+    expect(preview.canStart).toBe(false);
+    expect(preview.blockedReason?.code).toBe('production_insufficient_resources');
+  });
+
+  it('applies building level and research modifiers to input requirements', async () => {
+    const low = await createProductionPlanet('smelter', 1);
+    const high = await createProductionPlanet('smelter', 5);
+
+    await db.insert(researchProgress).values({
+      userId: high.user.id,
+      branch: 'mining',
+      level: 3,
+    }).onConflictDoUpdate({
+      target: [researchProgress.userId, researchProgress.branch],
+      set: { level: 3 },
+    });
+
+    const lowPreview = await productionService.preview(low.user.id, {
+      planetId: low.planet.id,
+      buildingId: low.building.id,
+      recipeId: 'steel_from_iron_water',
+      quantity: 10,
+    });
+    const highPreview = await productionService.preview(high.user.id, {
+      planetId: high.planet.id,
+      buildingId: high.building.id,
+      recipeId: 'steel_from_iron_water',
+      quantity: 10,
+    });
+
+    const lowIron = lowPreview.inputs.find((input) => input.resourceId === 'iron')!.amount;
+    const highIron = highPreview.inputs.find((input) => input.resourceId === 'iron')!.amount;
+    expect(highIron).toBeLessThan(lowIron);
+    expect(highPreview.durationSec).toBeLessThan(lowPreview.durationSec);
+  });
+
+  it('supports multi-component electronics and alternate fuel recipes', async () => {
+    const electronics = await createProductionPlanet('fabrication_bay');
+    const electronicsPreview = await productionService.preview(electronics.user.id, {
+      planetId: electronics.planet.id,
+      buildingId: electronics.building.id,
+      recipeId: 'electronics_standard',
+      quantity: 10,
+    });
+    expect(electronicsPreview.inputs.map((input) => input.resourceId).sort()).toEqual([
+      'copper',
+      'silicon',
+      'silicon_carbide',
+      'steel',
+    ]);
+
+    const refinery = await createProductionPlanet('refinery');
+    const oilPreview = await productionService.preview(refinery.user.id, {
+      planetId: refinery.planet.id,
+      buildingId: refinery.building.id,
+      recipeId: 'fuel_from_oil',
+      quantity: 10,
+    });
+    const methanePreview = await productionService.preview(refinery.user.id, {
+      planetId: refinery.planet.id,
+      buildingId: refinery.building.id,
+      recipeId: 'fuel_from_methane',
+      quantity: 10,
+    });
+    const oilInput = oilPreview.inputs.find((input) => input.resourceId === 'oil')!.amount;
+    const methaneInput = methanePreview.inputs.find((input) => input.resourceId === 'methane')!.amount;
+    expect(methaneInput).toBeGreaterThan(oilInput);
+  });
+});

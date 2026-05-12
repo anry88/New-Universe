@@ -1,4 +1,5 @@
 import type { ResearchBranchCatalog } from '@shared/config/researchCatalog.js';
+import { PRODUCTION_RECIPES } from '@shared/config/productionRecipes.js';
 import { RESOURCE_BASELINE_PRICE } from '../../config/market-prices.js';
 import { RESEARCH_CATALOG } from '../../config/research-catalog.js';
 import {
@@ -71,6 +72,15 @@ function collectResearchCostIds(): Set<string> {
   return ids;
 }
 
+function collectProductionRecipeResourceIds(): Set<string> {
+  const ids = new Set<string>();
+  for (const recipe of PRODUCTION_RECIPES) {
+    ids.add(recipe.output.resourceId);
+    for (const input of recipe.inputs) ids.add(input.resourceId);
+  }
+  return ids;
+}
+
 /**
  * Validates seeded catalog rows and cross-references (no DB).
  * Intended for CI and local drift detection before releases.
@@ -108,6 +118,12 @@ export function runCatalogAudit(): CatalogAuditResult {
       if (!buildingSet.has(dep.typeId)) {
         errors.push(`building "${row.id}": dependency references unknown building type "${dep.typeId}"`);
       }
+    }
+  }
+
+  for (const recipe of PRODUCTION_RECIPES) {
+    if (!buildingSet.has(recipe.buildingTypeId)) {
+      errors.push(`production recipe "${recipe.id}": references unknown building type "${recipe.buildingTypeId}"`);
     }
   }
 
@@ -151,6 +167,12 @@ export function runCatalogAudit(): CatalogAuditResult {
   for (const rid of collectResearchCostIds()) {
     if (!resourceSet.has(rid)) {
       errors.push(`research catalog cost references unknown resource "${rid}"`);
+    }
+  }
+
+  for (const rid of collectProductionRecipeResourceIds()) {
+    if (!resourceSet.has(rid)) {
+      errors.push(`production recipe references unknown resource "${rid}"`);
     }
   }
 

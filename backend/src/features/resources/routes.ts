@@ -1,10 +1,121 @@
-import { FastifyInstance } from 'fastify';
+import { FastifyInstance, type FastifyRequest } from 'fastify';
 import jwt from 'jsonwebtoken';
 import { env } from '../../lib/env.js';
 import { convertResources, buyResourceWithDiamonds, quoteResourceWithDiamonds } from './convert.js';
 import { computeCurrentResources } from './accrual.js';
+import { productionService, ProductionOperationError } from './production.js';
+import type { ProductionPreviewRequest, ProductionStartRequest } from '@shared/types/production.js';
+
+function readUserIdFromRequest(request: FastifyRequest): { userId?: string; error?: { status: number; body: Record<string, string> } } {
+  const authHeader = request.headers.authorization;
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+  if (!token) {
+    return {
+      error: {
+        status: 401,
+        body: { error: 'Unauthorized', message: 'Missing session token' },
+      },
+    };
+  }
+
+  try {
+    const payload = jwt.verify(token, env.JWT_SECRET) as { userId: string };
+    return { userId: payload.userId };
+  } catch {
+    return {
+      error: {
+        status: 401,
+        body: { error: 'Unauthorized', message: 'Invalid or expired session token' },
+      },
+    };
+  }
+}
 
 export async function resourcesRoutes(app: FastifyInstance) {
+  app.get('/production/recipes', async (request, reply) => {
+    const auth = readUserIdFromRequest(request);
+    if (auth.error) return reply.status(auth.error.status).send(auth.error.body);
+
+    const { planetId, buildingId } = request.query as { planetId?: string; buildingId?: string };
+    if (planetId && buildingId) {
+      const recipes = await productionService.recipesForBuilding(auth.userId!, buildingId, planetId);
+      return reply.send({ recipes });
+    }
+
+    return reply.send({ recipes: productionService.listRecipes() });
+  });
+
+  app.post('/production/preview', async (request, reply) => {
+    const auth = readUserIdFromRequest(request);
+    if (auth.error) return reply.status(auth.error.status).send(auth.error.body);
+
+    const body = request.body as Partial<ProductionPreviewRequest> | null;
+    if (!body?.planetId || !body.buildingId || !body.recipeId || body.quantity == null) {
+      return reply.status(400).send({
+        error: 'Bad Request',
+        message: 'planetId, buildingId, recipeId, and quantity are required',
+      });
+    }
+
+    return reply.send(await productionService.preview(auth.userId!, {
+      planetId: body.planetId,
+      buildingId: body.buildingId,
+      recipeId: body.recipeId,
+      quantity: body.quantity,
+    }));
+  });
+
+  app.post('/production/start', async (request, reply) => {
+    const auth = readUserIdFromRequest(request);
+    if (auth.error) return reply.status(auth.error.status).send(auth.error.body);
+
+    const body = request.body as Partial<ProductionStartRequest> | null;
+    if (!body?.planetId || !body.buildingId || !body.recipeId || body.quantity == null) {
+      return reply.status(400).send({
+        error: 'Bad Request',
+        message: 'planetId, buildingId, recipeId, and quantity are required',
+      });
+    }
+
+    try {
+      const order = await productionService.start(auth.userId!, {
+        planetId: body.planetId,
+        buildingId: body.buildingId,
+        recipeId: body.recipeId,
+        quantity: body.quantity,
+      });
+      return reply.send({ success: true, order });
+    } catch (err: unknown) {
+      if (err instanceof ProductionOperationError) {
+        return reply.status(err.status).send({
+          error: 'Bad Request',
+          message: err.message,
+          code: err.code,
+          details: err.details,
+        });
+      }
+      const e = err as { message?: string };
+      return reply.status(400).send({ error: 'Bad Request', message: e.message ?? 'Bad Request' });
+    }
+  });
+
+  app.get('/production/orders', async (request, reply) => {
+    const auth = readUserIdFromRequest(request);
+    if (auth.error) return reply.status(auth.error.status).send(auth.error.body);
+    const { planetId } = request.query as { planetId?: string };
+    await productionService.processDueOrders({ userId: auth.userId!, planetId });
+    return reply.send({ orders: await productionService.listOrders(auth.userId!, planetId) });
+  });
+
+  app.post('/production/sync/:planetId', async (request, reply) => {
+    const auth = readUserIdFromRequest(request);
+    if (auth.error) return reply.status(auth.error.status).send(auth.error.body);
+    const { planetId } = request.params as { planetId: string };
+    await productionService.processDueOrders({ userId: auth.userId!, planetId });
+    return reply.send({ success: true });
+  });
+
   app.post('/convert', async (request, reply) => {
     const authHeader = request.headers.authorization;
     const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;

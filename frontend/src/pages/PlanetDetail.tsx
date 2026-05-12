@@ -5,6 +5,7 @@ import { apiFetch } from '../lib/api';
 import { BuildingSlot } from '../components/BuildingSlot';
 import { UpgradeDialog } from '../components/UpgradeDialog';
 import { BuildDialog } from '../components/BuildDialog';
+import { ProductionDialog } from '../components/ProductionDialog';
 import { ResourceBar } from '../components/ResourceBar';
 import { BuildQueue } from '../components/BuildQueue';
 import {
@@ -20,6 +21,7 @@ import type { Building, Planet } from '@shared/types/world';
 import type { BuildingType, BuildBlockedReason, ConstructionStatus, DemolishStatus } from '@shared/types/buildings';
 import { resolveBuildBlockedReason, resolvePlanetResourceBlockedReason } from '@shared/types/building-eligibility';
 import { BUILDING_RESEARCH_GATES } from '@shared/config/buildingResearchGates';
+import { recipesForBuildingType } from '@shared/config/productionRecipes';
 import { ChevronLeft } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatHomeSystemTitleForUser } from '../lib/homeSystemTitle';
@@ -40,6 +42,7 @@ export function PlanetDetailPage() {
   const [buildingTypes, setBuildingTypes] = useState<BuildingType[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [selectedBuilding, setSelectedBuilding] = useState<Building | null>(null);
+  const [productionBuilding, setProductionBuilding] = useState<Building | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
@@ -281,6 +284,8 @@ export function PlanetDetailPage() {
   const selectedBuildingType = selectedBuilding
     ? buildingTypes.find((t) => t.id === selectedBuilding.typeId)
     : undefined;
+  const selectedBuildingCanProduce =
+    selectedBuildingType ? recipesForBuildingType(selectedBuildingType.id).length > 0 : false;
 
   const systemName = meData ? formatHomeSystemTitleForUser(meData) : t('planet.homeSystem');
   const sectorTag = meData?.homeSystem
@@ -405,8 +410,25 @@ export function PlanetDetailPage() {
         onAction={handleUpgrade}
         onDemolish={handleDemolish}
         onOpenShipyard={() => navigate('/ships?tab=shipyard')}
+        onOpenProduction={
+          selectedBuildingCanProduce && selectedBuilding
+            ? () => {
+                setProductionBuilding(selectedBuilding);
+                setSelectedBuilding(null);
+              }
+            : undefined
+        }
         isProcessing={isProcessing}
         accent={accent}
+      />
+
+      <ProductionDialog
+        isOpen={productionBuilding !== null}
+        onClose={() => setProductionBuilding(null)}
+        building={productionBuilding}
+        planetId={planet.id}
+        accent={accent}
+        onStarted={() => queryClient.invalidateQueries({ queryKey: ['me'] })}
       />
     </div>
   );

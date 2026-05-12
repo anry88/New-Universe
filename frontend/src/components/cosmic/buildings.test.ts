@@ -17,6 +17,11 @@ describe('resolveBuildingType', () => {
     expect(BUILDING_BY_TYPE.fabrication_bay.label).toBe('Fabrication Bay');
   });
 
+  it('resolves the biomass harvester icon entry', () => {
+    expect(resolveBuildingType('biomass_harvester')).toBe(BUILDING_BY_TYPE.biomass_harvester);
+    expect(BUILDING_BY_TYPE.biomass_harvester.label).toBe('Biomass Harvester');
+  });
+
   it('resolves legacy `electronics_factory` alias to fabrication_bay', () => {
     expect(resolveBuildingType('electronics_factory')).toBe(BUILDING_BY_TYPE.fabrication_bay);
   });
@@ -53,6 +58,7 @@ describe('building categories', () => {
     ]);
     expect(getBuildingCategoryKey('solar_plant')).toBe('energy');
     expect(getBuildingCategoryKey('mine')).toBe('extraction');
+    expect(getBuildingCategoryKey('biomass_harvester')).toBe('extraction');
     expect(getBuildingCategoryKey('smelter')).toBe('processing');
     expect(getBuildingCategoryKey('cryo_factory')).toBe('processing');
     expect(getBuildingCategoryKey('shipyard')).toBe('shipbuilding');

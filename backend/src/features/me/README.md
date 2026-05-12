@@ -4,7 +4,7 @@ This feature handles the retrieval of the current player's state. It is the prim
 
 ## Files
 
-- **`online-sync.ts`** — `syncDuePlayerState(userId)` is the active-session completion path used by `/me`. It finalizes due building queues, ship builds, research tiers, and expedition/colonization arrivals for the current user with notification suppression, then marks any stale pending completion notifications as read/non-pending so Telegram pushes are not sent after an online acknowledgement.
+- **`online-sync.ts`** — `syncDuePlayerState(userId)` is the active-session completion path used by `/me`. It finalizes due building queues, production orders, ship builds, research tiers, and expedition/colonization arrivals for the current user with notification suppression, then marks any stale pending completion notifications as read/non-pending so Telegram pushes are not sent after an online acknowledgement.
 - **`routes.ts`** — `meRoutes(app)` registers `GET /me` and `PATCH /me/preferences`.
   - It requires a valid JWT in the `Authorization: Bearer <token>` header.
   - It validates the token using `JWT_SECRET` from the environment.

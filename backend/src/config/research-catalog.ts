@@ -11,4 +11,19 @@ export type {
   ResearchBranchCatalog,
 } from '@shared/config/researchCatalog.js';
 
-export { RESEARCH_CATALOG, RESEARCH_TECH_TREE } from '@shared/config/researchCatalog.js';
+import * as researchCatalogModule from '@shared/config/researchCatalog.js';
+import type { ResearchBranchCatalog, ResearchLevelCatalogEntry } from '@shared/config/researchCatalog.js';
+
+type ResearchCatalogRuntime = {
+  RESEARCH_CATALOG: ResearchBranchCatalog[];
+  RESEARCH_TECH_TREE: ResearchLevelCatalogEntry[];
+};
+
+const researchCatalogRuntime = (
+  'RESEARCH_CATALOG' in researchCatalogModule
+    ? researchCatalogModule
+    : (researchCatalogModule as unknown as { default: ResearchCatalogRuntime }).default
+) as ResearchCatalogRuntime;
+
+export const RESEARCH_CATALOG = researchCatalogRuntime.RESEARCH_CATALOG;
+export const RESEARCH_TECH_TREE = researchCatalogRuntime.RESEARCH_TECH_TREE;

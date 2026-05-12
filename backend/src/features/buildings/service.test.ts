@@ -447,7 +447,7 @@ describe('Buildings Service - POST /buildings/build', () => {
     expect(body.message).toContain('oil deposit');
   });
 
-  it('should block refinery construction without an oil deposit on planet', async () => {
+  it('should allow refinery construction without an oil deposit when processing deps are met', async () => {
     const { app, token, userId } = await createTestUser();
 
     const userSystem = await db.query.systems.findFirst({
@@ -477,20 +477,17 @@ describe('Buildings Service - POST /buildings/build', () => {
       { planetId: userPlanet!.id, resourceId: 'silicon', value: 2 },
     ]);
 
+    await db
+      .update(buildings)
+      .set({ level: 3 })
+      .where(eq(buildings.planetId, userPlanet!.id));
+
     await db.insert(buildings).values([
-      {
-        planetId: userPlanet!.id,
-        typeId: 'oil_pump',
-        level: 1,
-        slotIndex: 1,
-        queueAction: null,
-        queueCompletesAt: null,
-      },
       {
         planetId: userPlanet!.id,
         typeId: 'smelter',
         level: 2,
-        slotIndex: 2,
+        slotIndex: 1,
         queueAction: null,
         queueCompletesAt: null,
       },
@@ -503,14 +500,12 @@ describe('Buildings Service - POST /buildings/build', () => {
       payload: {
         planetId: userPlanet!.id,
         typeId: 'refinery',
-        slotIndex: 3,
+        slotIndex: 2,
       },
     });
 
-    expect(response.statusCode).toBe(400);
-    const body = response.json();
-    expect(body.code).toBe('building_blocked_planet_resource');
-    expect(body.message).toContain('oil deposit');
+    expect(response.statusCode).toBe(200);
+    expect(response.json().success).toBe(true);
   });
 
   it('should sync and finalize completed building construction', async () => {

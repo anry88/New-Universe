@@ -2,6 +2,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { buildingService } from '../buildings/service.js';
 import { processCompletedResearch } from '../research/completion.js';
+import { productionService } from '../resources/production.js';
 import { syncReadyShips } from '../ships/build.js';
 import { processExpeditions } from '../../workers/tick-expeditions.js';
 import { colonies, notifications, planets, systems } from '../../db/schema.js';
@@ -47,6 +48,7 @@ export async function syncDuePlayerState(userId: string): Promise<void> {
 
   for (const planetId of planetIds) {
     await buildingService.syncPlanetBuildings(userId, planetId);
+    await productionService.processDueOrders({ userId, planetId });
   }
 
   await syncReadyShips(userId, { skipNotifications: true });

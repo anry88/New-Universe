@@ -8,8 +8,8 @@ Deterministic offline simulator for first-week economy progression (resources, b
 - **`scenarios/first-week.json`** — beginner vs optimized fixture definitions (`marketChunks` expands into granular NPC trades).
 - **`expected-ranges.json`** — inclusive milestone bands validated by tests / `npm run verify`.
 - **`artifacts/`** — generated JSON summaries (`artifacts/latest-summary.json` last run pointer). Ignored by git except `.gitkeep`.
-- **`src/catalog.ts`** — numeric mirrors of backend seeds/config (keep synchronized when balance changes). Includes **`HOME_SYSTEM_BASE_BIOME_IDS`** / fixed **`HOME_SYSTEM_PLANET_COUNT_* = 9`** aligned with `backend/src/features/world/biomes.ts` and `home-system-generator.ts`. Production buildings (`mine`, `drill`, **`smelter`**, **`fabrication_bay`**, …) must list `output` where the server catalog uses `baseOutput.resourceId` + `baseRate`.
-- **`src/simulate.ts`** — discrete-time integrator with parallel NPC trade resolution (no single serial trade blocks unrelated fills).
+- **`src/catalog.ts`** — numeric mirrors of backend seeds/config (keep synchronized when balance changes). Includes **`HOME_SYSTEM_BASE_BIOME_IDS`** / fixed **`HOME_SYSTEM_PLANET_COUNT_* = 9`** aligned with `backend/src/features/world/biomes.ts` and `home-system-generator.ts`. Passive producers (`mine`, `drill`, `oil_pump`, `biomass_harvester`) list `output`, while processors (`smelter`, `refinery`, `fabrication_bay`, `cryo_factory`) list manual `recipes`.
+- **`src/simulate.ts`** — discrete-time integrator with parallel NPC trade resolution (no single serial trade blocks unrelated fills). It applies passive generation only for extractor-style buildings; crafted resources are modeled through explicit scenario actions/recipes rather than automatic processor output.
 - **`src/cli.ts`** — loads a scenario file, writes artifacts, optional `--verify`.
 
 ## Upgrade time & cost curve

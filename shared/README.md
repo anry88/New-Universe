@@ -10,6 +10,7 @@ Cross-package contracts shared between the Fastify backend (`backend/`) and the 
 
 - `config/` — progression catalogs consumed by both Node and Vite bundles where duplication would drift (research gates for buildings; full tech tree).
     - **`buildingResearchGates.ts`** — `ResearchUnlockRequirement` plus `BUILDING_RESEARCH_GATES` (imported through `backend/src/config/research-unlocks.ts` on the API side and directly by Cosmic build previews).
+    - **`productionRecipes.ts`** — `PRODUCTION_RECIPES`, `recipesForBuildingType`, and `findProductionRecipe`; canonical manual manufacturing recipes for smelter/refinery/fabricator/cryo buildings.
     - **`researchCatalog.ts`** — canonical **7×5** research tree (`RESEARCH_CATALOG`, `RESEARCH_TECH_TREE`); import via `@shared/config/researchCatalog` from backend and frontend (Docker mounts `shared/` at `/app/shared`; backend code uses `@shared`, not `../../../shared`).
     - **`tutorialRewards.ts`** — `TUTORIAL_STEP_RESOURCE_GRANTS`, `TUTORIAL_COMPLETION_RESOURCE_GRANTS`, and EN/RU UI summaries for onboarding; consumed by `features/tutorial/service.ts` and the Cosmic `Tutorial` overlay.
 
@@ -26,6 +27,7 @@ Cross-package contracts shared between the Fastify backend (`backend/`) and the 
     - **`expeditions.ts`** — `Expedition` and `ExpeditionResult` interfaces, including server-calculated `fuelRequired`, route `distance`, and timer fields consumed by fleet/map UI.
     - **`market.ts`** — `MarketOffer`, market-order request/response payloads, and side/status primitives shared by market frontend hooks and backend routes.
     - **`multiplayer.ts`** — `PresenceEntityKind`, `SectorPresenceEntity`, and `SectorPresencePayload` for the sector-map presence API (`GET /multiplayer/sectors/:sx/:sy/:sz/presence`).
+    - **`production.ts`** — production recipe summaries, preview/start payloads, structured block reasons, and production-order DTOs shared by `/resources/production/*` and the frontend production dialog.
 
 
 ## Conventions

@@ -100,6 +100,13 @@ describe('planet resource construction rules', () => {
     });
     expect(oilReason?.code).toBe('building_blocked_planet_resource');
     expect(formatBuildBlockedMessage(oilReason!, 'en')).toContain('oil deposit');
+
+    const biomassReason = resolvePlanetResourceBlockedReason({
+      typeId: 'biomass_harvester',
+      planetResourceIds: ['water', 'iron'],
+    });
+    expect(biomassReason?.code).toBe('building_blocked_planet_resource');
+    expect(formatBuildBlockedMessage(biomassReason!, 'en')).toContain('biomass deposit');
   });
 
   it('maps extractor output to local deposits instead of fixed catalog ids', () => {
@@ -127,5 +134,21 @@ describe('planet resource construction rules', () => {
         resourceId: 'aluminum',
       }),
     ).toBe(25);
+
+    expect(
+      resolveBuildingProducedResourceIds({
+        typeId: 'biomass_harvester',
+        baseOutput: { resourceId: 'biomass', baseRate: 18 },
+        planetResourceIds: ['biomass', 'water'],
+      }),
+    ).toEqual(['biomass']);
+
+    expect(
+      resolveBuildingProducedResourceIds({
+        typeId: 'smelter',
+        baseOutput: { resourceId: 'steel', baseRate: 36 },
+        planetResourceIds: ['iron', 'water'],
+      }),
+    ).toEqual([]);
   });
 });
