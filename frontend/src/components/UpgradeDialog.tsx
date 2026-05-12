@@ -104,6 +104,11 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
                           {t('build.capacity')}: {output.cap * curLvl} → {output.cap * nextLvl}
                         </span>
                       )}
+                      {output.energyCap && (
+                        <span className="bstat energy">
+                          {t('build.energyCapacity')}: {output.energyCap * curLvl} → {output.energyCap * nextLvl} E
+                        </span>
+                      )}
                       {output.energy && (
                         <span className="bstat energy">
                           {t('common.energy')}: {output.energy * curLvl} → {output.energy * nextLvl}

@@ -29,6 +29,9 @@ interface BuildDialogProps {
   currentEnergy?: {
     produced: number;
     consumed: number;
+    stored?: number;
+    capacity?: number;
+    net?: number;
   };
 }
 
@@ -78,7 +81,7 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
   }, []).sort((a, b) => BUILDING_CATEGORY_ORDER.indexOf(a.key) - BUILDING_CATEGORY_ORDER.indexOf(b.key));
   const producedNow = currentEnergy?.produced ?? 0;
   const consumedNow = currentEnergy?.consumed ?? 0;
-  const netNow = producedNow - consumedNow;
+  const netNow = currentEnergy?.net ?? producedNow - consumedNow;
 
   return (
     <div
@@ -109,6 +112,9 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
           {currentEnergy ? (
             <div className="bd-sub" style={{ marginTop: 6 }}>
               {t('build.energyNow', { produced: producedNow, consumed: consumedNow, net: `${netNow >= 0 ? '+' : ''}${netNow}` })}
+              {typeof currentEnergy.stored === 'number' && typeof currentEnergy.capacity === 'number'
+                ? ` · ${t('build.energyStored', { stored: currentEnergy.stored, capacity: currentEnergy.capacity })}`
+                : ''}
             </div>
           ) : null}
         </div>
@@ -176,6 +182,11 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
                           {output.cap && (
                             <span className="bstat">
                               {t('build.capacity')}: +{output.cap}
+                            </span>
+                          )}
+                          {output.energyCap && (
+                            <span className="bstat energy">
+                              {t('build.energyCapacity')}: +{output.energyCap} E
                             </span>
                           )}
                           {output.energy && (

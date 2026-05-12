@@ -1,7 +1,8 @@
 import { db as defaultDb } from '../../db/index.js';
 import { planets, systems, buildings, buildingTypes, users, resources, planetResources } from '../../db/schema.js';
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { spendResources, gainResources } from './transactions.js';
+import { ENERGY_RESOURCE_ID, energyRequirementForDuration } from './energy.js';
 
 export interface ConvertRequest {
   planetId: string;
@@ -185,55 +186,12 @@ export async function convertResources(
     return { success: false, status: 400, error: 'Converted amount is too small' };
   }
 
-  const energyCost = cryoType ? (cryoType.energyConsumption as number) : 0;
-  if (energyCost > 0) {
-    const allBuildingsOnPlanet = await db
-      .select({
-        typeId: buildings.typeId,
-        level: buildings.level,
-      })
-      .from(buildings)
-      .where(eq(buildings.planetId, planetId));
-
-    const typeIds = [...new Set(allBuildingsOnPlanet.map((b) => b.typeId))];
-    const typeRows = typeIds.length > 0
-      ? await db
-          .select()
-          .from(buildingTypes)
-          .where(sql`${buildingTypes.id} IN (${sql.join(typeIds.map((id) => sql`${id}`), sql`, `)})`)
-      : [];
-
-    const typeMap = new Map(typeRows.map((t) => [t.id, t]));
-
-    let totalProduction = 0;
-    let totalConsumption = 0;
-
-    for (const b of allBuildingsOnPlanet) {
-      const bt = typeMap.get(b.typeId);
-      if (!bt) continue;
-
-      const output = bt.baseOutput as Record<string, any> | null;
-      const energyOutput = output?.energy ? Number(output.energy) * b.level : 0;
-
-      if (energyOutput > 0) {
-        totalProduction += energyOutput;
-      } else {
-        totalConsumption += (bt.energyConsumption as number) * b.level;
-      }
-    }
-
-    if (totalProduction < totalConsumption) {
-      return {
-        success: false,
-        status: 400,
-        error: `Not enough energy on this planet (available: ${totalProduction - totalConsumption})`,
-      };
-    }
-  }
+  const energyCost = energyRequirementForDuration(Number(cryoType?.energyConsumption ?? 0), Math.max(1, fromAmount));
 
   const result = await db.transaction(async (tx) => {
     const spendResult = await spendResources(planetId, [
       { resourceId: from, amount: fromAmount },
+      ...(energyCost > 0 ? [{ resourceId: ENERGY_RESOURCE_ID, amount: energyCost }] : []),
     ], tx);
 
     if (!spendResult.success) {

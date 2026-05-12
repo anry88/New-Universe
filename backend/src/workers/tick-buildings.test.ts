@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { db } from '../db/index.js';
 import {
   users,
@@ -11,6 +11,8 @@ import {
 import { eq, and } from 'drizzle-orm';
 import { processCompletedBuildings } from './tick-buildings.js';
 import { generateHomeSystem } from '../features/world/home-system-generator.js';
+import { seedBuildingTypes } from '../db/seed/building-types.js';
+import { seedResources } from '../db/seed/resources.js';
 
 async function createTestUser() {
   const [user] = await db.insert(users).values({
@@ -36,6 +38,11 @@ async function getHomePlanetId(userId: string): Promise<string> {
 }
 
 describe('Tick Buildings Worker', () => {
+  beforeAll(async () => {
+    await seedResources();
+    await seedBuildingTypes();
+  });
+
   it('should complete a build queue item', async () => {
     const user = await createTestUser();
     const planetId = await getHomePlanetId(user.id);
@@ -129,6 +136,39 @@ describe('Tick Buildings Worker', () => {
     });
     expect(pr).toBeDefined();
     expect(Number(pr!.regenRate)).toBeCloseTo(50 / 3, 4);
+  });
+
+  it('should initialize battery-backed energy storage when energy buildings complete', async () => {
+    const user = await createTestUser();
+    const planetId = await getHomePlanetId(user.id);
+    const past = new Date(Date.now() - 5000);
+
+    await db.insert(buildings).values([
+      {
+        planetId,
+        typeId: 'battery',
+        slotIndex: 2,
+        level: 1,
+        queueAction: 'build',
+        queueCompletesAt: past,
+      },
+      {
+        planetId,
+        typeId: 'solar_plant',
+        slotIndex: 3,
+        level: 1,
+        queueAction: 'build',
+        queueCompletesAt: past,
+      },
+    ]);
+
+    await processCompletedBuildings();
+
+    const energy = await db.query.planetResources.findFirst({
+      where: and(eq(planetResources.planetId, planetId), eq(planetResources.resourceId, 'energy')),
+    });
+    expect(energy).toBeDefined();
+    expect(Number(energy!.regenRate)).toBeGreaterThan(0);
   });
 
   it('should not create passive steel regen when smelter completes', async () => {

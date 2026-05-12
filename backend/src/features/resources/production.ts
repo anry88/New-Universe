@@ -11,6 +11,7 @@ import { buildings, buildingTypes, planetResources, productionOrders, resources 
 import { applyBuildTimeSeconds, applyStorageCap, getResearchEffectsForUser, type ResearchEffects } from '../research/effects.js';
 import { getPlayerPlanetSettlement } from '../colonies/ownership.js';
 import { spendResources, gainResources } from './transactions.js';
+import { ENERGY_RESOURCE_ID, energyRequirementForDuration, resolveEnergyOutputCapacity } from './energy.js';
 
 const RESOURCE_SCALE = 10000;
 
@@ -145,7 +146,7 @@ export class ProductionService {
     }
 
     const inputMultiplier = materialEfficiencyMultiplier(building.level, effects);
-    const inputs = recipe.inputs.map((change) => ({
+    const recipeInputs = recipe.inputs.map((change) => ({
       resourceId: change.resourceId,
       amount: roundResourceAmount(change.amount * quantity * inputMultiplier),
     }));
@@ -155,6 +156,15 @@ export class ProductionService {
     };
     const durationSec = durationForQuantity(recipe.baseDurationSec, quantity, building.level, effects);
     const completesAt = new Date(Date.now() + durationSec * 1000).toISOString();
+    const buildingType = await database.query.buildingTypes.findFirst({
+      where: eq(buildingTypes.id, building.typeId),
+    });
+    const energyRequired = recipe.output.resourceId === ENERGY_RESOURCE_ID
+      ? 0
+      : energyRequirementForDuration(Number(buildingType?.energyConsumption ?? 0), durationSec);
+    const inputs = energyRequired > 0
+      ? [...recipeInputs, { resourceId: ENERGY_RESOURCE_ID as ResourceAmount['resourceId'], amount: energyRequired }]
+      : recipeInputs;
 
     const currentRows = await database
       .select({
@@ -173,6 +183,7 @@ export class ProductionService {
     );
     const missing = inputs.find((change) => (balance.get(change.resourceId) ?? 0) < change.amount);
     if (missing) {
+      const isEnergy = missing.resourceId === ENERGY_RESOURCE_ID;
       return baseResponse({
         output,
         inputs,
@@ -180,7 +191,9 @@ export class ProductionService {
         completesAt,
         blockedReason: {
           code: 'production_insufficient_resources',
-          message: { ru: `Недостаточно ресурса ${missing.resourceId}.`, en: `Not enough ${missing.resourceId}.` },
+          message: isEnergy
+            ? { ru: 'Недостаточно заряда аккумуляторов.', en: 'Not enough stored energy.' }
+            : { ru: `Недостаточно ресурса ${missing.resourceId}.`, en: `Not enough ${missing.resourceId}.` },
           details: {
             resourceId: missing.resourceId,
             required: missing.amount,
@@ -349,6 +362,10 @@ export class ProductionService {
     effects: ResearchEffects,
     database: any,
   ): Promise<{ currentAmount: number; storageCap: number }> {
+    if (resourceId === ENERGY_RESOURCE_ID) {
+      return resolveEnergyOutputCapacity(planetId, database);
+    }
+
     const [resourceRow, existingRow] = await Promise.all([
       database.query.resources.findFirst({ where: eq(resources.id, resourceId) }),
       database.query.planetResources.findFirst({

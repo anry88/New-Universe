@@ -32,7 +32,7 @@ function assertNoDuplicateIds(ids: string[], label: string, errors: string[]): v
 
 /** Allowed defaultStorageCap values per tier (matches seeded catalog conventions). */
 const ALLOWED_CAPS_BY_TIER: Record<number, Set<number>> = {
-  1: new Set([5000, 1000]),
+  1: new Set([0, 5000, 1000]),
   2: new Set([2500]),
   3: new Set([1000, 500]),
   4: new Set([100, 1000]),

@@ -52,6 +52,9 @@ export const BuildingSlot: React.FC<BuildingSlotProps> = ({
         building: Boolean(building?.queueAction),
         etaSec: progress?.etaSec,
         progressPct: progress?.progressPct,
+        disabled: building.energy?.disabled,
+        energyStored: building.energy?.stored,
+        energyCapacity: building.energy?.capacity,
       }}
       biomeAccent={biomeAccent}
       onClick={() => onClick(index, building)}

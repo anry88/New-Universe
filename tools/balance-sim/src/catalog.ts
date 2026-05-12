@@ -48,6 +48,13 @@ export const BUILDINGS = {
     category: 'production',
     output: { resourceId: 'water', baseRate: 60 },
   },
+  battery: {
+    deps: [{ typeId: 'command_center', level: 1 }],
+    baseCost: { iron: 120, silicon: 90, carbon: 40 },
+    baseTimeSec: 420,
+    category: 'energy',
+    energyStoragePerLevel: 500,
+  },
   storage: {
     deps: [{ typeId: 'command_center', level: 1 }],
     baseCost: { iron: 150, carbon: 50 },
@@ -131,6 +138,21 @@ export const BUILDINGS = {
     baseCost: { silicon: 150, iron: 50 },
     baseTimeSec: 600,
     category: 'energy',
+    output: { energy: 50 },
+  },
+  wind_turbine: {
+    deps: [{ typeId: 'command_center', level: 1 }],
+    baseCost: { iron: 140, aluminum: 60, silicon: 60 },
+    baseTimeSec: 720,
+    category: 'energy',
+    output: { energy: 38 },
+  },
+  fuel_generator: {
+    deps: [{ typeId: 'command_center', level: 2 }],
+    baseCost: { iron: 220, silicon: 120, steel: 80 },
+    baseTimeSec: 900,
+    category: 'energy',
+    recipes: ['energy_from_fuel', 'energy_from_oil', 'energy_from_methane'],
   },
 } as const;
 

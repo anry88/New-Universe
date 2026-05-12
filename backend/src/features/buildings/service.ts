@@ -27,6 +27,7 @@ import { BuildingOperationError } from './building-operation-error.js';
 import { countUserBuildingsOfType } from './count-user-buildings.js';
 import { BUILDING_TYPE_CATALOG_ROWS } from '../../db/seed/catalog-rows.js';
 import { getPlanetSettlementOwnerId, getPlayerPlanetSettlement } from '../colonies/ownership.js';
+import { syncEnergyResourceRow } from '../resources/energy.js';
 
 type BuildingOutput = {
   resourceId?: string;
@@ -423,6 +424,7 @@ export class BuildingService {
     if (bType?.baseOutput) {
       await recalculateProductionRegenForBuildingType(tx, building.planetId, bType);
     }
+    await syncEnergyResourceRow(building.planetId, tx);
 
     if (options.skipNotification) return;
 
@@ -650,6 +652,7 @@ export class BuildingService {
       if (typeInfo.baseOutput) {
         await recalculateProductionRegenForBuildingType(tx, building.planetId, typeInfo);
       }
+      await syncEnergyResourceRow(building.planetId, tx);
     });
 
     return { success: true, refund: refundMap };

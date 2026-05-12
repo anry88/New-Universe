@@ -798,6 +798,14 @@ body {
   opacity: 0.7;
   animation: cosmic-shimmer 2s linear infinite;
 }
+.slot.disabled {
+  border-color: rgba(255, 90, 110, 0.36);
+  filter: saturate(0.55);
+}
+.slot.disabled::before {
+  background: linear-gradient(90deg, transparent, #ff5a6e, transparent);
+  opacity: 0.7;
+}
 @keyframes cosmic-shimmer {
   0% {
     opacity: 0.3;
@@ -832,6 +840,23 @@ body {
   color: var(--warn);
   letter-spacing: 0.06em;
   margin-top: 3px;
+}
+.slot-energy-warning,
+.slot-energy-charge {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 8px;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.slot-energy-warning {
+  color: #ff5a6e;
+}
+.slot-energy-charge {
+  color: #ffca5b;
 }
 
 /* QUEUE STRIP */
