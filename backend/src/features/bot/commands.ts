@@ -51,6 +51,10 @@ function trimUsername(raw: string): string {
   return raw.replace(/^@/, '').trim().toLowerCase();
 }
 
+function actorLogId(actor?: TelegramUser): string | null {
+  return actor?.id != null ? String(actor.id) : null;
+}
+
 export async function handleStartCommand(chatId: number) {
   const appUrl = env.PUBLIC_FRONTEND_URL || 'https://new-universe.app';
   
@@ -89,14 +93,33 @@ export async function handleAddDiamondCommand(
 
   const actorId = actor?.id != null ? BigInt(actor.id) : null;
   const isAdmin = actorId !== null && adminTelegramIds.includes(actorId);
+  const actorIdForLog = actorLogId(actor);
 
   if (!isAdmin) {
+    logger.warn(
+      {
+        event: 'admin.add_diamond.rejected',
+        reason: 'unauthorized',
+        chatId,
+        actorId: actorIdForLog,
+      },
+      'Admin diamonds command rejected',
+    );
     await sendTelegramMessage(chatId, messages.unauthorized);
-    logger.warn({ chatId, actorId: actor?.id }, 'Admin diamonds command rejected: actor is not in allowlist');
     return;
   }
 
   if (args.length !== 2) {
+    logger.warn(
+      {
+        event: 'admin.add_diamond.rejected',
+        reason: 'invalid_syntax',
+        chatId,
+        actorId: actorIdForLog,
+        argsCount: args.length,
+      },
+      'Admin diamonds command rejected',
+    );
     await sendTelegramMessage(chatId, messages.insufficientArgs);
     return;
   }
@@ -107,6 +130,17 @@ export async function handleAddDiamondCommand(
 
   if (!username || Number.isNaN(amount) || !Number.isInteger(amount) || amount < 0) {
     const message = !username ? messages.invalidUsername : messages.invalidAmount;
+    logger.warn(
+      {
+        event: 'admin.add_diamond.rejected',
+        reason: !username ? 'invalid_username' : 'invalid_amount',
+        chatId,
+        actorId: actorIdForLog,
+        targetUsername: username || null,
+        amountRaw,
+      },
+      'Admin diamonds command rejected',
+    );
     await sendTelegramMessage(chatId, message);
     return;
   }
@@ -115,10 +149,32 @@ export async function handleAddDiamondCommand(
 
   if (!result.success) {
     if (result.status === 404) {
+      logger.warn(
+        {
+          event: 'admin.add_diamond.rejected',
+          reason: 'user_not_found',
+          chatId,
+          actorId: actorIdForLog,
+          targetUsername: username,
+        },
+        'Admin diamonds command rejected',
+      );
       await sendTelegramMessage(chatId, messages.userNotFound);
       return;
     }
 
+    logger.error(
+      {
+        event: 'admin.add_diamond.failed',
+        chatId,
+        actorId: actorIdForLog,
+        targetUsername: username,
+        amount,
+        status: result.status,
+        error: result.error,
+      },
+      'Admin diamonds command failed',
+    );
     await sendTelegramMessage(chatId, messages.operationFailed);
     return;
   }
@@ -126,11 +182,13 @@ export async function handleAddDiamondCommand(
   logger.info(
     {
       event: 'admin.add_diamond',
-      actorId: actorId,
+      actorId: actorIdForLog,
       chatId,
       targetUserId: result.data?.userId,
       targetUsername: result.data?.username,
       amount,
+      diamondsBefore: result.data?.diamondsBefore,
+      diamondsAfter: result.data?.diamondsAfter,
     },
     'Admin added diamonds via Telegram command',
   );
