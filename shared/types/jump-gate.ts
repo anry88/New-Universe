@@ -2,6 +2,7 @@ import type { ResearchRequirementRef } from './research.js';
 
 export type JumpGateCalibrationStatus = 'locked' | 'idle' | 'calibrating' | 'ready';
 export type JumpGateCalibrationMode = 'random' | 'known';
+export type JumpGateKnownDestinationSource = 'sensor' | 'random_jump';
 
 export type JumpGateLockedReasonCode =
   | 'jump_drive_required'
@@ -47,6 +48,8 @@ export interface JumpGateKnownDestinationSummary {
   sector: { x: number; y: number; z: number };
   planetCount: number;
   discoveredAt: string;
+  source: JumpGateKnownDestinationSource;
+  lastVisitedAt: string | null;
 }
 
 export interface JumpGateStateResponse {
@@ -56,4 +59,33 @@ export interface JumpGateStateResponse {
   calibration: JumpGateCalibrationState;
   randomJumpAvailability: JumpGateRandomJumpAvailability;
   knownDestinations: JumpGateKnownDestinationSummary[];
+}
+
+export interface JumpGateRandomJumpRequest {
+  shipId: string;
+}
+
+export interface JumpGateKnownDestinationJumpRequest {
+  shipId: string;
+}
+
+export interface JumpGateJumpTargetSystem {
+  id: string;
+  name: string;
+  sector: { x: number; y: number; z: number };
+}
+
+export interface JumpGateJumpShipSummary {
+  id: string;
+  typeId: string;
+  status: string;
+  fuel: string;
+  locationPlanetId: string | null;
+}
+
+export interface JumpGateJumpResponse {
+  ship: JumpGateJumpShipSummary;
+  targetSystem: JumpGateJumpTargetSystem;
+  arrivalPlanetId: string;
+  destination: JumpGateKnownDestinationSummary;
 }

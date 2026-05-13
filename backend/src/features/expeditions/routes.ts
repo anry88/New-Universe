@@ -1,4 +1,5 @@
 import { FastifyInstance } from "fastify";
+import type { ExpeditionJumpRequest } from "@shared/types/expeditions.js";
 import jwt from "jsonwebtoken";
 import { env } from "../../lib/env.js";
 import { launchExpedition } from "./launch.js";
@@ -28,21 +29,16 @@ export async function expeditionsRoutes(app: FastifyInstance) {
       });
     }
 
-    const { shipId, targetSector } = request.body as {
-      shipId?: string;
-      targetSector?: { x: number; y: number; z: number };
-    };
+    const body = (request.body ?? {}) as Partial<ExpeditionJumpRequest>;
+    const { shipId } = body;
 
-    if (!shipId || !targetSector) {
+    if (!shipId) {
       return reply.status(400).send({
-        error: "shipId and targetSector {x, y, z} are required",
+        error: "shipId is required",
       });
     }
 
-    const result = await jumpShip(payload.userId, {
-      shipId,
-      targetSector,
-    });
+    const result = await jumpShip(payload.userId, body as ExpeditionJumpRequest);
 
     if (!result.success) {
       return reply.status(result.status).send({ error: result.error });
@@ -50,7 +46,10 @@ export async function expeditionsRoutes(app: FastifyInstance) {
 
     return reply.send({
       targetSystem: result.targetSystem,
+      arrivalPlanetId: result.arrivalPlanetId,
       targetPlanet: result.targetPlanet,
+      ship: result.ship,
+      destination: result.destination,
     });
   });
 

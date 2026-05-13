@@ -204,6 +204,13 @@
       "when": 1779400000000,
       "tag": "0030_glorious_impossible_man",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1779500000000,
+      "tag": "0031_redundant_the_anarchist",
+      "breakpoints": true
     }
   ]
 }

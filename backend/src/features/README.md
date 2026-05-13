@@ -9,8 +9,8 @@ Each subfolder is a single feature and is wired into Fastify from `backend/src/i
 Private Home System Jump Gate state.
 
 - **`README.md`** — [Jump Gate state documentation](./jump-gate/README.md).
-- **`routes.ts`** — `jumpGateRoutes(app)` registers `GET /jump-gate/state` for authenticated clients.
-- **`service.ts`** — `getJumpGateState(userId)` derives unlock from completed `jump_drive >= 1`, creates/updates the player's `jump_gates` row when unlocked, returns the outer-orbit home anchor, calibration state, random-jump availability, and discovered public destination summaries.
+- **`routes.ts`** — `jumpGateRoutes(app)` registers `GET /jump-gate/state`, `POST /jump-gate/random-jump`, and `POST /jump-gate/destinations/:systemId/jump` for authenticated clients.
+- **`service.ts`** — `getJumpGateState(userId)` derives unlock from completed `jump_drive >= 1`, creates/updates the player's `jump_gates` row when unlocked, returns the outer-orbit home anchor, calibration state, random-jump availability, and discovered public destination summaries with registry source/last-visited metadata.
 - **`service.test.ts`** — asserts locked/unlocked state, unfinished research staying locked, persistence creation, public destination filtering, and calibration finalization.
 
 ## `buildings/`
@@ -118,9 +118,9 @@ Ship launch and travel scheduling. [Detailed documentation](./expeditions/README
 
 - **`routes.ts`** — `expeditionsRoutes(app)` registers:
   - `POST /` — launches a standard expedition to a route point. Accepts `{ shipId, targetX, targetY, targetZ, cargoLoaded }`; fuel is calculated server-side from distance and ship fuel consumption. `targetPlanetId` is valid for recon survey targets and required for colonizer deployments to discovered planets; same-system targeted launches use shared system-map planet distance, while logistics ships are rejected and must use `/cargo/transfer`.
-  - `POST /jump` — performs an inter-sector jump using a Jump Ship. Accepts `{ shipId, targetSector: { x, y, z } }`.
+  - `POST /jump` — deprecated-compatible Jump Gate entry point using `{ shipId, mode: 'random' }` or `{ shipId, destinationSystemId }`; legacy manual `targetSector` requests are rejected.
 - **`launch.ts`** — `launchExpedition(userId, request)` validates ship ownership and idle state, rejects logistics ships from generic expeditions, checks the launch planet has enough cargo stock, computes and spends fuel, creates an `expeditions` row with `status='in_flight'`, updates the ship to `moving`, computes `eta = distance × 60 / speed × engine_factor`, and enqueues the delayed BullMQ job. Effective speed is resolved through `features/research/effects.ts`; same-system target-planet launches derive distance from `@shared/format/systemMapLayout`, and colonizer launches are one-way and must pass colonization gates before launch.
-- **`jump.ts`** — `jumpShip(userId, request)` handles specialized Jump Ship teleportation. Checks for Jump Drive research lvl 1+, deducts 50 fuel from the ship's internal tank, lazily generates the target sector, selects the first public non-home system, and moves the ship to its first planet. Updates discovery records.
+- **`jump.ts`** — `jumpShip(userId, request, options?)` handles specialized Jump Ship teleportation. Checks for unlocked Jump Gate state, deducts 50 fuel from the ship's internal tank, chooses server-authoritative random sectors or known `destinationSystemId` targets, lazily generates common-pool sectors, excludes protected Home Systems, and upserts system-level known destination records without revealing all planets.
 - **`launch.test.ts`** — Vitest integration suite covering the happy path, non-idle ship rejection, insufficient fuel, and missing auth.
 - **`jump.test.ts`** — Vitest integration suite for the jump feature.
 

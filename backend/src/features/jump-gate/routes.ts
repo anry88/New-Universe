@@ -1,7 +1,12 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import type {
+  JumpGateKnownDestinationJumpRequest,
+  JumpGateRandomJumpRequest,
+} from '@shared/types/jump-gate.js';
 import jwt from 'jsonwebtoken';
 import { env } from '../../lib/env.js';
 import { sendLocalizedError } from '../../lib/i18n.js';
+import { jumpShip } from '../expeditions/jump.js';
 import { getJumpGateState } from './service.js';
 
 async function requireUserId(request: FastifyRequest, reply: FastifyReply): Promise<string | null> {
@@ -28,5 +33,58 @@ export async function jumpGateRoutes(app: FastifyInstance) {
     if (!userId) return;
 
     return reply.send(await getJumpGateState(userId));
+  });
+
+  app.post('/random-jump', async (request, reply) => {
+    const userId = await requireUserId(request, reply);
+    if (!userId) return;
+
+    const body = (request.body ?? {}) as Partial<JumpGateRandomJumpRequest>;
+    if (!body.shipId) {
+      return sendLocalizedError(reply, request, 400, 'badRequest');
+    }
+
+    const result = await jumpShip(userId, {
+      shipId: body.shipId,
+      mode: 'random',
+    });
+
+    if (!result.success) {
+      return reply.status(result.status).send({ error: result.error });
+    }
+
+    return reply.send({
+      ship: result.ship,
+      targetSystem: result.targetSystem,
+      arrivalPlanetId: result.arrivalPlanetId,
+      destination: result.destination,
+    });
+  });
+
+  app.post('/destinations/:systemId/jump', async (request, reply) => {
+    const userId = await requireUserId(request, reply);
+    if (!userId) return;
+
+    const params = request.params as { systemId?: string };
+    const body = (request.body ?? {}) as Partial<JumpGateKnownDestinationJumpRequest>;
+    if (!params.systemId || !body.shipId) {
+      return sendLocalizedError(reply, request, 400, 'badRequest');
+    }
+
+    const result = await jumpShip(userId, {
+      shipId: body.shipId,
+      destinationSystemId: params.systemId,
+    });
+
+    if (!result.success) {
+      return reply.status(result.status).send({ error: result.error });
+    }
+
+    return reply.send({
+      ship: result.ship,
+      targetSystem: result.targetSystem,
+      arrivalPlanetId: result.arrivalPlanetId,
+      destination: result.destination,
+    });
   });
 }

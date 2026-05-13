@@ -6,7 +6,7 @@ Ship launch and expedition scheduling live here. The module accepts launch reque
 
 - **`routes.ts`** — `expeditionsRoutes(app)` registers:
   - `POST /` — launches a standard expedition to a route point. Accepts `{ shipId, targetX, targetY, targetZ, cargoLoaded }`; fuel is calculated and reserved server-side from route distance and ship fuel consumption. `targetPlanetId` is valid only for recon surveys and colonizer deployments. Logistics ships are rejected here and must use `/cargo/transfer`. Colonizers must provide a discovered, eligible target planet and reserve one-way fuel because a successful arrival consumes the ship into the new Command Center.
-  - `POST /jump` — performs an inter-sector jump. Accepts `{ shipId, targetSector: { x, y, z } }`.
+  - `POST /jump` — deprecated-compatible Jump Gate entry point. Accepts `{ shipId, mode: 'random' }` for server-authoritative random jumps or `{ shipId, destinationSystemId }` for known destinations; legacy `{ targetSector }` requests are rejected without generating or visiting client-provided coordinates.
 - **`launch.ts`** — `launchExpedition(userId, request)` performs the launch flow:
   - Loads the ship, its type, and current planet/system context.
   - Verifies the ship belongs to the caller and is `idle`.
@@ -15,14 +15,15 @@ Ship launch and expedition scheduling live here. The module accepts launch reque
   - Validates `targetPlanetId` by role: recon targets must be undiscovered home-system bodies, while colonizer targets must be discovered, unsettled, and pass colonization gates.
   - Creates the expedition row with `status='in_flight'`, updates the ship to `moving`, and computes `eta = distance × 60 / speed × engine_factor` with the current neutral engine factor.
   - Enqueues a BullMQ delayed job at `eta` and returns the created expedition plus queue metadata.
-- **`jump.ts`** — `jumpShip(userId, request)` handles Jump Ship inter-sector jumps:
+- **`jump.ts`** — `jumpShip(userId, request, options?)` handles Jump Ship inter-sector jumps:
   - Verifies the ship is a `jump_ship` and `idle`.
-  - Verifies `jump_drive` research level 1+.
+  - Verifies the private Jump Gate is unlocked from completed `jump_drive` research level 1+ and is not calibrating.
   - Deducts 50 Jump Fuel from the ship's internal tank.
-  - Lazily generates the target sector and moves the ship to the first planet of the first public, non-home system; private Home Systems are never valid jump targets.
-  - Updates `discovered_systems` and `discovered_planets` for the user.
+  - For random jumps, chooses deterministic server-side candidate sectors, lazily generates common-pool systems, and moves the ship to a public neutral system; private Home Systems are never valid jump targets.
+  - For repeat travel, accepts only a known `destinationSystemId` from `discovered_systems`; manual sector coordinates are not accepted.
+  - Upserts the system-level known destination with `source='random_jump'` and `lastVisitedAt`, but does not automatically discover every planet in the target system.
 - **`launch.test.ts`** — Vitest integration suite for standard launches.
-- **`jump.test.ts`** — Vitest integration suite for the jump feature.
+- **`jump.test.ts`** — Vitest integration suite for locked random jumps, deprecated manual coordinates, known-destination repeats, common-pool target generation, and foreign Home System suppression.
 
 ## Adding a new expedition action
 
