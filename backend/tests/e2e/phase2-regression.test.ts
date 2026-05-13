@@ -125,6 +125,7 @@ describe('Phase 2 regression suite', () => {
       { resourceId: 'water', amount: '12000' },
       { resourceId: 'carbon', amount: '8000' },
       { resourceId: 'silicon', amount: '4000' },
+      { resourceId: 'fuel', amount: '1000' },
     ];
     for (const row of colonizationPack) {
       await db
