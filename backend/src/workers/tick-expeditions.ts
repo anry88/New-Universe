@@ -354,14 +354,20 @@ async function autoColonizeAtTarget(
     return false;
   }
 
+  // Claim the planet before consuming the hull so a duplicate/racing arrival
+  // cannot delete a colonizer after another expedition already founded there.
+  const [createdColony] = await tx
+    .insert(colonies)
+    .values({
+      ownerId: ship.ownerId,
+      planetId: expedition.targetPlanetId,
+    })
+    .onConflictDoNothing({ target: colonies.planetId })
+    .returning();
+  if (!createdColony) return false;
+
   // Consume the ship: the colonizer hull becomes the command center.
   await tx.delete(ships).where(eq(ships.id, expedition.shipId));
-
-  // Create the colony.
-  await tx.insert(colonies).values({
-    ownerId: ship.ownerId,
-    planetId: expedition.targetPlanetId,
-  });
 
   // Plant the command center at slot 0 instantly (no queue).
   await tx.insert(buildings).values({

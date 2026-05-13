@@ -1,5 +1,8 @@
 import { FastifyInstance } from "fastify";
-import type { ExpeditionJumpRequest } from "@shared/types/expeditions.js";
+import type {
+  ExpeditionJumpRequest,
+  LaunchExpeditionRequest,
+} from "@shared/types/expeditions.js";
 import jwt from "jsonwebtoken";
 import { env } from "../../lib/env.js";
 import { launchExpedition } from "./launch.js";
@@ -78,43 +81,41 @@ export async function expeditionsRoutes(app: FastifyInstance) {
 
     const {
       shipId,
+      routeMode,
       targetX,
       targetY,
       targetZ,
       fuelLoaded,
       cargoLoaded,
       targetPlanetId,
-    } = request.body as {
-      shipId?: string;
-      targetX?: number;
-      targetY?: number;
-      targetZ?: number;
-      fuelLoaded?: number;
-      cargoLoaded?: number;
-      targetPlanetId?: string | null;
-    };
+      destinationSystemId,
+    } = (request.body ?? {}) as Partial<LaunchExpeditionRequest>;
 
     if (
       !shipId ||
-      targetX === undefined ||
-      targetY === undefined ||
-      targetZ === undefined ||
-      cargoLoaded === undefined
+      cargoLoaded === undefined ||
+      ((routeMode ?? "local") === "local" &&
+        (targetX === undefined || targetY === undefined || targetZ === undefined)) ||
+      ((routeMode ?? "local") === "jump_gate" && !destinationSystemId)
     ) {
       return reply.status(400).send({
         error:
-          "shipId, targetX, targetY, targetZ, and cargoLoaded are required",
+          (routeMode ?? "local") === "local"
+            ? "shipId, targetX, targetY, targetZ, and cargoLoaded are required"
+            : "shipId, destinationSystemId, and cargoLoaded are required",
       });
     }
 
     const result = await launchExpedition(payload.userId, {
       shipId,
+      routeMode,
       targetX,
       targetY,
       targetZ,
       fuelLoaded,
       cargoLoaded,
       targetPlanetId: targetPlanetId ?? undefined,
+      destinationSystemId: destinationSystemId ?? undefined,
     });
 
     if (!result.success) {
