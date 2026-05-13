@@ -11,6 +11,8 @@ This document is a checkpoint for future planning reviews. It separates implemen
 | P1.1 | 10 | 10 | Cosmic Atlas redesign + post-audit fixes for P0/P1 (see `ROADMAP_P1_1_FIXES.md`) |
 | P2 | 25 | 22 | Solo expansion and balance validation |
 | P2.1 | 19 | 19 | Gameplay fixes, i18n, realtime completion, and UX polish (see `ROADMAP_P2_1_GAMEPLAY.md`) |
+| P2.2 | 12 | 12 | Building economy, planetary rules, energy, production, and cargo/colonizer regressions |
+| P2.3 | 9 | 9 | Jump Gate, random jump, known Common Pool destinations, and gate-routed missions (see `ROADMAP_P2_3_JUMP_GATE.md`) |
 | P3 | 9 | 6 | Multiplayer/social/economy foundations |
 | P4 | 9 | 9 | Production launch readiness |
 | P5 | 5 | 5 | Live operations after launch |
@@ -22,6 +24,7 @@ This document is a checkpoint for future planning reviews. It separates implemen
 | MVP playable | P0/P1 issues closed, **P1.1 fix-epic closed (research/resources/onboarding bugs resolved)**, first-day E2E passes, Telegram auth works, resource/building/ship/expedition loop works |
 | Phase 2 complete | Colonization E2E passes, market flow passes, research levels 1-3 work, balance simulator and P2 regression suite pass |
 | Phase 2.1 complete | `P2.1-400` roll-up evidence is recorded in [`ROADMAP_P2_1_GAMEPLAY.md`](ROADMAP_P2_1_GAMEPLAY.md), all child issues `P2.1-401…418` are closed, default CI passes, and the closing PR runs the `run-e2e` browser smoke gate |
+| Phase 2.3 complete | `P2.3-500` roll-up evidence is recorded in [`ROADMAP_P2_3_JUMP_GATE.md`](ROADMAP_P2_3_JUMP_GATE.md), all child issues `P2.3-501…508` are closed or explicitly replaced, default CI passes, and the closing PR runs the `run-e2e` browser smoke gate |
 | Phase 3 ready | Two-player visibility model is proven, alliance membership works, player market settlement is safe |
 | Launch ready | Staging deploy/rollback succeeds, backups restore, monitoring alerts fire, security checklist passes |
 | Live ops ready | Event framework works, content validation exists, balance review loop and support runbook are usable |
@@ -52,3 +55,4 @@ Roll-up issue: [`P2-EPIC-POLISH`](https://github.com/anry88/New-Universe/issues/
 - Admin UI is not fully specified yet; P5 support tasks define the runbook first.
 - Deep PvP combat is not covered; current roadmap covers multiplayer presence, alliances, and market before combat.
 - Full localization pipeline is represented through content-pack validation, but not yet through translator workflow tasks.
+- Jump Gate / Common Pool routing is represented as Phase 2.3 in `tasks/tasks.json` and GitHub Project #3; keep the Project cards synchronized through the idempotent import/status scripts when the roadmap changes.

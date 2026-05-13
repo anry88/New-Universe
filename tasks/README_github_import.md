@@ -1,7 +1,8 @@
 # Bulk-импорт задач в GitHub Project
 
-Этот пакет создаёт 53 issue-в в твоём репозитории и добавляет их все
-в твой GitHub Project https://github.com/users/anry88/projects/3.
+Этот пакет создаёт или переиспользует issues из `tasks/tasks.json` в твоём
+репозитории и добавляет их все в GitHub Project
+https://github.com/users/anry88/projects/3.
 
 ## Что в пакете
 
@@ -11,6 +12,7 @@
 | `tasks.csv` | CSV для импорта в любую систему (Linear, Asana и т.п.) |
 | `tasks.json` | Машиночитаемый формат + готовые per-task промпты |
 | `ROADMAP_P2_P5.md` | Сверочный roadmap-документ для P2-P5 задач |
+| `ROADMAP_P2_3_JUMP_GATE.md` | Сверочный документ для P2.3 Jump Gate / random jump задач |
 | `ROADMAP_COVERAGE_MATRIX.md` | Матрица покрытия фаз, completion gates и известных gaps |
 | `roadmap_p2_p5_additions.json` | Источник добавленных P2-P5 epics/tasks |
 | `merge_roadmap_p2_p5.mjs` | Генератор, который мерджит roadmap additions в `tasks.json`, CSV и docs |
@@ -96,14 +98,14 @@ SETUP_ITEMS_ONLY=1 bash tasks/setup_github_project3_structure.sh
 ## Что произойдёт
 
 1. Скрипт получит ID проекта через GraphQL.
-2. Создаст labels: `epic:*`, `phase:P0`/`P1`/`P2`/`P3`, `size:S`/`M`/`L`/`XL`.
+2. Создаст labels: `epic:*`, `phase:P0`/`P1`/`P2`/`P2.1`/`P2.2`/`P2.3`/`P3`/`P4`/`P5`, `size:S`/`M`/`L`/`XL`.
 3. Для каждой задачи:
    - создаст GitHub Issue с заголовком `[ID] Название`
    - тело — описание + acceptance + файлы + зависимости
    - повесит labels
    - добавит в твой Project №3
 
-Работает ~1-2 минуты для 53 задач.
+Работает ~1-2 минуты для первоначального набора задач; повторные прогоны переиспользуют существующие issues.
 
 ## После импорта
 
