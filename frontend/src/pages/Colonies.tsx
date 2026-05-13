@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useColonies } from '../hooks/useColonies';
 import { CosmicBottomNav } from '../components/cosmic/atoms';
 import { ResourceBar } from '../components/ResourceBar';
@@ -14,34 +14,44 @@ export function ColoniesPage() {
   const { t } = useI18n();
   const { planets, focalPlanetId, focalPlanet, setFocalPlanetId, isLoading } = useColonies();
   const [transferOrigin, setTransferOrigin] = useState<Planet | null>(null);
+  const [transferShipId, setTransferShipId] = useState<string | null>(null);
   const [transferTargetPlanetId, setTransferTargetPlanetId] = useState<string | null>(null);
   const [transferUseJumpGateRoute, setTransferUseJumpGateRoute] = useState(false);
+  const processedCargoSearchRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (isLoading) return;
     const params = new URLSearchParams(location.search);
     const cargoOriginId = params.get('cargoOrigin');
+    const cargoShipId = params.get('cargoShip');
     const cargoTargetId = params.get('cargoTarget');
     const cargoRoute = params.get('cargoRoute');
     if (!cargoOriginId) return;
+    if (processedCargoSearchRef.current === location.search) return;
 
     const origin = planets.find((planet) => planet.id === cargoOriginId);
-    if (!origin) return;
+    if (!origin) {
+      if (planets.length === 0) return;
+      params.delete('cargoOrigin');
+      params.delete('cargoShip');
+      params.delete('cargoTarget');
+      params.delete('cargoRoute');
+      navigate(
+        {
+          pathname: location.pathname,
+          search: params.toString() ? `?${params.toString()}` : '',
+        },
+        { replace: true },
+      );
+      return;
+    }
 
     setFocalPlanetId(origin.id);
+    setTransferShipId(cargoShipId);
     setTransferTargetPlanetId(cargoTargetId);
     setTransferUseJumpGateRoute(cargoRoute === 'jump_gate');
     setTransferOrigin(origin);
-    params.delete('cargoOrigin');
-    params.delete('cargoTarget');
-    params.delete('cargoRoute');
-    navigate(
-      {
-        pathname: location.pathname,
-        search: params.toString() ? `?${params.toString()}` : '',
-      },
-      { replace: true },
-    );
+    processedCargoSearchRef.current = location.search;
   }, [isLoading, location.pathname, location.search, navigate, planets, setFocalPlanetId]);
 
   if (isLoading) {
@@ -164,12 +174,27 @@ export function ColoniesPage() {
       {transferOrigin && (
         <CargoTransferDialog
           originPlanet={transferOrigin}
+          initialShipId={transferShipId}
           initialTargetPlanetId={transferTargetPlanetId}
           initialUseJumpGateRoute={transferUseJumpGateRoute}
           onClose={() => {
+            const params = new URLSearchParams(location.search);
+            params.delete('cargoOrigin');
+            params.delete('cargoShip');
+            params.delete('cargoTarget');
+            params.delete('cargoRoute');
+            processedCargoSearchRef.current = null;
             setTransferOrigin(null);
+            setTransferShipId(null);
             setTransferTargetPlanetId(null);
             setTransferUseJumpGateRoute(false);
+            navigate(
+              {
+                pathname: location.pathname,
+                search: params.toString() ? `?${params.toString()}` : '',
+              },
+              { replace: true },
+            );
           }}
         />
       )}

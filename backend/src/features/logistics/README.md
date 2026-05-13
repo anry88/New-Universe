@@ -7,6 +7,7 @@ Interplanetary logistics — cargo transfers between player-owned colonies.
 - **`cargo-transfer.ts`** — `previewCargoTransfer(userId, request)` and `launchCargoTransfer(userId, request)` action modules. Implements the atomic cargo transfer flow:
   - Validates ship ownership, idle state, logistics role, and planet location.
   - Confirms origin and target are player settlements through `features/colonies/ownership.ts`, so the home capital works even though it has no `colonies` row.
+  - Requires Logistics research for cargo usage; the same requirement is mirrored by ship construction so the UI blocks transporter builds before a player reaches an unusable send flow.
   - Requires explicit `routeMode='jump_gate'` cargo routes to connect owned settlements in the player's Home system or discovered public common systems.
   - Normalizes multiple load lines in one transfer order, aggregates duplicate resource ids for reservation/delivery, and enforces the ship cargo capacity limit.
   - Calculates travel ETA, ordinary route fuel, optional Jump Fuel, distance, speed, and timer metadata server-side for both preview and launch.
@@ -16,7 +17,7 @@ Interplanetary logistics — cargo transfers between player-owned colonies.
   - Enqueues a BullMQ `arrive_cargo` job for delivery processing using validated `env.REDIS_URL`.
   - Exports `completeCargoTransfer(expedition, shipId, tx, options?)`, used by both the cargo worker and active-session expedition sync to finish one-way delivery without a return phase.
   - `completeCargoTransfer` conditionally claims only `in_flight` / `returning` cargo expeditions before applying target gains, so repeated or concurrent worker jobs settle the cargo once.
-- **`cargo-transfer.test.ts`** — Integration tests for cargo transfer previews, Home ↔ common-colony Jump Gate routes, insufficient route fuel / Jump Fuel, discovered-only target rejection, and idempotent worker delivery.
+- **`cargo-transfer.test.ts`** — Integration tests for Logistics gating, cargo transfer previews, Home ↔ common-colony Jump Gate routes, insufficient route fuel / Jump Fuel, discovered-only target rejection, and idempotent worker delivery.
 
 ## Transfer Rules
 
@@ -26,9 +27,10 @@ Interplanetary logistics — cargo transfers between player-owned colonies.
 4. **Ship role**: Only logistics-role ships such as `cargo_light` can use `/cargo/transfer`; scouts and colonizers are rejected even if their catalog cargo value is non-zero.
 5. **Distinct**: Source and target must be different planets.
 6. **Jump Gate route cost**: Standard logistics transfers keep the existing cargo route. Explicit `routeMode='jump_gate'` transfers must target a different system, require an unlocked, idle Jump Gate, and connect only the player's Home system or known public common systems.
-7. **Atomic reservation**: Resources, ordinary route `fuel`, and any selected Jump Fuel surcharge are deducted from the origin planet within the same DB transaction as the expedition record creation.
-8. **No duplication on cancel**: Resources are reserved up-front; delivery only adds to target when the BullMQ worker or online expedition sync completes the one-way transfer.
-9. **Idempotent settlement**: The delivery helper claims the expedition row before granting resources, preventing duplicate worker execution from crediting the target twice.
+7. **Research gate**: Cargo transfer usage requires Logistics level 1. The shipyard UI mirrors the same gate for `cargo_light` construction so players see the missing research before building a transporter.
+8. **Atomic reservation**: Resources, ordinary route `fuel`, and any selected Jump Fuel surcharge are deducted from the origin planet within the same DB transaction as the expedition record creation.
+9. **No duplication on cancel**: Resources are reserved up-front; delivery only adds to target when the BullMQ worker or online expedition sync completes the one-way transfer.
+10. **Idempotent settlement**: The delivery helper claims the expedition row before granting resources, preventing duplicate worker execution from crediting the target twice.
 
 ## Adding a new logistics action
 

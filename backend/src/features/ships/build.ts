@@ -62,16 +62,6 @@ export async function buildShip(
     return { success: false, status: 404, error: `Unknown ship type: ${typeSlug}` };
   }
 
-  const shipGate = SHIP_RESEARCH_GATES[typeSlug];
-  if (shipGate) {
-    try {
-      const levels = await loadUserResearchLevels(userId, db);
-      assertResearchRequirement(levels, shipGate, `Build ship ${typeSlug}`);
-    } catch (e: any) {
-      return { success: false, status: 400, error: e.message ?? String(e) };
-    }
-  }
-
   const requiredBldgs = type.requiredBuildings as { typeId: string; level: number }[];
   for (const dep of requiredBldgs) {
     const depBuilding = await db.query.buildings.findFirst({
@@ -86,6 +76,16 @@ export async function buildShip(
         status: 400,
         error: `Missing required building: ${dep.typeId} level ${dep.level}`,
       };
+    }
+  }
+
+  const shipGate = SHIP_RESEARCH_GATES[typeSlug];
+  if (shipGate) {
+    try {
+      const levels = await loadUserResearchLevels(userId, db);
+      assertResearchRequirement(levels, shipGate, `Build ship ${typeSlug}`);
+    } catch (e: any) {
+      return { success: false, status: 400, error: e.message ?? String(e) };
     }
   }
 

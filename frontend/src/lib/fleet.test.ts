@@ -26,6 +26,9 @@ describe('fleet helpers', () => {
     );
     expect(formatCargoTransferError('not enough fuel', t)).toBe('cargo.error.insufficientFuel');
     expect(formatCargoTransferError('not enough jump_fuel', t)).toBe('cargo.error.insufficientJumpFuel');
+    expect(formatCargoTransferError('Cargo transfer: logistics research level 1 required', t)).toBe(
+      'cargo.error.logisticsRequired',
+    );
     expect(formatCargoTransferError('Jump Drive research level 1 required', t)).toBe('cargo.error.jumpGateLocked');
     expect(formatCargoTransferError('Jump Gate cargo route requires a different target system', t)).toBe(
       'cargo.error.jumpGateLocal',

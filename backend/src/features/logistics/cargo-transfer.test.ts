@@ -171,6 +171,143 @@ describe('cargoTransfer', () => {
     return Number(row?.amount ?? 0);
   }
 
+  it('rejects same-system home cargo without Logistics research', async () => {
+    const [user] = await db.insert(users).values({
+      tgId: BigInt(Math.floor(Math.random() * 1000000000)),
+      tgUsername: 'HomeCargoNoLogistics' + Math.random(),
+    }).returning();
+
+    const [system] = await db.insert(systems).values({
+      ownerId: user.id,
+      isHome: true,
+      sectorX: 3,
+      sectorY: 4,
+      sectorZ: 0,
+      x: '0.00',
+      y: '0.00',
+      z: '0.00',
+      name: 'No Logistics Home',
+      seed: 333,
+    }).returning();
+
+    const [origin] = await db.insert(planets).values({
+      systemId: system.id,
+      biome: 'green',
+      size: 12,
+      slotCount: 8,
+      name: 'No Logistics Home-1',
+    }).returning();
+    await db.insert(buildings).values({
+      planetId: origin.id,
+      typeId: 'command_center',
+      level: 1,
+      slotIndex: 0,
+    });
+    await db.insert(planetResources).values([
+      { planetId: origin.id, resourceId: 'iron', amount: '500', regenRate: '0' },
+      { planetId: origin.id, resourceId: 'fuel', amount: '50', regenRate: '0' },
+    ]);
+
+    const [target] = await db.insert(planets).values({
+      systemId: system.id,
+      biome: 'rocky',
+      size: 8,
+      slotCount: 6,
+      name: 'No Logistics Home-2',
+    }).returning();
+    await db.insert(colonies).values({
+      ownerId: user.id,
+      planetId: target.id,
+    });
+
+    const [ship] = await db.insert(ships).values({
+      ownerId: user.id,
+      typeId: 'cargo_light',
+      locationPlanetId: origin.id,
+      status: 'idle',
+    }).returning();
+
+    await expect(launchCargoTransfer(user.id, {
+      shipId: ship.id,
+      targetPlanetId: target.id,
+      resources: [{ resourceId: 'iron', amount: 25 }],
+    })).rejects.toThrow('Cargo transfer: logistics research level 1 required');
+  });
+
+  it('keeps inter-system cargo gated by Logistics research', async () => {
+    const [user] = await db.insert(users).values({
+      tgId: BigInt(Math.floor(Math.random() * 1000000000)),
+      tgUsername: 'InterSystemCargoNoLogistics' + Math.random(),
+    }).returning();
+
+    const [originSystem] = await db.insert(systems).values({
+      ownerId: user.id,
+      isHome: true,
+      sectorX: 9,
+      sectorY: 9,
+      sectorZ: 0,
+      x: '0.00',
+      y: '0.00',
+      z: '0.00',
+      name: 'Inter Cargo Home',
+      seed: 444,
+    }).returning();
+    const [origin] = await db.insert(planets).values({
+      systemId: originSystem.id,
+      biome: 'green',
+      size: 12,
+      slotCount: 8,
+      name: 'Inter Cargo Home-1',
+    }).returning();
+    await db.insert(buildings).values({
+      planetId: origin.id,
+      typeId: 'command_center',
+      level: 1,
+      slotIndex: 0,
+    });
+    await db.insert(planetResources).values([
+      { planetId: origin.id, resourceId: 'iron', amount: '500', regenRate: '0' },
+      { planetId: origin.id, resourceId: 'fuel', amount: '50', regenRate: '0' },
+    ]);
+
+    const [targetSystem] = await db.insert(systems).values({
+      ownerId: null,
+      isHome: false,
+      sectorX: 10,
+      sectorY: 9,
+      sectorZ: 0,
+      x: '100.00',
+      y: '0.00',
+      z: '0.00',
+      name: 'Inter Cargo Target',
+      seed: 445,
+    }).returning();
+    const [target] = await db.insert(planets).values({
+      systemId: targetSystem.id,
+      biome: 'rocky',
+      size: 8,
+      slotCount: 6,
+      name: 'Inter Cargo Target-1',
+    }).returning();
+    await db.insert(colonies).values({
+      ownerId: user.id,
+      planetId: target.id,
+    });
+
+    const [ship] = await db.insert(ships).values({
+      ownerId: user.id,
+      typeId: 'cargo_light',
+      locationPlanetId: origin.id,
+      status: 'idle',
+    }).returning();
+
+    await expect(launchCargoTransfer(user.id, {
+      shipId: ship.id,
+      targetPlanetId: target.id,
+      resources: [{ resourceId: 'iron', amount: 25 }],
+    })).rejects.toThrow('Cargo transfer: logistics research level 1 required');
+  });
+
   it('rejects transfer to non-owned planet', async () => {
     // Create another user's planet
     const [foreignPlanet] = await db.insert(planets).values({

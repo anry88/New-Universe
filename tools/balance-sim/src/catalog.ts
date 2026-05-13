@@ -231,7 +231,7 @@ export const BUILDINGS = {
     maxLevel: MAX_BUILDING_LEVEL,
   },
   shipyard: {
-    deps: [{ typeId: 'spaceport', level: 2 }],
+    deps: [{ typeId: 'spaceport', level: 1 }],
     baseCost: { iron: 800, silicon: 400 },
     baseTimeSec: 1800,
     category: 'ships',
@@ -284,16 +284,19 @@ export const SHIPS = {
     buildCost: { iron: 500, silicon: 300, carbon: 200, methane: 100 },
     buildTimeSec: 1200,
     requiredBuildings: [{ typeId: 'shipyard', level: 2 }],
+    requiredResearch: [{ branch: 'logistics', level: 1 }],
   },
   colonizer: {
     buildCost: { steel: 2500, silicon: 800, biomass: 400 },
     buildTimeSec: 14400,
     requiredBuildings: [{ typeId: 'shipyard', level: 1 }],
+    requiredResearch: [{ branch: 'engineering', level: 2 }],
   },
   recon_probe: {
     buildCost: { silicon: 40, fuel: 20, electronics: 10 },
     buildTimeSec: 300,
     requiredBuildings: [{ typeId: 'shipyard', level: 1 }],
+    requiredResearch: [{ branch: 'sensors', level: 1 }],
   },
 } as const;
 

@@ -31,6 +31,12 @@ describe('catalog seed audit (P2-POL-002)', () => {
     expect(HIGH_TIER_UPGRADE_COSTS_BY_BUILDING.shipyard).not.toHaveProperty('biomass');
   });
 
+  it('unlocks the shipyard after a level 1 spaceport', () => {
+    const shipyard = BUILDING_TYPE_CATALOG_ROWS.find((building) => building.id === 'shipyard');
+    expect(shipyard).toBeDefined();
+    expect(shipyard!.deps).toEqual([{ typeId: 'spaceport', level: 1 }]);
+  });
+
   it('keeps cargo_light aligned with P2.2 lightweight transporter balance', () => {
     const cargoLight = SHIP_TYPE_CATALOG_ROWS.find((ship) => ship.id === 'cargo_light');
     expect(cargoLight).toBeDefined();

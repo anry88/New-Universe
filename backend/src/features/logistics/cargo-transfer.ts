@@ -164,9 +164,6 @@ async function buildCargoTransferPlan(
   const loads = normalizeCargoLoads(resources);
   const reservedResources = aggregateCargoLoads(loads);
 
-  const levels = await loadUserResearchLevels(userId, database);
-  assertResearchRequirement(levels, CARGO_TRANSFER_RESEARCH_GATE, 'Cargo transfer');
-
   const shipRows = await database
     .select({
       id: ships.id,
@@ -200,6 +197,9 @@ async function buildCargoTransferPlan(
   if (!targetSettlement) throw new Error('Target planet not found');
   if (!targetSettlement.isSettled) throw new Error('Target planet is not owned by you');
   if (targetSettlement.planet.id === ship.locationPlanetId) throw new Error('Target planet must be different from origin');
+
+  const levels = await loadUserResearchLevels(userId, database);
+  assertResearchRequirement(levels, CARGO_TRANSFER_RESEARCH_GATE, 'Cargo transfer');
 
   const originSystem = systemForSettlement(originSettlement);
   const targetSystem = systemForSettlement(targetSettlement);
