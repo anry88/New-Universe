@@ -1,17 +1,23 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, X } from 'lucide-react';
 import { useMe } from '../hooks/useMe';
 import { apiFetch } from '../lib/api';
 import { CosmicBottomNav } from '../components/cosmic/atoms';
 import { SectorRenderer } from '../components/pixi/SectorRenderer';
 import type {
   SectorPresencePayload,
+  SectorPresenceEntity,
   SectorSystemAnchorTag,
   SectorSystemAnchorsPayload,
 } from '@shared/types/multiplayer';
 import { useI18n } from '../lib/i18n';
+import {
+  sectorEntityDisplay,
+  sectorEntityKey,
+  summarizeSectorEntities,
+} from '../lib/sectorMap';
 
 function parseCoord(raw: string | null, fallback: number): number {
   if (raw === null || raw === '') return fallback;
@@ -88,6 +94,42 @@ export function SectorMapPage() {
     enabled: Boolean(meData?.id && home),
   });
 
+  const entities = data?.entities ?? [];
+  const sectorSummary = useMemo(() => summarizeSectorEntities(entities), [entities]);
+  const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
+  const selectedEntity = useMemo(
+    () => entities.find((entity) => sectorEntityKey(entity) === selectedEntityId) ?? null,
+    [entities, selectedEntityId],
+  );
+  const selectedDisplay = useMemo(
+    () => (selectedEntity ? sectorEntityDisplay(selectedEntity, t) : null),
+    [selectedEntity, t],
+  );
+  const statCards = useMemo(
+    () => [
+      { key: 'total', label: t('sector.summary.total'), value: sectorSummary.total },
+      { key: 'self', label: t('sector.summary.local'), value: sectorSummary.relation.self },
+      { key: 'public', label: t('sector.summary.neutral'), value: sectorSummary.relation.public },
+      { key: 'foreign', label: t('sector.summary.foreign'), value: sectorSummary.relation.foreign },
+    ],
+    [sectorSummary, t],
+  );
+
+  useEffect(() => {
+    if (!selectedEntityId) return;
+    if (!selectedEntity) {
+      setSelectedEntityId(null);
+    }
+  }, [selectedEntity, selectedEntityId]);
+
+  const selectEntity = useCallback((entity: SectorPresenceEntity) => {
+    setSelectedEntityId(sectorEntityKey(entity));
+  }, []);
+
+  const entityLabel = useCallback((entity: SectorPresenceEntity) => {
+    return sectorEntityDisplay(entity, t).title;
+  }, [t]);
+
   const applySector = () => {
     setSearchParams({ sx: String(draftSx), sy: String(draftSy), sz: String(draftSz) });
   };
@@ -137,6 +179,7 @@ export function SectorMapPage() {
       }
     >
       <div
+        className="sector-map-topbar"
         style={{
           position: 'absolute',
           top: 0,
@@ -169,15 +212,16 @@ export function SectorMapPage() {
         </button>
 
         <div
+          className="sector-map-control-panel"
           style={{
             flex: 1,
             background: 'rgba(14,20,36,0.85)',
             border: '1px solid var(--line)',
-            borderRadius: 12,
+            borderRadius: 8,
             padding: '10px 12px',
             backdropFilter: 'blur(8px)',
             pointerEvents: 'auto',
-            maxHeight: 220,
+            maxHeight: 250,
             overflowY: 'auto',
           }}
         >
@@ -186,6 +230,14 @@ export function SectorMapPage() {
           </div>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-faint)', marginTop: 4 }}>
             {t('sector.subtitle')}
+          </div>
+          <div className="sector-map-stat-grid" style={{ marginTop: 10 }}>
+            {statCards.map((card) => (
+              <div key={card.key} className={`sector-map-stat sector-map-stat--${card.key}`}>
+                <span>{card.label}</span>
+                <strong>{card.value}</strong>
+              </div>
+            ))}
           </div>
           {anchorSystems.length > 0 && (
             <div style={{ marginTop: 10 }}>
@@ -345,13 +397,15 @@ export function SectorMapPage() {
       </div>
 
       <div
+        className="sector-map-stage"
         style={{
           flex: '1 1 auto',
           position: 'relative',
           minHeight: 0,
           width: '100%',
           height: 'calc(100vh - 64px)',
-          paddingTop: anchorSystems.length > 0 ? 252 : 152,
+          paddingTop: anchorSystems.length > 0 ? 268 : 168,
+          paddingBottom: 144,
           boxSizing: 'border-box',
         }}
       >
@@ -363,31 +417,88 @@ export function SectorMapPage() {
         {isFetching && (
           <div style={{ padding: '8px 16px', fontSize: 12, color: 'var(--text-dim)' }}>{t('sector.scanning')}</div>
         )}
-        <SectorRenderer entities={data?.entities ?? []} emptyLabel={t('sector.noContacts')} />
+        <SectorRenderer
+          entities={entities}
+          emptyLabel={t('sector.noContacts')}
+          selectedEntityId={selectedEntityId}
+          onEntitySelect={selectEntity}
+          getEntityLabel={entityLabel}
+        />
       </div>
 
       <div
+        className="sector-map-detail-dock"
         style={{
           position: 'absolute',
           bottom: 88,
           left: '50%',
           transform: 'translateX(-50%)',
-          pointerEvents: 'none',
-          maxWidth: '92%',
+          pointerEvents: 'auto',
+          width: 'min(520px, 92vw)',
         }}
       >
         <div
+          className="sector-map-detail-panel"
           style={{
             background: 'rgba(8,12,22,0.85)',
             border: '1px solid var(--line)',
-            borderRadius: 12,
-            padding: '8px 14px',
+            borderRadius: 8,
+            padding: '10px 12px',
             backdropFilter: 'blur(8px)',
           }}
         >
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.14em', color: 'var(--text-dim)' }}>
-            {t('sector.legend')}
-          </span>
+          <div className="sector-map-legend" aria-label={t('sector.legend.title')}>
+            <span className="sector-map-legend-item sector-map-legend-item--self">
+              {t('sector.legend.local')}
+            </span>
+            <span className="sector-map-legend-item sector-map-legend-item--public">
+              {t('sector.legend.neutral')}
+            </span>
+            <span className="sector-map-legend-item sector-map-legend-item--foreign">
+              {t('sector.legend.foreign')}
+            </span>
+          </div>
+
+          {selectedEntity && selectedDisplay ? (
+            <section className="sector-map-selected" aria-label={t('sector.detail.selected')}>
+              <div className="sector-map-selected-head">
+                <div>
+                  <div className="sector-map-selected-title">{selectedDisplay.title}</div>
+                  {selectedDisplay.subtitle && (
+                    <div className="sector-map-selected-subtitle">{selectedDisplay.subtitle}</div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="sector-map-icon-btn"
+                  aria-label={t('common.close')}
+                  onClick={() => setSelectedEntityId(null)}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="sector-map-chip-row">
+                <span className={`sector-map-chip sector-map-chip--${selectedEntity.relation}`}>
+                  {selectedDisplay.relationLabel}
+                </span>
+                <span className="sector-map-chip">{selectedDisplay.typeLabel}</span>
+                <span className="sector-map-chip">{selectedDisplay.visibilityLabel}</span>
+              </div>
+              <dl className="sector-map-detail-grid">
+                <div>
+                  <dt>{t('sector.detail.position')}</dt>
+                  <dd>{selectedDisplay.positionLabel}</dd>
+                </div>
+                <div>
+                  <dt>{t('sector.detail.hidden')}</dt>
+                  <dd>{sectorSummary.hiddenSummary}</dd>
+                </div>
+              </dl>
+              <p className="sector-map-privacy-note">{selectedDisplay.privacyNote}</p>
+            </section>
+          ) : (
+            <p className="sector-map-empty-detail">{t('sector.detail.empty')}</p>
+          )}
         </div>
       </div>
 

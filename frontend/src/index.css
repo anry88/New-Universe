@@ -69,6 +69,203 @@ body {
   overflow: hidden;
 }
 
+/* Sector multiplayer map */
+.sector-renderer {
+  width: 100%;
+  height: 100%;
+  min-height: 260px;
+  touch-action: manipulation;
+}
+.sector-map-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.sector-map-stat {
+  min-width: 0;
+  padding: 5px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(8, 12, 22, 0.55);
+}
+.sector-map-stat span {
+  display: block;
+  overflow: hidden;
+  color: var(--text-dim);
+  font-size: 9px;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sector-map-stat strong {
+  display: block;
+  margin-top: 2px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1;
+}
+.sector-map-stat--self strong {
+  color: #7dd3fc;
+}
+.sector-map-stat--public strong {
+  color: #cbd5e1;
+}
+.sector-map-stat--foreign strong {
+  color: #fdba74;
+}
+.sector-map-detail-panel {
+  max-height: 236px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.sector-map-detail-panel::-webkit-scrollbar {
+  display: none;
+}
+.sector-map-legend,
+.sector-map-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.sector-map-legend-item,
+.sector-map-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 3px 7px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-size: 10px;
+  line-height: 1.2;
+}
+.sector-map-legend-item::before {
+  width: 7px;
+  height: 7px;
+  margin-right: 5px;
+  border-radius: 999px;
+  content: "";
+}
+.sector-map-legend-item--self::before,
+.sector-map-chip--self {
+  border-color: rgba(125, 211, 252, 0.34);
+}
+.sector-map-legend-item--self::before {
+  background: #22d3ee;
+}
+.sector-map-legend-item--public::before,
+.sector-map-chip--public {
+  border-color: rgba(203, 213, 225, 0.28);
+}
+.sector-map-legend-item--public::before {
+  background: #64748b;
+}
+.sector-map-legend-item--foreign::before,
+.sector-map-chip--foreign {
+  border-color: rgba(251, 191, 36, 0.36);
+}
+.sector-map-legend-item--foreign::before {
+  background: #f97316;
+}
+.sector-map-selected {
+  margin-top: 10px;
+}
+.sector-map-selected-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.sector-map-selected-title {
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.sector-map-selected-subtitle,
+.sector-map-empty-detail,
+.sector-map-privacy-note {
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1.35;
+}
+.sector-map-selected-subtitle {
+  margin-top: 3px;
+}
+.sector-map-empty-detail {
+  margin: 10px 0 0;
+}
+.sector-map-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(14, 20, 36, 0.72);
+  color: var(--text-dim);
+}
+.sector-map-chip-row {
+  margin-top: 8px;
+}
+.sector-map-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  margin: 10px 0 0;
+}
+.sector-map-detail-grid div {
+  min-width: 0;
+  padding: 6px 7px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(14, 20, 36, 0.42);
+}
+.sector-map-detail-grid dt {
+  color: var(--text-faint);
+  font-size: 9px;
+}
+.sector-map-detail-grid dd {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.sector-map-privacy-note {
+  margin: 9px 0 0;
+}
+
+@media (max-width: 520px) {
+  .sector-map-topbar {
+    padding: 10px 8px !important;
+    gap: 6px !important;
+  }
+  .sector-map-control-panel {
+    max-height: 232px !important;
+    padding: 8px !important;
+  }
+  .sector-map-stage {
+    padding-top: 248px !important;
+    padding-bottom: 128px !important;
+  }
+  .sector-map-detail-dock {
+    bottom: calc(78px + env(safe-area-inset-bottom)) !important;
+    width: min(500px, 94vw) !important;
+  }
+  .sector-map-detail-panel {
+    max-height: 188px;
+  }
+  .sector-map-legend-item,
+  .sector-map-chip {
+    min-height: 24px;
+  }
+}
+
 .cosmic-bg {
   position: absolute;
   inset: 0;
