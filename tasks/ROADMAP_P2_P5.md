@@ -7,6 +7,7 @@ This document exists for future verification. It records why the roadmap was exp
 ## Scope
 
 - P2 expands the current MVP into a broader solo game: colonies, cargo, NPC market, research levels 1-3, and balance/regression tooling.
+- P2.3 adds the missing navigation bridge from the protected Home System into Common Pool: Jump Gate unlock, random jump, known destinations, and gate-routed scout/colonizer/cargo missions.
 - P3 introduces multiplayer surfaces: shared sector presence, alliances, and player-to-player market foundations.
 - P4 prepares production launch: deployment, observability, backups, security, analytics, and monetization readiness.
 - P5 defines post-launch live operations: events, content packs, balance loop, and support/admin runbooks.
@@ -19,6 +20,7 @@ This document exists for future verification. It records why the roadmap was exp
 | `EPIC-P2-MKT` | P2 | Phase 2 — NPC market and logistics | 5 |
 | `EPIC-P2-RES` | P2 | Phase 2 — Research levels 1-3 | 5 |
 | `EPIC-P2-POL` | P2 | Phase 2 — Balance, polish, regression | 4 |
+| `EPIC-P2.3-JUMP-GATE` | P2.3 | Phase 2.3 — Jump Gate and Common Pool routing | 9 |
 | `EPIC-P3-MAP` | P3 | Phase 3 — Multiplayer common map | 2 |
 | `EPIC-P3-ALL` | P3 | Phase 3 — Alliances | 2 |
 | `EPIC-P3-MKT` | P3 | Phase 3 — Player market | 2 |
@@ -372,6 +374,91 @@ Acceptance:
 
 Verify: Review Phase 2 completion gate evidence in ROADMAP_COVERAGE_MATRIX.md
 
+### EPIC-P2.3-JUMP-GATE — Phase 2.3 — Jump Gate and Common Pool routing
+
+See [`ROADMAP_P2_3_JUMP_GATE.md`](ROADMAP_P2_3_JUMP_GATE.md) for the roll-up evidence plan and product decisions. This epic replaces the old direct jump concept with a private Jump Gate and a repeatable **random jump** action.
+
+#### P2.3-500 — [Эпик] Phase 2.3 — Jump Gate and Common Pool routing
+
+Size: `XL`
+Depends on: `P2.2-012`, `P2-COL-008`, `P3-MAP-001`
+
+Roll-up for Jump Gate, random jump, known destinations, gate-routed colonization/cargo, and regression coverage.
+
+Verify: `jq -r '.tasks[].id | select(test("^P2\\.3-5"))' tasks/tasks.json` and `./scripts/ci-verify.sh`; closing PR should carry `run-e2e`.
+
+#### P2.3-501 — Jump Gate data model and unlock state
+
+Size: `M`
+Depends on: `P2.1-417`, `P2.1-418`, `P1-182`
+
+Add private Jump Gate state unlocked by completed `jump_drive >= 1`, with shared contracts and visibility protection.
+
+Verify: Backend tests for locked/unlocked state and foreign visibility suppression.
+
+#### P2.3-502 — Random jump service and known destination registry
+
+Size: `L`
+Depends on: `P2.3-501`, `P1-142`, `P1-143`, `P1-144`
+
+Replace manual sector targeting with server-authoritative random jump and store opened common systems as known destinations.
+
+Verify: Integration tests for locked denial, random common destination creation, repeat destination jump, and Home System suppression.
+
+#### P2.3-503 — Common-system discovery contracts for Jump Gate destinations
+
+Size: `M`
+Depends on: `P2.3-502`, `P3-MAP-001`
+
+Define what jump reveals: the system becomes known, while planets remain behind sensor/recon discovery rules.
+
+Verify: API and visibility tests for known destination vs planet discovery separation.
+
+#### P2.3-504 — Jump Gate expedition routing for scouts and colonizers
+
+Size: `L`
+Depends on: `P2.3-503`, `P2-COL-002`, `P2-COL-007`, `P2.2-011`
+
+Route scout/recon and colonizer missions through known gate destinations with server-side ETA/fuel and colonization gates.
+
+Verify: Backend tests for scout routeMode and colonizer through gate; frontend preview checks.
+
+#### P2.3-505 — Jump Gate cargo routing between home and common colonies
+
+Size: `L`
+Depends on: `P2.3-504`, `P2-COL-004`, `P2-COL-005`, `P2.2-008`
+
+Allow one-way logistics transfers between owned settlements across Home/Common systems through Jump Gate routes.
+
+Verify: Cargo tests for home -> common colony, common colony -> home, insufficient fuel/cargo, and duplicate worker runs.
+
+#### P2.3-506 — Jump fuel economy and balance integration
+
+Size: `M`
+Depends on: `P2.3-502`, `P2.2-003`, `P2.2-012`
+
+Connect jump routes to a coherent fuel economy, preferably a `jump_fuel` resource/recipe, and mirror it in balance tooling.
+
+Verify: Production/jump cost tests, catalog audit, and balance simulator where available.
+
+#### P2.3-507 — Jump Gate frontend surface and destination UX
+
+Size: `L`
+Depends on: `P2.3-503`, `P2.3-504`, `P2.3-505`
+
+Add the Home System gate object, random jump action, known destination list, and launch flows for scout/colonizer/cargo.
+
+Verify: Frontend build/tests and manual mobile smoke for locked gate, random jump, destination list, colonizer, and cargo states.
+
+#### P2.3-508 — Jump Gate end-to-end regression scenario
+
+Size: `L`
+Depends on: `P2.3-507`, `P2.3-506`
+
+Cover unlock -> random jump -> known destination -> discovery/colonization -> cargo delivery with no Home System leak.
+
+Verify: Focused backend E2E and optional `RUN_PLAYWRIGHT_E2E=1 ./scripts/ci-verify.sh` for the closing roll-up.
+
 ### EPIC-P3-MAP — Phase 3 — Multiplayer common map
 
 #### P3-MAP-001 — Shared sector presence model
@@ -695,4 +782,3 @@ Acceptance:
 - Incident response path is clear
 
 Verify: Run tabletop incident/support scenario against the runbook
-

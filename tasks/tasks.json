@@ -109,6 +109,12 @@
       "description": "Отдельный пост-P2.1 эпик для экономики командного центра, категорий построек, правил доступности зданий по планетарным ресурсам и модели добычи колоний без скрытой пассивной генерации."
     },
     {
+      "id": "EPIC-P2.3-JUMP-GATE",
+      "phase": 2.3,
+      "title": "Phase 2.3 — Jump Gate and Common Pool routing",
+      "description": "Отдельный эпик для врат за пределами домашней системы: unlock после Jump Drive I, повторяемый random jump в неизвестность, каталог открытых common-систем, маршрутизация разведки, колонизации и cargo через врата без раскрытия защищённых Home Systems."
+    },
+    {
       "id": "EPIC-P3-MAP",
       "phase": 3,
       "title": "Phase 3 — Multiplayer common map"
@@ -3593,6 +3599,297 @@
       "verify": "Backend focused tests: catalog audit, building eligibility/resource rates, building upgrade caps/high-tier costs. Frontend build or focused component/unit tests for build/upgrade yield preview. Balance sim tests/build if available.",
       "notes": "Keep the rate/cost constants shared so backend, frontend, and balance-sim do not drift. Extra L6+ upgrade resources must stay within home-system availability or home-system production chains.",
       "prompt": "[TASK P2.2-012] Баланс добычи и лимиты уровней построек\n\nОПИСАНИЕ\nНастроить добычу выбранных ресурсов так, чтобы скорость зависела от редкости и потребности ресурса, а не только от типа добывающего здания. Ограничить все building_types десятым уровнем, запретить апгрейд обычных построек выше уровня Command Center на этой планете и добавить реалистичные дополнительные материалы для апгрейдов на L6+ только из ресурсов, доступных в домашней системе или производимых из них.\n\nACCEPTANCE CRITERIA\n  1. Скорость добычи выбранного ресурса определяется по resourceId: iron добывается быстрее silicon в одной и той же mine\n  2. Backend пересчитывает regenRate с учетом resource-specific extraction rates\n  3. Frontend build/upgrade dialogs показывают тот же yield, что использует backend\n  4. Все building_types имеют maxLevel = 10\n  5. Нельзя апгрейдить обычную постройку выше уровня Command Center на этой планете\n  6. Command Center можно апгрейдить до L10 без блокировки собственным уровнем\n  7. Апгрейды на L6+ получают дополнительные реалистичные материалы из домашней экономики, без неподходящих ресурсов вроде biomass для spaceport/shipyard\n  8. Balance simulator mirrors changed caps, costs, and extraction rates\n  9. Обновлены task record, shared config/types, tests and adjacent README/DOCUMENTATION\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - tasks/tasks.json\n  - shared/config/\n  - shared/types/building-eligibility.ts\n  - backend/src/db/seed/catalog-rows.ts\n  - backend/src/db/seed/audit.ts\n  - backend/src/features/buildings/\n  - frontend/src/components/BuildDialog.tsx\n  - frontend/src/components/UpgradeDialog.tsx\n  - frontend/src/pages/PlanetDetail.tsx\n  - tools/balance-sim/src/catalog.ts\n  - tools/balance-sim/src/simulate.ts\n  - DOCUMENTATION.md\n  - backend/src/db/README.md\n  - backend/src/features/buildings/README.md\n  - frontend/src/README.md\n  - shared/README.md\n  - tools/balance-sim/README.md\n\nЗАВИСИМОСТИ\n  P2.2-001, P2.2-009, P2.2-010\n\nКАК ПРОВЕРИТЬ\n  Backend focused tests: catalog audit, building eligibility/resource rates, building upgrade caps/high-tier costs. Frontend build or focused component/unit tests for build/upgrade yield preview.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Keep the rate/cost constants shared so backend, frontend, and balance-sim do not drift. Extra L6+ upgrade resources must stay within home-system availability or home-system production chains."
+    },
+    {
+      "id": "P2.3-500",
+      "epic": "EPIC-P2.3-JUMP-GATE",
+      "size": "XL",
+      "title": "[Эпик] Phase 2.3 — Jump Gate and Common Pool routing",
+      "description": "Rollup для внедрения прыжковых врат: после Jump Drive I у игрока появляется объект за пределами Home System, через который запускаются random jump в неизвестность, повторные переходы в открытые common-системы, колонизация и cargo-доставка. Эпик закрывается только после задач P2.3-501…508 и regression gate.",
+      "acceptance": [
+        "Все дочерние задачи P2.3-501…P2.3-508 выполнены или явно заменены",
+        "Старый `/expeditions/jump` не остаётся параллельным обходом новой модели: endpoint либо мигрирован, либо совместимо обёрнут вокруг Jump Gate service",
+        "Документирована верификация backend, frontend и ручного smoke: unlock gate, random jump, known destinations, colonization, cargo, protected Home Systems",
+        "Closing PR для rollup получает label `run-e2e`, потому что эпик меняет основной navigation/gameplay flow"
+      ],
+      "files": [
+        "tasks/tasks.json",
+        "tasks/ROADMAP_P2_3_JUMP_GATE.md",
+        "tasks/ROADMAP_COVERAGE_MATRIX.md"
+      ],
+      "deps": [
+        "P2.2-012",
+        "P2-COL-008",
+        "P3-MAP-001"
+      ],
+      "verify": "jq проверка: все id P2.3-5xx присутствуют; ./scripts/ci-verify.sh; closing PR должен получить label run-e2e.",
+      "notes": "Этот rollup планировочный. Не закрывать до завершения всех child tasks и smoke-проверки маршрутов через врата.",
+      "prompt": "[TASK P2.3-500] [Эпик] Phase 2.3 — Jump Gate and Common Pool routing\n\nОПИСАНИЕ\nRollup для внедрения прыжковых врат: после Jump Drive I у игрока появляется объект за пределами Home System, через который запускаются random jump в неизвестность, повторные переходы в открытые common-системы, колонизация и cargo-доставка. Эпик закрывается только после задач P2.3-501…508 и regression gate.\n\nACCEPTANCE CRITERIA\n  1. Все дочерние задачи P2.3-501…P2.3-508 выполнены или явно заменены\n  2. Старый `/expeditions/jump` не остаётся параллельным обходом новой модели: endpoint либо мигрирован, либо совместимо обёрнут вокруг Jump Gate service\n  3. Документирована верификация backend, frontend и ручного smoke: unlock gate, random jump, known destinations, colonization, cargo, protected Home Systems\n  4. Closing PR для rollup получает label `run-e2e`, потому что эпик меняет основной navigation/gameplay flow\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - tasks/tasks.json\n  - tasks/ROADMAP_P2_3_JUMP_GATE.md\n  - tasks/ROADMAP_COVERAGE_MATRIX.md\n\nЗАВИСИМОСТИ\n  P2.2-012, P2-COL-008, P3-MAP-001\n\nКАК ПРОВЕРИТЬ\n  jq проверка: все id P2.3-5xx присутствуют; ./scripts/ci-verify.sh; closing PR должен получить label run-e2e.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Этот rollup планировочный. Не закрывать до завершения всех child tasks и smoke-проверки маршрутов через врата."
+    },
+    {
+      "id": "P2.3-501",
+      "epic": "EPIC-P2.3-JUMP-GATE",
+      "size": "M",
+      "title": "Jump Gate data model and unlock state",
+      "description": "Добавить серверную модель Jump Gate как приватного объекта игрока на внешней орбите Home System. Врата открываются после завершённого `jump_drive` level 1 и хранят состояние доступности/калибровки без создания атакуемой планеты или обычной building row.",
+      "acceptance": [
+        "Добавлена typed persistence-модель для Jump Gate unlock/calibration state или доказано, что достаточно расширить существующие таблицы без потери состояния",
+        "GET state API возвращает: unlocked, locked reason, home gate anchor, random jump availability, known destination summary",
+        "Unlock проверяется server-side по завершённому `jump_drive >= 1`; активное, но не завершённое исследование не открывает врата",
+        "Home Gate не виден другим игрокам через sector presence и не создаёт route в чужую Home System",
+        "Shared типы и RU/EN ошибки/статусы добавлены до подключения UI"
+      ],
+      "files": [
+        "backend/src/db/schema/",
+        "backend/src/features/jump-gate/",
+        "backend/src/features/research/",
+        "shared/types/",
+        "frontend/src/locales/",
+        "DOCUMENTATION.md",
+        "backend/src/db/README.md",
+        "backend/src/features/README.md",
+        "shared/README.md"
+      ],
+      "deps": [
+        "P2.1-417",
+        "P2.1-418",
+        "P1-182"
+      ],
+      "verify": "Backend tests for locked/unlocked gate state and foreign visibility suppression; shared type build.",
+      "notes": "Врата — gameplay surface, не обычная постройка. Не смешивать с building slots/Command Center.",
+      "prompt": "[TASK P2.3-501] Jump Gate data model and unlock state\n\nОПИСАНИЕ\nДобавить серверную модель Jump Gate как приватного объекта игрока на внешней орбите Home System. Врата открываются после завершённого `jump_drive` level 1 и хранят состояние доступности/калибровки без создания атакуемой планеты или обычной building row.\n\nACCEPTANCE CRITERIA\n  1. Добавлена typed persistence-модель для Jump Gate unlock/calibration state или доказано, что достаточно расширить существующие таблицы без потери состояния\n  2. GET state API возвращает: unlocked, locked reason, home gate anchor, random jump availability, known destination summary\n  3. Unlock проверяется server-side по завершённому `jump_drive >= 1`; активное, но не завершённое исследование не открывает врата\n  4. Home Gate не виден другим игрокам через sector presence и не создаёт route в чужую Home System\n  5. Shared типы и RU/EN ошибки/статусы добавлены до подключения UI\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/schema/\n  - backend/src/features/jump-gate/\n  - backend/src/features/research/\n  - shared/types/\n  - frontend/src/locales/\n  - DOCUMENTATION.md\n  - backend/src/db/README.md\n  - backend/src/features/README.md\n  - shared/README.md\n\nЗАВИСИМОСТИ\n  P2.1-417, P2.1-418, P1-182\n\nКАК ПРОВЕРИТЬ\n  Backend tests for locked/unlocked gate state and foreign visibility suppression; shared type build.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Врата — gameplay surface, не обычная постройка. Не смешивать с building slots/Command Center."
+    },
+    {
+      "id": "P2.3-502",
+      "epic": "EPIC-P2.3-JUMP-GATE",
+      "size": "L",
+      "title": "Random jump service and known destination registry",
+      "description": "Заменить старый ручной sector jump на server-authoritative random jump: игрок запускает прыжок в неизвестность, сервер выбирает/создаёт common-sector target, записывает открытую систему как known destination и возвращает корабль/миссию в новую модель маршрутов.",
+      "acceptance": [
+        "Random jump не принимает произвольные координаты от клиента; seed/выбор цели контролируется сервером и тестируем детерминированно",
+        "При random jump сектор lazy-generates по правилам common pool и выбирается neutral/common system, не protected Home System",
+        "После успешного прыжка создаётся или обновляется known destination для игрока с source=`random_jump` и lastVisitedAt",
+        "Повторный jump в уже известную систему использует destination id, а не ручной ввод sector coordinates",
+        "Старый `/expeditions/jump` либо перенаправлен в новый service, либо возвращает совместимый deprecated response без обхода правил",
+        "Планеты целевой системы не раскрываются все автоматически, если задача P2.3-503 ещё не разрешила конкретный discovery contract"
+      ],
+      "files": [
+        "backend/src/features/expeditions/jump.ts",
+        "backend/src/features/jump-gate/",
+        "backend/src/features/world/sector-generator.ts",
+        "backend/src/db/schema/discovery.ts",
+        "shared/types/expeditions.ts",
+        "shared/types/jump-gate.ts",
+        "backend/src/features/expeditions/jump.test.ts",
+        "backend/src/features/jump-gate/"
+      ],
+      "deps": [
+        "P2.3-501",
+        "P1-142",
+        "P1-143",
+        "P1-144"
+      ],
+      "verify": "Integration tests: locked random jump denied, success creates common system destination, repeat destination jump works, foreign Home Systems cannot be selected.",
+      "notes": "Термин в UI/API copy: `random jump` / `случайный прыжок`. Random jump должен быть повторяемым исследовательским действием.",
+      "prompt": "[TASK P2.3-502] Random jump service and known destination registry\n\nОПИСАНИЕ\nЗаменить старый ручной sector jump на server-authoritative random jump: игрок запускает прыжок в неизвестность, сервер выбирает/создаёт common-sector target, записывает открытую систему как known destination и возвращает корабль/миссию в новую модель маршрутов.\n\nACCEPTANCE CRITERIA\n  1. Random jump не принимает произвольные координаты от клиента; seed/выбор цели контролируется сервером и тестируем детерминированно\n  2. При random jump сектор lazy-generates по правилам common pool и выбирается neutral/common system, не protected Home System\n  3. После успешного прыжка создаётся или обновляется known destination для игрока с source=`random_jump` и lastVisitedAt\n  4. Повторный jump в уже известную систему использует destination id, а не ручной ввод sector coordinates\n  5. Старый `/expeditions/jump` либо перенаправлен в новый service, либо возвращает совместимый deprecated response без обхода правил\n  6. Планеты целевой системы не раскрываются все автоматически, если задача P2.3-503 ещё не разрешила конкретный discovery contract\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/expeditions/jump.ts\n  - backend/src/features/jump-gate/\n  - backend/src/features/world/sector-generator.ts\n  - backend/src/db/schema/discovery.ts\n  - shared/types/expeditions.ts\n  - shared/types/jump-gate.ts\n  - backend/src/features/expeditions/jump.test.ts\n  - backend/src/features/jump-gate/\n\nЗАВИСИМОСТИ\n  P2.3-501, P1-142, P1-143, P1-144\n\nКАК ПРОВЕРИТЬ\n  Integration tests: locked random jump denied, success creates common system destination, repeat destination jump works, foreign Home Systems cannot be selected.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Термин в UI/API copy: `random jump` / `случайный прыжок`. Random jump должен быть повторяемым исследовательским действием."
+    },
+    {
+      "id": "P2.3-503",
+      "epic": "EPIC-P2.3-JUMP-GATE",
+      "size": "M",
+      "title": "Common-system discovery contracts for Jump Gate destinations",
+      "description": "Определить, что именно раскрывается после random jump и последующих визитов: система становится known destination, но планеты открываются через sensor visibility/разведку, чтобы врата не ломали fog-of-war и не давали бесплатную карту common pool.",
+      "acceptance": [
+        "Destination payload различает known system, discovered planets, owned colonies и unknown bodies без раскрытия чужих приватных данных",
+        "discovered_systems и discovered_planets обновляются только по явным правилам: jump opens system, sensors/recon open planets",
+        "GET /me или отдельный Jump Gate API возвращает known destinations без подмены homeSystem",
+        "Sector/Common map может показать открытую систему как destination marker даже если не все планеты внутри открыты",
+        "Regression tests покрывают, что random jump не добавляет все planets в discovered_planets автоматически"
+      ],
+      "files": [
+        "backend/src/features/world/visibility.ts",
+        "backend/src/features/jump-gate/",
+        "backend/src/features/me/routes.ts",
+        "backend/src/features/multiplayer/presence.ts",
+        "shared/types/world.ts",
+        "shared/types/multiplayer.ts",
+        "shared/types/jump-gate.ts",
+        "frontend/src/hooks/",
+        "DOCUMENTATION.md"
+      ],
+      "deps": [
+        "P2.3-502",
+        "P3-MAP-001"
+      ],
+      "verify": "Backend visibility tests and API contract tests for known destination vs planet discovery separation.",
+      "notes": "Не превращать common-system visit в полное раскрытие планет. Это сохраняет ценность scout/recon и Sensors research.",
+      "prompt": "[TASK P2.3-503] Common-system discovery contracts for Jump Gate destinations\n\nОПИСАНИЕ\nОпределить, что именно раскрывается после random jump и последующих визитов: система становится known destination, но планеты открываются через sensor visibility/разведку, чтобы врата не ломали fog-of-war и не давали бесплатную карту common pool.\n\nACCEPTANCE CRITERIA\n  1. Destination payload различает known system, discovered planets, owned colonies и unknown bodies без раскрытия чужих приватных данных\n  2. discovered_systems и discovered_planets обновляются только по явным правилам: jump opens system, sensors/recon open planets\n  3. GET /me или отдельный Jump Gate API возвращает known destinations без подмены homeSystem\n  4. Sector/Common map может показать открытую систему как destination marker даже если не все планеты внутри открыты\n  5. Regression tests покрывают, что random jump не добавляет все planets в discovered_planets автоматически\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/world/visibility.ts\n  - backend/src/features/jump-gate/\n  - backend/src/features/me/routes.ts\n  - backend/src/features/multiplayer/presence.ts\n  - shared/types/world.ts\n  - shared/types/multiplayer.ts\n  - shared/types/jump-gate.ts\n  - frontend/src/hooks/\n  - DOCUMENTATION.md\n\nЗАВИСИМОСТИ\n  P2.3-502, P3-MAP-001\n\nКАК ПРОВЕРИТЬ\n  Backend visibility tests and API contract tests for known destination vs planet discovery separation.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Не превращать common-system visit в полное раскрытие планет. Это сохраняет ценность scout/recon и Sensors research."
+    },
+    {
+      "id": "P2.3-504",
+      "epic": "EPIC-P2.3-JUMP-GATE",
+      "size": "L",
+      "title": "Jump Gate expedition routing for scouts and colonizers",
+      "description": "Расширить expedition launch так, чтобы разведчики и колонизаторы могли стартовать через Jump Gate к known common destinations. Колонизатор выбирает уже открытую планету в common-system, летит one-way, на прибытии использует существующее founding поведение.",
+      "acceptance": [
+        "Scout/recon launch принимает routeMode=`jump_gate` и target destination/system вместо произвольного sector target",
+        "Colonizer через врата требует targetPlanetId в known common-system, discovery target planet, idle colonizer, fuel/jump-fuel gates и все colonization gates",
+        "Колонизация через врата не разрешает чужие Home Systems и не позволяет колонизировать undiscovered/occupied planet",
+        "ETA/fuel preview использует routeMode и destination distance; frontend preview совпадает с backend result",
+        "Worker arrival переиспользует текущий auto-colonize flow и остаётся идемпотентным"
+      ],
+      "files": [
+        "backend/src/features/expeditions/launch.ts",
+        "backend/src/workers/tick-expeditions.ts",
+        "backend/src/features/colonies/",
+        "backend/src/config/colonization-rules.ts",
+        "shared/types/expeditions.ts",
+        "shared/types/jump-gate.ts",
+        "frontend/src/components/ExpeditionDialog.tsx",
+        "frontend/src/locales/"
+      ],
+      "deps": [
+        "P2.3-503",
+        "P2-COL-002",
+        "P2-COL-007",
+        "P2.2-011"
+      ],
+      "verify": "Backend tests for scout routeMode jump_gate and colonizer through gate; frontend build/focused tests for preview state.",
+      "notes": "Сохранить separation: обычные home-system recon routes остаются локальными, common destinations идут через gate routeMode.",
+      "prompt": "[TASK P2.3-504] Jump Gate expedition routing for scouts and colonizers\n\nОПИСАНИЕ\nРасширить expedition launch так, чтобы разведчики и колонизаторы могли стартовать через Jump Gate к known common destinations. Колонизатор выбирает уже открытую планету в common-system, летит one-way, на прибытии использует существующее founding поведение.\n\nACCEPTANCE CRITERIA\n  1. Scout/recon launch принимает routeMode=`jump_gate` и target destination/system вместо произвольного sector target\n  2. Colonizer через врата требует targetPlanetId в known common-system, discovery target planet, idle colonizer, fuel/jump-fuel gates и все colonization gates\n  3. Колонизация через врата не разрешает чужие Home Systems и не позволяет колонизировать undiscovered/occupied planet\n  4. ETA/fuel preview использует routeMode и destination distance; frontend preview совпадает с backend result\n  5. Worker arrival переиспользует текущий auto-colonize flow и остаётся идемпотентным\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/expeditions/launch.ts\n  - backend/src/workers/tick-expeditions.ts\n  - backend/src/features/colonies/\n  - backend/src/config/colonization-rules.ts\n  - shared/types/expeditions.ts\n  - shared/types/jump-gate.ts\n  - frontend/src/components/ExpeditionDialog.tsx\n  - frontend/src/locales/\n\nЗАВИСИМОСТИ\n  P2.3-503, P2-COL-002, P2-COL-007, P2.2-011\n\nКАК ПРОВЕРИТЬ\n  Backend tests for scout routeMode jump_gate and colonizer through gate; frontend build/focused tests for preview state.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Сохранить separation: обычные home-system recon routes остаются локальными, common destinations идут через gate routeMode."
+    },
+    {
+      "id": "P2.3-505",
+      "epic": "EPIC-P2.3-JUMP-GATE",
+      "size": "L",
+      "title": "Jump Gate cargo routing between home and common colonies",
+      "description": "Подключить cargo transfer к Jump Gate destinations: игрок может отправлять ресурсы между owned settlements в Home/known common systems, включая common colonies, через one-way logistics route с атомарным резервированием и доставкой.",
+      "acceptance": [
+        "Cargo transfer поддерживает routeMode=`jump_gate` для маршрутов между owned settlements в разных systems/sectors",
+        "Origin и destination проверяются через settlement ownership helper; discovered-only planet без colony не считается cargo destination",
+        "Ресурсы резервируются на origin атомарно, capacity проверяется по выбранному logistics ship, delivery applies exactly once",
+        "ETA/fuel/jump-fuel costs рассчитываются server-side и возвращаются для UI preview",
+        "Cargo ship после доставки остаётся на destination, как в текущей one-way модели",
+        "Tests покрывают home → common colony, common colony → home, insufficient cargo/fuel, duplicate worker run"
+      ],
+      "files": [
+        "backend/src/features/logistics/cargo-transfer.ts",
+        "backend/src/routes/cargo.ts",
+        "backend/src/workers/tick-expeditions.ts",
+        "backend/src/features/colonies/ownership.ts",
+        "shared/types/cargo.ts",
+        "shared/types/jump-gate.ts",
+        "frontend/src/components/CargoTransferDialog.tsx",
+        "frontend/src/pages/Colonies.tsx",
+        "frontend/src/locales/"
+      ],
+      "deps": [
+        "P2.3-504",
+        "P2-COL-004",
+        "P2-COL-005",
+        "P2.2-008"
+      ],
+      "verify": "Backend cargo transfer tests for cross-system gate routes and idempotent delivery; frontend smoke for cargo dialog destination selection.",
+      "notes": "Не давать cargo flow открывать/колонизировать планеты. Это только logistics между owned settlements.",
+      "prompt": "[TASK P2.3-505] Jump Gate cargo routing between home and common colonies\n\nОПИСАНИЕ\nПодключить cargo transfer к Jump Gate destinations: игрок может отправлять ресурсы между owned settlements в Home/known common systems, включая common colonies, через one-way logistics route с атомарным резервированием и доставкой.\n\nACCEPTANCE CRITERIA\n  1. Cargo transfer поддерживает routeMode=`jump_gate` для маршрутов между owned settlements в разных systems/sectors\n  2. Origin и destination проверяются через settlement ownership helper; discovered-only planet без colony не считается cargo destination\n  3. Ресурсы резервируются на origin атомарно, capacity проверяется по выбранному logistics ship, delivery applies exactly once\n  4. ETA/fuel/jump-fuel costs рассчитываются server-side и возвращаются для UI preview\n  5. Cargo ship после доставки остаётся на destination, как в текущей one-way модели\n  6. Tests покрывают home → common colony, common colony → home, insufficient cargo/fuel, duplicate worker run\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/logistics/cargo-transfer.ts\n  - backend/src/routes/cargo.ts\n  - backend/src/workers/tick-expeditions.ts\n  - backend/src/features/colonies/ownership.ts\n  - shared/types/cargo.ts\n  - shared/types/jump-gate.ts\n  - frontend/src/components/CargoTransferDialog.tsx\n  - frontend/src/pages/Colonies.tsx\n  - frontend/src/locales/\n\nЗАВИСИМОСТИ\n  P2.3-504, P2-COL-004, P2-COL-005, P2.2-008\n\nКАК ПРОВЕРИТЬ\n  Backend cargo transfer tests for cross-system gate routes and idempotent delivery; frontend smoke for cargo dialog destination selection.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Не давать cargo flow открывать/колонизировать планеты. Это только logistics между owned settlements."
+    },
+    {
+      "id": "P2.3-506",
+      "epic": "EPIC-P2.3-JUMP-GATE",
+      "size": "M",
+      "title": "Jump fuel economy and balance integration",
+      "description": "Согласовать расход прыжков с экономикой: отделить обычный fuel от jump_fuel или явно задокументировать временную модель, добавить production recipe/стоимости и подключить balance simulator, чтобы random jump не стал бесплатным обходом прогрессии.",
+      "acceptance": [
+        "Выбран и реализован единый ресурсный контракт для прыжков: предпочтительно `jump_fuel` как stored resource/recipe, не скрытое поле ship.fuel без UI-пути пополнения",
+        "Random jump, destination jump, colonizer gate route и cargo gate route имеют понятные costs и server-side validation",
+        "Production recipe локализован и использует доступные progression resources согласно GDD/addendum: ice/tritium/catalyst или задокументированная MVP-замена",
+        "Ship build/operation UI показывает, чего не хватает для jump route",
+        "Balance simulator отражает новые costs/throttle и не ломает first-week progression"
+      ],
+      "files": [
+        "backend/src/db/seed/catalog-rows.ts",
+        "backend/src/features/resources/production.ts",
+        "backend/src/features/expeditions/",
+        "backend/src/features/jump-gate/",
+        "shared/config/productionRecipes.ts",
+        "shared/types/production.ts",
+        "frontend/src/components/ProductionDialog.tsx",
+        "frontend/src/components/ExpeditionDialog.tsx",
+        "tools/balance-sim/src/catalog.ts",
+        "tools/balance-sim/src/simulate.ts"
+      ],
+      "deps": [
+        "P2.3-502",
+        "P2.2-003",
+        "P2.2-012"
+      ],
+      "verify": "Backend production/jump cost tests; catalog audit; balance-sim simulate/verify where available.",
+      "notes": "Если полноценный `jump_fuel` ресурс откладывается, задача должна зафиксировать temporary compatibility path и отдельный follow-up, иначе ship.fuel останется непополняемым тупиком.",
+      "prompt": "[TASK P2.3-506] Jump fuel economy and balance integration\n\nОПИСАНИЕ\nСогласовать расход прыжков с экономикой: отделить обычный fuel от jump_fuel или явно задокументировать временную модель, добавить production recipe/стоимости и подключить balance simulator, чтобы random jump не стал бесплатным обходом прогрессии.\n\nACCEPTANCE CRITERIA\n  1. Выбран и реализован единый ресурсный контракт для прыжков: предпочтительно `jump_fuel` как stored resource/recipe, не скрытое поле ship.fuel без UI-пути пополнения\n  2. Random jump, destination jump, colonizer gate route и cargo gate route имеют понятные costs и server-side validation\n  3. Production recipe локализован и использует доступные progression resources согласно GDD/addendum: ice/tritium/catalyst или задокументированная MVP-замена\n  4. Ship build/operation UI показывает, чего не хватает для jump route\n  5. Balance simulator отражает новые costs/throttle и не ломает first-week progression\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/seed/catalog-rows.ts\n  - backend/src/features/resources/production.ts\n  - backend/src/features/expeditions/\n  - backend/src/features/jump-gate/\n  - shared/config/productionRecipes.ts\n  - shared/types/production.ts\n  - frontend/src/components/ProductionDialog.tsx\n  - frontend/src/components/ExpeditionDialog.tsx\n  - tools/balance-sim/src/catalog.ts\n  - tools/balance-sim/src/simulate.ts\n\nЗАВИСИМОСТИ\n  P2.3-502, P2.2-003, P2.2-012\n\nКАК ПРОВЕРИТЬ\n  Backend production/jump cost tests; catalog audit; balance-sim simulate/verify where available.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Если полноценный `jump_fuel` ресурс откладывается, задача должна зафиксировать temporary compatibility path и отдельный follow-up, иначе ship.fuel останется непополняемым тупиком."
+    },
+    {
+      "id": "P2.3-507",
+      "epic": "EPIC-P2.3-JUMP-GATE",
+      "size": "L",
+      "title": "Jump Gate frontend surface and destination UX",
+      "description": "Добавить в Home/System UI объект прыжковых врат и экран маршрутов: locked state до Jump Drive I, random jump action, список known destinations/colonies, запуск scout/colonizer/cargo действий и локализованные ошибки.",
+      "acceptance": [
+        "На карте Home System после unlock отображается внешний объект Jump Gate за орбитами; до unlock виден locked affordance или понятный gated state без фальшивого действия",
+        "Экран врат показывает кнопку `Random jump`/`Случайный прыжок`, список known destinations и бейджи colony/discovered/last visited",
+        "Из destination можно запустить допустимые действия: scout/recon, colonizer на открытую planet, cargo между owned settlements",
+        "UI использует `Random jump`/`Случайный прыжок` для повторяемого exploration action во всех RU/EN строках",
+        "Все новые тексты локализованы EN/RU, длинные строки не ломают mobile layout",
+        "Ошибки fuel/research/ownership/discovery показываются до launch, если frontend уже имеет данные, и всегда отображают server error"
+      ],
+      "files": [
+        "frontend/src/pages/SystemMap.tsx",
+        "frontend/src/pages/SectorMap.tsx",
+        "frontend/src/components/ExpeditionDialog.tsx",
+        "frontend/src/components/CargoTransferDialog.tsx",
+        "frontend/src/components/cosmic/SystemMap.tsx",
+        "frontend/src/hooks/",
+        "frontend/src/locales/en.json",
+        "frontend/src/locales/ru.json",
+        "shared/types/jump-gate.ts",
+        "frontend/src/README.md"
+      ],
+      "deps": [
+        "P2.3-503",
+        "P2.3-504",
+        "P2.3-505"
+      ],
+      "verify": "Frontend build/tests and manual mobile smoke: locked gate, random jump, known destination list, colonizer and cargo launch states.",
+      "notes": "Врата должны быть gameplay UI, не landing/help screen. Использовать существующий Cosmic Atlas visual language и не плодить текстовые инструкции поверх карты.",
+      "prompt": "[TASK P2.3-507] Jump Gate frontend surface and destination UX\n\nОПИСАНИЕ\nДобавить в Home/System UI объект прыжковых врат и экран маршрутов: locked state до Jump Drive I, random jump action, список known destinations/colonies, запуск scout/colonizer/cargo действий и локализованные ошибки.\n\nACCEPTANCE CRITERIA\n  1. На карте Home System после unlock отображается внешний объект Jump Gate за орбитами; до unlock виден locked affordance или понятный gated state без фальшивого действия\n  2. Экран врат показывает кнопку `Random jump`/`Случайный прыжок`, список known destinations и бейджи colony/discovered/last visited\n  3. Из destination можно запустить допустимые действия: scout/recon, colonizer на открытую planet, cargo между owned settlements\n  4. UI использует `Random jump`/`Случайный прыжок` для повторяемого exploration action во всех RU/EN строках\n  5. Все новые тексты локализованы EN/RU, длинные строки не ломают mobile layout\n  6. Ошибки fuel/research/ownership/discovery показываются до launch, если frontend уже имеет данные, и всегда отображают server error\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - frontend/src/pages/SystemMap.tsx\n  - frontend/src/pages/SectorMap.tsx\n  - frontend/src/components/ExpeditionDialog.tsx\n  - frontend/src/components/CargoTransferDialog.tsx\n  - frontend/src/components/cosmic/SystemMap.tsx\n  - frontend/src/hooks/\n  - frontend/src/locales/en.json\n  - frontend/src/locales/ru.json\n  - shared/types/jump-gate.ts\n  - frontend/src/README.md\n\nЗАВИСИМОСТИ\n  P2.3-503, P2.3-504, P2.3-505\n\nКАК ПРОВЕРИТЬ\n  Frontend build/tests and manual mobile smoke: locked gate, random jump, known destination list, colonizer and cargo launch states.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Врата должны быть gameplay UI, не landing/help screen. Использовать существующий Cosmic Atlas visual language и не плодить текстовые инструкции поверх карты."
+    },
+    {
+      "id": "P2.3-508",
+      "epic": "EPIC-P2.3-JUMP-GATE",
+      "size": "L",
+      "title": "Jump Gate end-to-end regression scenario",
+      "description": "Добавить regression сценарий для всего контура: завершить Jump Drive I, открыть Jump Gate, выполнить random jump, сохранить known destination, разведать/колонизировать common planet и доставить cargo через врата без утечек Home System.",
+      "acceptance": [
+        "Automated scenario проходит через unlock → random jump → known destination → discovery/colonization → cargo delivery",
+        "Сценарий проверяет, что foreign Home System не появляется в sector/common payloads",
+        "Повторный запуск worker/online sync не дублирует cargo, colony или discovery rows",
+        "Regression doc описывает manual smoke для Telegram Mini App на mobile viewport",
+        "Rollup `P2.3-500` получает evidence commands и known residual risks before closure"
+      ],
+      "files": [
+        "backend/tests/e2e/",
+        "frontend/tests/e2e/",
+        "docs/testing/",
+        "tasks/ROADMAP_P2_3_JUMP_GATE.md",
+        "tasks/ROADMAP_COVERAGE_MATRIX.md",
+        "scripts/ci-verify.sh"
+      ],
+      "deps": [
+        "P2.3-507",
+        "P2.3-506"
+      ],
+      "verify": "Focused backend e2e scenario; optional RUN_PLAYWRIGHT_E2E=1 ./scripts/ci-verify.sh for closing rollup.",
+      "notes": "Default CI не должен получить обязательный Playwright шаг; browser E2E остаётся через label `run-e2e` для epic PR.",
+      "prompt": "[TASK P2.3-508] Jump Gate end-to-end regression scenario\n\nОПИСАНИЕ\nДобавить regression сценарий для всего контура: завершить Jump Drive I, открыть Jump Gate, выполнить random jump, сохранить known destination, разведать/колонизировать common planet и доставить cargo через врата без утечек Home System.\n\nACCEPTANCE CRITERIA\n  1. Automated scenario проходит через unlock → random jump → known destination → discovery/colonization → cargo delivery\n  2. Сценарий проверяет, что foreign Home System не появляется в sector/common payloads\n  3. Повторный запуск worker/online sync не дублирует cargo, colony или discovery rows\n  4. Regression doc описывает manual smoke для Telegram Mini App на mobile viewport\n  5. Rollup `P2.3-500` получает evidence commands и known residual risks before closure\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/tests/e2e/\n  - frontend/tests/e2e/\n  - docs/testing/\n  - tasks/ROADMAP_P2_3_JUMP_GATE.md\n  - tasks/ROADMAP_COVERAGE_MATRIX.md\n  - scripts/ci-verify.sh\n\nЗАВИСИМОСТИ\n  P2.3-507, P2.3-506\n\nКАК ПРОВЕРИТЬ\n  Focused backend e2e scenario; optional RUN_PLAYWRIGHT_E2E=1 ./scripts/ci-verify.sh for closing rollup.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Default CI не должен получить обязательный Playwright шаг; browser E2E остаётся через label `run-e2e` для epic PR."
     }
   ]
 }
