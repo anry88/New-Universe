@@ -256,7 +256,7 @@ export const BUILDING_TYPE_CATALOG_ROWS: BuildingCatalogRow[] = [
     },
     category: 'ships',
     maxLevel: MAX_BUILDING_LEVEL,
-    deps: [{ typeId: 'spaceport', level: 2 }],
+    deps: [{ typeId: 'spaceport', level: 1 }],
     baseCost: { iron: 800, silicon: 400 },
     baseTimeSec: 1800,
     baseOutput: {},

@@ -33,6 +33,10 @@ describe('research gates', () => {
     ).toThrow(/jump_ship/);
   });
 
+  it('gates cargo_light construction behind Logistics level 1', () => {
+    expect(SHIP_RESEARCH_GATES.cargo_light).toEqual({ branch: 'logistics', level: 1 });
+  });
+
   it('assertResearchRequirement no-ops when requirement undefined', () => {
     const map = levelsMapFromRows([]);
     expect(() => assertResearchRequirement(map, undefined, 'scout')).not.toThrow();

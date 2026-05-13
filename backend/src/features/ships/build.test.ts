@@ -5,7 +5,7 @@ import { syncReadyShips } from './build.js';
 import { authRoutes } from '../auth/routes.js';
 import { meRoutes } from '../me/routes.js';
 import { db } from '../../db/index.js';
-import { planets, systems, buildings, ships, planetResources, resources, notifications } from '../../db/schema.js';
+import { planets, systems, buildings, ships, planetResources, resources, notifications, researchProgress } from '../../db/schema.js';
 import { eq, and, sql } from 'drizzle-orm';
 import crypto from 'crypto';
 import { env } from '../../lib/env.js';
@@ -131,7 +131,7 @@ describe('Ship Building - POST /ships/build', () => {
     expect(body.ship.locationPlanetId).toBe(planetId);
   });
 
-  it('blocks cargo_light until shipyard L2 and then builds from capital resources', async () => {
+  it('blocks cargo_light until shipyard L2 and Logistics L1, then builds from capital resources', async () => {
     await seedShipTypes();
 
     const { app, token, userId } = await createTestUser();
@@ -166,6 +166,25 @@ describe('Ship Building - POST /ships/build', () => {
       .update(buildings)
       .set({ level: 2 })
       .where(and(eq(buildings.planetId, planetId), eq(buildings.typeId, 'shipyard')));
+
+    const researchBlockedResponse = await app.inject({
+      method: 'POST',
+      url: '/ships/build',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        planetId,
+        typeSlug: 'cargo_light',
+      },
+    });
+
+    expect(researchBlockedResponse.statusCode).toBe(400);
+    expect(researchBlockedResponse.json().error).toContain('logistics research level 1');
+
+    await db.insert(researchProgress).values({
+      userId,
+      branch: 'logistics',
+      level: 1,
+    });
 
     const response = await app.inject({
       method: 'POST',

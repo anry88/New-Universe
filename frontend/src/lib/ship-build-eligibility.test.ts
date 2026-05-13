@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import type { ResearchProgress } from "@shared/types/research";
 import type { ShipType } from "@shared/types/ships";
 import type { Planet } from "@shared/types/world";
 import { resolveShipBuildBlockedReason } from "./ship-build-eligibility";
@@ -36,6 +37,10 @@ const basePlanet: Planet = {
   ],
 };
 
+const logisticsResearch: ResearchProgress[] = [
+  { userId: "user-1", branch: "logistics", level: 1, completesAt: null },
+];
+
 describe("resolveShipBuildBlockedReason", () => {
   it("blocks cargo_light until shipyard level 2", () => {
     expect(resolveShipBuildBlockedReason(basePlanet, cargoLight)).toEqual({
@@ -55,7 +60,7 @@ describe("resolveShipBuildBlockedReason", () => {
       ),
     };
 
-    expect(resolveShipBuildBlockedReason(planet, cargoLight)).toEqual({
+    expect(resolveShipBuildBlockedReason(planet, cargoLight, logisticsResearch)).toEqual({
       type: "insufficientResource",
       resourceId: "methane",
       required: 100,
@@ -69,6 +74,20 @@ describe("resolveShipBuildBlockedReason", () => {
       buildings: [{ id: "yard-1", planetId: "planet-1", typeId: "shipyard", level: 2, slotIndex: 2 }],
     };
 
-    expect(resolveShipBuildBlockedReason(planet, cargoLight)).toBeNull();
+    expect(resolveShipBuildBlockedReason(planet, cargoLight, logisticsResearch)).toBeNull();
+  });
+
+  it("blocks cargo_light at shipyard level 2 until Logistics research level 1", () => {
+    const planet = {
+      ...basePlanet,
+      buildings: [{ id: "yard-1", planetId: "planet-1", typeId: "shipyard", level: 2, slotIndex: 2 }],
+    };
+
+    expect(resolveShipBuildBlockedReason(planet, cargoLight)).toEqual({
+      type: "missingResearch",
+      branch: "logistics",
+      requiredLevel: 1,
+      currentLevel: 0,
+    });
   });
 });

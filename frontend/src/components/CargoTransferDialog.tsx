@@ -5,7 +5,7 @@ import { useMe } from '../hooks/useMe';
 import { Planet } from '@shared/types/world';
 import { apiFetch } from '../lib/api';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { X, Package, Truck, AlertTriangle, Navigation, Clock } from 'lucide-react';
+import { X, Truck, AlertTriangle, Navigation, Clock } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
 import type { CargoTransferPreviewResponse, CargoTransferRequest } from '@shared/types/cargo';
 import { formatCargoTransferError, isCargoTransferShip } from '../lib/fleet';
@@ -14,9 +14,11 @@ import {
   JUMP_GATE_JUMP_FUEL_COST,
 } from '@shared/config/expeditionRouting';
 import { formatTimerDuration } from '../lib/timers';
+import { getResourceLabel, getResourceSymbol } from './cosmic/resources';
 
 interface CargoTransferDialogProps {
   originPlanet: Planet;
+  initialShipId?: string | null;
   initialTargetPlanetId?: string | null;
   initialUseJumpGateRoute?: boolean;
   onClose: () => void;
@@ -24,6 +26,7 @@ interface CargoTransferDialogProps {
 
 export function CargoTransferDialog({
   originPlanet,
+  initialShipId,
   initialTargetPlanetId,
   initialUseJumpGateRoute,
   onClose,
@@ -34,7 +37,7 @@ export function CargoTransferDialog({
   const { planets } = useColonies();
   const { data: shipTypes } = useShipTypes();
   
-  const [selectedShipId, setSelectedShipId] = useState<string>('');
+  const [selectedShipId, setSelectedShipId] = useState<string>(initialShipId ?? '');
   const [targetPlanetId, setTargetPlanetId] = useState<string>(initialTargetPlanetId ?? '');
   const [cargo, setCargo] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
@@ -151,7 +154,10 @@ export function CargoTransferDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-      <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+      <div
+        data-testid="cargo-transfer-dialog"
+        className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+      >
         {/* Header */}
         <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-800/50">
           <div className="flex items-center gap-2 text-cyan-400 font-bold uppercase tracking-wider text-sm">
@@ -241,11 +247,13 @@ export function CargoTransferDialog({
               {originPlanet.resources?.map(res => (
                 <div key={res.resourceId} className="flex items-center gap-3 p-2 bg-slate-800/30 rounded-xl border border-slate-700/50">
                   <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center border border-slate-700">
-                     <Package className="w-4 h-4 text-slate-400" />
+                     <span className="text-[10px] font-bold text-slate-400">
+                       {getResourceSymbol(res.resourceId)}
+                     </span>
                   </div>
                   <div className="flex-1">
-                    <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider mb-1">
-                      <span className="text-slate-400">{res.resourceId}</span>
+                    <div className="flex justify-between text-[10px] font-bold tracking-wider mb-1">
+                      <span className="text-slate-400">{getResourceLabel(res.resourceId, locale)}</span>
                       <span className="text-slate-500">{t('cargo.available', { amount: Math.floor(Number(res.amount)) })}</span>
                     </div>
                     <div className="flex items-center gap-2">

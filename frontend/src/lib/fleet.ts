@@ -39,6 +39,7 @@ export function formatCargoTransferError(message: string | undefined, t: Transla
   if (normalized.includes('target planet must be different')) return t('cargo.error.samePlanet');
   if (normalized.includes('not enough fuel')) return t('cargo.error.insufficientFuel');
   if (normalized.includes('not enough jump_fuel')) return t('cargo.error.insufficientJumpFuel');
+  if (normalized.includes('logistics research level 1 required')) return t('cargo.error.logisticsRequired');
   if (normalized.includes('jump drive research level 1 required')) return t('cargo.error.jumpGateLocked');
   if (normalized.includes('jump gate is locked')) return t('cargo.error.jumpGateLocked');
   if (normalized.includes('jump gate calibration is still in progress')) return t('cargo.error.jumpGateCalibrating');

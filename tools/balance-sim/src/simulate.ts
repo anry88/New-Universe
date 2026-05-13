@@ -270,7 +270,10 @@ export function simulateScenario(
       const step = scenario.shipPlan[yi]!;
       const spec = SHIPS[step.shipId];
       const reqOk = spec.requiredBuildings.every((r) => (levels[r.typeId as BuildingId] ?? 0) >= r.level);
-      if (reqOk) {
+      const researchOk = ('requiredResearch' in spec ? spec.requiredResearch : []).every(
+        (r) => (completedResearch[r.branch] ?? 0) >= r.level,
+      );
+      if (reqOk && researchOk) {
         const timeSec = applyBuildTimeSeconds(spec.buildTimeSec, fx2);
         if (canSpend(resources, spec.buildCost)) {
           spend(resources, spec.buildCost);

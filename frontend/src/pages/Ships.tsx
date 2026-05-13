@@ -23,6 +23,7 @@ import {
 import { resolveBuildingType } from "../components/cosmic/buildings";
 import { isCargoTransferShip, isCargoTransferShipType } from "../lib/fleet";
 import type { ExpeditionRouteMode } from "@shared/config/expeditionRouting";
+import { researchBranchLabel } from "@shared/types/research";
 
 const SHIP_CLASS_TAG: Record<string, string> = {
   scout: "SCOUT",
@@ -107,6 +108,14 @@ export function ShipsPage() {
   };
 
   const formatBuildBlock = (reason: ShipBuildBlockedReason) => {
+    if (reason.type === "missingResearch") {
+      return t("ships.blocked.research", {
+        branch: researchBranchLabel(reason.branch, locale),
+        level: reason.requiredLevel,
+        current: reason.currentLevel,
+      });
+    }
+
     if (reason.type === "missingBuilding") {
       if (reason.typeId === "shipyard") {
         return t("ships.blocked.shipyardLevel", {
@@ -280,7 +289,7 @@ export function ShipsPage() {
                     )
                     .join(", ");
                   const blockedReason = selectedPlanet
-                    ? resolveShipBuildBlockedReason(selectedPlanet, type)
+                    ? resolveShipBuildBlockedReason(selectedPlanet, type, meData?.research)
                     : null;
                   const canBuild = selectedPlanet ? blockedReason === null : false;
                   const blockedText = blockedReason
@@ -439,7 +448,12 @@ export function ShipsPage() {
                       disabled={!isIdle || (isCargoShip && !ship.locationPlanetId)}
                       onClick={() => {
                         if (isCargoShip) {
-                          navigate(`/colonies?cargoOrigin=${ship.locationPlanetId}`);
+                          if (!ship.locationPlanetId) return;
+                          const params = new URLSearchParams({
+                            cargoOrigin: ship.locationPlanetId,
+                            cargoShip: ship.id,
+                          });
+                          navigate(`/colonies?${params.toString()}`);
                           return;
                         }
                         setSelectedShip(ship);
