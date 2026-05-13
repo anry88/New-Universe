@@ -34,15 +34,25 @@ Set these values on both `staging` and `production`, with separate provider reso
 | `FLY_API_APP` | variable | Fly API deploy | Fly app name for the Fastify API. |
 | `FLY_WORKER_APP` | variable | Fly worker deploy | Fly app name for the BullMQ worker. Keep it separate from the API app for closed alpha. |
 | `FLY_PRIMARY_REGION` | variable, optional | Generated Fly configs | Defaults to `ams` in the workflow when unset. |
-| `DATABASE_URL` | secret | Migration/seed step | Neon connection string for the target environment. |
+| `DATABASE_URL` | secret | Migration/seed step + Fly runtime sync | Neon connection string for the target environment. |
+| `REDIS_URL` | secret | Fly runtime sync | Upstash Redis/TLS URL for BullMQ and production rate limits. Use the Redis URL, not the REST URL. |
+| `TELEGRAM_BOT_TOKEN` | secret | Fly runtime sync | BotFather token for the target environment bot. |
+| `TELEGRAM_BOT_SECRET` | secret | Fly runtime sync | 32+ character Telegram webhook secret. |
+| `JWT_SECRET` | secret | Fly runtime sync | 32+ character JWT signing secret. |
+| `SERVER_SECRET` | secret | Fly runtime sync | 32+ character deterministic game seed secret. Do not rotate casually. |
+| `PUBLIC_FRONTEND_URL` | variable, optional | Fly runtime sync | Public Mini App URL. Defaults to `https://<CLOUDFLARE_PAGES_PROJECT>.pages.dev` when unset. |
+| `TELEGRAM_APP_URL` | variable, optional | Fly runtime sync | Telegram Mini App launch URL. Defaults to `PUBLIC_FRONTEND_URL` when unset. |
+| `SENTRY_DSN` | secret, optional | Fly runtime sync | Backend Sentry DSN. Leave empty to keep backend Sentry disabled. |
+| `ADMIN_TELEGRAM_IDS` | secret, optional | Fly runtime sync | Comma-separated Telegram admin user IDs. |
 | `CLOUDFLARE_API_TOKEN` | secret | Cloudflare Pages deploy | Token with Pages deployment permission for the chosen project. |
 | `CLOUDFLARE_ACCOUNT_ID` | secret | Cloudflare Pages deploy | Cloudflare account id. |
 | `CLOUDFLARE_PAGES_PROJECT` | variable | Cloudflare Pages deploy | Pages project name. |
+| `CLOUDFLARE_PAGES_BRANCH` | variable, optional | Cloudflare Pages deploy | Defaults to `main`. Keep `main` for dedicated staging/production Pages projects so the root `*.pages.dev` domain serves the deployment. |
 | `VITE_API_URL` | variable | Frontend build | Public API HTTPS origin for the target environment. |
 | `VITE_TG_BOT_NAME` | variable | Frontend build | Telegram bot username shown by the Mini App. |
 | `VITE_SENTRY_DSN` | secret | Frontend build | Optional; leave empty to keep frontend Sentry disabled. |
 
-Provider runtime secrets such as `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_SECRET`, `JWT_SECRET`, `SERVER_SECRET`, `REDIS_URL`, `PUBLIC_FRONTEND_URL`, and `TELEGRAM_APP_URL` remain Fly app secrets. They are not materialized into the workflow unless a step needs them directly.
+The deploy job mirrors the runtime values above into both Fly apps with `flyctl secrets set --stage` before deploying. This keeps GitHub Environment values as the bootstrap source while Fly remains the runtime secret store. Existing Fly app secrets are updated only when the environment gate is approved and the deploy job runs.
 
 ## Deploy sequence
 
@@ -53,12 +63,13 @@ Provider runtime secrets such as `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_SECRET`, `J
 5. Keep `run_migrations=true` unless this is an intentional no-schema redeploy.
 6. Approve the `staging` environment gate.
 7. The workflow builds backend and frontend artifacts.
-8. The deploy job stops the worker app with `flyctl scale count 0`.
-9. If enabled, the deploy job runs `npm run db:migrate` and `npm run db:seed` against the target `DATABASE_URL`.
-10. The API app deploys through `flyctl deploy` with the release tag as the Fly image label.
-11. The worker app deploys from the same backend Docker context with `npm run worker` as the process command, then scales back to one machine.
-12. The frontend artifact deploys through `npx wrangler pages deploy`.
-13. After deployment succeeds, the release job creates a git tag and GitHub Release changelog.
+8. The deploy job stages the target environment runtime secrets into both Fly apps.
+9. The deploy job stops the worker app with `flyctl scale count 0`.
+10. If enabled, the deploy job runs `npm run db:migrate` and `npm run db:seed` against the target `DATABASE_URL`.
+11. The API app deploys through `flyctl deploy` with the release tag as the Fly image label.
+12. The worker app deploys from the same backend Docker context with `npm run worker` as the process command, then scales back to one machine.
+13. The frontend artifact deploys through `npx wrangler pages deploy`.
+14. After deployment succeeds, the release job creates a git tag and GitHub Release changelog.
 
 The workflow copies `shared/` into `backend/shared` inside the runner before Fly builds. This keeps the current backend Dockerfile working with the `@shared/*` TypeScript path without committing generated build context files.
 

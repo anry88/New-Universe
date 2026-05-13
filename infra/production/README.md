@@ -29,7 +29,7 @@ Do not add irreversible automation before the manual path has been executed once
 2. Register or choose domains and HTTPS origins.
 3. Create Neon Postgres and Upstash Redis.
 4. Create backend and worker runtime apps.
-5. Add runtime secrets to provider secret stores.
+5. Add runtime secrets to the target GitHub Environment; the deploy workflow stages them into the Fly app secret stores before each deploy.
 6. Run local CI parity before first deploy when Docker is available:
 
 ```bash
@@ -89,7 +89,7 @@ For the first manual deploy, use immutable image or deployment identifiers even 
 
 Do not run migrations from multiple places. Do not start the worker until migrations are complete.
 
-Once the provider projects and GitHub Environments exist, prefer dispatching [`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml) over running the steps manually. The manual sequence remains the fallback for diagnosing provider setup problems.
+Once the provider projects and GitHub Environments exist, prefer dispatching [`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml) over running the steps manually. The workflow mirrors approved GitHub Environment runtime values into Fly secrets before deployment. The manual sequence remains the fallback for diagnosing provider setup problems.
 
 ## Rollback runbook
 
