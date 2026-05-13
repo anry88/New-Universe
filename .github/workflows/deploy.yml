@@ -295,7 +295,7 @@ jobs:
           rm -rf backend/shared
           cp -R shared backend/shared
 
-          cat > /tmp/fly-api.toml <<EOF
+          cat > backend/fly-api.generated.toml <<EOF
           app = "$FLY_API_APP"
           primary_region = "$FLY_PRIMARY_REGION"
           kill_signal = "SIGTERM"
@@ -331,7 +331,7 @@ jobs:
             cpu_kind = "shared"
           EOF
 
-          cat > /tmp/fly-worker.toml <<EOF
+          cat > backend/fly-worker.generated.toml <<EOF
           app = "$FLY_WORKER_APP"
           primary_region = "$FLY_PRIMARY_REGION"
           kill_signal = "SIGTERM"
@@ -402,7 +402,7 @@ jobs:
       - name: Deploy backend API
         run: |
           flyctl deploy backend \
-            --config /tmp/fly-api.toml \
+            --config backend/fly-api.generated.toml \
             --remote-only \
             --image-label "$RELEASE_TAG" \
             --strategy rolling \
@@ -413,7 +413,7 @@ jobs:
       - name: Deploy worker
         run: |
           flyctl deploy backend \
-            --config /tmp/fly-worker.toml \
+            --config backend/fly-worker.generated.toml \
             --remote-only \
             --image-label "$RELEASE_TAG" \
             --strategy rolling \
@@ -514,7 +514,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          cat > /tmp/fly-api.toml <<EOF
+          cat > backend/fly-api.generated.toml <<EOF
           app = "$FLY_API_APP"
           primary_region = "$FLY_PRIMARY_REGION"
           kill_signal = "SIGTERM"
@@ -538,7 +538,7 @@ jobs:
             cpu_kind = "shared"
           EOF
 
-          cat > /tmp/fly-worker.toml <<EOF
+          cat > backend/fly-worker.generated.toml <<EOF
           app = "$FLY_WORKER_APP"
           primary_region = "$FLY_PRIMARY_REGION"
           kill_signal = "SIGTERM"
@@ -579,12 +579,12 @@ jobs:
           fi
 
           flyctl deploy \
-            --config /tmp/fly-api.toml \
+            --config backend/fly-api.generated.toml \
             --image "registry.fly.io/$FLY_API_APP:$ROLLBACK_RELEASE_TAG" \
             --strategy immediate \
             --yes
           flyctl deploy \
-            --config /tmp/fly-worker.toml \
+            --config backend/fly-worker.generated.toml \
             --image "registry.fly.io/$FLY_WORKER_APP:$ROLLBACK_RELEASE_TAG" \
             --strategy immediate \
             --yes
