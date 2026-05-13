@@ -1,36 +1,42 @@
-import { describe, expect, it, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { and, eq } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import {
-  users,
-  ships,
-  planets,
-  systems,
-  shipTypes,
-  researchProgress,
-  discoveredSystems,
-  discoveredPlanets,
-  planetResources,
-  richness,
   buildings,
-  productionOrders,
-  notifications,
   colonies,
+  discoveredPlanets,
+  discoveredSystems,
+  jumpGates,
+  notifications,
+  planets,
+  planetResources,
+  productionOrders,
+  researchProgress,
+  richness,
+  sectors,
+  ships,
+  shipTypes,
+  systems,
+  users,
 } from '../../db/schema.js';
-import { eq, and } from 'drizzle-orm';
+import { seedResearchCatalog } from '../../db/seed/research.js';
 import { jumpShip } from './jump.js';
 
+const RANDOM_JUMP_NOW = new Date('2026-05-13T12:00:00.000Z');
+const REPEAT_JUMP_NOW = new Date('2026-05-13T12:10:00.000Z');
+
 describe('Jump Ship Feature', () => {
-  async function createTestUser() {
+  async function createTestUser(usernamePrefix: string) {
     const [user] = await db.insert(users).values({
       tgId: BigInt(Math.floor(Math.random() * 100000000)),
-      tgUsername: `jumptest_${Date.now()}`,
+      tgUsername: `${usernamePrefix}_${Date.now()}`,
     }).returning();
     return user;
   }
 
   async function createSetup() {
-    const user = await createTestUser();
-    
+    const user = await createTestUser('jumptest');
+
     const [originSystem] = await db.insert(systems).values({
       name: 'Origin System',
       sectorX: 0,
@@ -52,7 +58,6 @@ describe('Jump Ship Feature', () => {
       slotCount: 12,
     }).returning();
 
-    // Insert jump_ship type
     await db.insert(shipTypes).values({
       id: 'jump_ship',
       name: { ru: 'Прыжковый корабль', en: 'Jump Ship' },
@@ -79,7 +84,16 @@ describe('Jump Ship Feature', () => {
     return { user, originSystem, originPlanet, ship };
   }
 
+  async function unlockJumpDrive(userId: string) {
+    await db.insert(researchProgress).values({
+      userId,
+      branch: 'jump_drive',
+      level: 1,
+    });
+  }
+
   beforeEach(async () => {
+    await db.delete(jumpGates);
     await db.delete(researchProgress);
     await db.delete(discoveredPlanets);
     await db.delete(discoveredSystems);
@@ -93,129 +107,147 @@ describe('Jump Ship Feature', () => {
     await db.delete(planets);
     await db.delete(systems);
     await db.delete(users);
+    await db.delete(sectors);
+    await seedResearchCatalog();
   });
 
-  it('should fail if Jump Drive research is missing', async () => {
+  it('denies random jump while the Jump Gate is locked', async () => {
     const { user, ship } = await createSetup();
-    const result = await jumpShip(user.id, {
-      shipId: ship.id,
-      targetSector: { x: 1, y: 1, z: 1 },
-    });
+
+    const result = await jumpShip(
+      user.id,
+      {
+        shipId: ship.id,
+        mode: 'random',
+      },
+      { now: RANDOM_JUMP_NOW },
+    );
 
     expect(result.success).toBe(false);
-    expect(result.error).toMatch(/jump_drive research level 1 required/i);
-  });
+    expect(result.error).toMatch(/jump drive research level 1 required/i);
 
-  it('should fail if not a Jump Ship', async () => {
-    const { user, originPlanet } = await createSetup();
-    
-    // Add a scout
-    await db.insert(shipTypes).values({
-      id: 'scout',
-      name: { ru: 'Разведчик', en: 'Scout' },
-      role: 'recon',
-      hp: 40,
-      speed: '2.00',
-      cargo: 50,
-      fuelConsumption: '0.30',
-      buildTimeSec: 600,
-      buildCost: {},
-      sensorRange: 30,
-    }).onConflictDoNothing();
-
-    const [scout] = await db.insert(ships).values({
-      ownerId: user.id,
-      typeId: 'scout',
-      locationPlanetId: originPlanet.id,
-      status: 'idle',
-    }).returning();
-
-    const result = await jumpShip(user.id, {
-      shipId: scout.id,
-      targetSector: { x: 1, y: 1, z: 1 },
+    const gateRows = await db.query.jumpGates.findMany({
+      where: eq(jumpGates.userId, user.id),
     });
-
-    expect(result.success).toBe(false);
-    expect(result.error).toContain('Only Jump Ships');
+    expect(gateRows).toHaveLength(0);
   });
 
-  it('should fail if not enough fuel', async () => {
+  it('rejects deprecated manual sector jumps without using client coordinates', async () => {
     const { user, ship } = await createSetup();
-    
-    // Set research
-    await db.insert(researchProgress).values({
-      userId: user.id,
-      branch: 'jump_drive',
-      level: 1,
-    });
-
-    // Empty fuel
-    await db.update(ships).set({ fuel: '10' }).where(eq(ships.id, ship.id));
-
-    const result = await jumpShip(user.id, {
-      shipId: ship.id,
-      targetSector: { x: 1, y: 1, z: 1 },
-    });
-
-    expect(result.success).toBe(false);
-    expect(result.error).toContain('Insufficient Jump Fuel');
-  });
-
-  it('should perform jump successfully', async () => {
-    const { user, ship } = await createSetup();
-    
-    // Set research
-    await db.insert(researchProgress).values({
-      userId: user.id,
-      branch: 'jump_drive',
-      level: 1,
-    });
+    await unlockJumpDrive(user.id);
 
     const result = await jumpShip(user.id, {
       shipId: ship.id,
       targetSector: { x: 2, y: 3, z: 4 },
     });
 
+    expect(result.success).toBe(false);
+    expect(result.status).toBe(400);
+    expect(result.error).toMatch(/manual sector jumps are deprecated/i);
+
+    const createdSector = await db.query.sectors.findFirst({
+      where: and(eq(sectors.x, 2), eq(sectors.y, 3), eq(sectors.z, 4)),
+    });
+    expect(createdSector).toBeUndefined();
+  });
+
+  it('performs a server-authoritative random jump and records a known destination', async () => {
+    const { user, ship } = await createSetup();
+    await unlockJumpDrive(user.id);
+
+    const result = await jumpShip(
+      user.id,
+      {
+        shipId: ship.id,
+        mode: 'random',
+      },
+      {
+        now: RANDOM_JUMP_NOW,
+        selectRandomSector: () => ({ x: 2, y: 3, z: 4 }),
+      },
+    );
+
     expect(result.success).toBe(true);
-    expect(result.targetSystem).toBeDefined();
+    expect(result.targetSystem).toMatchObject({
+      sector: { x: 2, y: 3, z: 4 },
+    });
     expect(result.targetPlanet).toBeDefined();
-    
-    // Verify ship moved
+    expect(result.targetSystem?.id).toBe(result.destination?.systemId);
+    expect(result.destination).toMatchObject({
+      source: 'random_jump',
+      lastVisitedAt: RANDOM_JUMP_NOW.toISOString(),
+    });
+
     const updatedShip = await db.query.ships.findFirst({
       where: eq(ships.id, ship.id),
     });
-    expect(updatedShip!.locationPlanetId).toBe(result.targetPlanet.id);
-    expect(Number(updatedShip!.fuel)).toBe(50); // 100 - 50
+    expect(updatedShip?.locationPlanetId).toBe(result.arrivalPlanetId);
+    expect(Number(updatedShip?.fuel)).toBe(50);
 
-    // Verify discovery
     const discovery = await db.query.discoveredSystems.findFirst({
       where: and(
         eq(discoveredSystems.userId, user.id),
-        eq(discoveredSystems.systemId, result.targetSystem.id)
+        eq(discoveredSystems.systemId, result.targetSystem!.id),
       ),
     });
-    expect(discovery).toBeDefined();
+    expect(discovery?.source).toBe('random_jump');
+    expect(discovery?.lastVisitedAt?.toISOString()).toBe(RANDOM_JUMP_NOW.toISOString());
+
+    const planetDiscoveries = await db.query.discoveredPlanets.findMany({
+      where: eq(discoveredPlanets.userId, user.id),
+    });
+    expect(planetDiscoveries).toHaveLength(0);
   });
 
-  it("does not choose another player's home system as a jump target", async () => {
+  it('repeats travel to a known destination by destination id', async () => {
     const { user, ship } = await createSetup();
-    const targetSector = {
-      x: Math.floor(Math.random() * 10000) + 100,
-      y: Math.floor(Math.random() * 10000) + 100,
-      z: Math.floor(Math.random() * 10000) + 100,
-    };
+    await unlockJumpDrive(user.id);
 
-    await db.insert(researchProgress).values({
-      userId: user.id,
-      branch: 'jump_drive',
-      level: 1,
+    const firstJump = await jumpShip(
+      user.id,
+      { shipId: ship.id, mode: 'random' },
+      {
+        now: RANDOM_JUMP_NOW,
+        selectRandomSector: () => ({ x: 5, y: 6, z: 7 }),
+      },
+    );
+    expect(firstJump.success).toBe(true);
+
+    const secondJump = await jumpShip(
+      user.id,
+      {
+        shipId: ship.id,
+        destinationSystemId: firstJump.destination!.systemId,
+      },
+      { now: REPEAT_JUMP_NOW },
+    );
+
+    expect(secondJump.success).toBe(true);
+    expect(secondJump.targetSystem?.id).toBe(firstJump.targetSystem?.id);
+    expect(secondJump.destination?.source).toBe('random_jump');
+    expect(secondJump.destination?.lastVisitedAt).toBe(REPEAT_JUMP_NOW.toISOString());
+
+    const updatedShip = await db.query.ships.findFirst({
+      where: eq(ships.id, ship.id),
     });
+    expect(Number(updatedShip?.fuel)).toBe(0);
 
-    const [foreignOwner] = await db.insert(users).values({
-      tgId: BigInt(Math.floor(Math.random() * 100000000)),
-      tgUsername: `jump_foreign_${Date.now()}`,
-    }).returning();
+    const discovery = await db.query.discoveredSystems.findFirst({
+      where: and(
+        eq(discoveredSystems.userId, user.id),
+        eq(discoveredSystems.systemId, firstJump.destination!.systemId),
+      ),
+    });
+    expect(discovery?.source).toBe('random_jump');
+    expect(discovery?.lastVisitedAt?.toISOString()).toBe(REPEAT_JUMP_NOW.toISOString());
+  });
 
+  it("does not choose another player's home system as a random jump target", async () => {
+    const { user, ship } = await createSetup();
+    const targetSector = { x: 8, y: 9, z: 10 };
+    await unlockJumpDrive(user.id);
+
+    const foreignOwner = await createTestUser('jump_foreign');
     const [foreignHome] = await db.insert(systems).values({
       name: 'Foreign Home System',
       sectorX: targetSector.x,
@@ -237,15 +269,23 @@ describe('Jump Ship Feature', () => {
       slotCount: 10,
     }).returning();
 
-    const result = await jumpShip(user.id, {
-      shipId: ship.id,
-      targetSector,
-    });
+    const result = await jumpShip(
+      user.id,
+      { shipId: ship.id, mode: 'random' },
+      {
+        now: RANDOM_JUMP_NOW,
+        selectRandomSector: () => targetSector,
+      },
+    );
 
     expect(result.success).toBe(true);
     expect(result.targetSystem?.id).not.toBe(foreignHome.id);
-    expect(result.targetPlanet?.id).not.toBe(foreignHomePlanet.id);
-    expect(result.targetSystem?.isHome).toBe(false);
-    expect(result.targetSystem?.ownerId).toBeNull();
+    expect(result.arrivalPlanetId).not.toBe(foreignHomePlanet.id);
+
+    const targetSystem = await db.query.systems.findFirst({
+      where: eq(systems.id, result.targetSystem!.id),
+    });
+    expect(targetSystem?.isHome).toBe(false);
+    expect(targetSystem?.ownerId).toBeNull();
   });
 });

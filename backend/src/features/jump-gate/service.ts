@@ -174,6 +174,8 @@ async function loadKnownDestinations(
       sectorY: systems.sectorY,
       sectorZ: systems.sectorZ,
       discoveredAt: discoveredSystems.discoveredAt,
+      source: discoveredSystems.source,
+      lastVisitedAt: discoveredSystems.lastVisitedAt,
       planetCount: sql<number>`count(${planets.id})::int`,
     })
     .from(discoveredSystems)
@@ -191,8 +193,10 @@ async function loadKnownDestinations(
       systems.sectorY,
       systems.sectorZ,
       discoveredSystems.discoveredAt,
+      discoveredSystems.source,
+      discoveredSystems.lastVisitedAt,
     )
-    .orderBy(desc(discoveredSystems.discoveredAt))
+    .orderBy(desc(sql`coalesce(${discoveredSystems.lastVisitedAt}, ${discoveredSystems.discoveredAt})`))
     .limit(limit);
 
   return rows.map((row) => ({
@@ -205,6 +209,8 @@ async function loadKnownDestinations(
     },
     planetCount: Number(row.planetCount),
     discoveredAt: row.discoveredAt.toISOString(),
+    source: row.source,
+    lastVisitedAt: serializeDate(row.lastVisitedAt),
   }));
 }
 
