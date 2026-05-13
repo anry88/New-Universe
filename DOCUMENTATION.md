@@ -49,11 +49,11 @@ The `tools/` folder hosts offline agents (not bundled into Docker images). Today
 
 `backend/src/workers/index.ts` boots the background processing layer:
 
-- **Repeat Queue**: Uses BullMQ's repeatable jobs to "tick" game logic every 30 seconds.
+- **Periodic Scheduler**: Uses lightweight in-process interval workers to "tick" game logic every 30 seconds without spending Redis commands on BullMQ repeatable jobs. BullMQ remains for real delayed/queued work such as ship construction and cargo arrivals.
 - **`tick-buildings`**: Completes construction/upgrades and updates resource regen rates from each extractor building's saved resource target.
 - **`tick-expeditions`**: The most complex worker; it interpolates ship positions on the **sector XY plane** during travel (Z stays at the origin system’s sector Z for fog-of-war), performs real-time visibility checks with planet-size discovery radii, inserts targeted recon discoveries idempotently, and turns one-way colonizer arrivals into settled colonies with a completed Command Center after atomically claiming the target planet without re-running launch-time cooldown/limit gates. The same `processExpeditions({ userId, skipNotifications })` path powers online `/me` sync for due arrivals without Telegram pushes.
 - **`tick-ships`**: Finalizes ship production. Jobs update only still-building due rows and skip notification creation when the ship was already completed by online sync.
-- **`notifications`**: Processes pending notifications from the database and sends them to Telegram via the Bot API every minute, respecting a 20 msgs/min per user rate limit.
+- **`notifications`**: Processes pending notifications from the database and sends them to Telegram via the Bot API every minute through the local interval scheduler, respecting a 20 msgs/min per user rate limit.
 - **`cargo-routes`**: Completes interplanetary one-way resource transfers triggered from the API; handles multi-load aggregation, atomicity, idempotent row claiming under duplicate worker jobs, and resource delivery into existing or newly created zero-regen destination stockpiles.
 - **`research`**: Applies finished lab timers (`research_progress.completes_at`), bumps completed tier levels once, triggers effect-cache invalidation hooks, and queues `research_done` notifications only for offline/worker completions.
 - **`production-orders`**: Every 30 seconds runs `ProductionService.processDueOrders` so explicit refinery/smelter/fabricator/cryo processes pause when active energy demand drains the battery, resume after charge returns, and grant outputs after inputs were reserved at start time.

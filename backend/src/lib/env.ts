@@ -53,6 +53,7 @@ const envSchema = z.object({
   RATE_LIMIT_AUTH_MAX: z.coerce.number().int().min(1).default(20),
   RATE_LIMIT_MUTATION_MAX: z.coerce.number().int().min(1).default(120),
   RATE_LIMIT_WEBHOOK_MAX: z.coerce.number().int().min(1).default(600),
+  RATE_LIMIT_STORE: z.enum(['memory', 'redis']).default('memory'),
   /** Diamonds granted once when a Telegram account creates its first user row. */
   DIAMOND_STARTING_GRANT: z.coerce.number().int().min(0).default(1000),
   /** Rush pricing curve multiplier (`minutes^0.85 * rate`, rounded). */

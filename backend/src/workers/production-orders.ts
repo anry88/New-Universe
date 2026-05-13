@@ -1,7 +1,6 @@
-import { Queue, Worker } from 'bullmq';
 import { productionService } from '../features/resources/production.js';
-import { env } from '../lib/env.js';
 import { logger } from '../lib/logger.js';
+import { createIntervalWorker, removeLegacyRepeatableJobs, type WorkerHandle } from './scheduler.js';
 
 const POLL_INTERVAL_MS = 30000;
 
@@ -9,44 +8,16 @@ export async function processCompletedProductionOrders(): Promise<number> {
   return productionService.processDueOrders();
 }
 
-export async function createProductionOrdersWorker(): Promise<Worker> {
-  const Redis = (await import('ioredis')).default as unknown as new (...args: any[]) => any;
-  const connection = new Redis(env.REDIS_URL, {
-    maxRetriesPerRequest: null,
-    lazyConnect: true,
-  });
+export async function createProductionOrdersWorker(): Promise<WorkerHandle> {
+  await removeLegacyRepeatableJobs('production-orders', { name: 'tick' });
 
-  const queue = new Queue('production-orders', { connection });
-  await queue.add(
-    'tick',
-    {},
-    {
-      repeat: { every: POLL_INTERVAL_MS },
-      removeOnComplete: { age: 0 },
-      removeOnFail: { age: 60 },
-    },
-  );
-  await queue.close();
-
-  const worker = new Worker(
-    'production-orders',
+  return createIntervalWorker(
+    'Production orders',
+    POLL_INTERVAL_MS,
     async () => {
       const completed = await processCompletedProductionOrders();
       logger.info({ completed }, 'Production orders worker: tick completed');
     },
-    { connection },
+    { runOnStart: true },
   );
-
-  worker.on('completed', (job) => {
-    logger.info({ jobId: job.id, name: job.name }, 'Production orders worker: job completed');
-  });
-
-  worker.on('failed', (job, err) => {
-    logger.error(
-      { jobId: job?.id, name: job?.name, err: err.message },
-      'Production orders worker: job failed',
-    );
-  });
-
-  return worker;
 }

@@ -17,7 +17,7 @@ Shared infrastructure used across features, middleware, and routes. Anything in 
   - `JWT_SECRET` (≥ 8 chars everywhere; production security validation requires 32+ characters and rejects placeholder text).
   - `SERVER_SECRET` (default dev-only secret used to derive deterministic home-system seeds; production security validation requires 32+ characters and rejects placeholder text).
   - `SENTRY_DSN` (URL or empty, normalized to `undefined` when empty).
-  - `RATE_LIMIT_WINDOW`, `RATE_LIMIT_GLOBAL_MAX`, `RATE_LIMIT_AUTH_MAX`, `RATE_LIMIT_MUTATION_MAX`, `RATE_LIMIT_WEBHOOK_MAX` — Fastify rate-limit settings used by `rate-limit.ts`.
+  - `RATE_LIMIT_WINDOW`, `RATE_LIMIT_GLOBAL_MAX`, `RATE_LIMIT_AUTH_MAX`, `RATE_LIMIT_MUTATION_MAX`, `RATE_LIMIT_WEBHOOK_MAX`, `RATE_LIMIT_STORE` — Fastify rate-limit settings used by `rate-limit.ts`; `RATE_LIMIT_STORE=memory` keeps ordinary HTTP traffic off Redis, while `redis` enables a shared limiter for multi-replica deployments.
   - `DIAMOND_STARTING_GRANT` (integer ≥ 0, default `1000`) — diamonds granted when a new `users` row is created at first Telegram login.
   - `DIAMOND_RUSH_PER_MINUTE` (integer ≥ 1, default `1`) — rush pricing curve multiplier: `round((ceil(remainingSeconds / 60)^0.85) × rate)`, optional max via `DIAMOND_RUSH_MAX_PER_ACTION`.
   - `DIAMOND_RUSH_MAX_PER_ACTION` (integer ≥ 0, default `0`) — per-rush cap; `0` means uncapped.
@@ -38,6 +38,7 @@ Shared infrastructure used across features, middleware, and routes. Anything in 
   - Uses Redis as the distributed store in production and in-memory limits outside production.
   - Exports `globalRateLimit`, `authRateLimit`, `mutationRateLimit`, and `webhookRateLimit` for per-route config.
   - `rateLimitKeyGenerator(request)` hashes bearer tokens / Telegram initData before using them as limiter keys so secrets are never stored as raw keys.
+  - `registerRateLimit(app)` uses Fastify's in-memory limiter by default and only opens a Redis connection when `RATE_LIMIT_STORE=redis`.
 - **`rate-limit.test.ts`** — verifies limiter key derivation does not expose raw tokens or raw Telegram initData.
 - **`security.ts`** — security primitives shared by routes and env validation:
   - `securityRouteConfig(rateLimit, validation)` attaches auditable `config.rateLimit` and `config.security.validation` metadata to public mutation routes.

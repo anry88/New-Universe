@@ -1,4 +1,3 @@
-import { Worker, Queue } from "bullmq";
 import { db } from "../db/index.js";
 
 import {
@@ -17,9 +16,13 @@ import { bootstrapColony } from "../features/colonies/bootstrap.js";
 import { and, eq, inArray, or } from "drizzle-orm";
 
 import { logger } from "../lib/logger.js";
-import { env } from "../lib/env.js";
 import { checkVisibility } from "../features/world/visibility.js";
 import { completeCargoTransfer } from "../features/logistics/cargo-transfer.js";
+import {
+  createIntervalWorker,
+  removeLegacyRepeatableJobs,
+  type WorkerHandle,
+} from "./scheduler.js";
 import {
   buildSystemMapLayouts,
   distancePointToSegment,
@@ -594,48 +597,10 @@ export async function processExpeditions(
   }
 }
 
-export async function createExpeditionsWorker(): Promise<Worker> {
-  const Redis = (await import("ioredis")).default as unknown as new (
-    ...args: any[]
-  ) => any;
-  const connection = new Redis(env.REDIS_URL, {
-    maxRetriesPerRequest: null,
-    lazyConnect: true,
+export async function createExpeditionsWorker(): Promise<WorkerHandle> {
+  await removeLegacyRepeatableJobs("expeditions_tick", { name: "tick" });
+
+  return createIntervalWorker("Expeditions", POLL_INTERVAL_MS, processExpeditions, {
+    runOnStart: true,
   });
-
-  const queue = new Queue("expeditions_tick", { connection });
-  await queue.add(
-    "tick",
-    {},
-    {
-      repeat: { every: POLL_INTERVAL_MS },
-      removeOnComplete: { age: 0 },
-      removeOnFail: { age: 60 },
-    },
-  );
-  await queue.close();
-
-  const worker = new Worker(
-    "expeditions_tick",
-    async () => {
-      await processExpeditions();
-    },
-    { connection },
-  );
-
-  worker.on("completed", (job) => {
-    logger.info(
-      { jobId: job.id, name: job.name },
-      "Expeditions worker: job completed",
-    );
-  });
-
-  worker.on("failed", (job, err) => {
-    logger.error(
-      { jobId: job?.id, name: job?.name, err: err.message },
-      "Expeditions worker: job failed",
-    );
-  });
-
-  return worker;
 }

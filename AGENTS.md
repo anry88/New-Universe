@@ -356,6 +356,7 @@ Do not treat generated planning PDFs or CSV files as implementation code.
 ## Engineering Rules
 
 - Preserve user work. Do not reset, delete, or overwrite unrelated changes.
+- Do not add startup-time migrations, cleanup hooks, retention jobs, queue purges, Redis/BullMQ metadata cleanup, or similar automated maintenance that can delete or mutate persisted data on every restart. Destructive or data-shaping maintenance must be a deliberately scoped one-shot operation with an explicit task, narrow allowlist/predicate, dry-run or audit logging where practical, rollback/runbook notes, and explicit user approval before it can run against production.
 - Do not create duplicate GitHub issues for existing task IDs.
 - Use `rg`/`rg --files` for search.
 - Use structured parsers and project tooling instead of ad hoc text manipulation where practical.
