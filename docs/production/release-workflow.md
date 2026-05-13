@@ -64,7 +64,7 @@ The deploy job mirrors the runtime values above into both Fly apps with `flyctl 
 6. Approve the `staging` environment gate.
 7. The workflow builds backend and frontend artifacts.
 8. The deploy job stages the target environment runtime secrets into both Fly apps.
-9. The deploy job stops the worker app with `flyctl scale count 0`.
+9. The deploy job stops the worker app with `flyctl scale count 0`; on the first deploy, it skips this step if the worker app has no Machines yet.
 10. If enabled, the deploy job runs `npm run db:migrate` and `npm run db:seed` against the target `DATABASE_URL`.
 11. The API app deploys through `flyctl deploy` with the release tag as the Fly image label.
 12. The worker app deploys from the same backend Docker context with `npm run worker` as the process command, then scales back to one machine.

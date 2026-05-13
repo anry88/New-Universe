@@ -364,7 +364,28 @@ jobs:
           EOF
 
       - name: Stop worker before migrations
-        run: flyctl scale count 0 --app "$FLY_WORKER_APP" --yes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          set +e
+          output="$(flyctl scale count 0 --app "$FLY_WORKER_APP" --yes 2>&1)"
+          status=$?
+          set -e
+
+          if [[ "$status" -eq 0 ]]; then
+            echo "$output"
+            exit 0
+          fi
+
+          if grep -qiE 'No machines configured|could not create a fly.toml from any machines' <<<"$output"; then
+            echo "$output"
+            echo "Worker app has no Machines yet; skipping scale-down for first deploy."
+            exit 0
+          fi
+
+          echo "$output"
+          exit "$status"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -540,7 +561,23 @@ jobs:
 
       - name: Redeploy previous backend and worker images
         run: |
-          flyctl scale count 0 --app "$FLY_WORKER_APP" --yes
+          set -euo pipefail
+
+          set +e
+          scale_output="$(flyctl scale count 0 --app "$FLY_WORKER_APP" --yes 2>&1)"
+          scale_status=$?
+          set -e
+
+          if [[ "$scale_status" -eq 0 ]]; then
+            echo "$scale_output"
+          elif grep -qiE 'No machines configured|could not create a fly.toml from any machines' <<<"$scale_output"; then
+            echo "$scale_output"
+            echo "Worker app has no Machines yet; continuing rollback deploy."
+          else
+            echo "$scale_output"
+            exit "$scale_status"
+          fi
+
           flyctl deploy \
             --config /tmp/fly-api.toml \
             --image "registry.fly.io/$FLY_API_APP:$ROLLBACK_RELEASE_TAG" \
