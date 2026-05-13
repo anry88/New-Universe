@@ -3,11 +3,15 @@ import { and, eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 import { db } from "../../db/index.js";
 import {
+  buildings,
+  colonies,
   expeditions,
+  discoveredSystems,
   discoveredPlanets,
   planetResources,
   planets,
   researchProgress,
+  richness,
   resources,
   ships,
   shipTypes,
@@ -20,12 +24,15 @@ import { generateHomeSystem } from "../world/home-system-generator.js";
 import { expeditionsRoutes } from "./routes.js";
 import { seedResources } from "../../db/seed/resources.js";
 import { seedShipTypes } from "../../db/seed/ship-types.js";
+import { seedBuildingTypes } from "../../db/seed/building-types.js";
 import { systemMapPlanetDistanceLy } from "@shared/format/systemMapLayout.js";
+import { processExpeditions } from "../../workers/tick-expeditions.js";
 
 describe("Expeditions - POST /expeditions", () => {
   beforeAll(async () => {
     await seedResources();
     await seedShipTypes();
+    await seedBuildingTypes();
   });
 
   async function createTestUser() {
@@ -108,7 +115,7 @@ describe("Expeditions - POST /expeditions", () => {
       );
   }
 
-  async function createIdleScout(userId: string, planetId: string) {
+  async function createIdleScout(userId: string, planetId: string, fuel = "0") {
     const [ship] = await db
       .insert(ships)
       .values({
@@ -117,7 +124,7 @@ describe("Expeditions - POST /expeditions", () => {
         locationPlanetId: planetId,
         status: "idle",
         cargoJson: {},
-        fuel: "0",
+        fuel,
       })
       .returning();
 
@@ -140,7 +147,7 @@ describe("Expeditions - POST /expeditions", () => {
     return ship;
   }
 
-  async function createIdleColonizer(userId: string, planetId: string) {
+  async function createIdleColonizer(userId: string, planetId: string, fuel = "0") {
     await db
       .insert(shipTypes)
       .values({
@@ -179,11 +186,78 @@ describe("Expeditions - POST /expeditions", () => {
         locationPlanetId: planetId,
         status: "idle",
         cargoJson: {},
-        fuel: "0",
+        fuel,
       })
       .returning();
 
     return ship;
+  }
+
+  async function unlockJumpGate(userId: string) {
+    await db
+      .insert(researchProgress)
+      .values({ userId, branch: "jump_drive", level: 1 })
+      .onConflictDoUpdate({
+        target: [researchProgress.userId, researchProgress.branch],
+        set: { level: 1 },
+      });
+  }
+
+  async function createKnownPublicDestination(userId: string) {
+    const homeSystem = await db.query.systems.findFirst({
+      where: eq(systems.ownerId, userId),
+    });
+    expect(homeSystem).toBeDefined();
+    const sectorX = homeSystem!.sectorX + 6;
+    const sectorY = homeSystem!.sectorY + 8;
+    const sectorZ = homeSystem!.sectorZ;
+
+    const [system] = await db
+      .insert(systems)
+      .values({
+        name: `Public ${Date.now()}`,
+        sectorX,
+        sectorY,
+        sectorZ,
+        x: (Number(homeSystem!.x) + 600).toFixed(2),
+        y: (Number(homeSystem!.y) + 800).toFixed(2),
+        z: Number(homeSystem!.z).toFixed(2),
+        seed: 98765,
+        ownerId: null,
+        isHome: false,
+      })
+      .returning();
+
+    const insertedPlanets = await db
+      .insert(planets)
+      .values([
+        {
+          systemId: system.id,
+          name: "Public I",
+          biome: "rocky",
+          size: 10,
+          slotCount: 8,
+        },
+        {
+          systemId: system.id,
+          name: "Public II",
+          biome: "green",
+          size: 14,
+          slotCount: 10,
+        },
+      ])
+      .returning();
+
+    await db
+      .insert(discoveredSystems)
+      .values({
+        userId,
+        systemId: system.id,
+        source: "random_jump",
+      })
+      .onConflictDoNothing();
+
+    return { system, planets: insertedPlanets };
   }
 
   it("should create an expedition and schedule eta", async () => {
@@ -401,5 +475,192 @@ describe("Expeditions - POST /expeditions", () => {
     expect(body.expedition.result.fuelRequired).toBe(
       Math.ceil(expectedDistance! * 1.5),
     );
+  });
+
+  it("launches a scout through the Jump Gate to a known public destination without trusting client coordinates", async () => {
+    const { app, token, userId } = await createTestUser();
+    const { planet } = await getHomeContext(userId);
+    const destination = await createKnownPublicDestination(userId);
+
+    await unlockJumpGate(userId);
+    await ensureFuel(planet.id, 100);
+    const ship = await createIdleScout(userId, planet.id, "50");
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/expeditions",
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        shipId: ship.id,
+        routeMode: "jump_gate",
+        destinationSystemId: destination.system.id,
+        targetX: 999,
+        targetY: 999,
+        targetZ: 999,
+        targetPlanetId: destination.planets[0].id,
+        cargoLoaded: 0,
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(Number(body.expedition.targetX)).toBe(destination.system.sectorX);
+    expect(Number(body.expedition.targetY)).toBe(destination.system.sectorY);
+    expect(Number(body.expedition.targetZ)).toBe(destination.system.sectorZ);
+    expect(body.expedition.targetPlanetId).toBe(destination.planets[0].id);
+    expect(body.expedition.result.routeMode).toBe("jump_gate");
+    expect(body.expedition.result.destinationSystemId).toBe(destination.system.id);
+    expect(body.expedition.result.jumpFuelRequired).toBe(50);
+    expect(body.expedition.result.distance).toBe(10);
+    expect(body.expedition.result.fuelRequired).toBe(6);
+    expect(body.ship.fuel).toBe("0.00");
+  });
+
+  it("launches a colonizer through the Jump Gate and lets the worker found the target colony", async () => {
+    const { app, token, userId } = await createTestUser();
+    const { planet } = await getHomeContext(userId);
+    const destination = await createKnownPublicDestination(userId);
+    const targetPlanet = destination.planets[1];
+
+    await unlockJumpGate(userId);
+    await db
+      .insert(discoveredPlanets)
+      .values({ userId, planetId: targetPlanet.id })
+      .onConflictDoNothing();
+    await db.insert(richness).values({
+      planetId: targetPlanet.id,
+      resourceId: "iron",
+      value: 2,
+    });
+    await ensureFuel(planet.id, 100);
+    const ship = await createIdleColonizer(userId, planet.id, "50");
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/expeditions",
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        shipId: ship.id,
+        routeMode: "jump_gate",
+        destinationSystemId: destination.system.id,
+        targetPlanetId: targetPlanet.id,
+        cargoLoaded: 0,
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.expedition.result.returnTrip).toBe(false);
+    expect(body.expedition.result.fuelRequired).toBe(15);
+
+    await db
+      .update(expeditions)
+      .set({ eta: new Date(Date.now() - 1000) })
+      .where(eq(expeditions.id, body.expedition.id));
+
+    await processExpeditions({ userId, skipNotifications: true });
+
+    const storedExpedition = await db.query.expeditions.findFirst({
+      where: eq(expeditions.id, body.expedition.id),
+    });
+    expect(storedExpedition).toBeUndefined();
+
+    const storedShip = await db.query.ships.findFirst({
+      where: eq(ships.id, ship.id),
+    });
+    expect(storedShip).toBeUndefined();
+
+    const colony = await db.query.colonies.findFirst({
+      where: and(eq(colonies.ownerId, userId), eq(colonies.planetId, targetPlanet.id)),
+    });
+    expect(colony).toBeDefined();
+
+    const commandCenter = await db.query.buildings.findFirst({
+      where: and(
+        eq(buildings.planetId, targetPlanet.id),
+        eq(buildings.typeId, "command_center"),
+      ),
+    });
+    expect(commandCenter).toBeDefined();
+  });
+
+  it("rejects Jump Gate colonization of an undiscovered target planet", async () => {
+    const { app, token, userId } = await createTestUser();
+    const { planet } = await getHomeContext(userId);
+    const destination = await createKnownPublicDestination(userId);
+
+    await unlockJumpGate(userId);
+    await ensureFuel(planet.id, 100);
+    const ship = await createIdleColonizer(userId, planet.id, "50");
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/expeditions",
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        shipId: ship.id,
+        routeMode: "jump_gate",
+        destinationSystemId: destination.system.id,
+        targetPlanetId: destination.planets[0].id,
+        cargoLoaded: 0,
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error).toContain("Planet not discovered");
+  });
+
+  it("rejects Jump Gate routes to stale foreign home-system destinations", async () => {
+    const { app, token, userId } = await createTestUser();
+    const { planet } = await getHomeContext(userId);
+    const [otherUser] = await db
+      .insert(users)
+      .values({
+        tgId: BigInt(Math.floor(Math.random() * 100000000)),
+        tgUsername: `foreign_${Date.now()}`,
+      })
+      .returning();
+    const [foreignHome] = await db
+      .insert(systems)
+      .values({
+        name: "Foreign Home",
+        sectorX: 3,
+        sectorY: 4,
+        sectorZ: 0,
+        x: "300.00",
+        y: "400.00",
+        z: "0.00",
+        seed: 12345,
+        ownerId: otherUser.id,
+        isHome: true,
+      })
+      .returning();
+
+    await db
+      .insert(discoveredSystems)
+      .values({
+        userId,
+        systemId: foreignHome.id,
+        source: "sensor",
+      })
+      .onConflictDoNothing();
+    await unlockJumpGate(userId);
+    await ensureFuel(planet.id, 100);
+    const ship = await createIdleScout(userId, planet.id, "50");
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/expeditions",
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        shipId: ship.id,
+        routeMode: "jump_gate",
+        destinationSystemId: foreignHome.id,
+        cargoLoaded: 0,
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error).toContain("public Jump Gate target");
   });
 });

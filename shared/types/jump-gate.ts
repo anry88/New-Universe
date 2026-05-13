@@ -47,9 +47,22 @@ export interface JumpGateKnownDestinationSummary {
   systemName: string;
   sector: { x: number; y: number; z: number };
   planetCount: number;
+  planets: JumpGateDestinationPlanetSummary[];
   discoveredAt: string;
   source: JumpGateKnownDestinationSource;
   lastVisitedAt: string | null;
+}
+
+export interface JumpGateDestinationPlanetSummary {
+  id: string;
+  systemId: string;
+  orbitIndex: number;
+  name: string | null;
+  biome: string | null;
+  size: number | null;
+  isDiscovered: boolean;
+  isColonized: boolean;
+  isOwnedColony: boolean;
 }
 
 export interface JumpGateStateResponse {

@@ -1,8 +1,9 @@
-import { and, desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { systemMapOrbitRadiusForSlot } from '@shared/format/systemMapLayout.js';
 import type {
   JumpGateAnchor,
   JumpGateCalibrationState,
+  JumpGateDestinationPlanetSummary,
   JumpGateKnownDestinationSummary,
   JumpGateLockedReason,
   JumpGateRandomJumpAvailability,
@@ -10,7 +11,14 @@ import type {
 } from '@shared/types/jump-gate.js';
 import { JUMP_DRIVE_RESEARCH_GATE } from '../../config/research-unlocks.js';
 import { db as defaultDb } from '../../db/index.js';
-import { discoveredSystems, jumpGates, planets, systems } from '../../db/schema.js';
+import {
+  colonies,
+  discoveredPlanets,
+  discoveredSystems,
+  jumpGates,
+  planets,
+  systems,
+} from '../../db/schema.js';
 import { loadUserResearchLevels, meetsResearchRequirement } from '../research/gates.js';
 
 const HOME_GATE_ORBIT_SLOT = 10;
@@ -199,6 +207,12 @@ async function loadKnownDestinations(
     .orderBy(desc(sql`coalesce(${discoveredSystems.lastVisitedAt}, ${discoveredSystems.discoveredAt})`))
     .limit(limit);
 
+  const planetSummaries = await loadKnownDestinationPlanets(
+    userId,
+    rows.map((row) => row.systemId),
+    database,
+  );
+
   return rows.map((row) => ({
     systemId: row.systemId,
     systemName: row.systemName,
@@ -208,10 +222,83 @@ async function loadKnownDestinations(
       z: row.sectorZ,
     },
     planetCount: Number(row.planetCount),
+    planets: planetSummaries.get(row.systemId) ?? [],
     discoveredAt: row.discoveredAt.toISOString(),
     source: row.source,
     lastVisitedAt: serializeDate(row.lastVisitedAt),
   }));
+}
+
+async function loadKnownDestinationPlanets(
+  userId: string,
+  systemIds: string[],
+  database: typeof defaultDb,
+): Promise<Map<string, JumpGateDestinationPlanetSummary[]>> {
+  if (systemIds.length === 0) return new Map();
+
+  const planetRows = await database
+    .select({
+      id: planets.id,
+      systemId: planets.systemId,
+      name: planets.name,
+      biome: planets.biome,
+      size: planets.size,
+    })
+    .from(planets)
+    .where(inArray(planets.systemId, systemIds))
+    .orderBy(planets.systemId, planets.name, planets.id);
+
+  const planetIds = planetRows.map((planet) => planet.id);
+  if (planetIds.length === 0) return new Map();
+
+  const [discoveryRows, colonyRows] = await Promise.all([
+    database
+      .select({ planetId: discoveredPlanets.planetId })
+      .from(discoveredPlanets)
+      .where(
+        and(
+          eq(discoveredPlanets.userId, userId),
+          inArray(discoveredPlanets.planetId, planetIds),
+        ),
+      ),
+    database
+      .select({
+        planetId: colonies.planetId,
+        ownerId: colonies.ownerId,
+      })
+      .from(colonies)
+      .where(inArray(colonies.planetId, planetIds)),
+  ]);
+
+  const discoveredPlanetIds = new Set(discoveryRows.map((row) => row.planetId));
+  const colonyByPlanetId = new Map(
+    colonyRows.map((row) => [row.planetId, row.ownerId]),
+  );
+  const orbitIndexBySystemId = new Map<string, number>();
+  const summaries = new Map<string, JumpGateDestinationPlanetSummary[]>();
+
+  for (const planet of planetRows) {
+    const orbitIndex = (orbitIndexBySystemId.get(planet.systemId) ?? 0) + 1;
+    orbitIndexBySystemId.set(planet.systemId, orbitIndex);
+
+    const isDiscovered = discoveredPlanetIds.has(planet.id);
+    const colonyOwnerId = colonyByPlanetId.get(planet.id);
+    const systemSummaries = summaries.get(planet.systemId) ?? [];
+    systemSummaries.push({
+      id: planet.id,
+      systemId: planet.systemId,
+      orbitIndex,
+      name: isDiscovered ? planet.name : null,
+      biome: isDiscovered ? planet.biome : null,
+      size: isDiscovered ? planet.size : null,
+      isDiscovered,
+      isColonized: Boolean(colonyOwnerId),
+      isOwnedColony: colonyOwnerId === userId,
+    });
+    summaries.set(planet.systemId, systemSummaries);
+  }
+
+  return summaries;
 }
 
 export async function getJumpGateState(
