@@ -9,6 +9,7 @@
 3. Введи имя бота (например, `New Universe Dev`).
 4. Введи username бота (например, `NewUniverseDevBot` — он должен заканчиваться на `bot`).
 5. BotFather пришлет тебе **API Token**. Сохрани его.
+6. Для аватара бота отправь BotFather команду `/setuserpic` и загрузи файл `frontend/public/brand/new-universe-logo-512.png`.
 
 ## 2. Настройка локального окружения
 

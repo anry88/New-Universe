@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">New Universe logo</title>
+  <desc id="desc">Cosmic Atlas style galaxy-map mark extracted from the design system.</desc>
+  <defs>
+    <radialGradient id="bg-glow" cx="50%" cy="45%" r="68%">
+      <stop offset="0%" stop-color="#182A46"/>
+      <stop offset="55%" stop-color="#071224"/>
+      <stop offset="100%" stop-color="#020510"/>
+    </radialGradient>
+    <linearGradient id="orbit-grad" x1="84" y1="180" x2="430" y2="338">
+      <stop offset="0%" stop-color="#5BD7FF" stop-opacity="0.08"/>
+      <stop offset="48%" stop-color="#5BD7FF" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#B78CFF" stop-opacity="0.36"/>
+    </linearGradient>
+    <linearGradient id="mark-grad" x1="128" y1="104" x2="390" y2="402">
+      <stop offset="0%" stop-color="#E8EDF5"/>
+      <stop offset="52%" stop-color="#5BD7FF"/>
+      <stop offset="100%" stop-color="#B78CFF"/>
+    </linearGradient>
+    <filter id="soft-glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feColorMatrix in="blur" values="0 0 0 0 0.36 0 0 0 0 0.84 0 0 0 0 1 0 0 0 0.58 0" result="cyan"/>
+      <feMerge>
+        <feMergeNode in="cyan"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" fill="#020510"/>
+  <circle cx="256" cy="256" r="232" fill="url(#bg-glow)"/>
+
+  <g fill="#E8EDF5">
+    <circle cx="98" cy="126" r="2.2" opacity="0.72"/>
+    <circle cx="154" cy="84" r="1.4" opacity="0.62"/>
+    <circle cx="402" cy="118" r="1.8" opacity="0.68"/>
+    <circle cx="432" cy="236" r="1.2" opacity="0.44"/>
+    <circle cx="106" cy="354" r="1.6" opacity="0.54"/>
+    <circle cx="384" cy="390" r="2.1" opacity="0.72"/>
+    <circle cx="202" cy="420" r="1.1" opacity="0.5"/>
+    <circle cx="318" cy="74" r="1.2" opacity="0.44"/>
+  </g>
+
+  <circle cx="256" cy="256" r="184" fill="#0B1224" opacity="0.82"/>
+  <circle cx="256" cy="256" r="184" fill="none" stroke="#213653" stroke-width="1.5" opacity="0.78"/>
+  <ellipse cx="256" cy="256" rx="204" ry="76" fill="none" stroke="url(#orbit-grad)" stroke-width="5.5" stroke-linecap="round" transform="rotate(-18 256 256)" filter="url(#soft-glow)"/>
+  <ellipse cx="256" cy="256" rx="206" ry="76" fill="none" stroke="#5BD7FF" stroke-width="1.2" opacity="0.22" transform="rotate(-18 256 256)"/>
+
+  <g fill="none" stroke="url(#mark-grad)" stroke-linecap="round" stroke-linejoin="round" filter="url(#soft-glow)">
+    <circle cx="256" cy="256" r="154" stroke-width="18"/>
+    <path d="M102 256H410" stroke-width="18"/>
+    <path d="M256 102Q326 256 256 410" stroke-width="18"/>
+    <path d="M256 102Q186 256 256 410" stroke-width="18"/>
+  </g>
+
+  <g fill="#5BD7FF" filter="url(#soft-glow)">
+    <circle cx="256" cy="102" r="10"/>
+    <circle cx="410" cy="256" r="10"/>
+    <circle cx="256" cy="410" r="10"/>
+    <circle cx="102" cy="256" r="10"/>
+    <circle cx="256" cy="256" r="13"/>
+  </g>
+
+  <circle cx="353" cy="158" r="16" fill="#FFC85A" opacity="0.92" filter="url(#soft-glow)"/>
+  <circle cx="155" cy="354" r="9" fill="#B78CFF" opacity="0.86" filter="url(#soft-glow)"/>
+  <circle cx="256" cy="256" r="232" fill="none" stroke="#5BD7FF" stroke-width="2" stroke-opacity="0.28"/>
+</svg>

@@ -71,7 +71,7 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
   - **`cosmic/atoms.tsx`** — shared Cosmic Atlas atoms including `BuildSlot` and `QueueStrip`; `BuildSlot` renders queue progress, energy/battery badges, and current production-process chips, while the strip supports long-duration ETA formatting, optional status subtitle copy, and custom rush labels for building and research queues.
   - **`Tutorial.tsx`** — reusable full-screen onboarding overlay with step list, per-step reward blurbs from `@shared/config/tutorialRewards`, **Continue** (back to game without skip), **Skip for now**, and **Back to game** when complete.
 - `locales/` — flat EN/RU dictionaries used by `lib/i18n.tsx`; see [`locales/README.md`](./locales/README.md).
-- `assets/` — static assets imported by Vite (currently empty).
+- `assets/` — static assets imported by Vite (currently empty). Public brand assets that should be addressable by URL live outside `src` in `frontend/public/brand/`.
 
 The folders above are reserved by `AGENTS.md` (`Engineering Rules` → "Keep frontend state and API calls in clear `lib/`, `pages/`, and `components/` boundaries"). Create them as soon as a feature needs them and document new files here.
 
