@@ -256,6 +256,15 @@ describe('E2E: Colonization Flow', () => {
       target: [planetResourcesTable.planetId, planetResourcesTable.resourceId],
       set: { amount: '1000.0000' }
     });
+    await db.insert(planetResourcesTable).values({
+      planetId: homePlanet.id,
+      resourceId: 'fuel',
+      amount: '1000.0000',
+      regenRate: '0.0000'
+    }).onConflictDoUpdate({
+      target: [planetResourcesTable.planetId, planetResourcesTable.resourceId],
+      set: { amount: '1000.0000' }
+    });
 
     const [cargoShip] = await db.insert(ships).values({
       ownerId: userId,

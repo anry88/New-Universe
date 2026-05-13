@@ -188,8 +188,8 @@ Player colonies and settled planets.
 
 Interplanetary cargo transfers. [Detailed documentation](./logistics/README.md).
 
-- **`cargo-transfer.ts`** — `launchCargoTransfer(userId, request)` action module. Validates settlement ownership including the home capital, logistics ship role, multi-load capacity, and planet state; reserves aggregated resources atomically and adds a stored `jump_fuel` surcharge only for explicit `routeMode='jump_gate'` cargo routes; creates a one-way `expeditions` record with type `cargo_transfer`; enqueues a BullMQ `arrive_cargo` job and shares `completeCargoTransfer` with active-session expedition sync. Completion conditionally claims only active cargo rows before delivery so duplicate or concurrent workers skip already-settled cargo.
-- **`cargo-transfer.test.ts`** — integration tests for the cargo transfer flow, including cross-system Jump Fuel validation and duplicate-delivery protection.
+- **`cargo-transfer.ts`** — `previewCargoTransfer(userId, request)` and `launchCargoTransfer(userId, request)` action modules. They validate settlement ownership including the home capital, logistics ship role, multi-load capacity, and planet state; calculate one-way ETA / fuel / Jump Fuel server-side; require explicit `routeMode='jump_gate'` cargo routes to connect owned settlements in the player's Home system or known public common systems; reserve aggregated resources plus route `fuel` and optional stored `jump_fuel` atomically; create a one-way `expeditions` record with type `cargo_transfer`; enqueue a BullMQ `arrive_cargo` job; and share `completeCargoTransfer` with active-session expedition sync. Completion conditionally claims only active cargo rows before delivery so duplicate or concurrent workers skip already-settled cargo.
+- **`cargo-transfer.test.ts`** — integration tests for the cargo transfer flow, including Home ↔ common-colony Jump Gate routes, insufficient route fuel / Jump Fuel, discovered-only target rejection, server preview payloads, and duplicate-delivery protection.
 
 ## Adding a new feature module
 

@@ -4,15 +4,27 @@ import {
   ships,
   shipTypes,
   notifications,
+  discoveredSystems,
 } from '../../db/schema.js';
 import { eq, and, inArray } from 'drizzle-orm';
 import { gainResources, spendResources } from '../resources/transactions.js';
 import { applyShipSpeed, getResearchEffectsForUser } from '../research/effects.js';
 import { CARGO_TRANSFER_RESEARCH_GATE } from '../../config/research-unlocks.js';
 import { assertResearchRequirement, loadUserResearchLevels } from '../research/gates.js';
-import type { CargoTransferLoad, CargoTransferRequest } from '@shared/types/cargo.js';
-import { getPlayerPlanetSettlement } from '../colonies/ownership.js';
+import type {
+  CargoTransferLoad,
+  CargoTransferRequest,
+  CargoTransferRouteMode,
+  CargoTransferRoutePreview,
+} from '@shared/types/cargo.js';
 import {
+  getPlayerPlanetSettlement,
+  type PlayerPlanetSettlement,
+} from '../colonies/ownership.js';
+import {
+  calculateExpeditionEtaSeconds,
+  calculateExpeditionRequiredFuel,
+  calculateSectorRouteDistance,
   JUMP_FUEL_RESOURCE_ID,
   JUMP_GATE_JUMP_FUEL_COST,
 } from '@shared/config/expeditionRouting.js';
@@ -20,16 +32,45 @@ import { getJumpGateState } from '../jump-gate/service.js';
 import { env } from '../../lib/env.js';
 
 type CargoTransferResultPayload = {
-  routeMode?: 'standard' | 'jump_gate';
+  routeMode?: CargoTransferRouteMode;
   deliveryMode?: 'one_way';
   resources?: CargoTransferLoad[];
   loads?: CargoTransferLoad[];
   totalCargo?: number;
   maxCargo?: number;
+  fuelRequired?: number;
   jumpFuelRequired?: number;
   distance?: number;
+  requestedDistance?: number;
   speed?: number;
   engineFactor?: number;
+  etaSeconds?: number;
+  eta?: string;
+  originSystemId?: string;
+  targetSystemId?: string;
+};
+
+type CargoTransferShip = {
+  id: string;
+  ownerId: string;
+  status: string;
+  locationPlanetId: string | null;
+  typeId: string;
+  role: string;
+  cargoCapacity: number;
+  speed: string;
+  fuelConsumption: string;
+};
+
+type CargoTransferPlan = {
+  ship: CargoTransferShip;
+  originSettlement: PlayerPlanetSettlement;
+  targetSettlement: PlayerPlanetSettlement;
+  routeMode: CargoTransferRouteMode;
+  loads: CargoTransferLoad[];
+  reservedResources: CargoTransferLoad[];
+  preview: CargoTransferRoutePreview;
+  eta: Date;
 };
 
 function normalizeCargoLoads(resources: CargoTransferLoad[]): CargoTransferLoad[] {
@@ -66,6 +107,191 @@ function sumCargoLoads(loads: CargoTransferLoad[]): number {
   return loads.reduce((sum, load) => sum + load.amount, 0);
 }
 
+function systemForSettlement(settlement: PlayerPlanetSettlement) {
+  return settlement.planet.system as {
+    id: string;
+    ownerId: string | null;
+    isHome: boolean;
+    sectorX: number;
+    sectorY: number;
+    sectorZ: number;
+  };
+}
+
+async function assertKnownJumpGateSettlementSystem(
+  userId: string,
+  settlement: PlayerPlanetSettlement,
+  label: 'Origin' | 'Target',
+  database: any,
+) {
+  const system = systemForSettlement(settlement);
+
+  if (system.isHome === true && system.ownerId === userId) {
+    return;
+  }
+
+  if (system.isHome || system.ownerId !== null) {
+    throw new Error(`${label} system is not a public Jump Gate target`);
+  }
+
+  const knownSystem = await database.query.discoveredSystems.findFirst({
+    where: and(
+      eq(discoveredSystems.userId, userId),
+      eq(discoveredSystems.systemId, system.id),
+    ),
+  });
+
+  if (!knownSystem) {
+    throw new Error(`${label} common system is not a known Jump Gate destination`);
+  }
+}
+
+async function buildCargoTransferPlan(
+  userId: string,
+  request: CargoTransferRequest,
+  database: any,
+): Promise<CargoTransferPlan> {
+  if (!request) throw new Error('Request body is missing');
+  const { shipId, targetPlanetId, resources } = request;
+  if (!shipId) throw new Error('shipId is required');
+  if (!targetPlanetId) throw new Error('targetPlanetId is required');
+
+  const requestedRouteMode = request.routeMode ?? 'standard';
+  if (!['standard', 'jump_gate'].includes(requestedRouteMode)) {
+    throw new Error('Cargo routeMode must be standard or jump_gate');
+  }
+  const routeMode = requestedRouteMode as CargoTransferRouteMode;
+  const loads = normalizeCargoLoads(resources);
+  const reservedResources = aggregateCargoLoads(loads);
+
+  const levels = await loadUserResearchLevels(userId, database);
+  assertResearchRequirement(levels, CARGO_TRANSFER_RESEARCH_GATE, 'Cargo transfer');
+
+  const shipRows = await database
+    .select({
+      id: ships.id,
+      ownerId: ships.ownerId,
+      status: ships.status,
+      locationPlanetId: ships.locationPlanetId,
+      typeId: ships.typeId,
+      role: shipTypes.role,
+      cargoCapacity: shipTypes.cargo,
+      speed: shipTypes.speed,
+      fuelConsumption: shipTypes.fuelConsumption,
+    })
+    .from(ships)
+    .innerJoin(shipTypes, eq(ships.typeId, shipTypes.id))
+    .where(and(eq(ships.id, shipId), eq(ships.ownerId, userId)))
+    .limit(1);
+
+  const ship = shipRows[0] as CargoTransferShip | undefined;
+  if (!ship) throw new Error('Ship not found or access denied');
+  if (ship.status !== 'idle') throw new Error('Ship is not idle');
+  if (!ship.locationPlanetId) throw new Error('Ship is not on a planet');
+  if (ship.role !== 'logistics') throw new Error('Ship cannot transfer cargo');
+
+  const [originSettlement, targetSettlement] = await Promise.all([
+    getPlayerPlanetSettlement(userId, ship.locationPlanetId, database),
+    getPlayerPlanetSettlement(userId, targetPlanetId, database),
+  ]);
+
+  if (!originSettlement) throw new Error('Origin planet not found');
+  if (!originSettlement.isSettled) throw new Error('Origin planet is not owned by you');
+  if (!targetSettlement) throw new Error('Target planet not found');
+  if (!targetSettlement.isSettled) throw new Error('Target planet is not owned by you');
+  if (targetSettlement.planet.id === ship.locationPlanetId) throw new Error('Target planet must be different from origin');
+
+  const originSystem = systemForSettlement(originSettlement);
+  const targetSystem = systemForSettlement(targetSettlement);
+  const interSystemTransfer = originSettlement.planet.systemId !== targetSettlement.planet.systemId;
+  const useJumpGateRoute = routeMode === 'jump_gate';
+  if (useJumpGateRoute && !interSystemTransfer) {
+    throw new Error('Jump Gate cargo route requires a different target system');
+  }
+  if (useJumpGateRoute) {
+    const gateState = await getJumpGateState(userId, { database });
+    if (!gateState.unlocked) {
+      throw new Error(
+        gateState.lockedReason?.code === 'jump_drive_required'
+          ? 'Jump Drive research level 1 required'
+          : 'Jump Gate is locked',
+      );
+    }
+    if (gateState.calibration.status === 'calibrating') {
+      throw new Error('Jump Gate calibration is still in progress');
+    }
+
+    await Promise.all([
+      assertKnownJumpGateSettlementSystem(userId, originSettlement, 'Origin', database),
+      assertKnownJumpGateSettlementSystem(userId, targetSettlement, 'Target', database),
+    ]);
+  }
+
+  const totalCargo = sumCargoLoads(loads);
+  if (totalCargo > ship.cargoCapacity) {
+    throw new Error(`Cargo (${totalCargo}) exceeds ship capacity (${ship.cargoCapacity})`);
+  }
+
+  const requestedDistance = calculateSectorRouteDistance(
+    { x: Number(originSystem.sectorX), y: Number(originSystem.sectorY) },
+    { x: Number(targetSystem.sectorX), y: Number(targetSystem.sectorY) },
+  );
+  const travelDistance = Math.max(1, requestedDistance);
+  const fuelRequired = calculateExpeditionRequiredFuel(
+    travelDistance,
+    Number(ship.fuelConsumption),
+    false,
+  );
+  const jumpFuelRequired = useJumpGateRoute ? JUMP_GATE_JUMP_FUEL_COST : 0;
+  const researchEffects = await getResearchEffectsForUser(userId, database);
+  const speed = applyShipSpeed(Number(ship.speed), researchEffects);
+  const engineFactor = 1;
+  const etaSeconds = Math.max(
+    10,
+    calculateExpeditionEtaSeconds(travelDistance, speed, engineFactor),
+  );
+  const eta = new Date(Date.now() + etaSeconds * 1000);
+
+  return {
+    ship,
+    originSettlement,
+    targetSettlement,
+    routeMode,
+    loads,
+    reservedResources,
+    eta,
+    preview: {
+      routeMode,
+      deliveryMode: 'one_way',
+      resources: reservedResources,
+      loads,
+      totalCargo,
+      maxCargo: ship.cargoCapacity,
+      fuelRequired,
+      jumpFuelRequired,
+      distance: travelDistance,
+      requestedDistance,
+      speed,
+      engineFactor,
+      etaSeconds,
+      eta: eta.toISOString(),
+      originSystemId: originSystem.id,
+      targetSystemId: targetSystem.id,
+    },
+  };
+}
+
+export async function previewCargoTransfer(
+  userId: string,
+  request: CargoTransferRequest,
+) {
+  const plan = await buildCargoTransferPlan(userId, request, defaultDb);
+  return {
+    success: true as const,
+    preview: plan.preview,
+  };
+}
+
 /**
  * Service to launch a cargo transfer between two player-owned planets.
  */
@@ -73,152 +299,44 @@ export async function launchCargoTransfer(
   userId: string,
   request: CargoTransferRequest,
 ) {
-  if (!request) throw new Error('Request body is missing');
-  const { shipId, targetPlanetId, resources } = request;
-  const requestedRouteMode = request.routeMode ?? 'standard';
-  if (!['standard', 'jump_gate'].includes(requestedRouteMode)) {
-    throw new Error('Cargo routeMode must be standard or jump_gate');
-  }
-  const loads = normalizeCargoLoads(resources);
-  const reservedResources = aggregateCargoLoads(loads);
-
-  const levels = await loadUserResearchLevels(userId, defaultDb);
-  assertResearchRequirement(levels, CARGO_TRANSFER_RESEARCH_GATE, 'Cargo transfer');
-
   return await defaultDb.transaction(async (tx) => {
-    // 1. Validate ship ownership and state
-    const shipRows = await tx
-      .select({
-        id: ships.id,
-        ownerId: ships.ownerId,
-        status: ships.status,
-        locationPlanetId: ships.locationPlanetId,
-        typeId: ships.typeId,
-        role: shipTypes.role,
-        cargoCapacity: shipTypes.cargo,
-        speed: shipTypes.speed,
-      })
-      .from(ships)
-      .innerJoin(shipTypes, eq(ships.typeId, shipTypes.id))
-      .where(and(eq(ships.id, shipId), eq(ships.ownerId, userId)))
-      .limit(1);
+    const plan = await buildCargoTransferPlan(userId, request, tx);
 
-    const ship = shipRows[0];
-    if (!ship) throw new Error('Ship not found or access denied');
-    if (ship.status !== 'idle') throw new Error('Ship is not idle');
-    if (!ship.locationPlanetId) throw new Error('Ship is not on a planet');
-    if (ship.role !== 'logistics') throw new Error('Ship cannot transfer cargo');
-
-    // 2. Validate settlement ownership for both ends. The capital does not
-    // have a `colonies` row, so use the shared settlement helper instead of
-    // checking only the colonies table.
-    const [originSettlement, targetSettlement] = await Promise.all([
-      getPlayerPlanetSettlement(userId, ship.locationPlanetId, tx),
-      getPlayerPlanetSettlement(userId, targetPlanetId, tx),
-    ]);
-
-    if (!originSettlement) throw new Error('Origin planet not found');
-    if (!originSettlement.isSettled) throw new Error('Origin planet is not owned by you');
-    if (!targetSettlement) throw new Error('Target planet not found');
-    if (!targetSettlement.isSettled) throw new Error('Target planet is not owned by you');
-    if (targetSettlement.planet.id === ship.locationPlanetId) throw new Error('Target planet must be different from origin');
-
-    const originSystem = originSettlement.planet.system as { sectorX: number; sectorY: number; sectorZ: number };
-    const targetSystem = targetSettlement.planet.system as { sectorX: number; sectorY: number; sectorZ: number };
-    const interSystemTransfer = originSettlement.planet.systemId !== targetSettlement.planet.systemId;
-    const useJumpGateRoute = requestedRouteMode === 'jump_gate';
-    if (useJumpGateRoute && !interSystemTransfer) {
-      throw new Error('Jump Gate cargo route requires a different target system');
-    }
-    const jumpFuelRequired = useJumpGateRoute ? JUMP_GATE_JUMP_FUEL_COST : 0;
-    if (useJumpGateRoute) {
-      const gateState = await getJumpGateState(userId, { database: tx });
-      if (!gateState.unlocked) {
-        throw new Error(
-          gateState.lockedReason?.code === 'jump_drive_required'
-            ? 'Jump Drive research level 1 required'
-            : 'Jump Gate is locked',
-        );
-      }
-      if (gateState.calibration.status === 'calibrating') {
-        throw new Error('Jump Gate calibration is still in progress');
-      }
-    }
-
-    const origin = {
-      x: Number(originSystem.sectorX),
-      y: Number(originSystem.sectorY),
-      z: Number(originSystem.sectorZ),
-    };
-    const target = {
-      id: targetSettlement.planet.id,
-      x: Number(targetSystem.sectorX),
-      y: Number(targetSystem.sectorY),
-      z: Number(targetSystem.sectorZ),
-    };
-
-    // 4. Validate cargo capacity
-    const totalCargo = sumCargoLoads(loads);
-    if (totalCargo > ship.cargoCapacity) {
-      throw new Error(`Cargo (${totalCargo}) exceeds ship capacity (${ship.cargoCapacity})`);
-    }
-
-    // 5. Calculate travel time (ETA)
-    const distance = Math.sqrt(
-      Math.pow(target.x - origin.x, 2) +
-      Math.pow(target.y - origin.y, 2) +
-      Math.pow(target.z - origin.z, 2)
-    );
-    
-    const researchEffects = await getResearchEffectsForUser(userId, tx);
-    const speed = applyShipSpeed(Number(ship.speed), researchEffects);
-    const etaSeconds = Math.max(10, Math.ceil((distance * 60) / speed));
-    const eta = new Date(Date.now() + etaSeconds * 1000);
-
-    // 6. Atomic resource reservation on origin
-    const transferCosts = [...reservedResources];
-    if (jumpFuelRequired > 0) {
+    const transferCosts = [
+      ...plan.reservedResources,
+      { resourceId: 'fuel', amount: plan.preview.fuelRequired },
+    ];
+    if (plan.preview.jumpFuelRequired > 0) {
       transferCosts.push({
         resourceId: JUMP_FUEL_RESOURCE_ID,
-        amount: jumpFuelRequired,
+        amount: plan.preview.jumpFuelRequired,
       });
     }
-    const spendResult = await spendResources(ship.locationPlanetId, transferCosts, tx);
+    const spendResult = await spendResources(plan.ship.locationPlanetId!, transferCosts, tx);
     if (!spendResult.success) {
       throw new Error(spendResult.error || 'Failed to reserve resources');
     }
 
-    // 7. Create expedition record
+    const targetSystem = systemForSettlement(plan.targetSettlement);
+
     const [expedition] = await tx
       .insert(expeditions)
       .values({
-        shipId: ship.id,
+        shipId: plan.ship.id,
         type: 'cargo_transfer',
-        originPlanetId: ship.locationPlanetId,
-        targetPlanetId: target.id,
-        targetX: target.x.toString(),
-        targetY: target.y.toString(),
-        targetZ: target.z.toString(),
+        originPlanetId: plan.ship.locationPlanetId!,
+        targetPlanetId: plan.targetSettlement.planet.id,
+        targetX: targetSystem.sectorX.toString(),
+        targetY: targetSystem.sectorY.toString(),
+        targetZ: targetSystem.sectorZ.toString(),
         status: 'in_flight',
-        eta,
-        result: {
-          routeMode: useJumpGateRoute ? 'jump_gate' : 'standard',
-          deliveryMode: 'one_way',
-          resources: reservedResources,
-          loads,
-          totalCargo,
-          maxCargo: ship.cargoCapacity,
-          jumpFuelRequired,
-          distance,
-          speed,
-          engineFactor: 1,
-        },
+        eta: plan.eta,
+        result: plan.preview,
       })
       .returning();
 
-    // 8. Update ship state
     const cargoJson: Record<string, number> = {};
-    for (const r of reservedResources) {
+    for (const r of plan.reservedResources) {
       cargoJson[r.resourceId] = (cargoJson[r.resourceId] || 0) + r.amount;
     }
 
@@ -228,9 +346,8 @@ export async function launchCargoTransfer(
         status: 'moving',
         cargoJson,
       })
-      .where(eq(ships.id, ship.id));
+      .where(eq(ships.id, plan.ship.id));
 
-    // 9. Enqueue arrival (BullMQ)
     try {
       const { Queue: BullQueue } = await import('bullmq');
       const Redis = (await import('ioredis')).default as unknown as new (...args: any[]) => any;
@@ -239,7 +356,7 @@ export async function launchCargoTransfer(
         lazyConnect: true,
       });
       const expeditionQueue = new BullQueue('expeditions', { connection: redis });
-      await expeditionQueue.add('arrive_cargo', { expeditionId: expedition.id, shipId: ship.id }, { delay: etaSeconds * 1000 });
+      await expeditionQueue.add('arrive_cargo', { expeditionId: expedition.id, shipId: plan.ship.id }, { delay: plan.preview.etaSeconds * 1000 });
       await expeditionQueue.close();
       await redis.quit();
     } catch (_err) { void _err; }
