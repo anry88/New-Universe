@@ -62,12 +62,16 @@ export async function jumpShip(userId: string, req: JumpRequest): Promise<JumpRe
   // 4. Lazy-generate sector and pick target system
   const sector = await getOrCreateSector(targetSector.x, targetSector.y, targetSector.z);
   const sectorSystems = await generateSystemsInSector(sector);
-  if (sectorSystems.length === 0) {
-    return { success: false, status: 500, error: 'No systems generated in target sector' };
+  const targetableSystems = sectorSystems.filter(
+    (system: { isHome: boolean; ownerId: string | null }) => !system.isHome && !system.ownerId,
+  );
+
+  if (targetableSystems.length === 0) {
+    return { success: false, status: 500, error: 'No public systems generated in target sector' };
   }
 
-  // Pick the first system in the sector
-  const targetSystem = sectorSystems[0];
+  // Pick the first public system in the sector. Private home systems are never jump destinations.
+  const targetSystem = targetableSystems[0];
 
   // Get planets in the target system
   const systemPlanets = await db.query.planets.findMany({

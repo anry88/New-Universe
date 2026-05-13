@@ -12,6 +12,7 @@ import {
   planetResources,
   richness,
   buildings,
+  productionOrders,
   notifications,
   colonies,
 } from '../../db/schema.js';
@@ -83,6 +84,7 @@ describe('Jump Ship Feature', () => {
     await db.delete(discoveredPlanets);
     await db.delete(discoveredSystems);
     await db.delete(ships);
+    await db.delete(productionOrders);
     await db.delete(buildings);
     await db.delete(colonies);
     await db.delete(notifications);
@@ -193,5 +195,57 @@ describe('Jump Ship Feature', () => {
       ),
     });
     expect(discovery).toBeDefined();
+  });
+
+  it("does not choose another player's home system as a jump target", async () => {
+    const { user, ship } = await createSetup();
+    const targetSector = {
+      x: Math.floor(Math.random() * 10000) + 100,
+      y: Math.floor(Math.random() * 10000) + 100,
+      z: Math.floor(Math.random() * 10000) + 100,
+    };
+
+    await db.insert(researchProgress).values({
+      userId: user.id,
+      branch: 'jump_drive',
+      level: 1,
+    });
+
+    const [foreignOwner] = await db.insert(users).values({
+      tgId: BigInt(Math.floor(Math.random() * 100000000)),
+      tgUsername: `jump_foreign_${Date.now()}`,
+    }).returning();
+
+    const [foreignHome] = await db.insert(systems).values({
+      name: 'Foreign Home System',
+      sectorX: targetSector.x,
+      sectorY: targetSector.y,
+      sectorZ: targetSector.z,
+      x: '1.00',
+      y: '1.00',
+      z: '1.00',
+      seed: 456,
+      ownerId: foreignOwner.id,
+      isHome: true,
+    }).returning();
+
+    const [foreignHomePlanet] = await db.insert(planets).values({
+      systemId: foreignHome.id,
+      name: 'Foreign Home Planet',
+      biome: 'green',
+      size: 12,
+      slotCount: 10,
+    }).returning();
+
+    const result = await jumpShip(user.id, {
+      shipId: ship.id,
+      targetSector,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.targetSystem?.id).not.toBe(foreignHome.id);
+    expect(result.targetPlanet?.id).not.toBe(foreignHomePlanet.id);
+    expect(result.targetSystem?.isHome).toBe(false);
+    expect(result.targetSystem?.ownerId).toBeNull();
   });
 });

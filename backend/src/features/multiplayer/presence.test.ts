@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { db } from '../../db/index.js';
-import { users, systems, planets, colonies } from '../../db/schema.js';
+import { users, systems, planets, colonies, jumpGates } from '../../db/schema.js';
 import { getSectorPresence } from './presence.js';
 
 describe('getSectorPresence', () => {
@@ -31,10 +31,16 @@ describe('getSectorPresence', () => {
       seed: 1,
     }).returning();
 
+    await db.insert(jumpGates).values({
+      userId: foreign.id,
+      homeSystemId: foreignHome.id,
+    });
+
     const payload = await getSectorPresence(viewer.id, SX, SY, SZ);
 
     expect(payload.entities.some((e) => e.systemId === foreignHome.id)).toBe(false);
     expect(payload.entities.some((e) => e.title === 'Secret Homeworld')).toBe(false);
+    expect(payload.entities.some((e) => e.title.includes('Jump Gate'))).toBe(false);
   });
 
   it('lists neutral systems and masks foreign colonies', async () => {
