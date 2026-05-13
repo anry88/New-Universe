@@ -94,7 +94,7 @@ export async function processNotifications(): Promise<void> {
  * Creates and initializes the notification worker.
  */
 export async function createNotificationsWorker(): Promise<WorkerHandle> {
-  await removeLegacyRepeatableJobs('notifications_tick');
+  await removeLegacyRepeatableJobs('notifications_tick', { name: 'tick' });
 
   return createIntervalWorker('Notifications', POLL_INTERVAL_MS, processNotifications, {
     runOnStart: true,

@@ -9,7 +9,7 @@ export async function processCompletedProductionOrders(): Promise<number> {
 }
 
 export async function createProductionOrdersWorker(): Promise<WorkerHandle> {
-  await removeLegacyRepeatableJobs('production-orders');
+  await removeLegacyRepeatableJobs('production-orders', { name: 'tick' });
 
   return createIntervalWorker(
     'Production orders',

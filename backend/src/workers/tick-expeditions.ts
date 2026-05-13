@@ -598,7 +598,7 @@ export async function processExpeditions(
 }
 
 export async function createExpeditionsWorker(): Promise<WorkerHandle> {
-  await removeLegacyRepeatableJobs("expeditions_tick");
+  await removeLegacyRepeatableJobs("expeditions_tick", { name: "tick" });
 
   return createIntervalWorker("Expeditions", POLL_INTERVAL_MS, processExpeditions, {
     runOnStart: true,

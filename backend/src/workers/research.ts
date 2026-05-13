@@ -5,7 +5,7 @@ import { createIntervalWorker, removeLegacyRepeatableJobs, type WorkerHandle } f
 const POLL_INTERVAL_MS = 30000;
 
 export async function createResearchWorker(): Promise<WorkerHandle> {
-  await removeLegacyRepeatableJobs('research');
+  await removeLegacyRepeatableJobs('research', { name: 'tick' });
 
   return createIntervalWorker('Research', POLL_INTERVAL_MS, () => processCompletedResearch(db), {
     runOnStart: true,

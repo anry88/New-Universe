@@ -56,7 +56,10 @@ export function createIntervalWorker(
   };
 }
 
-export async function removeLegacyRepeatableJobs(queueName: string): Promise<void> {
+export async function removeLegacyRepeatableJobs(
+  queueName: string,
+  options: { name?: string } = {},
+): Promise<void> {
   const { Queue } = await import('bullmq');
   const Redis = (await import('ioredis')).default as unknown as new (...args: any[]) => any;
   const connection = new Redis(env.REDIS_URL, {
@@ -66,7 +69,9 @@ export async function removeLegacyRepeatableJobs(queueName: string): Promise<voi
   const queue = new Queue(queueName, { connection });
 
   try {
-    const repeatableJobs = await queue.getRepeatableJobs();
+    const repeatableJobs = (await queue.getRepeatableJobs()).filter((job) =>
+      options.name ? job.name === options.name : true,
+    );
     await Promise.all(repeatableJobs.map((job) => queue.removeRepeatableByKey(job.key)));
 
     if (repeatableJobs.length > 0) {

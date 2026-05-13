@@ -38,7 +38,7 @@ export async function processCompletedBuildings(): Promise<void> {
 }
 
 export async function createBuildingsWorker(): Promise<WorkerHandle> {
-  await removeLegacyRepeatableJobs('buildings');
+  await removeLegacyRepeatableJobs('buildings', { name: 'tick' });
 
   const Redis = (await import('ioredis')).default as unknown as new (...args: any[]) => any;
   const connection = new Redis(env.REDIS_URL, {
