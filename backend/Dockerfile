@@ -23,7 +23,7 @@ ENV NODE_ENV=development
 EXPOSE 3000
 
 # tini как PID 1 — корректная обработка сигналов
-ENTRYPOINT ["/sbin/tini", "--"]
+ENTRYPOINT ["/sbin/tini", "-s", "--"]
 CMD ["npm", "run", "dev"]
 
 
@@ -35,7 +35,10 @@ COPY package.json package-lock.json* ./
 RUN npm ci
 
 COPY . .
-RUN npm run build && npm prune --production
+RUN npm run build \
+    && if [ -d dist/src ]; then cp -R dist/src/. dist/; fi \
+    && if [ -d dist/backend/src ]; then cp -R dist/backend/src/. dist/; fi \
+    && npm prune --production
 
 
 # ============ PROD ============
@@ -44,16 +47,26 @@ WORKDIR /app
 
 RUN apk add --no-cache tini && rm -rf /var/cache/apk/*
 
-# Не root
 RUN addgroup -S nu && adduser -S nu -G nu
-USER nu
 
-COPY --from=build --chown=nu:nu /app/node_modules ./node_modules
-COPY --from=build --chown=nu:nu /app/dist ./dist
-COPY --from=build --chown=nu:nu /app/package.json ./package.json
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/package.json ./package.json
+
+RUN if [ -d dist/shared ]; then \
+      mkdir -p node_modules/@shared; \
+      cp -R dist/shared/* node_modules/@shared/; \
+      for pkg in node_modules/@shared/*; do \
+        if [ -d "$pkg" ]; then printf '{"type":"module"}\n' > "$pkg/package.json"; fi; \
+      done; \
+    fi \
+    && chown -R nu:nu /app
 
 ENV NODE_ENV=production
 EXPOSE 3000
 
-ENTRYPOINT ["/sbin/tini", "--"]
+# Не root
+USER nu
+
+ENTRYPOINT ["/sbin/tini", "-s", "--"]
 CMD ["node", "dist/index.js"]

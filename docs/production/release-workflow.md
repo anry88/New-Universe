@@ -71,7 +71,7 @@ The deploy job mirrors the runtime values above into both Fly apps with `flyctl 
 13. The workflow switches the runner to Node 22 for `npx wrangler@latest pages deploy`, then uploads the frontend artifact to Cloudflare Pages.
 14. After deployment succeeds, the release job creates a git tag and GitHub Release changelog.
 
-The workflow copies `shared/` into `backend/shared` inside the runner before Fly builds. It also writes generated Fly config files into `backend/` and runs `flyctl deploy .` from that directory so Fly reads the generated app name and resolves `dockerfile = "Dockerfile"` relative to `backend/Dockerfile`. This keeps the current backend Dockerfile working with the `@shared/*` TypeScript path without committing generated build context files.
+The workflow copies `shared/` into `backend/shared` inside the runner before Fly builds. It also writes generated Fly config files into `backend/` and runs `flyctl deploy .` from that directory so Fly reads the generated app name and resolves `dockerfile = "Dockerfile"` relative to `backend/Dockerfile`. The production Dockerfile normalizes TypeScript output back to `dist/index.js` / `dist/workers/index.js` and installs runtime `@shared/*` aliases from the compiled shared files. This keeps the current backend Dockerfile working with the `@shared/*` TypeScript path without committing generated build context files.
 
 ## Production gate
 
