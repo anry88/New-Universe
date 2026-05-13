@@ -1,11 +1,10 @@
-import { Worker, Queue } from 'bullmq';
 import { db } from '../db/index.js';
 import { notifications, users } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 
 import { logger } from '../lib/logger.js';
-import { env } from '../lib/env.js';
 import { sendTelegramMessage } from '../lib/telegram.js';
+import { createIntervalWorker, removeLegacyRepeatableJobs, type WorkerHandle } from './scheduler.js';
 
 const POLL_INTERVAL_MS = 60000; // 1 minute as per task
 
@@ -94,43 +93,10 @@ export async function processNotifications(): Promise<void> {
 /**
  * Creates and initializes the notification worker.
  */
-export async function createNotificationsWorker(): Promise<Worker> {
-  const Redis = (await import('ioredis')).default as unknown as new (...args: any[]) => any;
-  const connection = new Redis(env.REDIS_URL, {
-    maxRetriesPerRequest: null,
-    lazyConnect: true,
+export async function createNotificationsWorker(): Promise<WorkerHandle> {
+  await removeLegacyRepeatableJobs('notifications_tick');
+
+  return createIntervalWorker('Notifications', POLL_INTERVAL_MS, processNotifications, {
+    runOnStart: true,
   });
-
-  const queue = new Queue('notifications_tick', { connection });
-  await queue.add(
-    'tick',
-    {},
-    {
-      repeat: { every: POLL_INTERVAL_MS },
-      removeOnComplete: { age: 0 },
-      removeOnFail: { age: 60 },
-    },
-  );
-  await queue.close();
-
-  const worker = new Worker(
-    'notifications_tick',
-    async () => {
-      await processNotifications();
-    },
-    { connection },
-  );
-
-  worker.on('completed', (job) => {
-    logger.info({ jobId: job.id, name: job.name }, 'Notifications worker: job completed');
-  });
-
-  worker.on('failed', (job, err) => {
-    logger.error(
-      { jobId: job?.id, name: job?.name, err: err.message },
-      'Notifications worker: job failed',
-    );
-  });
-
-  return worker;
 }

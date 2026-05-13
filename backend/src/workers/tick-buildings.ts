@@ -1,9 +1,15 @@
-import { Worker, Queue } from 'bullmq';
+import { Worker } from 'bullmq';
 import { db } from '../db/index.js';
 import { buildings } from '../db/schema.js';
 import { and, sql, lte } from 'drizzle-orm';
 import { logger } from '../lib/logger.js';
 import { env } from '../lib/env.js';
+import {
+  combineWorkerHandles,
+  createIntervalWorker,
+  removeLegacyRepeatableJobs,
+  type WorkerHandle,
+} from './scheduler.js';
 
 const POLL_INTERVAL_MS = 30000;
 
@@ -31,24 +37,14 @@ export async function processCompletedBuildings(): Promise<void> {
   }
 }
 
-export async function createBuildingsWorker(): Promise<Worker> {
+export async function createBuildingsWorker(): Promise<WorkerHandle> {
+  await removeLegacyRepeatableJobs('buildings');
+
   const Redis = (await import('ioredis')).default as unknown as new (...args: any[]) => any;
   const connection = new Redis(env.REDIS_URL, {
     maxRetriesPerRequest: null,
     lazyConnect: true,
   });
-
-  const queue = new Queue('buildings', { connection });
-  await queue.add(
-    'tick',
-    {},
-    {
-      repeat: { every: POLL_INTERVAL_MS },
-      removeOnComplete: { age: 0 },
-      removeOnFail: { age: 60 },
-    },
-  );
-  await queue.close();
 
   const worker = new Worker(
     'buildings',
@@ -69,5 +65,10 @@ export async function createBuildingsWorker(): Promise<Worker> {
     );
   });
 
-  return worker;
+  return combineWorkerHandles([
+    worker,
+    createIntervalWorker('Buildings', POLL_INTERVAL_MS, processCompletedBuildings, {
+      runOnStart: true,
+    }),
+  ]);
 }

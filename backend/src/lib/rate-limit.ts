@@ -46,7 +46,7 @@ export function rateLimitKeyGenerator(request: FastifyRequest): string {
 export async function registerRateLimit(app: FastifyInstance<any, any, any, any>): Promise<void> {
   let redis: InstanceType<typeof Redis> | undefined;
 
-  if (env.NODE_ENV === 'production') {
+  if (env.RATE_LIMIT_STORE === 'redis') {
     redis = new Redis(env.REDIS_URL, {
       maxRetriesPerRequest: 1,
       lazyConnect: true,
