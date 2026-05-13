@@ -47,6 +47,7 @@ concurrency:
 
 env:
   NODE_VERSION: "20"
+  WRANGLER_NODE_VERSION: "22"
 
 jobs:
   preflight:
@@ -424,6 +425,11 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
+      - name: Setup Node.js for Wrangler
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.WRANGLER_NODE_VERSION }}
+
       - name: Deploy frontend to Cloudflare Pages
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -594,6 +600,11 @@ jobs:
           flyctl scale count 1 --app "$FLY_WORKER_APP" --yes
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Setup Node.js for Wrangler
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.WRANGLER_NODE_VERSION }}
 
       - name: Redeploy frontend from rollback tag
         env:
