@@ -9,7 +9,7 @@ Each subfolder is a single feature and is wired into Fastify from `backend/src/i
 Private Home System Jump Gate state.
 
 - **`README.md`** — [Jump Gate state documentation](./jump-gate/README.md).
-- **`routes.ts`** — `jumpGateRoutes(app)` registers `GET /jump-gate/state`, `POST /jump-gate/random-jump`, and `POST /jump-gate/destinations/:systemId/jump` for authenticated clients.
+- **`routes.ts`** — `jumpGateRoutes(app)` registers `GET /jump-gate/state`, `POST /jump-gate/random-jump`, and `POST /jump-gate/destinations/:systemId/jump` for authenticated clients; Jump Gate mutations declare rate-limit/security metadata and JSON schemas for body/params.
 - **`service.ts`** — `getJumpGateState(userId)` derives unlock from completed `jump_drive >= 1`, creates/updates the player's `jump_gates` row when unlocked, returns the outer-orbit home anchor, calibration state, random-jump availability, and discovered public destination summaries with registry source/last-visited metadata.
 - **`service.test.ts`** — asserts locked/unlocked state, unfinished research staying locked, persistence creation, public destination filtering, and calibration finalization.
 
@@ -25,7 +25,7 @@ Planet infrastructure management.
 
 Telegram-Mini-App authentication. The route layer delegates everything to `authService` and only translates between HTTP framing (header validation, cookie setting) and the service result.
 
-- **`routes.ts`** — `authRoutes(app)` registers `POST /telegram` (mounted at `/auth` from `index.ts`, so the public path is `POST /auth/telegram`). The route uses `telegramAuthMiddleware` as a `preHandler`, so by the time the handler runs `request.user` is a verified `TelegramUser`. The handler:
+- **`routes.ts`** — `authRoutes(app)` registers `POST /telegram` (mounted at `/auth` from `index.ts`, so the public path is `POST /auth/telegram`) with the auth-specific rate limit and `telegram-init-data` security metadata. The route uses `telegramAuthMiddleware` as a `preHandler`, so by the time the handler runs `request.user` is a verified `TelegramUser`. The handler:
   - Calls `authService.loginWithTelegram(request.user!)` and receives `{ user, token }`.
   - Builds a `Set-Cookie` value: `session=<token>; HttpOnly; Path=/; SameSite=Strict; Max-Age=<30 days>`. The `Secure` flag is added only when `NODE_ENV === 'production'`.
   - Returns the JSON `{ user, token }`.
@@ -61,14 +61,14 @@ Sector map visibility for Phase 3.
 
 Player state retrieval.
 
-- **`routes.ts`** — `meRoutes(app)` registers `GET /me` and `PATCH /me/preferences`. Both require a valid JWT in the `Authorization: Bearer <token>` header. `GET /me` returns the database user record mapped to the `User` shared type (including `preferredLocale`), obfuscates undiscovered home planets, annotates discovered planets with `isColonized` so the UI can distinguish mapped bodies from buildable settlements, and includes only the current user's active expeditions so stale/foreign trails never leak into the map UI. `PATCH /me/preferences` accepts `{ preferredLocale }` (`en`/`ru`) and persists the player language preference for future sessions.
+- **`routes.ts`** — `meRoutes(app)` registers `GET /me` and `PATCH /me/preferences`. Both require a valid JWT in the `Authorization: Bearer <token>` header. `GET /me` returns the database user record mapped to the `User` shared type (including `preferredLocale`), obfuscates undiscovered home planets, annotates discovered planets with `isColonized` so the UI can distinguish mapped bodies from buildable settlements, and includes only the current user's active expeditions so stale/foreign trails never leak into the map UI. `PATCH /me/preferences` accepts `{ preferredLocale }` (`en`/`ru`), declares mutation rate-limit/security metadata plus a JSON schema, and persists the player language preference for future sessions.
 - **`online-sync.ts`** — active-session completion service used by `GET /me`. It finalizes due buildings, research, ship builds, production orders, expeditions, and colonizer arrivals for the current user with notification suppression so Telegram pushes remain an offline fallback.
 
 ## `buildings/`
 
 Building construction and queue management. [Detailed documentation](./buildings/README.md).
 
-- **`routes.ts`** — `buildingsRoutes(app)` registers `POST /build/build` (mounted at `/buildings` from `index.ts`, so the public path is `POST /buildings/build`) plus `POST /buildings/resource` for changing an operational extractor's `selectedResourceId`. Requires a valid JWT in the `Authorization: Bearer <token>` header. Build accepts `{ planetId, typeId, slotIndex, selectedResourceId? }`; retargeting accepts `{ buildingId, selectedResourceId }`.
+- **`routes.ts`** — `buildingsRoutes(app)` registers mutation-rate-limited, JSON-schema-validated building endpoints including `POST /buildings/build`, `POST /buildings/resource`, `POST /buildings/upgrade`, `POST /buildings/demolish`, `POST /buildings/sync/:planetId`, and `POST /buildings/rush`. Requires a valid JWT in the `Authorization: Bearer <token>` header. Build accepts `{ planetId, typeId, slotIndex, selectedResourceId? }`; retargeting accepts `{ buildingId, selectedResourceId }`.
 - **`service.ts`** — `BuildingService.build(userId, { planetId, typeSlug })` performs the full build flow:
   1. Validates the planet exists and has an active settlement for the requesting user.
   2. Looks up the building type from the catalog.
@@ -86,7 +86,7 @@ Building construction and queue management. [Detailed documentation](./buildings
 
 Resource accrual, transactions, conversion, and explicit production orders. [Detailed documentation](./resources/README.md).
 
-- **`routes.ts`** — `resourcesRoutes(app)` registers `POST /convert`, `POST /buy-with-diamonds`, `GET /planets/:id`, and `/production/*` recipe/order endpoints (mounted at `/resources` from `index.ts`). JWT required for mutating endpoints. `POST /buy-with-diamonds` accepts `{ planetId, resourceId, amount }`; `POST /production/start` accepts `{ planetId, buildingId, recipeId, quantity }`.
+- **`routes.ts`** — `resourcesRoutes(app)` registers `POST /convert`, `POST /buy-with-diamonds`, `GET /planets/:id`, and `/production/*` recipe/order endpoints (mounted at `/resources` from `index.ts`). JWT required for mutating endpoints; all public mutation routes carry mutation rate-limit/security metadata and JSON schemas for body or params. `POST /buy-with-diamonds` accepts `{ planetId, resourceId, amount }`; `POST /production/start` accepts `{ planetId, buildingId, recipeId, quantity }`.
 - **`convert.ts`** — `convertResources(userId, { planetId, from, to, amount })` converts ice ↔ water on a player-owned planet. Validates planet ownership, checks for a `cryo_factory` building (level ≥ 1), then atomically spends the source resource plus stored `energy` before granting the target resource. Ice→water converts at 1:1; water→ice incurs a 5% loss (100 → 95). Also exports `buyResourceWithDiamonds` with rarity-aware pricing derived from `resources.tier` (`units-per-diamond` curve per tier), deducts `users.diamonds`, then credits `planet_resources`.
 - **`wallet.ts`** — `grantDiamondsToUserByUsername` supports admin wallet updates by username.
 - **`convert.test.ts`** — Vitest integration suite covering conversion flow plus buy-with-diamonds success and validation failures.
@@ -108,7 +108,7 @@ Resource accrual, transactions, conversion, and explicit production orders. [Det
 Onboarding progression sync for first-time users.
 
 - **`README.md`** — [Detailed tutorial documentation](./tutorial/README.md).
-- **`routes.ts`** — `tutorialRoutes(app)` registers `POST /tutorial/sync` (mounted at `/tutorial`) and returns persisted tutorial state for the current user.
+- **`routes.ts`** — `tutorialRoutes(app)` registers rate-limited `POST /tutorial/sync` (mounted at `/tutorial`) and returns persisted tutorial state for the current user.
 - **`service.ts`** — `syncTutorialProgress(userId)` maps game actions to steps (`mine`, `storage`, `scout`, first `expedition`), persists `users.tutorialStepCompleted`, and grants one-time completion reward (`+200 iron`, `+100 water`) through `gainResources` (atomic resource transaction).
 - **`tutorial.test.ts`** — integration coverage for completion + one-time reward behavior.
 
@@ -116,7 +116,7 @@ Onboarding progression sync for first-time users.
 
 Ship launch and travel scheduling. [Detailed documentation](./expeditions/README.md).
 
-- **`routes.ts`** — `expeditionsRoutes(app)` registers:
+- **`routes.ts`** — `expeditionsRoutes(app)` registers mutation-rate-limited and JSON-schema-validated launch endpoints:
   - `POST /` — launches a local expedition to a route point or a Jump Gate route to a known public destination. Local mode accepts `{ shipId, targetX, targetY, targetZ, cargoLoaded }`; `routeMode='jump_gate'` accepts `{ shipId, destinationSystemId, cargoLoaded, targetPlanetId? }`, server-resolves the destination sector from `discovered_systems`, deducts Jump Fuel from the ship tank, and never accepts arbitrary cross-system coordinates. `targetPlanetId` is valid for recon survey targets and required for colonizer deployments to discovered planets; same-system targeted launches use shared system-map planet distance, while logistics ships are rejected and must use `/cargo/transfer`.
   - `POST /jump` — deprecated-compatible Jump Gate entry point using `{ shipId, mode: 'random' }` or `{ shipId, destinationSystemId }`; legacy manual `targetSector` requests are rejected.
 - **`launch.ts`** — `launchExpedition(userId, request)` validates ship ownership and idle state, rejects logistics ships from generic expeditions, checks the launch planet has enough cargo stock, computes and spends fuel, creates an `expeditions` row with `status='in_flight'`, updates the ship to `moving`, computes `eta = distance × 60 / speed × engine_factor`, and enqueues the delayed BullMQ job. Effective speed is resolved through `features/research/effects.ts`; same-system target-planet launches derive distance from `@shared/format/systemMapLayout`, Jump Gate launches derive distance from the selected known public destination, and colonizer launches are one-way and must pass colonization gates before launch.
@@ -131,6 +131,7 @@ Procedural world generation primitives and visibility checks. Contains the home-
 - **`biomes.ts`** — exports the `BiomeType` union (`'rocky' | 'ocean' | 'gas_giant' | 'ice' | 'volcanic' | 'green' | 'anomaly'`), a `BIOMES` map keyed by biome id (`commonResources`, `rareResources`, `bonuses`, `penalties`), and **`HOME_SYSTEM_BASE_BIOMES`** — the six starter biomes (`green`, `rocky`, `ocean`, `ice`, `gas_giant`, `volcanic`) each guaranteed once per generated home system (capital stays `green`; keep `tools/balance-sim` mirrors aligned). Ice planets no longer roll biomass deposits; volcanic worlds carry hot mineral/sulfur deposits without frozen-water rares.
 - **`home-system-generator.ts`** — exports `generateHomeSystem(userId, tx?)`, **`MIN_HOME_CAPITAL_SLOT_COUNT`** (minimum building slots on planet 1 / capital), deterministic PRNG helpers `hashString` / `createRandom`, and English-canonical `systems.name` plus `{shortTag}-N` planet codes via `@shared/format/homeSystemNaming`.
   - Uses `tx` from auth or opens `db.transaction`; idempotent when a home `systems` row already exists.
+  - Derives deterministic seeds from `userId` plus validated `env.SERVER_SECRET` so production home-system RNG is controlled by secret storage instead of a feature-level `process.env` fallback.
   - Seeds sector coords `[-500,500]`, system `seed`, `name = "Home System <userId-prefix>"`.
   - Generates **9** planets from the fixed `HOME_PLANET_ORBIT_PLAN`: two volcanic inner worlds, two rocky resource worlds, ocean world, green capital in a deeper habitable orbit, gas giant, and two outer ice worlds.
   - Capital (planet index 0): biome **`green`**, larger size, **`slotCount ≥ MIN_HOME_CAPITAL_SLOT_COUNT`** for early tutorial + shipyard chain.
@@ -152,7 +153,7 @@ Tech tree definitions and starting research on a planet.
 - **`completion.ts`** — `processCompletedResearch(db, options?)` scans due `research_progress` rows (`completes_at <= now`), optionally scoped to one user, increments `level` exactly once per completion, clears the timer, calls `invalidateResearchEffectsCache`, and inserts a `research_done` notification unless active-session sync passed `skipNotification`.
 - **`effects.ts`** — typed research-effects engine with deterministic stacking. Exports `getResearchEffectsForUser(userId)` plus apply helpers for production, storage, energy generation/storage/efficiency, ship speed, sensor range, and build time. Exports `invalidateResearchEffectsCache(userId)` as a hook after tier completions (no-op until memoization exists).
 - **`effects.test.ts`** — unit tests for deterministic composition and stacked resource/ship/sensor/build-time effects.
-- **`routes.ts`** — registers `POST /start` and **`POST /rush`** (mounted at `/research` from `index.ts`). Start first finalizes due research for the active user, locks the user row, enforces the one-active-research queue rule across all branches, validates planet ownership, prerequisite research rows, lab building level (`buildings.typeId === 'lab'`), spends resources, and upserts `research_progress`; rush validates the active branch and delegates diamond spending to `rushActiveResearch`.
+- **`routes.ts`** — registers mutation-rate-limited and JSON-schema-validated `POST /start` and **`POST /rush`** (mounted at `/research` from `index.ts`). Start first finalizes due research for the active user, locks the user row, enforces the one-active-research queue rule across all branches, validates planet ownership, prerequisite research rows, lab building level (`buildings.typeId === 'lab'`), spends resources, and upserts `research_progress`; rush validates the active branch and delegates diamond spending to `rushActiveResearch`.
 - **`rush.ts`** — `rushActiveResearch(userId, branch)` prices the remaining timer through `lib/diamonds`, atomically spends `users.diamonds`, increments the tier, clears `completesAt`, and invalidates research effects without creating a Telegram notification.
 - **`research.test.ts`** — integration test for `POST /research/start`; creates a user and inserts a `lab` at **`slotIndex: 1`** (slot `0` is reserved for the seeded `command_center`), starts mining tier 1 research, and asserts `iron`/`silicon` are atomically deducted from `planet_resources`.
 - **`rush.test.ts`** — integration tests for research rush success and insufficient-diamond rollback.
@@ -164,7 +165,7 @@ Tech tree definitions and starting research on a planet.
 Ship construction and fleet queue helpers.
 
 - **`build.ts`** — `buildShip`, `getShipQueue`, `rushShipBuild`, and `syncReadyShips(userId?, options?)`. Queue payloads include server-derived `queueStartedAt`; `syncReadyShips` can be scoped to the active user and suppress stale pending `ship_done` notifications.
-- **`routes.ts`** — registers `GET /types`, `POST /build`, `GET /queue`, and `POST /rush`; queue reads run user-scoped `syncReadyShips(..., { skipNotifications: true })` before returning the current queue.
+- **`routes.ts`** — registers `GET /types`, JSON-schema-validated `POST /build`, `GET /queue`, and JSON-schema-validated `POST /rush`; ship mutations declare rate-limit/security metadata. Queue reads run user-scoped `syncReadyShips(..., { skipNotifications: true })` before returning the current queue.
 - **`build.test.ts`** — integration coverage for ship construction gates and active-session ready-ship sync.
 
 ## Shared feature helpers

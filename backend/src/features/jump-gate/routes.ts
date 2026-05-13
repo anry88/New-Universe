@@ -8,6 +8,13 @@ import { env } from '../../lib/env.js';
 import { sendLocalizedError } from '../../lib/i18n.js';
 import { jumpShip } from '../expeditions/jump.js';
 import { getJumpGateState } from './service.js';
+import { mutationRateLimit } from '../../lib/rate-limit.js';
+import {
+  nonEmptyStringSchema,
+  objectBodySchema,
+  securityRouteConfig,
+  systemIdParamsSchema,
+} from '../../lib/security.js';
 
 async function requireUserId(request: FastifyRequest, reply: FastifyReply): Promise<string | null> {
   const authHeader = request.headers.authorization;
@@ -35,7 +42,12 @@ export async function jumpGateRoutes(app: FastifyInstance) {
     return reply.send(await getJumpGateState(userId));
   });
 
-  app.post('/random-jump', async (request, reply) => {
+  app.post('/random-jump', {
+    config: securityRouteConfig(mutationRateLimit, 'body'),
+    schema: {
+      body: objectBodySchema({ shipId: nonEmptyStringSchema }, ['shipId']),
+    },
+  }, async (request, reply) => {
     const userId = await requireUserId(request, reply);
     if (!userId) return;
 
@@ -61,7 +73,13 @@ export async function jumpGateRoutes(app: FastifyInstance) {
     });
   });
 
-  app.post('/destinations/:systemId/jump', async (request, reply) => {
+  app.post('/destinations/:systemId/jump', {
+    config: securityRouteConfig(mutationRateLimit, 'body-and-params'),
+    schema: {
+      params: systemIdParamsSchema,
+      body: objectBodySchema({ shipId: nonEmptyStringSchema }, ['shipId']),
+    },
+  }, async (request, reply) => {
     const userId = await requireUserId(request, reply);
     if (!userId) return;
 

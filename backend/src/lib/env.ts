@@ -1,5 +1,10 @@
 import { z } from 'zod';
 import dotenv from 'dotenv';
+import {
+  assertProductionSecurityConfig,
+  DEFAULT_SERVER_SECRET,
+  DEFAULT_TELEGRAM_BOT_SECRET,
+} from './security.js';
 
 function parseAdminTelegramIds(value?: string): bigint[] {
   if (!value) {
@@ -36,12 +41,18 @@ const envSchema = z.object({
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url(),
   TELEGRAM_BOT_TOKEN: z.string().min(1),
-  TELEGRAM_BOT_SECRET: z.string().default('dev-secret-change-me'),
+  TELEGRAM_BOT_SECRET: z.string().default(DEFAULT_TELEGRAM_BOT_SECRET),
   TELEGRAM_APP_URL: z.string().url().optional().or(z.literal('')).transform(v => v === '' ? undefined : v),
   PUBLIC_FRONTEND_URL: z.string().url().optional().or(z.literal('')).transform(v => v === '' ? undefined : v),
   ADMIN_TELEGRAM_IDS: z.string().transform(parseAdminTelegramIds).optional().default(''),
   JWT_SECRET: z.string().min(8),
+  SERVER_SECRET: z.string().default(DEFAULT_SERVER_SECRET),
   SENTRY_DSN: z.string().url().optional().or(z.literal('')).transform(v => v === '' ? undefined : v),
+  RATE_LIMIT_WINDOW: z.string().default('1 minute'),
+  RATE_LIMIT_GLOBAL_MAX: z.coerce.number().int().min(1).default(600),
+  RATE_LIMIT_AUTH_MAX: z.coerce.number().int().min(1).default(20),
+  RATE_LIMIT_MUTATION_MAX: z.coerce.number().int().min(1).default(120),
+  RATE_LIMIT_WEBHOOK_MAX: z.coerce.number().int().min(1).default(600),
   /** Diamonds granted once when a Telegram account creates its first user row. */
   DIAMOND_STARTING_GRANT: z.coerce.number().int().min(0).default(1000),
   /** Rush pricing curve multiplier (`minutes^0.85 * rate`, rounded). */
@@ -54,6 +65,13 @@ const result = envSchema.safeParse(process.env);
 
 if (!result.success) {
   console.error('❌ Invalid environment variables:', JSON.stringify(result.error.format(), null, 2));
+  process.exit(1);
+}
+
+try {
+  assertProductionSecurityConfig(result.data);
+} catch (err) {
+  console.error('❌ Invalid production security configuration:', err instanceof Error ? err.message : err);
   process.exit(1);
 }
 

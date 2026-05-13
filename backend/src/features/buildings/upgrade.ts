@@ -7,6 +7,7 @@ import {
   buildingUpgradeTimeSeconds,
   COMMAND_CENTER_TYPE_ID,
 } from '@shared/config/buildingUpgradeEconomy.js';
+import { env } from '../../lib/env.js';
 
 export interface UpgradeResult {
   success: boolean;
@@ -138,7 +139,7 @@ export async function upgradeBuilding(
     try {
       const { Queue: BQueue } = await import('bullmq');
       const Redis = (await import('ioredis')).default as unknown as new (...args: any[]) => any;
-      const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+      const redis = new Redis(env.REDIS_URL, {
         maxRetriesPerRequest: null,
         lazyConnect: true,
       });

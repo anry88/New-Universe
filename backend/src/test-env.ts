@@ -11,4 +11,5 @@ export function setDefaultTestEnv(): void {
   process.env.PUBLIC_FRONTEND_URL = process.env.PUBLIC_FRONTEND_URL || 'https://test-app.nu';
   process.env.TELEGRAM_APP_URL = process.env.TELEGRAM_APP_URL || 'https://t.me/TestBot/app';
   process.env.JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret-change-me-32-chars';
+  process.env.SERVER_SECRET = process.env.SERVER_SECRET || 'dev-server-secret-change-me-32-chars';
 }

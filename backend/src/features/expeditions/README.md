@@ -4,7 +4,7 @@ Ship launch and expedition scheduling live here. The module accepts launch reque
 
 ## Files
 
-- **`routes.ts`** — `expeditionsRoutes(app)` registers:
+- **`routes.ts`** — `expeditionsRoutes(app)` registers mutation-rate-limited and JSON-schema-validated endpoints:
   - `POST /` — launches a local expedition to a route point or a Jump Gate route to a known public destination. Local mode accepts `{ shipId, targetX, targetY, targetZ, cargoLoaded }`; `routeMode='jump_gate'` accepts `{ shipId, destinationSystemId, cargoLoaded, targetPlanetId? }` and server-resolves the target sector from `discovered_systems` instead of trusting arbitrary coordinates. Fuel is calculated and reserved server-side from route distance and ship fuel consumption, and Jump Gate routes also require/deduct 50 Jump Fuel from the ship tank. `targetPlanetId` is valid for recon surveys and colonizer deployments. Logistics ships are rejected here and must use `/cargo/transfer`. Colonizers must provide a discovered, eligible target planet and reserve one-way fuel because a successful arrival consumes the ship into the new Command Center.
   - `POST /jump` — deprecated-compatible Jump Gate entry point. Accepts `{ shipId, mode: 'random' }` for server-authoritative random jumps or `{ shipId, destinationSystemId }` for known destinations; legacy `{ targetSector }` requests are rejected without generating or visiting client-provided coordinates.
 - **`launch.ts`** — `launchExpedition(userId, request)` performs the launch flow:

@@ -17,6 +17,7 @@ import { coloniesRoutes } from './routes/colonies.js';
 import { cargoRoutes } from './routes/cargo.js';
 import { multiplayerRoutes } from './routes/multiplayer.js';
 import { jumpGateRoutes } from './features/jump-gate/routes.js';
+import { registerRateLimit } from './lib/rate-limit.js';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 
@@ -35,6 +36,7 @@ fastify.addHook('preHandler', async (request) => {
 
 await fastify.register(cors);
 await fastify.register(helmet);
+await registerRateLimit(fastify);
 
 await fastify.register(healthRoutes);
 await fastify.register(botRoutes);

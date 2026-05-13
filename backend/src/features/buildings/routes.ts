@@ -17,6 +17,15 @@ import { buildings, buildingTypes, colonies, planets, systems } from '../../db/s
 import { and, eq, isNotNull, or } from 'drizzle-orm';
 import { getResearchEffectsForUser } from '../research/effects.js';
 import { deriveBuildingQueueStartedAt } from '../timers.js';
+import { mutationRateLimit } from '../../lib/rate-limit.js';
+import {
+  nonEmptyStringSchema,
+  objectBodySchema,
+  optionalNullableStringSchema,
+  paramsSchema,
+  securityRouteConfig,
+  safeIntegerSchema,
+} from '../../lib/security.js';
 
 export async function buildingsRoutes(app: FastifyInstance) {
   app.addHook('preHandler', async (request, reply) => {
@@ -45,7 +54,20 @@ export async function buildingsRoutes(app: FastifyInstance) {
     return buildingService.getBuildingTypes();
   });
 
-  app.post('/build', async (request, reply) => {
+  app.post('/build', {
+    config: securityRouteConfig(mutationRateLimit, 'body'),
+    schema: {
+      body: objectBodySchema(
+        {
+          planetId: nonEmptyStringSchema,
+          typeId: nonEmptyStringSchema,
+          slotIndex: { ...safeIntegerSchema, minimum: 0, maximum: 256 },
+          selectedResourceId: optionalNullableStringSchema,
+        },
+        ['planetId', 'typeId', 'slotIndex'],
+      ),
+    },
+  }, async (request, reply) => {
     const { planetId, typeId, slotIndex, selectedResourceId } = request.body as BuildRequest;
     const userId = (request as any).userId;
 
@@ -69,7 +91,12 @@ export async function buildingsRoutes(app: FastifyInstance) {
     }
   });
 
-  app.post('/upgrade', async (request, reply) => {
+  app.post('/upgrade', {
+    config: securityRouteConfig(mutationRateLimit, 'body'),
+    schema: {
+      body: objectBodySchema({ buildingId: nonEmptyStringSchema }, ['buildingId']),
+    },
+  }, async (request, reply) => {
     const { buildingId } = request.body as UpgradeRequest;
     const userId = (request as any).userId;
 
@@ -93,7 +120,18 @@ export async function buildingsRoutes(app: FastifyInstance) {
     }
   });
 
-  app.post('/resource', async (request, reply) => {
+  app.post('/resource', {
+    config: securityRouteConfig(mutationRateLimit, 'body'),
+    schema: {
+      body: objectBodySchema(
+        {
+          buildingId: nonEmptyStringSchema,
+          selectedResourceId: nonEmptyStringSchema,
+        },
+        ['buildingId', 'selectedResourceId'],
+      ),
+    },
+  }, async (request, reply) => {
     const { buildingId, selectedResourceId } = request.body as ChangeExtractorResourceRequest;
     const userId = (request as any).userId;
 
@@ -123,7 +161,12 @@ export async function buildingsRoutes(app: FastifyInstance) {
     }
   });
 
-  app.post('/demolish', async (request, reply) => {
+  app.post('/demolish', {
+    config: securityRouteConfig(mutationRateLimit, 'body'),
+    schema: {
+      body: objectBodySchema({ buildingId: nonEmptyStringSchema }, ['buildingId']),
+    },
+  }, async (request, reply) => {
     const { buildingId } = request.body as DemolishRequest;
     const userId = (request as any).userId;
 
@@ -138,7 +181,12 @@ export async function buildingsRoutes(app: FastifyInstance) {
     }
   });
 
-  app.post('/sync/:planetId', async (request, reply) => {
+  app.post('/sync/:planetId', {
+    config: securityRouteConfig(mutationRateLimit, 'params'),
+    schema: {
+      params: paramsSchema({ planetId: nonEmptyStringSchema }, ['planetId']),
+    },
+  }, async (request, reply) => {
     const { planetId } = request.params as { planetId: string };
     const userId = (request as any).userId;
 
@@ -203,7 +251,12 @@ export async function buildingsRoutes(app: FastifyInstance) {
     };
   });
 
-  app.post('/rush', async (request, reply) => {
+  app.post('/rush', {
+    config: securityRouteConfig(mutationRateLimit, 'body'),
+    schema: {
+      body: objectBodySchema({ buildingId: nonEmptyStringSchema }, ['buildingId']),
+    },
+  }, async (request, reply) => {
     const { buildingId } = request.body as RushBuildRequest;
     const userId = (request as any).userId as string;
 

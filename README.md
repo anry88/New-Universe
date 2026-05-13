@@ -80,3 +80,5 @@ docker compose down -v
 ```
 
 Проектные задачи и дополнительные материалы находятся в [tasks/](tasks/) и [docs/](docs/).
+
+Перед production-запуском пройдите [security launch checklist](docs/security/launch-checklist.md): он фиксирует обязательные секреты, Telegram webhook secret, rate limits и GitHub security stage.

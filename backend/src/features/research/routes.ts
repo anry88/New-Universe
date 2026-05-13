@@ -9,9 +9,22 @@ import { spendResources } from '../resources/transactions.js';
 import { rushActiveResearch } from './rush.js';
 import { processCompletedResearch } from './completion.js';
 import type { RushResearchRequest, StartResearchRequest } from '@shared/types/research.js';
+import { mutationRateLimit } from '../../lib/rate-limit.js';
+import { nonEmptyStringSchema, objectBodySchema, securityRouteConfig } from '../../lib/security.js';
 
 export async function researchRoutes(app: FastifyInstance) {
-  app.post('/start', async (request, reply) => {
+  app.post('/start', {
+    config: securityRouteConfig(mutationRateLimit, 'body'),
+    schema: {
+      body: objectBodySchema(
+        {
+          branch: nonEmptyStringSchema,
+          planetId: nonEmptyStringSchema,
+        },
+        ['branch', 'planetId'],
+      ),
+    },
+  }, async (request, reply) => {
     const authHeader = request.headers.authorization;
     const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
 
@@ -177,7 +190,12 @@ export async function researchRoutes(app: FastifyInstance) {
     return reply.send(result.body);
   });
 
-  app.post('/rush', async (request, reply) => {
+  app.post('/rush', {
+    config: securityRouteConfig(mutationRateLimit, 'body'),
+    schema: {
+      body: objectBodySchema({ branch: nonEmptyStringSchema }, ['branch']),
+    },
+  }, async (request, reply) => {
     const authHeader = request.headers.authorization;
     const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
 

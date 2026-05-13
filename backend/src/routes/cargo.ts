@@ -3,6 +3,13 @@ import jwt from 'jsonwebtoken';
 import { env } from '../lib/env.js';
 import { launchCargoTransfer } from '../features/logistics/cargo-transfer.js';
 import type { CargoTransferRequest } from '@shared/types/cargo.js';
+import { mutationRateLimit } from '../lib/rate-limit.js';
+import {
+  nonEmptyStringSchema,
+  objectBodySchema,
+  positiveNumberSchema,
+  securityRouteConfig,
+} from '../lib/security.js';
 
 /**
  * Cargo transfer routes.
@@ -36,7 +43,30 @@ export async function cargoRoutes(app: FastifyInstance) {
    * POST /cargo/transfer
    * Launch a cargo transfer between two player-owned planets.
    */
-  app.post('/transfer', async (request, reply) => {
+  app.post('/transfer', {
+    config: securityRouteConfig(mutationRateLimit, 'body'),
+    schema: {
+      body: objectBodySchema(
+        {
+          shipId: nonEmptyStringSchema,
+          targetPlanetId: nonEmptyStringSchema,
+          resources: {
+            type: 'array',
+            minItems: 1,
+            maxItems: 32,
+            items: objectBodySchema(
+              {
+                resourceId: nonEmptyStringSchema,
+                amount: positiveNumberSchema,
+              },
+              ['resourceId', 'amount'],
+            ),
+          },
+        },
+        ['shipId', 'targetPlanetId', 'resources'],
+      ),
+    },
+  }, async (request, reply) => {
     const userId = (request as any).userId;
     const { shipId, targetPlanetId, resources } = (request.body ?? {}) as Partial<CargoTransferRequest>;
 
