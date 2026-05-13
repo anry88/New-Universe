@@ -56,7 +56,11 @@ export async function processArriveCargo(job: any): Promise<void> {
         return;
       }
 
-      await completeCargoTransfer(expedition, shipId, tx);
+      const completed = await completeCargoTransfer(expedition, shipId, tx);
+      if (!completed) {
+        logger.info({ expeditionId }, 'Cargo worker: Expedition already settled or not active, skipping');
+        return;
+      }
 
       logger.info({ expeditionId, shipId }, 'Cargo worker: Transfer completed successfully');
     });

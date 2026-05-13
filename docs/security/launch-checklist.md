@@ -28,8 +28,14 @@ This checklist is the launch gate for task **P4-SEC-001**. Keep it aligned with 
 ## GitHub flow
 
 - [x] `.github/workflows/ci.yml` has a separate `security` job.
+- [x] The `security` job runs migrations/seed data before `npm run security:check`, so database-backed exploit regressions run in the security stage.
 - [x] `scripts/ci-verify.sh` runs the same backend security check before lint/build/tests.
 - [x] Workflow docs describe `security` separately from the normal `check` job and Playwright E2E.
+
+## Economy exploit review
+
+- [x] [`economy-exploits.md`](economy-exploits.md) documents resource duplication, worker idempotency, cargo/resource loop review, market/trade accepted risk, and the focused regression suite.
+- [x] `backend/tests/security/economy-exploits.test.ts` is included in `npm run security:check`.
 
 ## Manual review before launch
 

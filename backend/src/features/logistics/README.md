@@ -14,6 +14,7 @@ Interplanetary logistics — cargo transfers between player-owned colonies.
   - Sets ship status to `moving` and populates `cargoJson`.
   - Enqueues a BullMQ `arrive_cargo` job for delivery processing using validated `env.REDIS_URL`.
   - Exports `completeCargoTransfer(expedition, shipId, tx, options?)`, used by both the cargo worker and active-session expedition sync to finish one-way delivery without a return phase.
+  - `completeCargoTransfer` conditionally claims only `in_flight` / `returning` cargo expeditions before applying target gains, so repeated or concurrent worker jobs settle the cargo once.
 - **`cargo-transfer.test.ts`** — Integration tests for the cargo transfer flow.
 
 ## Transfer Rules
@@ -25,6 +26,7 @@ Interplanetary logistics — cargo transfers between player-owned colonies.
 5. **Distinct**: Source and target must be different planets.
 6. **Atomic reservation**: Resources are deducted from the origin planet within the same DB transaction as the expedition record creation.
 7. **No duplication on cancel**: Resources are reserved up-front; delivery only adds to target when the BullMQ worker or online expedition sync completes the one-way transfer.
+8. **Idempotent settlement**: The delivery helper claims the expedition row before granting resources, preventing duplicate worker execution from crediting the target twice.
 
 ## Adding a new logistics action
 

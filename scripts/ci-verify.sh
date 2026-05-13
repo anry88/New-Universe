@@ -16,11 +16,11 @@ trap cleanup EXIT
 
 docker compose up -d --wait postgres redis
 docker compose build backend
+docker compose run --rm backend npm run db:migrate
+docker compose run --rm backend npm run db:seed
 docker compose run --rm backend npm run security:check
 docker compose run --rm backend npm run lint
 docker compose run --rm backend npm run build
-docker compose run --rm backend npm run db:migrate
-docker compose run --rm backend npm run db:seed
 docker compose run --rm backend npm test
 docker compose --profile frontend build frontend
 docker compose --profile frontend run --rm frontend npm run lint
