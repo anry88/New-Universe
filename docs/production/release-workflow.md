@@ -71,7 +71,7 @@ The deploy job mirrors the runtime values above into both Fly apps with `flyctl 
 13. The frontend artifact deploys through `npx wrangler pages deploy`.
 14. After deployment succeeds, the release job creates a git tag and GitHub Release changelog.
 
-The workflow copies `shared/` into `backend/shared` inside the runner before Fly builds. It also writes generated Fly config files into `backend/` so Fly resolves `dockerfile = "Dockerfile"` relative to `backend/Dockerfile`. This keeps the current backend Dockerfile working with the `@shared/*` TypeScript path without committing generated build context files.
+The workflow copies `shared/` into `backend/shared` inside the runner before Fly builds. It also writes generated Fly config files into `backend/` and runs `flyctl deploy .` from that directory so Fly reads the generated app name and resolves `dockerfile = "Dockerfile"` relative to `backend/Dockerfile`. This keeps the current backend Dockerfile working with the `@shared/*` TypeScript path without committing generated build context files.
 
 ## Production gate
 
