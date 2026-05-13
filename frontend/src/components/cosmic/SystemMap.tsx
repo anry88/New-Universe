@@ -1213,59 +1213,6 @@ export function CosmicSystemRenderer({
         </div>
       )}
 
-      {/* Legend (fixed bottom-left, above the bottom nav) */}
-      {!expeditionPick ? (
-        <div
-          style={{
-            position: "absolute",
-            left: 12,
-            bottom: 96,
-            display: "flex",
-            flexDirection: "column",
-            gap: 4,
-            padding: "8px 10px",
-            background: "rgba(8,12,22,0.85)",
-            border: "1px solid var(--line)",
-            borderRadius: 8,
-            backdropFilter: "blur(8px)",
-            pointerEvents: "none",
-            fontFamily: "var(--font-mono)",
-            fontSize: 9,
-            letterSpacing: "0.05em",
-            color: "var(--text-dim)",
-            zIndex: 5,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span
-              style={{
-                width: 7,
-                height: 7,
-                borderRadius: "50%",
-                background: "#5BFFA9",
-                boxShadow: "0 0 6px #5BFFA9",
-              }}
-            />
-            {t("map.idleShip")}
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ width: 7, height: 2, background: "#F4B84A" }} />
-            {t("map.expeditionTrail")}
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span
-              style={{
-                width: 7,
-                height: 7,
-                border: "1px solid rgba(150,175,220,0.6)",
-                borderRadius: "50%",
-              }}
-            />
-            {t("map.orbit")}
-          </div>
-        </div>
-      ) : null}
-
       {/* Reset zoom (top-right, below the page header) */}
       <button
         type="button"
