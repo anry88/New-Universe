@@ -4,6 +4,8 @@ import { env } from '../../lib/env.js';
 import { buildShip, getShipQueue, rushShipBuild, syncReadyShips } from './build.js';
 import { db } from '../../db/index.js';
 import { RushShipBuildRequest } from '@shared/types/ships.js';
+import { mutationRateLimit } from '../../lib/rate-limit.js';
+import { nonEmptyStringSchema, objectBodySchema, securityRouteConfig } from '../../lib/security.js';
 
 export async function shipsRoutes(app: FastifyInstance) {
   const resolveUserId = (request: any, reply: any): { ok: true; userId: string } | { ok: false } => {
@@ -34,7 +36,18 @@ export async function shipsRoutes(app: FastifyInstance) {
     return db.query.shipTypes.findMany();
   });
 
-  app.post('/build', async (request, reply) => {
+  app.post('/build', {
+    config: securityRouteConfig(mutationRateLimit, 'body'),
+    schema: {
+      body: objectBodySchema(
+        {
+          planetId: nonEmptyStringSchema,
+          typeSlug: nonEmptyStringSchema,
+        },
+        ['planetId', 'typeSlug'],
+      ),
+    },
+  }, async (request, reply) => {
     const auth = resolveUserId(request, reply);
     if (!auth.ok) return;
 
@@ -67,7 +80,12 @@ export async function shipsRoutes(app: FastifyInstance) {
     return reply.send(queue);
   });
 
-  app.post('/rush', async (request, reply) => {
+  app.post('/rush', {
+    config: securityRouteConfig(mutationRateLimit, 'body'),
+    schema: {
+      body: objectBodySchema({ shipId: nonEmptyStringSchema }, ['shipId']),
+    },
+  }, async (request, reply) => {
     const auth = resolveUserId(request, reply);
     if (!auth.ok) return;
     const { shipId } = request.body as RushShipBuildRequest;

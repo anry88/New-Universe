@@ -6,6 +6,7 @@ import { SHIP_RESEARCH_GATES } from '../../config/research-unlocks.js';
 import { assertResearchRequirement, loadUserResearchLevels } from '../research/gates.js';
 import { rushDiamondCost, rushRemainingSeconds } from '../../lib/diamonds.js';
 import { getPlayerPlanetSettlement } from '../colonies/ownership.js';
+import { env } from '../../lib/env.js';
 
 export interface BuildShipRequest {
   planetId: string;
@@ -137,7 +138,7 @@ export async function buildShip(
     try {
       const { Queue: BQueue } = await import('bullmq');
       const Redis = (await import('ioredis')).default as unknown as new (...args: any[]) => any;
-      const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+      const redis = new Redis(env.REDIS_URL, {
         maxRetriesPerRequest: null,
         lazyConnect: true,
       });

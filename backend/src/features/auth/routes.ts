@@ -1,11 +1,17 @@
 import { FastifyInstance } from 'fastify';
 import { telegramAuthMiddleware } from '../../middleware/telegram-auth.js';
 import { authService } from './service.js';
+import { authRateLimit } from '../../lib/rate-limit.js';
+import { securityRouteConfig } from '../../lib/security.js';
+import { env } from '../../lib/env.js';
 
 export async function authRoutes(app: FastifyInstance) {
   app.post(
     '/telegram',
-    { preHandler: [telegramAuthMiddleware] },
+    {
+      config: securityRouteConfig(authRateLimit, 'telegram-init-data'),
+      preHandler: [telegramAuthMiddleware],
+    },
     async (request, reply) => {
       const { user, token } = await authService.loginWithTelegram(request.user!);
 
@@ -17,7 +23,7 @@ export async function authRoutes(app: FastifyInstance) {
         `Max-Age=${30 * 24 * 60 * 60}`,
       ];
       
-      if (process.env.NODE_ENV === 'production') {
+      if (env.NODE_ENV === 'production') {
         cookieOptions.push('Secure');
       }
 

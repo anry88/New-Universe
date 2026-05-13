@@ -12,6 +12,7 @@ import { CARGO_TRANSFER_RESEARCH_GATE } from '../../config/research-unlocks.js';
 import { assertResearchRequirement, loadUserResearchLevels } from '../research/gates.js';
 import type { CargoTransferLoad, CargoTransferRequest } from '@shared/types/cargo.js';
 import { getPlayerPlanetSettlement } from '../colonies/ownership.js';
+import { env } from '../../lib/env.js';
 
 type CargoTransferResultPayload = {
   deliveryMode?: 'one_way';
@@ -193,7 +194,7 @@ export async function launchCargoTransfer(
     try {
       const { Queue: BullQueue } = await import('bullmq');
       const Redis = (await import('ioredis')).default as unknown as new (...args: any[]) => any;
-      const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+      const redis = new Redis(env.REDIS_URL, {
         maxRetriesPerRequest: null,
         lazyConnect: true,
       });
