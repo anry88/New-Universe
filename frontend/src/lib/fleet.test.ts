@@ -24,10 +24,17 @@ describe('fleet helpers', () => {
     expect(formatCargoTransferError('Cargo (6000) exceeds ship capacity (5000)', t)).toBe(
       'cargo.error.capacityExceededServer:{"total":"6000","capacity":"5000"}',
     );
+    expect(formatCargoTransferError('not enough fuel', t)).toBe('cargo.error.insufficientFuel');
     expect(formatCargoTransferError('not enough jump_fuel', t)).toBe('cargo.error.insufficientJumpFuel');
     expect(formatCargoTransferError('Jump Drive research level 1 required', t)).toBe('cargo.error.jumpGateLocked');
     expect(formatCargoTransferError('Jump Gate cargo route requires a different target system', t)).toBe(
       'cargo.error.jumpGateLocal',
+    );
+    expect(formatCargoTransferError('Target common system is not a known Jump Gate destination', t)).toBe(
+      'cargo.error.jumpGateUnknownCommon',
+    );
+    expect(formatCargoTransferError('Origin system is not a public Jump Gate target', t)).toBe(
+      'cargo.error.jumpGatePublicOnly',
     );
   });
 });

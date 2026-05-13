@@ -4,15 +4,16 @@ import { useShipTypes } from '../hooks/useShips';
 import { useMe } from '../hooks/useMe';
 import { Planet } from '@shared/types/world';
 import { apiFetch } from '../lib/api';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { X, Package, Truck, AlertTriangle, Navigation } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { X, Package, Truck, AlertTriangle, Navigation, Clock } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
-import type { CargoTransferRequest } from '@shared/types/cargo';
+import type { CargoTransferPreviewResponse, CargoTransferRequest } from '@shared/types/cargo';
 import { formatCargoTransferError, isCargoTransferShip } from '../lib/fleet';
 import {
   JUMP_FUEL_RESOURCE_ID,
   JUMP_GATE_JUMP_FUEL_COST,
 } from '@shared/config/expeditionRouting';
+import { formatTimerDuration } from '../lib/timers';
 
 interface CargoTransferDialogProps {
   originPlanet: Planet;
@@ -50,17 +51,52 @@ export function CargoTransferDialog({ originPlanet, onClose }: CargoTransferDial
 
   const totalCargo = Object.values(cargo).reduce((a, b) => a + b, 0);
   const capacity = selectedShipType?.cargo || 0;
+  const cargoLoads = useMemo(
+    () => Object.entries(cargo)
+      .filter(([_, amount]) => amount > 0)
+      .map(([resourceId, amount]) => ({
+        resourceId,
+        amount,
+      })),
+    [cargo],
+  );
   const jumpFuelAvailable = Math.floor(
     Number(originPlanet.resources?.find(r => r.resourceId === JUMP_FUEL_RESOURCE_ID)?.amount ?? 0),
   );
   const jumpFuelReservedAsCargo = Math.floor(Number(cargo[JUMP_FUEL_RESOURCE_ID] ?? 0));
   const jumpFuelAvailableForRoute = Math.max(0, jumpFuelAvailable - jumpFuelReservedAsCargo);
+  const fuelAvailable = Math.floor(
+    Number(originPlanet.resources?.find(r => r.resourceId === 'fuel')?.amount ?? 0),
+  );
+  const fuelReservedAsCargo = Math.floor(Number(cargo.fuel ?? 0));
+  const fuelAvailableForRoute = Math.max(0, fuelAvailable - fuelReservedAsCargo);
   const isInterSystemTarget = Boolean(
     selectedTargetPlanet && selectedTargetPlanet.systemId !== originPlanet.systemId,
   );
   const jumpGateRouteSelected = isInterSystemTarget && useJumpGateRoute;
-  const jumpFuelRequired = jumpGateRouteSelected ? JUMP_GATE_JUMP_FUEL_COST : 0;
+  const routeMode = jumpGateRouteSelected ? 'jump_gate' : 'standard';
+  const previewQuery = useQuery({
+    queryKey: ['cargo-transfer-preview', selectedShipId, targetPlanetId, routeMode, cargoLoads],
+    queryFn: () => apiFetch<CargoTransferPreviewResponse>('/cargo/transfer/preview', {
+      method: 'POST',
+      body: JSON.stringify({
+        shipId: selectedShipId,
+        targetPlanetId,
+        routeMode,
+        resources: cargoLoads,
+      }),
+    }),
+    enabled: Boolean(selectedShipId && targetPlanetId && cargoLoads.length > 0),
+    retry: false,
+  });
+  const routePreview = previewQuery.data?.preview ?? null;
+  const fuelRequired = routePreview?.fuelRequired ?? 0;
+  const jumpFuelRequired = routePreview?.jumpFuelRequired ?? (jumpGateRouteSelected ? JUMP_GATE_JUMP_FUEL_COST : 0);
+  const shortOnFuel = fuelRequired > fuelAvailableForRoute;
   const shortOnJumpFuel = jumpFuelRequired > jumpFuelAvailableForRoute;
+  const previewError = previewQuery.isError
+    ? formatCargoTransferError(previewQuery.error.message, t)
+    : null;
 
   const transferMutation = useMutation({
     mutationFn: (body: CargoTransferRequest) => apiFetch('/cargo/transfer', {
@@ -82,18 +118,16 @@ export function CargoTransferDialog({ originPlanet, onClose }: CargoTransferDial
     if (!targetPlanetId) return setError(t('cargo.selectTargetError'));
     if (totalCargo <= 0) return setError(t('cargo.addResourcesError'));
     if (totalCargo > capacity) return setError(t('cargo.capacityError'));
+    if (previewError) return setError(previewError);
+    if (!routePreview) return setError(t('cargo.previewRequired'));
+    if (shortOnFuel) return setError(t('cargo.fuelError'));
     if (shortOnJumpFuel) return setError(t('cargo.jumpFuelError'));
 
     transferMutation.mutate({
       shipId: selectedShipId,
       targetPlanetId,
-      routeMode: jumpGateRouteSelected ? 'jump_gate' : 'standard',
-      resources: Object.entries(cargo)
-        .filter(([_, amount]) => amount > 0)
-        .map(([resourceId, amount]) => ({
-          resourceId,
-          amount
-        }))
+      routeMode,
+      resources: cargoLoads,
     });
   };
 
@@ -232,10 +266,10 @@ export function CargoTransferDialog({ originPlanet, onClose }: CargoTransferDial
           </section>
 
           {/* Validation & Errors */}
-          {error && (
+          {(error || previewError) && (
             <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-xs text-red-400">
               <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-              {error}
+              {error || previewError}
             </div>
           )}
         </div>
@@ -248,6 +282,25 @@ export function CargoTransferDialog({ originPlanet, onClose }: CargoTransferDial
               {totalCargo} / {capacity}
             </div>
           </div>
+          {routePreview ? (
+            <div className="mb-4 rounded-xl border border-slate-700 bg-slate-900/60 p-3 text-xs text-slate-300">
+              <div className="flex items-center justify-between gap-3">
+                <span className="flex items-center gap-2 font-semibold text-slate-200">
+                  <Clock className="h-4 w-4 text-cyan-300" />
+                  {t('cargo.eta')}
+                </span>
+                <span className="font-mono text-cyan-300">{formatTimerDuration(routePreview.etaSeconds)}</span>
+              </div>
+              <div className="mt-2 flex justify-between gap-3">
+                <span>{t('cargo.fuelCost')}</span>
+                <span className={shortOnFuel ? 'text-amber-300' : 'text-cyan-300'}>
+                  {fuelRequired} / {fuelAvailableForRoute}
+                </span>
+              </div>
+            </div>
+          ) : previewQuery.isFetching ? (
+            <div className="mb-4 px-1 text-xs text-slate-500">{t('cargo.previewLoading')}</div>
+          ) : null}
           {jumpGateRouteSelected ? (
             <div className="flex items-start gap-2 mb-4 px-1 text-xs text-slate-300">
               <Navigation className="w-4 h-4 text-cyan-300 mt-0.5 flex-shrink-0" />
@@ -265,7 +318,7 @@ export function CargoTransferDialog({ originPlanet, onClose }: CargoTransferDial
           
           <button
             onClick={handleTransfer}
-            disabled={transferMutation.isPending || !selectedShipId || !targetPlanetId || totalCargo <= 0 || totalCargo > capacity || shortOnJumpFuel}
+            disabled={transferMutation.isPending || previewQuery.isFetching || !selectedShipId || !targetPlanetId || totalCargo <= 0 || totalCargo > capacity || !routePreview || shortOnFuel || shortOnJumpFuel}
             className="w-full bg-cyan-500 hover:bg-cyan-400 disabled:bg-slate-700 disabled:text-slate-500 text-slate-950 font-bold py-3 rounded-xl transition-all shadow-[0_4px_20px_rgba(6,182,212,0.2)]"
           >
             {transferMutation.isPending ? t('cargo.launching') : t('cargo.initiate')}
