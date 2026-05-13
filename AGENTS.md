@@ -25,6 +25,7 @@ Primary links:
 - `AGENTS.md` (this file) — repository-wide rules and workflows for AI coding assistants.
 - `backend/src/README.md`, `backend/src/<package>/README.md`, `frontend/src/README.md`, `shared/README.md` — low-level code navigation. Each README describes every file in that directory with a short description of its responsibilities and the key exports/functions other code calls into.
 - `docs/` — product/design materials (GDD PDFs, infrastructure cost notes, architecture diagrams). Generated planning PDFs and CSV files in `docs/` and `tasks/` are not implementation code.
+- `infra/production/README.md` — production infrastructure plan and runbook. Starts as documentation only: no production secrets or irreversible deployment automation belong there.
 
 ## Repository Map
 
@@ -39,6 +40,7 @@ Primary links:
 - `tasks/` — task plan (`tasks.json`), GitHub Project automation scripts, and the imported microtasks docs.
 - `tools/balance-sim/` — offline deterministic economy simulator (see `tools/balance-sim/README.md`); writes comparison artifacts under `tools/balance-sim/artifacts/`.
 - `docs/` — GDD, addenda, infrastructure costs, architecture diagrams.
+- `infra/production/` — near-free production environment plan and deployment/rollback runbook for the first closed-alpha target.
 - `dev/` — starter Docker/dev scaffolding from the planning bundle.
 - `docker-compose.yml` — local stack: Postgres 16, Redis 7, Backend (Fastify, hot reload), optional Worker/Frontend/devtools profiles.
 - `.github/workflows/ci.yml` — default PR CI: separate `security` job (backend migrate/seed + security/economy exploit checks) plus `check` job for lint, type-check, migrate, seed, unit tests (backend + frontend). **No Playwright.**
@@ -62,7 +64,8 @@ Primary links:
 5. If the task touches the database schema, also read [backend/src/db/README.md](backend/src/db/README.md) end-to-end and the affected `schema/<file>.ts`.
 6. If the task touches a request/response contract used by the frontend, also read [shared/README.md](shared/README.md) and put the type in `shared/types/`.
 7. If the task touches Telegram auth or session handling, also read `backend/src/lib/telegram.ts` and `backend/src/middleware/telegram-auth.ts`.
-7. Skim the related test files (`*.test.ts` in the same folder) before changing behavior — they document the current contract precisely.
+8. If the task touches production, deployment, domains, or secrets, also read [docs/production/environment.md](docs/production/environment.md) and [infra/production/README.md](infra/production/README.md).
+9. Skim the related test files (`*.test.ts` in the same folder) before changing behavior — they document the current contract precisely.
 
 ## Main Agent Prompt
 
