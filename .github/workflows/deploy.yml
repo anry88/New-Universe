@@ -1,0 +1,648 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Deploy a new release or roll back to a previous release tag.
+        required: true
+        default: deploy
+        type: choice
+        options:
+          - deploy
+          - rollback
+      target_environment:
+        description: GitHub Environment to use for secrets and approvals.
+        required: true
+        default: staging
+        type: choice
+        options:
+          - staging
+          - production
+      release_tag:
+        description: Release tag for deploys. Required for production, optional for staging.
+        required: false
+        type: string
+      rollback_release_tag:
+        description: Existing release tag to redeploy when action=rollback.
+        required: false
+        type: string
+      run_migrations:
+        description: Run Drizzle migrations and idempotent seeders before deploying app runtimes.
+        required: true
+        default: true
+        type: boolean
+      staging_drill_run_url:
+        description: Required for production deploys. Link to the successful staging deploy + rollback drill run.
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  deployments: write
+
+concurrency:
+  group: deploy-${{ inputs.target_environment }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: "20"
+
+jobs:
+  preflight:
+    name: Preflight
+    runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.release.outputs.release_tag }}
+      rollback_release_tag: ${{ steps.release.outputs.rollback_release_tag }}
+      is_production: ${{ steps.release.outputs.is_production }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate deploy inputs
+        id: release
+        shell: bash
+        env:
+          INPUT_ACTION: ${{ inputs.action }}
+          INPUT_TARGET_ENVIRONMENT: ${{ inputs.target_environment }}
+          INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
+          INPUT_ROLLBACK_RELEASE_TAG: ${{ inputs.rollback_release_tag }}
+          INPUT_STAGING_DRILL_RUN_URL: ${{ inputs.staging_drill_run_url }}
+        run: |
+          set -euo pipefail
+
+          action="$INPUT_ACTION"
+          target="$INPUT_TARGET_ENVIRONMENT"
+          release_tag="$INPUT_RELEASE_TAG"
+          rollback_release_tag="$INPUT_ROLLBACK_RELEASE_TAG"
+          staging_drill_run_url="$INPUT_STAGING_DRILL_RUN_URL"
+
+          if [[ "$target" == "production" && "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "::error title=Production deploy must run from main::Select the main branch when dispatching a production deployment."
+            exit 1
+          fi
+
+          if [[ "$action" == "deploy" ]]; then
+            if [[ -z "$release_tag" ]]; then
+              if [[ "$target" == "production" ]]; then
+                echo "::error title=Missing production release tag::Production deploys require an explicit semver tag such as v1.2.3."
+                exit 1
+              fi
+
+              short_sha="${GITHUB_SHA:0:7}"
+              release_tag="staging-${GITHUB_RUN_NUMBER}-${short_sha}"
+            fi
+
+            if ! [[ "$release_tag" =~ ^[A-Za-z0-9._-]+$ ]]; then
+              echo "::error title=Invalid release tag::Use only letters, numbers, dots, underscores, and hyphens."
+              exit 1
+            fi
+
+            if [[ "$target" == "production" && ! "$release_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([._-][A-Za-z0-9]+)?$ ]]; then
+              echo "::error title=Invalid production release tag::Production release tags must be semver-like, for example v1.2.3."
+              exit 1
+            fi
+
+            if [[ "$target" == "production" && -z "$staging_drill_run_url" ]]; then
+              echo "::error title=Missing staging drill evidence::Production deploys require a link to a successful staging deploy and rollback drill."
+              exit 1
+            fi
+
+            if git rev-parse -q --verify "refs/tags/$release_tag" >/dev/null; then
+              echo "::error title=Release tag already exists::$release_tag already exists. Choose a new tag."
+              exit 1
+            fi
+          else
+            if [[ -z "$rollback_release_tag" ]]; then
+              echo "::error title=Missing rollback release tag::Rollback runs require rollback_release_tag."
+              exit 1
+            fi
+
+            if ! [[ "$rollback_release_tag" =~ ^[A-Za-z0-9._-]+$ ]]; then
+              echo "::error title=Invalid rollback release tag::Use only letters, numbers, dots, underscores, and hyphens."
+              exit 1
+            fi
+
+            if ! git rev-parse -q --verify "refs/tags/$rollback_release_tag" >/dev/null; then
+              echo "::error title=Unknown rollback release tag::$rollback_release_tag does not exist in git."
+              exit 1
+            fi
+          fi
+
+          echo "release_tag=$release_tag" >> "$GITHUB_OUTPUT"
+          echo "rollback_release_tag=$rollback_release_tag" >> "$GITHUB_OUTPUT"
+          echo "is_production=$([[ "$target" == "production" ]] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build release artifacts
+    if: ${{ inputs.action == 'deploy' }}
+    needs: preflight
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target_environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Backend install
+        working-directory: backend
+        run: npm ci
+
+      - name: Backend type-check
+        working-directory: backend
+        run: npm run build
+
+      - name: Frontend install
+        working-directory: frontend
+        run: npm ci
+
+      - name: Frontend build
+        working-directory: frontend
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_TG_BOT_NAME: ${{ vars.VITE_TG_BOT_NAME }}
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+        run: npm run build
+
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+          if-no-files-found: error
+
+  deploy:
+    name: Deploy ${{ inputs.target_environment }}
+    if: ${{ inputs.action == 'deploy' }}
+    needs:
+      - preflight
+      - build
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target_environment }}
+    env:
+      RELEASE_TAG: ${{ needs.preflight.outputs.release_tag }}
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      FLY_API_APP: ${{ vars.FLY_API_APP }}
+      FLY_WORKER_APP: ${{ vars.FLY_WORKER_APP }}
+      FLY_PRIMARY_REGION: ${{ vars.FLY_PRIMARY_REGION || 'ams' }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      REDIS_URL: ${{ secrets.REDIS_URL }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_BOT_SECRET: ${{ secrets.TELEGRAM_BOT_SECRET }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      SERVER_SECRET: ${{ secrets.SERVER_SECRET }}
+      PUBLIC_FRONTEND_URL: ${{ vars.PUBLIC_FRONTEND_URL }}
+      TELEGRAM_APP_URL: ${{ vars.TELEGRAM_APP_URL }}
+      SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+      ADMIN_TELEGRAM_IDS: ${{ secrets.ADMIN_TELEGRAM_IDS }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_PAGES_PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT }}
+      FRONTEND_PAGES_BRANCH: ${{ vars.CLOUDFLARE_PAGES_BRANCH || 'main' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Download frontend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Validate environment secrets and variables
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+
+          for name in \
+            FLY_API_TOKEN \
+            FLY_API_APP \
+            FLY_WORKER_APP \
+            DATABASE_URL \
+            REDIS_URL \
+            TELEGRAM_BOT_TOKEN \
+            TELEGRAM_BOT_SECRET \
+            JWT_SECRET \
+            SERVER_SECRET \
+            CLOUDFLARE_API_TOKEN \
+            CLOUDFLARE_ACCOUNT_ID \
+            CLOUDFLARE_PAGES_PROJECT
+          do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error title=Missing environment value::$name must be configured on the ${{ inputs.target_environment }} GitHub Environment."
+              missing=1
+            fi
+          done
+
+          exit "$missing"
+
+      - name: Sync Fly runtime secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          resolved_frontend_url="${PUBLIC_FRONTEND_URL:-https://${CLOUDFLARE_PAGES_PROJECT}.pages.dev}"
+          resolved_telegram_app_url="${TELEGRAM_APP_URL:-$resolved_frontend_url}"
+
+          common_secrets=(
+            "DATABASE_URL=$DATABASE_URL"
+            "REDIS_URL=$REDIS_URL"
+            "TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN"
+            "TELEGRAM_BOT_SECRET=$TELEGRAM_BOT_SECRET"
+            "JWT_SECRET=$JWT_SECRET"
+            "SERVER_SECRET=$SERVER_SECRET"
+            "PUBLIC_FRONTEND_URL=$resolved_frontend_url"
+            "TELEGRAM_APP_URL=$resolved_telegram_app_url"
+          )
+
+          optional_secrets=()
+          if [[ -n "${SENTRY_DSN:-}" ]]; then
+            optional_secrets+=("SENTRY_DSN=$SENTRY_DSN")
+          fi
+          if [[ -n "${ADMIN_TELEGRAM_IDS:-}" ]]; then
+            optional_secrets+=("ADMIN_TELEGRAM_IDS=$ADMIN_TELEGRAM_IDS")
+          fi
+
+          flyctl secrets set --stage --app "$FLY_API_APP" "${common_secrets[@]}" "${optional_secrets[@]}"
+          flyctl secrets set --stage --app "$FLY_WORKER_APP" "${common_secrets[@]}" "${optional_secrets[@]}"
+
+      - name: Prepare Fly configs and Docker context
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf backend/shared
+          cp -R shared backend/shared
+
+          cat > /tmp/fly-api.toml <<EOF
+          app = "$FLY_API_APP"
+          primary_region = "$FLY_PRIMARY_REGION"
+          kill_signal = "SIGTERM"
+          kill_timeout = 30
+
+          [build]
+            dockerfile = "Dockerfile"
+            build-target = "prod"
+
+          [env]
+            NODE_ENV = "production"
+            PORT = "3000"
+
+          [deploy]
+            strategy = "rolling"
+            wait_timeout = "10m"
+
+          [processes]
+            app = "node dist/index.js"
+
+          [http_service]
+            internal_port = 3000
+            force_https = true
+            auto_stop_machines = false
+            auto_start_machines = true
+            min_machines_running = 1
+            processes = ["app"]
+
+          [[vm]]
+            size = "shared-cpu-1x"
+            memory = "512mb"
+            cpus = 1
+            cpu_kind = "shared"
+          EOF
+
+          cat > /tmp/fly-worker.toml <<EOF
+          app = "$FLY_WORKER_APP"
+          primary_region = "$FLY_PRIMARY_REGION"
+          kill_signal = "SIGTERM"
+          kill_timeout = 60
+
+          [build]
+            dockerfile = "Dockerfile"
+            build-target = "prod"
+
+          [env]
+            NODE_ENV = "production"
+
+          [deploy]
+            strategy = "rolling"
+            wait_timeout = "10m"
+
+          [processes]
+            app = "npm run worker"
+
+          [[restart]]
+            policy = "always"
+            retries = 10
+            processes = ["app"]
+
+          [[vm]]
+            size = "shared-cpu-1x"
+            memory = "512mb"
+            cpus = 1
+            cpu_kind = "shared"
+          EOF
+
+      - name: Stop worker before migrations
+        run: flyctl scale count 0 --app "$FLY_WORKER_APP" --yes
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Run database migrations and seeders
+        if: ${{ inputs.run_migrations }}
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          npm ci
+          npm run db:migrate
+          npm run db:seed
+
+      - name: Deploy backend API
+        run: |
+          flyctl deploy backend \
+            --config /tmp/fly-api.toml \
+            --remote-only \
+            --image-label "$RELEASE_TAG" \
+            --strategy rolling \
+            --yes
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Deploy worker
+        run: |
+          flyctl deploy backend \
+            --config /tmp/fly-worker.toml \
+            --remote-only \
+            --image-label "$RELEASE_TAG" \
+            --strategy rolling \
+            --yes
+          flyctl scale count 1 --app "$FLY_WORKER_APP" --yes
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Deploy frontend to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx wrangler@latest pages deploy frontend/dist \
+            --project-name "$CLOUDFLARE_PAGES_PROJECT" \
+            --branch "$FRONTEND_PAGES_BRANCH" \
+            --commit-hash "$GITHUB_SHA" \
+            --commit-message "$RELEASE_TAG"
+
+      - name: Deployment summary
+        run: |
+          {
+            echo "## Deploy summary"
+            echo
+            echo "- Environment: \`${{ inputs.target_environment }}\`"
+            echo "- Release tag: \`$RELEASE_TAG\`"
+            echo "- Backend app: \`$FLY_API_APP\`"
+            echo "- Worker app: \`$FLY_WORKER_APP\`"
+            echo "- Cloudflare Pages project: \`$CLOUDFLARE_PAGES_PROJECT\`"
+            echo "- Migrations: \`${{ inputs.run_migrations }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  rollback:
+    name: Roll back ${{ inputs.target_environment }}
+    if: ${{ inputs.action == 'rollback' }}
+    needs: preflight
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target_environment }}
+    env:
+      ROLLBACK_RELEASE_TAG: ${{ needs.preflight.outputs.rollback_release_tag }}
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      FLY_API_APP: ${{ vars.FLY_API_APP }}
+      FLY_WORKER_APP: ${{ vars.FLY_WORKER_APP }}
+      FLY_PRIMARY_REGION: ${{ vars.FLY_PRIMARY_REGION || 'ams' }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_PAGES_PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT }}
+      FRONTEND_PAGES_BRANCH: ${{ vars.CLOUDFLARE_PAGES_BRANCH || 'main' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.rollback_release_tag }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Validate rollback environment values
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+
+          for name in \
+            FLY_API_TOKEN \
+            FLY_API_APP \
+            FLY_WORKER_APP \
+            CLOUDFLARE_API_TOKEN \
+            CLOUDFLARE_ACCOUNT_ID \
+            CLOUDFLARE_PAGES_PROJECT
+          do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error title=Missing environment value::$name must be configured on the ${{ inputs.target_environment }} GitHub Environment."
+              missing=1
+            fi
+          done
+
+          exit "$missing"
+
+      - name: Build frontend from rollback tag
+        working-directory: frontend
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_TG_BOT_NAME: ${{ vars.VITE_TG_BOT_NAME }}
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+        run: |
+          npm ci
+          npm run build
+
+      - name: Prepare rollback Fly configs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cat > /tmp/fly-api.toml <<EOF
+          app = "$FLY_API_APP"
+          primary_region = "$FLY_PRIMARY_REGION"
+          kill_signal = "SIGTERM"
+          kill_timeout = 30
+
+          [processes]
+            app = "node dist/index.js"
+
+          [http_service]
+            internal_port = 3000
+            force_https = true
+            auto_stop_machines = false
+            auto_start_machines = true
+            min_machines_running = 1
+            processes = ["app"]
+
+          [[vm]]
+            size = "shared-cpu-1x"
+            memory = "512mb"
+            cpus = 1
+            cpu_kind = "shared"
+          EOF
+
+          cat > /tmp/fly-worker.toml <<EOF
+          app = "$FLY_WORKER_APP"
+          primary_region = "$FLY_PRIMARY_REGION"
+          kill_signal = "SIGTERM"
+          kill_timeout = 60
+
+          [processes]
+            app = "npm run worker"
+
+          [[restart]]
+            policy = "always"
+            retries = 10
+            processes = ["app"]
+
+          [[vm]]
+            size = "shared-cpu-1x"
+            memory = "512mb"
+            cpus = 1
+            cpu_kind = "shared"
+          EOF
+
+      - name: Redeploy previous backend and worker images
+        run: |
+          flyctl scale count 0 --app "$FLY_WORKER_APP" --yes
+          flyctl deploy \
+            --config /tmp/fly-api.toml \
+            --image "registry.fly.io/$FLY_API_APP:$ROLLBACK_RELEASE_TAG" \
+            --strategy immediate \
+            --yes
+          flyctl deploy \
+            --config /tmp/fly-worker.toml \
+            --image "registry.fly.io/$FLY_WORKER_APP:$ROLLBACK_RELEASE_TAG" \
+            --strategy immediate \
+            --yes
+          flyctl scale count 1 --app "$FLY_WORKER_APP" --yes
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Redeploy frontend from rollback tag
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          rollback_sha="$(git rev-parse HEAD)"
+          npx wrangler@latest pages deploy frontend/dist \
+            --project-name "$CLOUDFLARE_PAGES_PROJECT" \
+            --branch "$FRONTEND_PAGES_BRANCH" \
+            --commit-hash "$rollback_sha" \
+            --commit-message "rollback $ROLLBACK_RELEASE_TAG"
+
+      - name: Rollback summary
+        run: |
+          {
+            echo "## Rollback summary"
+            echo
+            echo "- Environment: \`${{ inputs.target_environment }}\`"
+            echo "- Rollback release tag: \`$ROLLBACK_RELEASE_TAG\`"
+            echo "- Backend image: \`registry.fly.io/$FLY_API_APP:$ROLLBACK_RELEASE_TAG\`"
+            echo "- Worker image: \`registry.fly.io/$FLY_WORKER_APP:$ROLLBACK_RELEASE_TAG\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  release:
+    name: Tag release and publish changelog
+    if: ${{ inputs.action == 'deploy' }}
+    needs:
+      - preflight
+      - deploy
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ needs.preflight.outputs.release_tag }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create changelog
+        shell: bash
+        env:
+          TARGET_ENVIRONMENT: ${{ inputs.target_environment }}
+          STAGING_DRILL_RUN_URL: ${{ inputs.staging_drill_run_url }}
+        run: |
+          set -euo pipefail
+
+          previous_tag="$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || true)"
+
+          {
+            echo "# $RELEASE_TAG"
+            echo
+            echo "- Environment: \`$TARGET_ENVIRONMENT\`"
+            echo "- Commit: \`$GITHUB_SHA\`"
+            echo "- Workflow run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            if [[ -n "$STAGING_DRILL_RUN_URL" ]]; then
+              echo "- Staging drill evidence: $STAGING_DRILL_RUN_URL"
+            fi
+            echo
+            echo "## Changes"
+            if [[ -n "$previous_tag" ]]; then
+              git log --pretty=format:'- %s (%h)' "$previous_tag..HEAD"
+            else
+              git log --max-count=50 --pretty=format:'- %s (%h)'
+            fi
+            echo
+          } > release-changelog.md
+
+      - name: Push git tag and GitHub release
+        shell: bash
+        env:
+          TARGET_ENVIRONMENT: ${{ inputs.target_environment }}
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$RELEASE_TAG" -m "Release $RELEASE_TAG"
+          git push origin "refs/tags/$RELEASE_TAG"
+
+          release_args=(
+            release create "$RELEASE_TAG"
+            --target "$GITHUB_SHA"
+            --title "$RELEASE_TAG"
+            --notes-file release-changelog.md
+          )
+
+          if [[ "$TARGET_ENVIRONMENT" != "production" ]]; then
+            release_args+=(--prerelease)
+          fi
+
+          gh "${release_args[@]}"

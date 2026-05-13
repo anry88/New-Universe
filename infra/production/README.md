@@ -5,8 +5,10 @@ This directory is the production infrastructure planning surface for New Univers
 ## Files
 
 - **`README.md`** - production infrastructure runbook for the initial near-free deployment target. Describes the chosen providers, bootstrap order, environment-variable ownership, deploy/rollback flow, and the boundaries for future automation.
+- **`.github/workflows/deploy.yml`** - manual GitHub Actions deployment workflow for staging and production. It is environment-gated, pauses the worker before migrations, deploys Fly.io API/worker runtimes, deploys Cloudflare Pages, creates release tags/changelogs, and supports tagged rollback.
 
 Related production plan: [`docs/production/environment.md`](../../docs/production/environment.md).
+Release workflow: [`docs/production/release-workflow.md`](../../docs/production/release-workflow.md).
 
 ## Chosen first target
 
@@ -27,7 +29,7 @@ Do not add irreversible automation before the manual path has been executed once
 2. Register or choose domains and HTTPS origins.
 3. Create Neon Postgres and Upstash Redis.
 4. Create backend and worker runtime apps.
-5. Add runtime secrets to provider secret stores.
+5. Add runtime secrets to the target GitHub Environment; the deploy workflow stages them into the Fly app secret stores before each deploy.
 6. Run local CI parity before first deploy when Docker is available:
 
 ```bash
@@ -87,6 +89,8 @@ For the first manual deploy, use immutable image or deployment identifiers even 
 
 Do not run migrations from multiple places. Do not start the worker until migrations are complete.
 
+Once the provider projects and GitHub Environments exist, prefer dispatching [`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml) over running the steps manually. The workflow mirrors approved GitHub Environment runtime values into Fly secrets before deployment. The manual sequence remains the fallback for diagnosing provider setup problems.
+
 ## Rollback runbook
 
 1. If the incident involves duplicated jobs, resource mutation, or schema mismatch, stop the worker first.
@@ -98,7 +102,7 @@ Do not run migrations from multiple places. Do not start the worker until migrat
 
 ## Automation boundaries
 
-Future automation may add provider manifests or GitHub Actions deploy workflows here, but it must preserve these boundaries:
+Provider manifests and future deploy helpers may be added here, but they must preserve these boundaries:
 
 - Secrets are referenced by name only, never materialized in git.
 - Migrations run as an explicit single step before worker rollout.
