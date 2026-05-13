@@ -97,8 +97,8 @@ function destinationOwnedColony(destination: JumpGateKnownDestinationSummary) {
 /**
  * Galaxy / system map — Cosmic Atlas chrome around the existing PixiJS
  * renderer. The renderer keeps owning the pan/zoom and orbit visuals; this
- * file just supplies the page header, legend strip, and bottom nav so the
- * screen reads as part of the same product as PlanetDetail / Home.
+ * file supplies the page header, sector action, and bottom nav so the screen
+ * reads as part of the same product as PlanetDetail / Home.
  */
 export function SystemMapPage() {
   const { data: meData, isLoading } = useMe();

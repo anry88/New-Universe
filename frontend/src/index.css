@@ -1172,7 +1172,8 @@ body {
   left: 0;
   right: 0;
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   padding: 10px 4px calc(12px + env(safe-area-inset-bottom));
   background: rgba(8, 12, 22, 0.95);
   backdrop-filter: blur(20px);
@@ -1208,6 +1209,7 @@ body {
   gap: 4px;
   padding: 6px 4px 0;
   position: relative;
+  min-width: 0;
   background: none;
   border: 0;
   cursor: pointer;
