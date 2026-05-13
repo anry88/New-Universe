@@ -22,6 +22,7 @@ import {
 } from "../lib/ship-build-eligibility";
 import { resolveBuildingType } from "../components/cosmic/buildings";
 import { isCargoTransferShip, isCargoTransferShipType } from "../lib/fleet";
+import type { ExpeditionRouteMode } from "@shared/config/expeditionRouting";
 
 const SHIP_CLASS_TAG: Record<string, string> = {
   scout: "SCOUT",
@@ -66,6 +67,13 @@ export function ShipsPage() {
     new URLSearchParams(location.search).get("tab") === "shipyard"
       ? "shipyard"
       : "fleet";
+  const jumpGateDestinationSystemId =
+    new URLSearchParams(location.search).get("destinationSystemId");
+  const requestedInitialRouteMode: ExpeditionRouteMode =
+    new URLSearchParams(location.search).get("route") === "jump_gate" &&
+    jumpGateDestinationSystemId
+      ? "jump_gate"
+      : "local";
 
   const getShipType = (typeId: string) =>
     shipTypes?.find((t) => t.id === typeId);
@@ -150,6 +158,11 @@ export function ShipsPage() {
         .map((exp) => [exp.shipId, exp]),
     );
   }, [meData?.expeditions]);
+  const selectedShipType = selectedShip ? getShipType(selectedShip.typeId) : null;
+  const selectedShipSupportsJumpGate =
+    selectedShipType?.role === "recon" ||
+    selectedShipType?.role === "colonization" ||
+    selectedShip?.typeId === "colonizer";
 
   return (
     <div
@@ -508,14 +521,20 @@ export function ShipsPage() {
       <CosmicBottomNav />
 
       {selectedShip &&
-        getShipType(selectedShip.typeId) &&
-        !isCargoTransferShipType(getShipType(selectedShip.typeId)) && (
+        selectedShipType &&
+        !isCargoTransferShipType(selectedShipType) && (
         <ExpeditionDialog
           ship={selectedShip}
-          shipType={getShipType(selectedShip.typeId)!}
+          shipType={selectedShipType}
           originX={Number(origin.sectorX)}
           originY={Number(origin.sectorY)}
           originZ={Number(origin.sectorZ)}
+          initialRouteMode={
+            selectedShipSupportsJumpGate ? requestedInitialRouteMode : "local"
+          }
+          initialDestinationSystemId={
+            selectedShipSupportsJumpGate ? jumpGateDestinationSystemId : null
+          }
           onClose={() => setSelectedShip(null)}
         />
       )}

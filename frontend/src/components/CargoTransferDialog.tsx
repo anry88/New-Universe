@@ -17,10 +17,17 @@ import { formatTimerDuration } from '../lib/timers';
 
 interface CargoTransferDialogProps {
   originPlanet: Planet;
+  initialTargetPlanetId?: string | null;
+  initialUseJumpGateRoute?: boolean;
   onClose: () => void;
 }
 
-export function CargoTransferDialog({ originPlanet, onClose }: CargoTransferDialogProps) {
+export function CargoTransferDialog({
+  originPlanet,
+  initialTargetPlanetId,
+  initialUseJumpGateRoute,
+  onClose,
+}: CargoTransferDialogProps) {
   const queryClient = useQueryClient();
   const { locale, t } = useI18n();
   const { data: meData } = useMe();
@@ -28,10 +35,10 @@ export function CargoTransferDialog({ originPlanet, onClose }: CargoTransferDial
   const { data: shipTypes } = useShipTypes();
   
   const [selectedShipId, setSelectedShipId] = useState<string>('');
-  const [targetPlanetId, setTargetPlanetId] = useState<string>('');
+  const [targetPlanetId, setTargetPlanetId] = useState<string>(initialTargetPlanetId ?? '');
   const [cargo, setCargo] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
-  const [useJumpGateRoute, setUseJumpGateRoute] = useState(false);
+  const [useJumpGateRoute, setUseJumpGateRoute] = useState(Boolean(initialUseJumpGateRoute));
 
   const availableShips = useMemo(() =>
     meData?.ships?.filter((ship) =>
