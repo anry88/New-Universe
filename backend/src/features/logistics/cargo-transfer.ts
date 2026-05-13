@@ -1,6 +1,7 @@
 import { db as defaultDb } from '../../db/index.js';
 import {
   expeditions,
+  planets,
   ships,
   shipTypes,
   notifications,
@@ -28,6 +29,7 @@ import {
   JUMP_FUEL_RESOURCE_ID,
   JUMP_GATE_JUMP_FUEL_COST,
 } from '@shared/config/expeditionRouting.js';
+import { systemMapPlanetDistanceLy } from '@shared/format/systemMapLayout.js';
 import { getJumpGateState } from '../jump-gate/service.js';
 import { env } from '../../lib/env.js';
 
@@ -115,6 +117,7 @@ function systemForSettlement(settlement: PlayerPlanetSettlement) {
     sectorX: number;
     sectorY: number;
     sectorZ: number;
+    seed: number;
   };
 }
 
@@ -232,10 +235,24 @@ async function buildCargoTransferPlan(
     throw new Error(`Cargo (${totalCargo}) exceeds ship capacity (${ship.cargoCapacity})`);
   }
 
-  const requestedDistance = calculateSectorRouteDistance(
-    { x: Number(originSystem.sectorX), y: Number(originSystem.sectorY) },
-    { x: Number(targetSystem.sectorX), y: Number(targetSystem.sectorY) },
-  );
+  let requestedDistance: number;
+  if (interSystemTransfer) {
+    requestedDistance = calculateSectorRouteDistance(
+      { x: Number(originSystem.sectorX), y: Number(originSystem.sectorY) },
+      { x: Number(targetSystem.sectorX), y: Number(targetSystem.sectorY) },
+    );
+  } else {
+    const systemPlanets = await database.query.planets.findMany({
+      where: eq(planets.systemId, originSettlement.planet.systemId),
+    });
+    requestedDistance =
+      systemMapPlanetDistanceLy(
+        systemPlanets,
+        Number(originSystem.seed),
+        originSettlement.planet.id,
+        targetSettlement.planet.id,
+      ) ?? 0;
+  }
   const travelDistance = Math.max(1, requestedDistance);
   const fuelRequired = calculateExpeditionRequiredFuel(
     travelDistance,

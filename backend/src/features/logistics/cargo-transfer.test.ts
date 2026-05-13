@@ -23,7 +23,9 @@ import { processArriveCargo } from '../../workers/cargo-routes.js';
 import {
   JUMP_FUEL_RESOURCE_ID,
   JUMP_GATE_JUMP_FUEL_COST,
+  calculateExpeditionEtaSeconds,
 } from '@shared/config/expeditionRouting.js';
+import { systemMapPlanetDistanceLy } from '@shared/format/systemMapLayout.js';
 
 describe('cargoTransfer', () => {
   let userId: string;
@@ -504,6 +506,48 @@ describe('cargoTransfer', () => {
     expect(result.expedition.targetPlanetId).toBe(capitalPlanetId);
   });
 
+  it('uses same-system planet-map distance for standard cargo ETA and fuel', async () => {
+    const [ship] = await db.insert(ships).values({
+      ownerId: userId,
+      typeId: 'cargo_light',
+      locationPlanetId: originPlanetId,
+      status: 'idle',
+    }).returning();
+
+    const origin = await db.query.planets.findFirst({
+      where: eq(planets.id, originPlanetId),
+    });
+    const homeSystem = await db.query.systems.findFirst({
+      where: eq(systems.id, origin!.systemId),
+    });
+    const systemPlanets = await db.query.planets.findMany({
+      where: eq(planets.systemId, origin!.systemId),
+    });
+    const expectedDistance = systemMapPlanetDistanceLy(
+      systemPlanets,
+      homeSystem!.seed,
+      originPlanetId,
+      capitalPlanetId,
+    );
+    expect(expectedDistance).not.toBeNull();
+    expect(expectedDistance).toBeGreaterThan(1);
+
+    const preview = await previewCargoTransfer(userId, {
+      shipId: ship.id,
+      targetPlanetId: capitalPlanetId,
+      resources: [{ resourceId: 'iron', amount: 10 }],
+    });
+
+    expect(preview.preview.distance).toBeCloseTo(expectedDistance!, 6);
+    expect(preview.preview.requestedDistance).toBeCloseTo(expectedDistance!, 6);
+    expect(preview.preview.etaSeconds).toBe(
+      calculateExpeditionEtaSeconds(expectedDistance!, preview.preview.speed, 1),
+    );
+    expect(preview.preview.fuelRequired).toBe(
+      Math.ceil(expectedDistance! * 0.8),
+    );
+  });
+
   it('rejects Jump Gate cargo transfer without stored Jump Fuel', async () => {
     const homeSystem = await db.query.systems.findFirst({
       where: and(eq(systems.ownerId, userId), eq(systems.isHome, true)),
@@ -728,5 +772,53 @@ describe('cargoTransfer', () => {
     expect(updatedShip?.status).toBe('idle');
     expect(updatedShip?.locationPlanetId).toBe(targetPlanetId);
     expect(updatedShip?.cargoJson).toEqual({});
+  });
+
+  it('delivers cargo into a target stockpile that does not yet have that resource row', async () => {
+    await db.insert(planetResources).values({
+      planetId: originPlanetId,
+      resourceId: 'sulfur',
+      amount: '75.0000',
+      regenRate: '0',
+    }).onConflictDoUpdate({
+      target: [planetResources.planetId, planetResources.resourceId],
+      set: { amount: '75.0000', regenRate: '0' },
+    });
+    await db
+      .delete(planetResources)
+      .where(and(
+        eq(planetResources.planetId, capitalPlanetId),
+        eq(planetResources.resourceId, 'sulfur'),
+      ));
+
+    const [ship] = await db.insert(ships).values({
+      ownerId: userId,
+      typeId: 'cargo_light',
+      locationPlanetId: originPlanetId,
+      status: 'idle',
+    }).returning();
+
+    const transfer = await launchCargoTransfer(userId, {
+      shipId: ship.id,
+      targetPlanetId: capitalPlanetId,
+      resources: [{ resourceId: 'sulfur', amount: 25 }],
+    });
+
+    await processArriveCargo({
+      id: 'cargo-transfer-missing-resource-row',
+      data: {
+        expeditionId: transfer.expedition.id,
+        shipId: ship.id,
+      },
+    });
+
+    const delivered = await db.query.planetResources.findFirst({
+      where: and(
+        eq(planetResources.planetId, capitalPlanetId),
+        eq(planetResources.resourceId, 'sulfur'),
+      ),
+    });
+    expect(Number(delivered?.amount)).toBe(25);
+    expect(Number(delivered?.regenRate)).toBe(0);
   });
 });

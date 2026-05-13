@@ -130,6 +130,23 @@ describe('Resource Transactions', () => {
     expect(result.balanceAfter?.['test-water']).toBeCloseTo(75, 0);
   });
 
+  it('should create a zero-regen stockpile row when gaining a new resource', async () => {
+    const planetId = await createTestPlanet();
+
+    const result = await gainResources(planetId, [
+      { resourceId: 'test-water', amount: 25 },
+    ]);
+
+    expect(result.success).toBe(true);
+    expect(result.balanceAfter?.['test-water']).toBeCloseTo(25, 0);
+
+    const record = await db.query.planetResources.findFirst({
+      where: (pr, { eq }) => and(eq(pr.planetId, planetId), eq(pr.resourceId, 'test-water')),
+    });
+    expect(Number(record?.amount)).toBe(25);
+    expect(Number(record?.regenRate)).toBe(0);
+  });
+
   it('should sync last_update_at with spend', async () => {
     const planetId = await createTestPlanet();
 

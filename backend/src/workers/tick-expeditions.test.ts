@@ -835,4 +835,127 @@ describe("Tick Expeditions Worker", () => {
     expect(commandCenter!.level).toBe(1);
     expect(commandCenter!.slotIndex).toBe(0);
   });
+
+  it("does not turn a launched colonizer around when cooldown changes before arrival", async () => {
+    const user = await createTestUser();
+
+    await db.insert(researchProgress).values([
+      { userId: user.id, branch: "engineering", level: 2 },
+      { userId: user.id, branch: "logistics", level: 2 },
+    ]);
+
+    const [homeSystem] = await db
+      .insert(systems)
+      .values({
+        name: "Home Colonizer Cooldown Test",
+        sectorX: 31,
+        sectorY: 32,
+        sectorZ: 33,
+        x: "0.00",
+        y: "0.00",
+        z: "0.00",
+        seed: 555,
+        ownerId: user.id,
+        isHome: true,
+      })
+      .returning();
+
+    const [capital] = await db
+      .insert(planets)
+      .values({
+        systemId: homeSystem.id,
+        name: "Cooldown Capital",
+        biome: "green",
+        size: 22,
+        slotCount: 18,
+      })
+      .returning();
+
+    const [recentColonyPlanet] = await db
+      .insert(planets)
+      .values({
+        systemId: homeSystem.id,
+        name: "Recent Colony",
+        biome: "rocky",
+        size: 12,
+        slotCount: 9,
+      })
+      .returning();
+
+    const [target] = await db
+      .insert(planets)
+      .values({
+        systemId: homeSystem.id,
+        name: "Cooldown Target",
+        biome: "ice",
+        size: 12,
+        slotCount: 9,
+      })
+      .returning();
+
+    await db.insert(colonies).values({
+      ownerId: user.id,
+      planetId: recentColonyPlanet.id,
+      foundedAt: new Date(),
+    });
+
+    await db.insert(richness).values({
+      planetId: target.id,
+      resourceId: "iron",
+      value: 2,
+    });
+
+    await db.insert(discoveredPlanets).values([
+      { userId: user.id, planetId: capital.id },
+      { userId: user.id, planetId: target.id },
+    ]);
+
+    const [ship] = await db
+      .insert(ships)
+      .values({
+        ownerId: user.id,
+        typeId: "colonizer",
+        locationPlanetId: capital.id,
+        status: "moving",
+      })
+      .returning();
+
+    const [expedition] = await db
+      .insert(expeditions)
+      .values({
+        shipId: ship.id,
+        type: "colonizer",
+        originPlanetId: capital.id,
+        targetX: homeSystem.sectorX.toString(),
+        targetY: homeSystem.sectorY.toString(),
+        targetZ: homeSystem.sectorZ.toString(),
+        targetPlanetId: target.id,
+        status: "in_flight",
+        eta: new Date(Date.now() - 1000),
+        result: {
+          distance: 1,
+          speed: 10,
+          engineFactor: 1,
+          returnTrip: false,
+        },
+      })
+      .returning();
+
+    await processExpeditions();
+
+    const storedExpedition = await db.query.expeditions.findFirst({
+      where: eq(expeditions.id, expedition.id),
+    });
+    expect(storedExpedition).toBeUndefined();
+
+    const storedShip = await db.query.ships.findFirst({
+      where: eq(ships.id, ship.id),
+    });
+    expect(storedShip).toBeUndefined();
+
+    const colony = await db.query.colonies.findFirst({
+      where: and(eq(colonies.ownerId, user.id), eq(colonies.planetId, target.id)),
+    });
+    expect(colony).toBeDefined();
+  });
 });

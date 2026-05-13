@@ -13,8 +13,6 @@ import {
   buildings,
 } from "../db/schema.js";
 import { bootstrapColony } from "../features/colonies/bootstrap.js";
-import { checkColonizationGates } from "../features/colonies/colonization-rules.js";
-import { colonyService } from "../features/colonies/colonies.js";
 
 import { and, eq, inArray, or } from "drizzle-orm";
 
@@ -264,8 +262,8 @@ async function handleArrivalAtTarget(
   // ship, plant a level-1 command_center instantly, bootstrap the colony,
   // and complete the expedition (no return trip).
   if (expedition.type === "colonizer" && expedition.targetPlanetId) {
-    const colonized = await autoColonizeAtTarget(expedition, tx, options);
-    if (colonized) {
+    const colonization = await autoColonizeAtTarget(expedition, tx, options);
+    if (colonization.consumed) {
       await tx.delete(expeditions).where(eq(expeditions.id, expedition.id));
       logger.info(
         {
@@ -273,12 +271,23 @@ async function handleArrivalAtTarget(
           shipId: expedition.shipId,
           planetId: expedition.targetPlanetId,
         },
-        "Colonizer arrived: planted command center and consumed ship",
+        colonization.founded
+          ? "Colonizer arrived: planted command center and consumed ship"
+          : "Colonizer arrived: consumed one-way mission without return",
       );
       return;
     }
-    // Fall-through if colonization gates failed — start the return trip so
-    // the ship comes home rather than getting stuck in space.
+    logger.warn(
+      {
+        expeditionId: expedition.id,
+        shipId: expedition.shipId,
+        planetId: expedition.targetPlanetId,
+      },
+      "Colonizer arrived but could not claim target; consuming one-way mission",
+    );
+    await tx.delete(expeditions).where(eq(expeditions.id, expedition.id));
+    await tx.delete(ships).where(eq(ships.id, expedition.shipId));
+    return;
   }
 
   // Start return journey from the moment we SHOULD have arrived
@@ -301,8 +310,9 @@ async function handleArrivalAtTarget(
 
 /**
  * Performs in-flight colonization when a colonizer ship arrives at its
- * target. Returns true if a colony was created, false if the planet was
- * ineligible (in which case the caller should send the ship home).
+ * target. Reports whether the one-way colonizer mission has been consumed:
+ * either the target colony was founded, or a stale/racing target claim spent
+ * the hull instead of creating a return trip.
  *
  * Mirrors `foundColony` but is callable inside an existing transaction.
  */
@@ -310,48 +320,72 @@ async function autoColonizeAtTarget(
   expedition: typeof expeditions.$inferSelect,
   tx: any,
   options: { skipNotifications?: boolean } = {},
-): Promise<boolean> {
-  if (!expedition.targetPlanetId) return false;
+): Promise<{ consumed: boolean; founded: boolean }> {
+  if (!expedition.targetPlanetId) return { consumed: false, founded: false };
 
   const [ship] = await tx
     .select()
     .from(ships)
     .where(eq(ships.id, expedition.shipId))
     .limit(1);
-  if (!ship) return false;
+  if (!ship) return { consumed: true, founded: false };
 
-  // Gate checks (research, distance, cooldown, planet eligibility). If
-  // any gate fails the colonizer turns around and flies home.
-  const gates = await checkColonizationGates(
-    ship.ownerId,
-    expedition.targetPlanetId,
-  );
-  if (!gates.allowed) {
+  const [target] = await tx
+    .select({
+      isHome: systems.isHome,
+      ownerId: systems.ownerId,
+    })
+    .from(planets)
+    .innerJoin(systems, eq(systems.id, planets.systemId))
+    .where(eq(planets.id, expedition.targetPlanetId))
+    .limit(1);
+  if (!target) {
     logger.warn(
       {
         expeditionId: expedition.id,
         shipId: expedition.shipId,
-        reason: gates.reason,
+        planetId: expedition.targetPlanetId,
       },
-      "Colonizer arrival blocked by gates, returning home",
+      "Colonizer target vanished before arrival; consuming one-way mission",
     );
-    return false;
+    await tx.delete(ships).where(eq(ships.id, expedition.shipId));
+    return { consumed: true, founded: false };
   }
 
-  const eligibility = await colonyService.canColonize(
-    ship.ownerId,
-    expedition.targetPlanetId,
-  );
-  if (!eligibility.allowed) {
+  if (target.isHome && target.ownerId !== ship.ownerId) {
     logger.warn(
       {
         expeditionId: expedition.id,
         shipId: expedition.shipId,
-        reason: eligibility.reason,
+        planetId: expedition.targetPlanetId,
       },
-      "Colonizer arrival blocked: planet ineligible, returning home",
+      "Colonizer arrival blocked by protected home system",
     );
-    return false;
+    await tx.delete(ships).where(eq(ships.id, expedition.shipId));
+    return { consumed: true, founded: false };
+  }
+
+  const [existingCommandCenter] = await tx
+    .select({ id: buildings.id })
+    .from(buildings)
+    .where(
+      and(
+        eq(buildings.planetId, expedition.targetPlanetId),
+        eq(buildings.typeId, "command_center"),
+      ),
+    )
+    .limit(1);
+  if (existingCommandCenter) {
+    logger.warn(
+      {
+        expeditionId: expedition.id,
+        shipId: expedition.shipId,
+        planetId: expedition.targetPlanetId,
+      },
+      "Colonizer target already has a command center; consuming one-way mission",
+    );
+    await tx.delete(ships).where(eq(ships.id, expedition.shipId));
+    return { consumed: true, founded: false };
   }
 
   // Claim the planet before consuming the hull so a duplicate/racing arrival
@@ -364,7 +398,18 @@ async function autoColonizeAtTarget(
     })
     .onConflictDoNothing({ target: colonies.planetId })
     .returning();
-  if (!createdColony) return false;
+  if (!createdColony) {
+    logger.warn(
+      {
+        expeditionId: expedition.id,
+        shipId: expedition.shipId,
+        planetId: expedition.targetPlanetId,
+      },
+      "Colonizer target was claimed before arrival; consuming one-way mission",
+    );
+    await tx.delete(ships).where(eq(ships.id, expedition.shipId));
+    return { consumed: true, founded: false };
+  }
 
   // Consume the ship: the colonizer hull becomes the command center.
   await tx.delete(ships).where(eq(ships.id, expedition.shipId));
@@ -392,7 +437,7 @@ async function autoColonizeAtTarget(
     });
   }
 
-  return true;
+  return { consumed: true, founded: true };
 }
 
 async function handleArrivalAtHome(
