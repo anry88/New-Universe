@@ -100,6 +100,7 @@ export type ResourceId =
   | 'cobalt'
   | 'silicon_carbide'
   | 'tritium'
+  | 'jump_fuel'
   | 'antimatter'
   | 'dark_matter'
   | 'iridium'

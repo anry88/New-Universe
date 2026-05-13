@@ -5,10 +5,14 @@ import { useMe } from '../hooks/useMe';
 import { Planet } from '@shared/types/world';
 import { apiFetch } from '../lib/api';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { X, Package, Truck, AlertTriangle } from 'lucide-react';
+import { X, Package, Truck, AlertTriangle, Navigation } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
 import type { CargoTransferRequest } from '@shared/types/cargo';
 import { formatCargoTransferError, isCargoTransferShip } from '../lib/fleet';
+import {
+  JUMP_FUEL_RESOURCE_ID,
+  JUMP_GATE_JUMP_FUEL_COST,
+} from '@shared/config/expeditionRouting';
 
 interface CargoTransferDialogProps {
   originPlanet: Planet;
@@ -26,6 +30,7 @@ export function CargoTransferDialog({ originPlanet, onClose }: CargoTransferDial
   const [targetPlanetId, setTargetPlanetId] = useState<string>('');
   const [cargo, setCargo] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
+  const [useJumpGateRoute, setUseJumpGateRoute] = useState(false);
 
   const availableShips = useMemo(() =>
     meData?.ships?.filter((ship) =>
@@ -41,9 +46,21 @@ export function CargoTransferDialog({ originPlanet, onClose }: CargoTransferDial
   
   const selectedShip = availableShips.find(s => s.id === selectedShipId);
   const selectedShipType = selectedShip && shipTypes?.find(t => t.id === selectedShip.typeId);
+  const selectedTargetPlanet = targetPlanets.find(p => p.id === targetPlanetId);
 
   const totalCargo = Object.values(cargo).reduce((a, b) => a + b, 0);
   const capacity = selectedShipType?.cargo || 0;
+  const jumpFuelAvailable = Math.floor(
+    Number(originPlanet.resources?.find(r => r.resourceId === JUMP_FUEL_RESOURCE_ID)?.amount ?? 0),
+  );
+  const jumpFuelReservedAsCargo = Math.floor(Number(cargo[JUMP_FUEL_RESOURCE_ID] ?? 0));
+  const jumpFuelAvailableForRoute = Math.max(0, jumpFuelAvailable - jumpFuelReservedAsCargo);
+  const isInterSystemTarget = Boolean(
+    selectedTargetPlanet && selectedTargetPlanet.systemId !== originPlanet.systemId,
+  );
+  const jumpGateRouteSelected = isInterSystemTarget && useJumpGateRoute;
+  const jumpFuelRequired = jumpGateRouteSelected ? JUMP_GATE_JUMP_FUEL_COST : 0;
+  const shortOnJumpFuel = jumpFuelRequired > jumpFuelAvailableForRoute;
 
   const transferMutation = useMutation({
     mutationFn: (body: CargoTransferRequest) => apiFetch('/cargo/transfer', {
@@ -65,10 +82,12 @@ export function CargoTransferDialog({ originPlanet, onClose }: CargoTransferDial
     if (!targetPlanetId) return setError(t('cargo.selectTargetError'));
     if (totalCargo <= 0) return setError(t('cargo.addResourcesError'));
     if (totalCargo > capacity) return setError(t('cargo.capacityError'));
+    if (shortOnJumpFuel) return setError(t('cargo.jumpFuelError'));
 
     transferMutation.mutate({
       shipId: selectedShipId,
       targetPlanetId,
+      routeMode: jumpGateRouteSelected ? 'jump_gate' : 'standard',
       resources: Object.entries(cargo)
         .filter(([_, amount]) => amount > 0)
         .map(([resourceId, amount]) => ({
@@ -144,7 +163,10 @@ export function CargoTransferDialog({ originPlanet, onClose }: CargoTransferDial
             <label className="block text-xs font-semibold text-slate-400 uppercase tracking-tighter mb-2">{t('cargo.destination')}</label>
             <select
               value={targetPlanetId}
-              onChange={(e) => setTargetPlanetId(e.target.value)}
+              onChange={(e) => {
+                setTargetPlanetId(e.target.value);
+                setUseJumpGateRoute(false);
+              }}
               className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-cyan-500 transition-colors"
             >
               <option value="">{t('cargo.selectColony')}</option>
@@ -152,6 +174,23 @@ export function CargoTransferDialog({ originPlanet, onClose }: CargoTransferDial
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
+            {isInterSystemTarget ? (
+              <label className="mt-3 flex items-start gap-3 rounded-xl border border-slate-700 bg-slate-800/30 p-3 text-xs text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={useJumpGateRoute}
+                  onChange={(e) => setUseJumpGateRoute(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 accent-cyan-500"
+                />
+                <span className="flex-1">
+                  <span className="flex items-center gap-2 font-semibold text-slate-200">
+                    <Navigation className="h-4 w-4 text-cyan-300" />
+                    {t('cargo.jumpGateRoute')}
+                  </span>
+                  <span className="mt-1 block text-[10px] text-slate-500">{t('cargo.jumpGateRouteHint')}</span>
+                </span>
+              </label>
+            ) : null}
           </section>
 
           {/* Resource Selection */}
@@ -209,10 +248,24 @@ export function CargoTransferDialog({ originPlanet, onClose }: CargoTransferDial
               {totalCargo} / {capacity}
             </div>
           </div>
+          {jumpGateRouteSelected ? (
+            <div className="flex items-start gap-2 mb-4 px-1 text-xs text-slate-300">
+              <Navigation className="w-4 h-4 text-cyan-300 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <div className="flex justify-between gap-3 font-semibold">
+                  <span>{t('cargo.jumpFuelCost')}</span>
+                  <span className={shortOnJumpFuel ? 'text-amber-300' : 'text-cyan-300'}>
+                    {jumpFuelRequired} / {jumpFuelAvailableForRoute}
+                  </span>
+                </div>
+                <div className="text-[10px] text-slate-500 mt-0.5">{t('cargo.jumpFuelHint')}</div>
+              </div>
+            </div>
+          ) : null}
           
           <button
             onClick={handleTransfer}
-            disabled={transferMutation.isPending || !selectedShipId || !targetPlanetId || totalCargo <= 0 || totalCargo > capacity}
+            disabled={transferMutation.isPending || !selectedShipId || !targetPlanetId || totalCargo <= 0 || totalCargo > capacity || shortOnJumpFuel}
             className="w-full bg-cyan-500 hover:bg-cyan-400 disabled:bg-slate-700 disabled:text-slate-500 text-slate-950 font-bold py-3 rounded-xl transition-all shadow-[0_4px_20px_rgba(6,182,212,0.2)]"
           >
             {transferMutation.isPending ? t('cargo.launching') : t('cargo.initiate')}

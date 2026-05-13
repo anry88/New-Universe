@@ -24,10 +24,14 @@ import { loadUserResearchLevels, meetsResearchRequirement } from '../research/ga
 const HOME_GATE_ORBIT_SLOT = 10;
 const KNOWN_DESTINATION_LIMIT = 10;
 
+type JumpGateDatabase = typeof defaultDb;
+type JumpGateTransaction = Parameters<Parameters<JumpGateDatabase['transaction']>[0]>[0];
+type JumpGateDataSource = JumpGateDatabase | JumpGateTransaction;
+
 interface GetJumpGateStateOptions {
   now?: Date;
   knownDestinationLimit?: number;
-  database?: typeof defaultDb;
+  database?: JumpGateDataSource;
 }
 
 function serializeDate(value: Date | string | null | undefined): string | null {
@@ -118,7 +122,7 @@ function randomJumpAvailability(
 async function ensureGateRow(
   userId: string,
   homeSystemId: string,
-  database: typeof defaultDb,
+  database: JumpGateDataSource,
 ): Promise<typeof jumpGates.$inferSelect> {
   const now = new Date();
   const [gate] = await database
@@ -147,7 +151,7 @@ async function ensureGateRow(
 async function finalizeDueCalibration(
   gate: typeof jumpGates.$inferSelect,
   now: Date,
-  database: typeof defaultDb,
+  database: JumpGateDataSource,
 ): Promise<typeof jumpGates.$inferSelect> {
   if (
     gate.calibrationStatus !== 'calibrating' ||
@@ -171,7 +175,7 @@ async function finalizeDueCalibration(
 
 async function loadKnownDestinations(
   userId: string,
-  database: typeof defaultDb,
+  database: JumpGateDataSource,
   limit: number,
 ): Promise<JumpGateKnownDestinationSummary[]> {
   const rows = await database
@@ -232,7 +236,7 @@ async function loadKnownDestinations(
 async function loadKnownDestinationPlanets(
   userId: string,
   systemIds: string[],
-  database: typeof defaultDb,
+  database: JumpGateDataSource,
 ): Promise<Map<string, JumpGateDestinationPlanetSummary[]>> {
   if (systemIds.length === 0) return new Map();
 

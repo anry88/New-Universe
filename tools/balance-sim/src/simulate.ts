@@ -26,7 +26,7 @@ const COMMAND_CENTER_TYPE_ID = 'command_center';
 
 const DT = 60;
 const CATALOG_NOTE =
-  'Mirrors backend seeds/config listed in tools/balance-sim/README.md; update catalog.ts when seeds change.';
+  'Mirrors backend seeds/config listed in tools/balance-sim/README.md, including stored Jump Fuel recipe/cost constants; update catalog.ts when seeds change.';
 
 function depsSatisfied(typeId: BuildingId, levels: Record<string, number>): boolean {
   const meta = BUILDINGS[typeId];

@@ -5,7 +5,8 @@ import {
   calculateExpeditionEtaSeconds,
   calculateExpeditionRequiredFuel,
   calculateSectorRouteDistance,
-  JUMP_GATE_SHIP_FUEL_COST,
+  JUMP_FUEL_RESOURCE_ID,
+  JUMP_GATE_JUMP_FUEL_COST,
 } from "@shared/config/expeditionRouting.js";
 import { db as defaultDb } from "../../db/index.js";
 import {
@@ -49,7 +50,6 @@ type ShipLaunchRow = {
   shipRole: string;
   shipSpeed: string;
   shipFuelConsumption: string;
-  shipFuel: string;
   shipCargoCapacity: number;
   originSystemId: string;
   originSystemSeed: number;
@@ -152,7 +152,6 @@ export async function launchExpedition(
       shipRole: shipTypes.role,
       shipSpeed: shipTypes.speed,
       shipFuelConsumption: shipTypes.fuelConsumption,
-      shipFuel: ships.fuel,
       shipCargoCapacity: shipTypes.cargo,
       originSystemId: systems.id,
       originSystemSeed: systems.seed,
@@ -279,14 +278,7 @@ export async function launchExpedition(
       };
     }
 
-    jumpFuelRequired = JUMP_GATE_SHIP_FUEL_COST;
-    if (Number(shipRow.shipFuel) < jumpFuelRequired) {
-      return {
-        success: false,
-        status: 400,
-        error: `Insufficient Jump Fuel in tank (required ${jumpFuelRequired})`,
-      };
-    }
+    jumpFuelRequired = JUMP_GATE_JUMP_FUEL_COST;
 
     resolvedDestinationSystemId = destinationSystem.id;
     resolvedTargetX = destinationSystem.sectorX;
@@ -471,11 +463,15 @@ export async function launchExpedition(
       } satisfies LaunchExpeditionResult;
     }
 
-    const fuelSpend = await spendResources(
-      shipRow.shipLocationPlanetId!,
-      [{ resourceId: "fuel", amount: fuelRequired }],
-      tx,
-    );
+    const launchCosts = [{ resourceId: "fuel", amount: fuelRequired }];
+    if (jumpFuelRequired > 0) {
+      launchCosts.push({
+        resourceId: JUMP_FUEL_RESOURCE_ID,
+        amount: jumpFuelRequired,
+      });
+    }
+
+    const fuelSpend = await spendResources(shipRow.shipLocationPlanetId!, launchCosts, tx);
     if (!fuelSpend.success) {
       return {
         success: false,
@@ -519,10 +515,6 @@ export async function launchExpedition(
         jumpFuelRequired,
       },
     };
-    if (routeMode === "jump_gate") {
-      shipUpdate.fuel = (Number(shipRow.shipFuel) - jumpFuelRequired).toFixed(2);
-    }
-
     const [updatedShip] = await tx
       .update(ships)
       .set(shipUpdate)

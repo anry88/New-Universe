@@ -15,6 +15,8 @@ const RESOURCE_META: Record<string, ResourceMeta> = {
   silicon: { symbol: 'Si', full: { en: 'Silicon', ru: 'Кремний' } },
   methane: { symbol: 'CH₄', full: { en: 'Methane', ru: 'Метан' } },
   tritium: { symbol: 'T₂', full: { en: 'Tritium', ru: 'Тритий' } },
+  fuel: { symbol: 'Fuel', full: { en: 'Fuel', ru: 'Топливо' } },
+  jump_fuel: { symbol: 'JF', full: { en: 'Jump Fuel', ru: 'Прыжковое топливо' } },
   carbon: { symbol: 'C', full: { en: 'Carbon', ru: 'Углерод' } },
   copper: { symbol: 'Cu', full: { en: 'Copper', ru: 'Медь' } },
   aluminum: { symbol: 'Al', full: { en: 'Aluminum', ru: 'Алюминий' } },
@@ -32,6 +34,8 @@ const RESOURCE_META: Record<string, ResourceMeta> = {
   dark_matter: { symbol: 'Dm', full: { en: 'Dark Matter', ru: 'Темная материя' } },
   iridium: { symbol: 'Ir', full: { en: 'Iridium', ru: 'Иридий' } },
   biomass: { symbol: 'Bio', full: { en: 'Biomass', ru: 'Биомасса' } },
+  steel: { symbol: 'St', full: { en: 'Steel', ru: 'Сталь' } },
+  electronics: { symbol: 'EC', full: { en: 'Electronics', ru: 'Электроника' } },
   energy: { symbol: '⚡', full: { en: 'Energy', ru: 'Энергия' } },
 };
 

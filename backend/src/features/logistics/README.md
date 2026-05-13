@@ -9,7 +9,7 @@ Interplanetary logistics — cargo transfers between player-owned colonies.
   - Confirms origin and target are player settlements through `features/colonies/ownership.ts`, so the home capital works even though it has no `colonies` row.
   - Normalizes multiple load lines in one transfer order, aggregates duplicate resource ids for reservation/delivery, and enforces the ship cargo capacity limit.
   - Calculates travel ETA based on route distance, ship speed, and research effects.
-  - Reserves resources atomically on the origin planet (via `spendResources`).
+  - Reserves resources atomically on the origin planet (via `spendResources`), adding the shared Jump Fuel surcharge when the request explicitly selects `routeMode='jump_gate'`.
   - Creates a one-way `expeditions` record with type `cargo_transfer`.
   - Sets ship status to `moving` and populates `cargoJson`.
   - Enqueues a BullMQ `arrive_cargo` job for delivery processing.
@@ -23,8 +23,9 @@ Interplanetary logistics — cargo transfers between player-owned colonies.
 3. **Idle**: Ship must be in `idle` status.
 4. **Ship role**: Only logistics-role ships such as `cargo_light` can use `/cargo/transfer`; scouts and colonizers are rejected even if their catalog cargo value is non-zero.
 5. **Distinct**: Source and target must be different planets.
-6. **Atomic reservation**: Resources are deducted from the origin planet within the same DB transaction as the expedition record creation.
-7. **No duplication on cancel**: Resources are reserved up-front; delivery only adds to target when the BullMQ worker or online expedition sync completes the one-way transfer.
+6. **Jump Gate route cost**: Standard logistics transfers keep the existing cargo route. Explicit `routeMode='jump_gate'` transfers must target a different system, require an unlocked, idle Jump Gate, and reserve 50 stored `jump_fuel` from the origin planet.
+7. **Atomic reservation**: Resources and any selected Jump Fuel surcharge are deducted from the origin planet within the same DB transaction as the expedition record creation.
+8. **No duplication on cancel**: Resources are reserved up-front; delivery only adds to target when the BullMQ worker or online expedition sync completes the one-way transfer.
 
 ## Adding a new logistics action
 

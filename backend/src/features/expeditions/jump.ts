@@ -2,19 +2,24 @@ import type {
   JumpGateJumpResponse,
   JumpGateKnownDestinationSummary,
 } from '@shared/types/jump-gate.js';
-import { JUMP_GATE_SHIP_FUEL_COST } from '@shared/config/expeditionRouting.js';
+import {
+  JUMP_FUEL_RESOURCE_ID,
+  JUMP_GATE_JUMP_FUEL_COST,
+} from '@shared/config/expeditionRouting.js';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { db as defaultDb } from '../../db/index.js';
 import {
   discoveredSystems,
   jumpGates,
   planets,
+  planetResources,
   ships,
   systems,
 } from '../../db/schema.js';
 import { getJumpGateState } from '../jump-gate/service.js';
 import { getOrCreateSector } from '../world/sectors.js';
 import { generateSystemsInSector } from '../world/sector-generator.js';
+import { spendResources } from '../resources/transactions.js';
 
 export interface JumpRequest {
   shipId: string;
@@ -214,12 +219,18 @@ async function loadShipContext(
     };
   }
 
-  if (Number(shipRow.fuel) < JUMP_GATE_SHIP_FUEL_COST) {
+  const jumpFuel = await database.query.planetResources.findFirst({
+    where: and(
+      eq(planetResources.planetId, originPlanet.id),
+      eq(planetResources.resourceId, JUMP_FUEL_RESOURCE_ID),
+    ),
+  });
+  if (Number(jumpFuel?.amount ?? 0) < JUMP_GATE_JUMP_FUEL_COST) {
     return {
       error: {
         success: false,
         status: 400,
-        error: `Insufficient Jump Fuel in tank (required ${JUMP_GATE_SHIP_FUEL_COST})`,
+        error: `not enough ${JUMP_FUEL_RESOURCE_ID}`,
       } as JumpResult,
     };
   }
@@ -351,10 +362,22 @@ async function jumpToSystem(params: {
     .where(eq(planets.systemId, targetSystem.id));
 
   const result = await database.transaction(async (tx) => {
+    const jumpFuelSpend = await spendResources(
+      shipRow.locationPlanetId!,
+      [{ resourceId: JUMP_FUEL_RESOURCE_ID, amount: JUMP_GATE_JUMP_FUEL_COST }],
+      tx,
+    );
+    if (!jumpFuelSpend.success) {
+      return {
+        success: false,
+        status: 400,
+        error: jumpFuelSpend.error ?? `not enough ${JUMP_FUEL_RESOURCE_ID}`,
+      } satisfies JumpResult;
+    }
+
     const [updatedShip] = await tx
       .update(ships)
       .set({
-        fuel: (Number(shipRow.fuel) - JUMP_GATE_SHIP_FUEL_COST).toFixed(2),
         locationPlanetId: targetPlanet.id,
       })
       .where(and(
@@ -420,6 +443,7 @@ async function jumpToSystem(params: {
       targetPlanet,
       arrivalPlanetId: targetPlanet.id,
       destination: serializeDestination(targetSystem, planetCount, knownDestination),
+      jumpFuelRequired: JUMP_GATE_JUMP_FUEL_COST,
     };
   });
 

@@ -5,6 +5,11 @@ import { users, planets, systems, ships, planetResources, colonies, researchProg
 import { eq, and } from 'drizzle-orm';
 import { seedShipTypes } from '../../db/seed/ship-types.js';
 import { seedBuildingTypes } from '../../db/seed/building-types.js';
+import { seedResources } from '../../db/seed/resources.js';
+import {
+  JUMP_FUEL_RESOURCE_ID,
+  JUMP_GATE_JUMP_FUEL_COST,
+} from '@shared/config/expeditionRouting.js';
 
 describe('cargoTransfer', () => {
   let userId: string;
@@ -14,6 +19,7 @@ describe('cargoTransfer', () => {
   let cargoShipId: string;
 
   beforeAll(async () => {
+    await seedResources();
     await seedBuildingTypes();
     await seedShipTypes();
 
@@ -26,7 +32,10 @@ describe('cargoTransfer', () => {
 
     await db
       .insert(researchProgress)
-      .values({ userId, branch: 'logistics', level: 1 })
+      .values([
+        { userId, branch: 'logistics', level: 1 },
+        { userId, branch: 'jump_drive', level: 1 },
+      ])
       .onConflictDoUpdate({
         target: [researchProgress.userId, researchProgress.branch],
         set: { level: 1 },
@@ -79,6 +88,7 @@ describe('cargoTransfer', () => {
     await db.insert(planetResources).values([
       { planetId: capitalPlanetId, resourceId: 'iron', amount: '1000', regenRate: '0' },
       { planetId: capitalPlanetId, resourceId: 'silicon', amount: '500', regenRate: '0' },
+      { planetId: capitalPlanetId, resourceId: JUMP_FUEL_RESOURCE_ID, amount: '1000', regenRate: '0' },
     ]);
 
     // Setup target system and planet
@@ -113,6 +123,7 @@ describe('cargoTransfer', () => {
     await db.insert(planetResources).values([
       { planetId: originPlanetId, resourceId: 'iron', amount: '1000', regenRate: '0' },
       { planetId: originPlanetId, resourceId: 'silicon', amount: '500', regenRate: '0' },
+      { planetId: originPlanetId, resourceId: JUMP_FUEL_RESOURCE_ID, amount: '1000', regenRate: '0' },
     ]);
 
     // Setup cargo ship
@@ -124,6 +135,13 @@ describe('cargoTransfer', () => {
     }).returning();
     cargoShipId = ship.id;
   });
+
+  async function resourceAmount(planetId: string, resourceId: string): Promise<number> {
+    const row = await db.query.planetResources.findFirst({
+      where: and(eq(planetResources.planetId, planetId), eq(planetResources.resourceId, resourceId)),
+    });
+    return Number(row?.amount ?? 0);
+  }
 
   it('rejects transfer to non-owned planet', async () => {
     // Create another user's planet
@@ -144,21 +162,29 @@ describe('cargoTransfer', () => {
     })).rejects.toThrow('Target planet is not owned by you');
   });
 
-  it('successfully launches transfer and reserves resources', async () => {
+  it('successfully launches a Jump Gate cargo route and reserves resources', async () => {
     const resources = [
       { resourceId: 'iron', amount: 20 },
       { resourceId: 'silicon', amount: 10 },
     ];
+    const jumpFuelBefore = await resourceAmount(originPlanetId, JUMP_FUEL_RESOURCE_ID);
 
     const result = await launchCargoTransfer(userId, {
       shipId: cargoShipId,
       targetPlanetId,
+      routeMode: 'jump_gate',
       resources
     });
 
     expect(result.success).toBe(true);
     expect(result.expedition).toBeDefined();
     expect(result.expedition.type).toBe('cargo_transfer');
+    const payload = result.expedition.result as any;
+    expect(payload.routeMode).toBe('jump_gate');
+    expect(payload.jumpFuelRequired).toBe(JUMP_GATE_JUMP_FUEL_COST);
+    expect(await resourceAmount(originPlanetId, JUMP_FUEL_RESOURCE_ID)).toBe(
+      jumpFuelBefore - JUMP_GATE_JUMP_FUEL_COST,
+    );
 
     // Verify resources spent on origin
     const ironRes = await db.query.planetResources.findFirst({
@@ -208,6 +234,7 @@ describe('cargoTransfer', () => {
 
     expect(result.success).toBe(true);
     const payload = result.expedition.result as any;
+    expect(payload.routeMode).toBe('standard');
     expect(payload.deliveryMode).toBe('one_way');
     expect(payload.totalCargo).toBe(5000);
     expect(payload.maxCargo).toBe(5000);
@@ -264,6 +291,42 @@ describe('cargoTransfer', () => {
     expect(result.success).toBe(true);
     expect(result.expedition.originPlanetId).toBe(originPlanetId);
     expect(result.expedition.targetPlanetId).toBe(capitalPlanetId);
+  });
+
+  it('rejects Jump Gate cargo transfer without stored Jump Fuel', async () => {
+    const homeSystem = await db.query.systems.findFirst({
+      where: and(eq(systems.ownerId, userId), eq(systems.isHome, true)),
+    });
+    const [originWithoutJumpFuel] = await db.insert(planets).values({
+      systemId: homeSystem!.id,
+      biome: 'rocky',
+      size: 8,
+      slotCount: 6,
+      name: 'Dry Origin Planet',
+    }).returning();
+    await db.insert(colonies).values({
+      ownerId: userId,
+      planetId: originWithoutJumpFuel.id,
+    });
+    await db.insert(planetResources).values({
+      planetId: originWithoutJumpFuel.id,
+      resourceId: 'iron',
+      amount: '100',
+      regenRate: '0',
+    });
+    const [ship] = await db.insert(ships).values({
+      ownerId: userId,
+      typeId: 'cargo_light',
+      locationPlanetId: originWithoutJumpFuel.id,
+      status: 'idle',
+    }).returning();
+
+    await expect(launchCargoTransfer(userId, {
+      shipId: ship.id,
+      targetPlanetId,
+      routeMode: 'jump_gate',
+      resources: [{ resourceId: 'iron', amount: 10 }],
+    })).rejects.toThrow('not enough jump_fuel');
   });
 
   it('rejects transfer if ship is already moving', async () => {

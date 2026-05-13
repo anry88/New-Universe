@@ -37,6 +37,13 @@ export function formatCargoTransferError(message: string | undefined, t: Transla
   if (normalized.includes('target planet not found')) return t('cargo.error.targetNotFound');
   if (normalized.includes('target planet is not owned')) return t('cargo.error.targetNotOwned');
   if (normalized.includes('target planet must be different')) return t('cargo.error.samePlanet');
+  if (normalized.includes('not enough jump_fuel')) return t('cargo.error.insufficientJumpFuel');
+  if (normalized.includes('jump drive research level 1 required')) return t('cargo.error.jumpGateLocked');
+  if (normalized.includes('jump gate is locked')) return t('cargo.error.jumpGateLocked');
+  if (normalized.includes('jump gate calibration is still in progress')) return t('cargo.error.jumpGateCalibrating');
+  if (normalized.includes('jump gate cargo route requires a different target system')) {
+    return t('cargo.error.jumpGateLocal');
+  }
   if (capacityMatch) {
     return t('cargo.error.capacityExceededServer', {
       total: capacityMatch[1]!,
