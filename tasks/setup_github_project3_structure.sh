@@ -235,13 +235,11 @@ area_for_epic() {
     EPIC-P2.3-JUMP-GATE) echo "Expeditions" ;;
     EPIC-P2-OUT) echo "Phase 2 Outline" ;;
     EPIC-P2-COL) echo "Colonization" ;;
-    EPIC-P2-MKT) echo "Market" ;;
     EPIC-P2-RES) echo "Research" ;;
     EPIC-P2-POL) echo "Balance" ;;
     EPIC-P3-OUT) echo "Phase 3 Outline" ;;
     EPIC-P3-MAP) echo "Multiplayer Map" ;;
     EPIC-P3-ALL) echo "Alliances" ;;
-    EPIC-P3-MKT) echo "Player Market" ;;
     EPIC-P4-DEPLOY) echo "Production" ;;
     EPIC-P4-OPS) echo "Ops" ;;
     EPIC-P4-SEC) echo "Security" ;;
@@ -481,7 +479,7 @@ if [[ "${SETUP_ITEMS_ONLY:-}" != "1" ]]; then
   ensure_single_select_field "Epic" "$EPIC_OPTIONS"
   ensure_single_select_field "Size" "S,M,L,XL"
   ensure_single_select_field "Work Type" "Epic,Infra,Schema,API,Worker,UI,Test,Bot,Docs,Feature,Chore,Spike,Deploy,Ops,Security,Analytics,Monetization,Live Ops,Content,Balance,Support"
-  ensure_single_select_field "Area" "Infra,DB,Auth,World,Economy,Buildings,Ships,Expeditions,Frontend,Bot,QA,Phase 2 Outline,Colonization,Market,Research,Balance,Phase 3 Outline,Multiplayer Map,Alliances,Player Market,Production,Ops,Security,Analytics,Monetization,Live Ops,Content,Support,Unknown"
+  ensure_single_select_field "Area" "Infra,DB,Auth,World,Economy,Buildings,Ships,Expeditions,Frontend,Bot,QA,Phase 2 Outline,Colonization,Research,Balance,Phase 3 Outline,Multiplayer Map,Alliances,Production,Ops,Security,Analytics,Monetization,Live Ops,Content,Support,Unknown"
   ensure_single_select_field "Priority" "Now,High,Medium,Low"
   ensure_number_field "Estimate"
   ensure_single_select_field "Verification" "Not run,Local pass,CI pass,Manual needed,Accepted,Blocked"

@@ -4,7 +4,6 @@
  * - backend/src/db/seed/ship-types.ts
  * - shared/config/researchCatalog.ts (canonical tree; re-exported as backend/src/config/research-catalog.ts)
  * - backend/src/config/colonization-rules.ts
- * - backend/src/config/market-prices.ts
  * - backend/src/features/world/biomes.ts (`HOME_SYSTEM_BASE_BIOMES`) / home-system-generator.ts (planet counts, capital slots)
  */
 
@@ -371,45 +370,4 @@ export const RESOURCE_TIER: Record<string, number> = {
   dark_matter: 4,
   iridium: 4,
   biomass: 4,
-};
-
-export const RESOURCE_BASELINE_PRICE: Record<string, number> = {
-  water: 10,
-  iron: 12,
-  carbon: 11,
-  silicon: 14,
-  methane: 13,
-  copper: 44,
-  aluminum: 46,
-  titanium: 55,
-  ice: 42,
-  oil: 45,
-  sulfur: 40,
-  steel: 50,
-  electronics: 54,
-  mercury: 170,
-  magnesium: 165,
-  lead: 160,
-  uranium: 230,
-  cobalt: 190,
-  silicon_carbide: 210,
-  tritium: 280,
-  antimatter: 840,
-  dark_matter: 920,
-  iridium: 780,
-  biomass: 620,
-};
-
-export const TIER_BASELINE_PRICE: Record<number, number> = {
-  1: 12,
-  2: 48,
-  3: 180,
-  4: 720,
-};
-
-export const MARKET_SPREAD_BPS_BY_TIER: Record<number, number> = {
-  1: 900,
-  2: 1200,
-  3: 1700,
-  4: 2500,
 };

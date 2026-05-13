@@ -128,8 +128,8 @@ This document exists for future verification. It records why the roadmap was exp
 
 ## Scope
 
-- P2 expands the current MVP into a broader solo game: colonies, cargo, NPC market, research levels 1-3, and balance/regression tooling.
-- P3 introduces multiplayer surfaces: shared sector presence, alliances, and player-to-player market foundations.
+- P2 expands the current MVP into a broader solo game: colonies, cargo, research levels 1-3, and balance/regression tooling.
+- P3 introduces multiplayer surfaces: shared sector presence and alliances.
 - P4 prepares production launch: deployment, observability, backups, security, analytics, and monetization readiness.
 - P5 defines post-launch live operations: events, content packs, balance loop, and support/admin runbooks.
 
@@ -199,8 +199,8 @@ coverage += `
 | Gate | Required evidence |
 |---|---|
 | MVP playable | P0/P1 issues closed, first-day E2E passes, Telegram auth works, resource/building/ship/expedition loop works |
-| Phase 2 complete | Colonization E2E passes, market flow passes, research levels 1-3 work, balance simulator and P2 regression suite pass |
-| Phase 3 ready | Two-player visibility model is proven, alliance membership works, player market settlement is safe |
+| Phase 2 complete | Colonization E2E passes, research levels 1-3 work, cargo transfer flow passes, balance simulator and P2 regression suite pass |
+| Phase 3 ready | Two-player visibility model is proven and alliance membership works |
 | Launch ready | Staging deploy/rollback succeeds, backups restore, monitoring alerts fire, security checklist passes |
 | Live ops ready | Event framework works, content validation exists, balance review loop and support runbook are usable |
 
@@ -209,7 +209,7 @@ coverage += `
 - P3 is still intentionally lighter than P2 and should be broken down again after Phase 2 regression is stable.
 - Monetization is kept as readiness/design until analytics and security gates are in place.
 - Admin UI is not fully specified yet; P5 support tasks define the runbook first.
-- Deep PvP combat is not covered; current roadmap covers multiplayer presence, alliances, and market before combat.
+- Deep PvP combat is not covered; current roadmap covers multiplayer presence and alliances before combat.
 - Full localization pipeline is represented through content-pack validation, but not yet through translator workflow tasks.
 `;
 

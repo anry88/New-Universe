@@ -108,13 +108,6 @@
       "breakpoints": true
     },
     {
-      "idx": 15,
-      "version": "7",
-      "when": 1778317200000,
-      "tag": "0015_quiet_market_day",
-      "breakpoints": true
-    },
-    {
       "idx": 16,
       "version": "7",
       "when": 1778309940846,
@@ -133,13 +126,6 @@
       "version": "7",
       "when": 1778328637761,
       "tag": "0018_polite_sabretooth",
-      "breakpoints": true
-    },
-    {
-      "idx": 19,
-      "version": "7",
-      "when": 1778328846354,
-      "tag": "0019_orange_dakota_north",
       "breakpoints": true
     },
     {
@@ -224,13 +210,6 @@
       "version": "7",
       "when": 1779500000000,
       "tag": "0031_redundant_the_anarchist",
-      "breakpoints": true
-    },
-    {
-      "idx": 32,
-      "version": "7",
-      "when": 1779600000000,
-      "tag": "0032_market_order_fills_repair",
       "breakpoints": true
     }
   ]

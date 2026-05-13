@@ -2,7 +2,6 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { flattenScenario } from './flattenScenario.js';
 import { simulateScenario } from './simulate.js';
 import type { ScenarioFile } from './types.js';
 import { verifySummaryAgainstRanges } from './verifyRanges.js';
@@ -35,7 +34,7 @@ async function main() {
   const outDir = join(ROOT, 'artifacts', `run-${stamp}`);
   mkdirSync(outDir, { recursive: true });
 
-  const summaries = file.scenarios.map((sc) => simulateScenario(flattenScenario(sc), file.horizonSec));
+  const summaries = file.scenarios.map((sc) => simulateScenario(sc, file.horizonSec));
 
   const summaryPayload = {
     generatedAt: new Date().toISOString(),

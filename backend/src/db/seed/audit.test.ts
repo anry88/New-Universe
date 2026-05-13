@@ -6,7 +6,7 @@ import { runCatalogAudit } from './audit.js';
 import { BUILDING_TYPE_CATALOG_ROWS, RESOURCE_CATALOG_ROWS, SHIP_TYPE_CATALOG_ROWS } from './catalog-rows.js';
 
 describe('catalog seed audit (P2-POL-002)', () => {
-  it('passes without drift across resources, buildings, ships, research, and market price keys', () => {
+  it('passes without drift across resources, buildings, ships, research, and production recipes', () => {
     const result = runCatalogAudit();
     expect(result.errors, result.errors.join('\n')).toEqual([]);
     expect(result.ok).toBe(true);
