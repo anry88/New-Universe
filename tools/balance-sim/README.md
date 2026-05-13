@@ -1,15 +1,15 @@
 # `tools/balance-sim` directory
 
-Deterministic offline simulator for first-week economy progression (resources, buildings, research tiers, NPC settlement trades, ship construction). This is a **design safety tool**: it does **not** import the backend and runs without Postgres, Redis, or Docker.
+Deterministic offline simulator for first-week economy progression (resources, buildings, research tiers, ship construction). This is a **design safety tool**: it does **not** import the backend and runs without Postgres, Redis, or Docker.
 
 ## Layout
 
 - **`package.json`** — local scripts (`npm run simulate`, `npm test`).
-- **`scenarios/first-week.json`** — beginner vs optimized fixture definitions (`marketChunks` expands into granular NPC trades).
+- **`scenarios/first-week.json`** — beginner vs optimized fixture definitions for local production and expansion pacing.
 - **`expected-ranges.json`** — inclusive milestone bands validated by tests / `npm run verify`.
 - **`artifacts/`** — generated JSON summaries (`artifacts/latest-summary.json` last run pointer). Ignored by git except `.gitkeep`.
 - **`src/catalog.ts`** — numeric mirrors of backend seeds/config (keep synchronized when balance changes). Includes **`HOME_SYSTEM_BASE_BIOME_IDS`** / fixed **`HOME_SYSTEM_PLANET_COUNT_* = 9`** aligned with `backend/src/features/world/biomes.ts` and `home-system-generator.ts`. Passive producers (`mine`, `drill`, `oil_pump`, `biomass_harvester`) mirror shared per-resource extraction rates, every building row mirrors the shared **L10** cap, energy infrastructure (`battery`, `solar_plant`, `wind_turbine`, `fuel_generator`) mirrors storage/generation/charge recipes, ship construction mirrors catalog gates such as `cargo_light` requiring shipyard L2 and capital-planet resources, Energy research tiers mirror the shared catalog for early simulation, while processors (`smelter`, `refinery`, `fabrication_bay`, `cryo_factory`) list manual `recipes` and independent Command Center gates rather than depending on each other.
-- **`src/simulate.ts`** — discrete-time integrator with parallel NPC trade resolution (no single serial trade blocks unrelated fills). It applies passive generation only for extractor-style buildings; crafted resources are modeled through explicit scenario actions/recipes rather than automatic processor output. Building upgrades use shared L10 / Command Center cap checks and the shared L6+ extra-cost helper.
+- **`src/simulate.ts`** — discrete-time integrator for extractor production, queued structures, research, and ship construction. It applies passive generation only for extractor-style buildings; crafted resources are modeled through explicit scenario actions/recipes rather than automatic processor output. Building upgrades use shared L10 / Command Center cap checks and the shared L6+ extra-cost helper.
 - **`src/cli.ts`** — loads a scenario file, writes artifacts, optional `--verify`.
 
 ## Upgrade time & cost curve

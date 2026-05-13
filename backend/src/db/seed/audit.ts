@@ -5,7 +5,6 @@ import {
   HIGH_TIER_UPGRADE_COSTS_BY_BUILDING,
   MAX_BUILDING_LEVEL,
 } from '@shared/config/buildingUpgradeEconomy.js';
-import { RESOURCE_BASELINE_PRICE } from '../../config/market-prices.js';
 import { RESEARCH_CATALOG } from '../../config/research-catalog.js';
 import {
   BUILDING_TYPE_CATALOG_ROWS,
@@ -171,12 +170,6 @@ export function runCatalogAudit(): CatalogAuditResult {
 
   for (const branch of RESEARCH_CATALOG) {
     isNonEmptyLocalizedName(branch.branchName, `research branch "${branch.branch}"`, errors);
-  }
-
-  for (const key of Object.keys(RESOURCE_BASELINE_PRICE)) {
-    if (!resourceSet.has(key)) {
-      errors.push(`market RESOURCE_BASELINE_PRICE key "${key}" has no matching seeded resource id`);
-    }
   }
 
   for (const rid of collectCostResourceIds(BUILDING_TYPE_CATALOG_ROWS)) {

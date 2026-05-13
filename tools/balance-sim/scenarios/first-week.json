@@ -40,7 +40,7 @@
     },
     {
       "id": "optimized-first-week",
-      "label": "Rush infra + engineering II; hull alloys stockpiled; NPC trades only cover silicon liquidity.",
+      "label": "Rush infra + engineering II; hull alloys stockpiled through local economy.",
       "initialResources": {
         "iron": 26000,
         "water": 7500,
@@ -79,15 +79,10 @@
         { "branch": "engineering", "tier": 2 },
         { "branch": "logistics", "tier": 1 }
       ],
-      "shipPlan": [{ "shipId": "colonizer" }],
-      "marketChunks": [
-        { "op": "repeatSell", "resourceId": "water", "chunkAmount": 350, "repeat": 22 },
-        { "op": "repeatSell", "resourceId": "methane", "chunkAmount": 200, "repeat": 6 },
-        { "op": "repeatBuy", "resourceId": "silicon", "chunkAmount": 80, "repeat": 3 }
-      ]
+      "shipPlan": [{ "shipId": "colonizer" }]
     },
     {
-      "id": "steel-without-market",
+      "id": "steel-local-production",
       "label": "Steel and electronics from planetary production — no NPC trades; validates P2.1-406 chains.",
       "initialResources": {
         "iron": 8000,

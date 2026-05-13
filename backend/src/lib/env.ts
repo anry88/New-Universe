@@ -42,7 +42,6 @@ const envSchema = z.object({
   ADMIN_TELEGRAM_IDS: z.string().transform(parseAdminTelegramIds).optional().default(''),
   JWT_SECRET: z.string().min(8),
   SENTRY_DSN: z.string().url().optional().or(z.literal('')).transform(v => v === '' ? undefined : v),
-  MARKET_NPC_DELIVERY_SECONDS: z.coerce.number().int().min(0).default(120),
   /** Diamonds granted once when a Telegram account creates its first user row. */
   DIAMOND_STARTING_GRANT: z.coerce.number().int().min(0).default(1000),
   /** Rush pricing curve multiplier (`minutes^0.85 * rate`, rounded). */

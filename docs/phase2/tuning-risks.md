@@ -4,7 +4,6 @@ Living checklist recorded for epic **[P2-EPIC-POLISH](https://github.com/anry88/
 
 | Risk | Why it matters | Mitigation / follow-up |
 |------|----------------|-------------------------|
-| **NPC market depth is synthetic** | Tier-based depth in `orders.ts` may not match live retention-driven liquidity. | Tune `marketDepthByTier` with analytics once Phase 3 traffic exists; balance-sim scenarios already stress NPC trade chunks. |
 | **Cargo vs worker timing** | Cargo expeditions rely on Redis/BullMQ delays; dev Redis may warn `noeviction` — production must use `noeviction` or bounded queues. | Ops Redis policy + cargo-route worker idempotency tests; regression suite asserts planet debits only once. |
 | **Colonization distance / cooldown** | `COLONIZATION_RULES` caps (`maxDistance`, `cooldownSec`) strongly shape expansion pacing; too tight feels punitive, too loose skips logistics fantasy. | Review after simulator first-week reports and live funnel; constants live in `backend/src/config/colonization-rules.ts`. |
 | **Research ↔ building gates drift** | Content audit validates catalog IDs and costs, not runtime gate parity with UI copy. | Keep `research-unlocks.ts` and seed audit in the same PR when gates move; P3 tasks assume regression green. |

@@ -14,8 +14,8 @@ This directory contains end-to-end tests that validate full game loops.
   - Tests colonization cooldown and capacity limits.
   - Validates successful colony founding and initial cargo transfers.
 - **`phase2-regression.test.ts`** — Phase 2 gate ([`docs/testing/phase2-regression.md`](../../../docs/testing/phase2-regression.md), task P2-POL-003).
-  - One player journey: mining research completion → first extra colony → `cargo_light` transfer → NPC market sell order.
-  - Assert messages use `[Research]` / `[Colonization]` / `[Cargo]` / `[Market]` prefixes for failure triage.
+  - One player journey: mining research completion → first extra colony → `cargo_light` transfer.
+  - Assert messages use `[Research]` / `[Colonization]` / `[Cargo]` prefixes for failure triage.
 
 ## Conventions
 

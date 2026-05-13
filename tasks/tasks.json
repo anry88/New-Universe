@@ -82,11 +82,6 @@
       "title": "Phase 2 — Colonization and second planet"
     },
     {
-      "id": "EPIC-P2-MKT",
-      "phase": 2,
-      "title": "Phase 2 — NPC market and logistics"
-    },
-    {
       "id": "EPIC-P2-RES",
       "phase": 2,
       "title": "Phase 2 — Research levels 1-3"
@@ -123,11 +118,6 @@
       "id": "EPIC-P3-ALL",
       "phase": 3,
       "title": "Phase 3 — Alliances"
-    },
-    {
-      "id": "EPIC-P3-MKT",
-      "phase": 3,
-      "title": "Phase 3 — Player market"
     },
     {
       "id": "EPIC-P4-DEPLOY",
@@ -1269,25 +1259,6 @@
       "prompt": "[TASK P2-EPIC-COLONIZE] [Эпик] Колонизация и вторая планета\n\nОПИСАНИЕ\nКолонизатор как корабль, развёртывание новой колонии в Common Pool, синхронизация ресурсов между планетами через Cargo.\n\nACCEPTANCE CRITERIA\n  1. К концу Phase 2 игрок может иметь 2-3 колонии и перевозить груз\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - будут расписаны при разбиении эпика на микротаски\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-181\n\nКАК ПРОВЕРИТЬ\n  —\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Разбить на ~10 микротасок при старте Phase 2."
     },
     {
-      "id": "P2-EPIC-MARKET-NPC",
-      "epic": "EPIC-P2-OUT",
-      "size": "L",
-      "title": "[Эпик] NPC-маркет (биржа)",
-      "description": "Игрок может выставлять и покупать ордера у NPC брокера в системе. Карго-перевозка автоматизированно.",
-      "acceptance": [
-        "Эконом-цикл: продать излишек одного ресурса за нужный"
-      ],
-      "files": [
-        "—"
-      ],
-      "deps": [
-        "P2-EPIC-COLONIZE"
-      ],
-      "verify": "—",
-      "notes": "—",
-      "prompt": "[TASK P2-EPIC-MARKET-NPC] [Эпик] NPC-маркет (биржа)\n\nОПИСАНИЕ\nИгрок может выставлять и покупать ордера у NPC брокера в системе. Карго-перевозка автоматизированно.\n\nACCEPTANCE CRITERIA\n  1. Эконом-цикл: продать излишек одного ресурса за нужный\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - —\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-EPIC-COLONIZE\n\nКАК ПРОВЕРИТЬ\n  —\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  —"
-    },
-    {
       "id": "P2-EPIC-RESEARCH",
       "epic": "EPIC-P2-OUT",
       "size": "L",
@@ -1343,25 +1314,6 @@
       "verify": "—",
       "notes": "—",
       "prompt": "[TASK P3-EPIC-ALLIANCES] [Эпик] Альянсы (кланы)\n\nОПИСАНИЕ\nСоздание альянса, общий банк, чат, карта членов, объявления о войне.\n\nACCEPTANCE CRITERIA\n  1. Игроки могут объединяться в альянсы до 30 человек\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - —\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P3-EPIC-MULTIPLAYER-MAP\n\nКАК ПРОВЕРИТЬ\n  —\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  —"
-    },
-    {
-      "id": "P3-EPIC-MARKET-PVP",
-      "epic": "EPIC-P3-OUT",
-      "size": "L",
-      "title": "[Эпик] Маркет между игроками",
-      "description": "Биржа доступна между игроками с автоматической доставкой через NPC-карго.",
-      "acceptance": [
-        "Игроки могут торговать друг с другом"
-      ],
-      "files": [
-        "—"
-      ],
-      "deps": [
-        "P2-EPIC-MARKET-NPC"
-      ],
-      "verify": "—",
-      "notes": "—",
-      "prompt": "[TASK P3-EPIC-MARKET-PVP] [Эпик] Маркет между игроками\n\nОПИСАНИЕ\nБиржа доступна между игроками с автоматической доставкой через NPC-карго.\n\nACCEPTANCE CRITERIA\n  1. Игроки могут торговать друг с другом\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - —\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-EPIC-MARKET-NPC\n\nКАК ПРОВЕРИТЬ\n  —\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  —"
     },
     {
       "id": "P2-COL-001",
@@ -1565,129 +1517,6 @@
       "prompt": "[TASK P2-COL-008] Colonization end-to-end scenario\n\nОПИСАНИЕ\nAdd an automated scenario covering first colony discovery, colonizer build, colonization, and first cargo transfer.\n\nACCEPTANCE CRITERIA\n  1. E2E scenario passes against local stack\n  2. Scenario covers at least one blocked colonization attempt\n  3. Scenario verifies no resource duplication during transfer\n  4. Test runtime remains acceptable for CI\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/tests/e2e/colonization.test.ts\n  - frontend/tests/e2e/colonization.spec.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-COL-006\n  - P2-COL-007\n\nКАК ПРОВЕРИТЬ\n  Run backend and frontend colonization E2E tests\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Use accelerated time hooks if workers would otherwise make CI too slow."
     },
     {
-      "id": "P2-MKT-001",
-      "epic": "EPIC-P2-MKT",
-      "size": "M",
-      "title": "NPC market data model",
-      "description": "Add tables for NPC market offers, player orders, fulfillment state, prices, fees, and delivery references.",
-      "acceptance": [
-        "Market tables support buy and sell orders",
-        "Order state transitions are explicit",
-        "Indexes cover user, resource, state, and created_at queries",
-        "Schema supports future player market reuse"
-      ],
-      "files": [
-        "backend/src/db/schema/market.ts",
-        "backend/src/features/market/types.ts"
-      ],
-      "deps": [
-        "P1-102",
-        "P1-151"
-      ],
-      "verify": "Migration applies and schema tests validate order state constraints",
-      "notes": "Design with P3 player market in mind, but do not implement P3 behavior here.",
-      "prompt": "[TASK P2-MKT-001] NPC market data model\n\nОПИСАНИЕ\nAdd tables for NPC market offers, player orders, fulfillment state, prices, fees, and delivery references.\n\nACCEPTANCE CRITERIA\n  1. Market tables support buy and sell orders\n  2. Order state transitions are explicit\n  3. Indexes cover user, resource, state, and created_at queries\n  4. Schema supports future player market reuse\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/schema/market.ts\n  - backend/src/features/market/types.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-102\n  - P1-151\n\nКАК ПРОВЕРИТЬ\n  Migration applies and schema tests validate order state constraints\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Design with P3 player market in mind, but do not implement P3 behavior here."
-    },
-    {
-      "id": "P2-MKT-002",
-      "epic": "EPIC-P2-MKT",
-      "size": "M",
-      "title": "NPC broker pricing model",
-      "description": "Implement deterministic NPC pricing with spread, stock pressure, resource tier weighting, and anti-abuse limits.",
-      "acceptance": [
-        "Each resource has a deterministic baseline price",
-        "Buy/sell spread prevents trivial arbitrage",
-        "Prices can be recalculated without corrupting existing orders",
-        "Unit tests cover edge resources and tier effects"
-      ],
-      "files": [
-        "backend/src/features/market/pricing.ts",
-        "backend/src/config/market-prices.ts",
-        "backend/src/features/market/pricing.test.ts"
-      ],
-      "deps": [
-        "P2-MKT-001"
-      ],
-      "verify": "Unit tests assert stable prices and no instant buy/sell profit loop",
-      "notes": "Keep the model simple enough to tune manually after telemetry.",
-      "prompt": "[TASK P2-MKT-002] NPC broker pricing model\n\nОПИСАНИЕ\nImplement deterministic NPC pricing with spread, stock pressure, resource tier weighting, and anti-abuse limits.\n\nACCEPTANCE CRITERIA\n  1. Each resource has a deterministic baseline price\n  2. Buy/sell spread prevents trivial arbitrage\n  3. Prices can be recalculated without corrupting existing orders\n  4. Unit tests cover edge resources and tier effects\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/market/pricing.ts\n  - backend/src/config/market-prices.ts\n  - backend/src/features/market/pricing.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-MKT-001\n\nКАК ПРОВЕРИТЬ\n  Unit tests assert stable prices and no instant buy/sell profit loop\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Keep the model simple enough to tune manually after telemetry."
-    },
-    {
-      "id": "P2-MKT-003",
-      "epic": "EPIC-P2-MKT",
-      "size": "M",
-      "title": "Market order API",
-      "description": "Add endpoints to list market offers and create/cancel NPC buy/sell orders.",
-      "acceptance": [
-        "GET market offers returns resource prices and availability",
-        "POST order validates ownership, resources, capacity, and price",
-        "Cancel returns reserved resources when allowed",
-        "All mutations use atomic resource transactions"
-      ],
-      "files": [
-        "backend/src/routes/market.ts",
-        "backend/src/features/market/orders.ts",
-        "backend/src/features/market/orders.test.ts"
-      ],
-      "deps": [
-        "P2-MKT-002",
-        "P1-151"
-      ],
-      "verify": "API tests cover create, reject, cancel, and insufficient resources",
-      "notes": "Do not expose direct price override through public API.",
-      "prompt": "[TASK P2-MKT-003] Market order API\n\nОПИСАНИЕ\nAdd endpoints to list market offers and create/cancel NPC buy/sell orders.\n\nACCEPTANCE CRITERIA\n  1. GET market offers returns resource prices and availability\n  2. POST order validates ownership, resources, capacity, and price\n  3. Cancel returns reserved resources when allowed\n  4. All mutations use atomic resource transactions\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/routes/market.ts\n  - backend/src/features/market/orders.ts\n  - backend/src/features/market/orders.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-MKT-002\n  - P1-151\n\nКАК ПРОВЕРИТЬ\n  API tests cover create, reject, cancel, and insufficient resources\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Do not expose direct price override through public API."
-    },
-    {
-      "id": "P2-MKT-004",
-      "epic": "EPIC-P2-MKT",
-      "size": "L",
-      "title": "Market fulfillment and NPC cargo delivery",
-      "description": "Implement worker/service logic that fulfills NPC orders and delivers bought goods through an abstracted cargo delivery path.",
-      "acceptance": [
-        "Fulfilled sell orders credit the player correctly",
-        "Fulfilled buy orders deliver resources after configured ETA",
-        "Worker is idempotent and retry-safe",
-        "Market fulfillment does not bypass storage caps"
-      ],
-      "files": [
-        "backend/src/workers/market.ts",
-        "backend/src/features/market/fulfillment.ts",
-        "backend/src/features/market/fulfillment.test.ts"
-      ],
-      "deps": [
-        "P2-MKT-003",
-        "P2-COL-005"
-      ],
-      "verify": "Worker test fulfills buy and sell orders without duplicating resources",
-      "notes": "Use NPC cargo as a gameplay abstraction; no visible NPC fleet required yet.",
-      "prompt": "[TASK P2-MKT-004] Market fulfillment and NPC cargo delivery\n\nОПИСАНИЕ\nImplement worker/service logic that fulfills NPC orders and delivers bought goods through an abstracted cargo delivery path.\n\nACCEPTANCE CRITERIA\n  1. Fulfilled sell orders credit the player correctly\n  2. Fulfilled buy orders deliver resources after configured ETA\n  3. Worker is idempotent and retry-safe\n  4. Market fulfillment does not bypass storage caps\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/workers/market.ts\n  - backend/src/features/market/fulfillment.ts\n  - backend/src/features/market/fulfillment.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-MKT-003\n  - P2-COL-005\n\nКАК ПРОВЕРИТЬ\n  Worker test fulfills buy and sell orders without duplicating resources\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Use NPC cargo as a gameplay abstraction; no visible NPC fleet required yet."
-    },
-    {
-      "id": "P2-MKT-005",
-      "epic": "EPIC-P2-MKT",
-      "size": "M",
-      "title": "Market UI",
-      "description": "Build the Telegram Mini App market screen for viewing prices, placing orders, and tracking pending deliveries.",
-      "acceptance": [
-        "Player can browse buy/sell prices by resource",
-        "Player can place a valid market order",
-        "Pending orders and ETA are visible",
-        "Error states are clear for insufficient resources or storage"
-      ],
-      "files": [
-        "frontend/src/pages/Market.tsx",
-        "frontend/src/components/MarketOrderDialog.tsx",
-        "frontend/src/hooks/useMarket.ts"
-      ],
-      "deps": [
-        "P2-MKT-003",
-        "P1-200"
-      ],
-      "verify": "Manual/UI test places one buy order and one sell order",
-      "notes": "Avoid stock-market complexity; this is a utility economy screen.",
-      "prompt": "[TASK P2-MKT-005] Market UI\n\nОПИСАНИЕ\nBuild the Telegram Mini App market screen for viewing prices, placing orders, and tracking pending deliveries.\n\nACCEPTANCE CRITERIA\n  1. Player can browse buy/sell prices by resource\n  2. Player can place a valid market order\n  3. Pending orders and ETA are visible\n  4. Error states are clear for insufficient resources or storage\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - frontend/src/pages/Market.tsx\n  - frontend/src/components/MarketOrderDialog.tsx\n  - frontend/src/hooks/useMarket.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-MKT-003\n  - P1-200\n\nКАК ПРОВЕРИТЬ\n  Manual/UI test places one buy order and one sell order\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Avoid stock-market complexity; this is a utility economy screen."
-    },
-    {
       "id": "P2-RES-001",
       "epic": "EPIC-P2-RES",
       "size": "M",
@@ -1739,7 +1568,7 @@
       "epic": "EPIC-P2-RES",
       "size": "M",
       "title": "Research unlock gates",
-      "description": "Implement gates that unlock buildings, ships, colonization, cargo capacity, and market capabilities based on completed research.",
+      "description": "Implement gates that unlock buildings, ships, colonization, and cargo capacity based on completed research.",
       "acceptance": [
         "Backend validates unlock gates for gated actions",
         "Frontend can display missing research requirements",
@@ -1758,7 +1587,7 @@
       ],
       "verify": "Tests confirm locked ship/building/colonization actions are rejected",
       "notes": "This connects research to actual progression rather than just timers.",
-      "prompt": "[TASK P2-RES-003] Research unlock gates\n\nОПИСАНИЕ\nImplement gates that unlock buildings, ships, colonization, cargo capacity, and market capabilities based on completed research.\n\nACCEPTANCE CRITERIA\n  1. Backend validates unlock gates for gated actions\n  2. Frontend can display missing research requirements\n  3. Research dependencies are stored in catalog config\n  4. Tests cover blocked and allowed actions\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/research/gates.ts\n  - frontend/src/components/RequirementList.tsx\n  - backend/src/features/research/gates.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-RES-002\n  - P1-160\n  - P1-170\n\nКАК ПРОВЕРИТЬ\n  Tests confirm locked ship/building/colonization actions are rejected\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  This connects research to actual progression rather than just timers."
+      "prompt": "[TASK P2-RES-003] Research unlock gates\n\nОПИСАНИЕ\nImplement gates that unlock buildings, ships, colonization, and cargo capacity based on completed research.\n\nACCEPTANCE CRITERIA\n  1. Backend validates unlock gates for gated actions\n  2. Frontend can display missing research requirements\n  3. Research dependencies are stored in catalog config\n  4. Tests cover blocked and allowed actions\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/research/gates.ts\n  - frontend/src/components/RequirementList.tsx\n  - backend/src/features/research/gates.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-RES-002\n  - P1-160\n  - P1-170\n\nКАК ПРОВЕРИТЬ\n  Tests confirm locked ship/building/colonization actions are rejected\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  This connects research to actual progression rather than just timers."
     },
     {
       "id": "P2-RES-004",
@@ -1828,12 +1657,11 @@
       ],
       "deps": [
         "P2-COL-007",
-        "P2-RES-002",
-        "P2-MKT-002"
+        "P2-RES-002"
       ],
       "verify": "Run balance simulator and compare generated summary to expected ranges",
       "notes": "This is a design safety tool, not gameplay code.",
-      "prompt": "[TASK P2-POL-001] Economy balance simulator\n\nОПИСАНИЕ\nCreate a deterministic simulator for first-day and first-week resource, building, ship, research, and colonization progression.\n\nACCEPTANCE CRITERIA\n  1. Simulator can run without external services\n  2. Outputs key timings and bottleneck resources\n  3. Scenario fixtures cover beginner and optimized paths\n  4. Results are saved as artifacts for comparison\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - tools/balance-sim/\n  - tools/balance-sim/scenarios/first-week.json\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-COL-007\n  - P2-RES-002\n  - P2-MKT-002\n\nКАК ПРОВЕРИТЬ\n  Run balance simulator and compare generated summary to expected ranges\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  This is a design safety tool, not gameplay code."
+      "prompt": "[TASK P2-POL-001] Economy balance simulator\n\nОПИСАНИЕ\nCreate a deterministic simulator for first-day and first-week resource, building, ship, research, and colonization progression.\n\nACCEPTANCE CRITERIA\n  1. Simulator can run without external services\n  2. Outputs key timings and bottleneck resources\n  3. Scenario fixtures cover beginner and optimized paths\n  4. Results are saved as artifacts for comparison\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - tools/balance-sim/\n  - tools/balance-sim/scenarios/first-week.json\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-COL-007\n  - P2-RES-002\n\nКАК ПРОВЕРИТЬ\n  Run balance simulator and compare generated summary to expected ranges\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  This is a design safety tool, not gameplay code."
     },
     {
       "id": "P2-POL-002",
@@ -1865,10 +1693,10 @@
       "epic": "EPIC-P2-POL",
       "size": "L",
       "title": "Phase 2 regression suite",
-      "description": "Create a regression suite covering P2 colonization, market, research, and cargo flows together.",
+      "description": "Create a regression suite covering P2 colonization, research, and cargo flows together.",
       "acceptance": [
-        "Suite covers one full expansion path from first colony to first market order",
-        "Suite validates no resource duplication across cargo and market",
+        "Suite covers one full expansion path from research completion to first colony cargo transfer",
+        "Suite validates no resource duplication across colony cargo transfer",
         "Suite is documented for local and CI execution",
         "Failures point to the responsible feature area"
       ],
@@ -1878,12 +1706,11 @@
       ],
       "deps": [
         "P2-COL-008",
-        "P2-MKT-005",
         "P2-RES-005"
       ],
       "verify": "Run Phase 2 regression suite locally",
       "notes": "This is the gate before breaking down P3 into fine-grained implementation tasks.",
-      "prompt": "[TASK P2-POL-003] Phase 2 regression suite\n\nОПИСАНИЕ\nCreate a regression suite covering P2 colonization, market, research, and cargo flows together.\n\nACCEPTANCE CRITERIA\n  1. Suite covers one full expansion path from first colony to first market order\n  2. Suite validates no resource duplication across cargo and market\n  3. Suite is documented for local and CI execution\n  4. Failures point to the responsible feature area\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/tests/e2e/phase2-regression.test.ts\n  - docs/testing/phase2-regression.md\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-COL-008\n  - P2-MKT-005\n  - P2-RES-005\n\nКАК ПРОВЕРИТЬ\n  Run Phase 2 regression suite locally\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  This is the gate before breaking down P3 into fine-grained implementation tasks."
+      "prompt": "[TASK P2-POL-003] Phase 2 regression suite\n\nОПИСАНИЕ\nCreate a regression suite covering P2 colonization, research, and cargo flows together.\n\nACCEPTANCE CRITERIA\n  1. Suite covers one full expansion path from research completion to first colony cargo transfer\n  2. Suite validates no resource duplication across colony cargo transfer\n  3. Suite is documented for local and CI execution\n  4. Failures point to the responsible feature area\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/tests/e2e/phase2-regression.test.ts\n  - docs/testing/phase2-regression.md\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-COL-008\n  - P2-RES-005\n\nКАК ПРОВЕРИТЬ\n  Run Phase 2 regression suite locally\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  This is the gate before breaking down P3 into fine-grained implementation tasks."
     },
     {
       "id": "P3-MAP-001",
@@ -1979,55 +1806,8 @@
         "P1-151"
       ],
       "verify": "API tests cover deposit/withdraw permission paths",
-      "notes": "No alliance market automation in this task.",
-      "prompt": "[TASK P3-ALL-002] Alliance bank and permissions\n\nОПИСАНИЕ\nAdd a shared alliance bank with deposit/withdraw permissions and basic transaction logs.\n\nACCEPTANCE CRITERIA\n  1. Members can deposit allowed resources\n  2. Only permitted roles can withdraw\n  3. All transactions are logged\n  4. Bank actions cannot bypass storage/resource transaction safety\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/alliances/bank.ts\n  - frontend/src/pages/AllianceBank.tsx\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P3-ALL-001\n  - P1-151\n\nКАК ПРОВЕРИТЬ\n  API tests cover deposit/withdraw permission paths\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  No alliance market automation in this task."
-    },
-    {
-      "id": "P3-MKT-001",
-      "epic": "EPIC-P3-MKT",
-      "size": "L",
-      "title": "Player market order book",
-      "description": "Extend the market model to support player-created buy/sell orders with escrow, cancellation, and settlement.",
-      "acceptance": [
-        "Player order book reuses safe market primitives from P2",
-        "Sell orders reserve resources in escrow",
-        "Buy orders reserve payment in escrow",
-        "Cancellation and matching are atomic"
-      ],
-      "files": [
-        "backend/src/features/market/player-orders.ts",
-        "backend/src/db/schema/player-market.ts"
-      ],
-      "deps": [
-        "P2-MKT-004"
-      ],
-      "verify": "Order matching tests cover partial fill, cancel, and settlement",
-      "notes": "Do not add complex trading tools before basic safety is verified.",
-      "prompt": "[TASK P3-MKT-001] Player market order book\n\nОПИСАНИЕ\nExtend the market model to support player-created buy/sell orders with escrow, cancellation, and settlement.\n\nACCEPTANCE CRITERIA\n  1. Player order book reuses safe market primitives from P2\n  2. Sell orders reserve resources in escrow\n  3. Buy orders reserve payment in escrow\n  4. Cancellation and matching are atomic\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/market/player-orders.ts\n  - backend/src/db/schema/player-market.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-MKT-004\n\nКАК ПРОВЕРИТЬ\n  Order matching tests cover partial fill, cancel, and settlement\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Do not add complex trading tools before basic safety is verified."
-    },
-    {
-      "id": "P3-MKT-002",
-      "epic": "EPIC-P3-MKT",
-      "size": "L",
-      "title": "Player trade delivery and settlement",
-      "description": "Implement player-to-player trade delivery through NPC cargo abstraction or explicit cargo route depending on Phase 3 design decision.",
-      "acceptance": [
-        "Filled orders settle exactly once",
-        "Delivery timing is transparent to both players",
-        "Storage caps are enforced at destination",
-        "Failed delivery has a documented refund/holding behavior"
-      ],
-      "files": [
-        "backend/src/workers/player-market.ts",
-        "backend/src/features/market/player-settlement.ts"
-      ],
-      "deps": [
-        "P3-MKT-001",
-        "P2-COL-005"
-      ],
-      "verify": "Two-player integration test completes a trade and validates balances",
-      "notes": "This is intentionally after the order book, not part of it.",
-      "prompt": "[TASK P3-MKT-002] Player trade delivery and settlement\n\nОПИСАНИЕ\nImplement player-to-player trade delivery through NPC cargo abstraction or explicit cargo route depending on Phase 3 design decision.\n\nACCEPTANCE CRITERIA\n  1. Filled orders settle exactly once\n  2. Delivery timing is transparent to both players\n  3. Storage caps are enforced at destination\n  4. Failed delivery has a documented refund/holding behavior\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/workers/player-market.ts\n  - backend/src/features/market/player-settlement.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P3-MKT-001\n  - P2-COL-005\n\nКАК ПРОВЕРИТЬ\n  Two-player integration test completes a trade and validates balances\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  This is intentionally after the order book, not part of it."
+      "notes": "No automated alliance trading in this task.",
+      "prompt": "[TASK P3-ALL-002] Alliance bank and permissions\n\nОПИСАНИЕ\nAdd a shared alliance bank with deposit/withdraw permissions and basic transaction logs.\n\nACCEPTANCE CRITERIA\n  1. Members can deposit allowed resources\n  2. Only permitted roles can withdraw\n  3. All transactions are logged\n  4. Bank actions cannot bypass storage/resource transaction safety\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/alliances/bank.ts\n  - frontend/src/pages/AllianceBank.tsx\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P3-ALL-001\n  - P1-151\n\nКАК ПРОВЕРИТЬ\n  API tests cover deposit/withdraw permission paths\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  No automated alliance trading in this task."
     },
     {
       "id": "P4-DEP-001",
@@ -2154,11 +1934,11 @@
       "epic": "EPIC-P4-SEC",
       "size": "M",
       "title": "Economy exploit and anti-cheat review",
-      "description": "Add tests and review notes for resource duplication, clock abuse, repeated worker execution, market arbitrage, and cargo settlement exploits.",
+      "description": "Add tests and review notes for resource duplication, clock abuse, repeated worker execution, and cargo settlement exploits.",
       "acceptance": [
         "Known exploit classes have regression tests or documented mitigations",
         "Worker idempotency is verified for critical paths",
-        "Market/cargo/resource loops are reviewed",
+        "Cargo/resource loops are reviewed",
         "Risk register is updated with accepted risks"
       ],
       "files": [
@@ -2166,19 +1946,18 @@
         "backend/tests/security/economy-exploits.test.ts"
       ],
       "deps": [
-        "P2-POL-003",
-        "P3-MKT-002"
+        "P2-POL-003"
       ],
       "verify": "Run economy exploit regression suite",
       "notes": "This should happen before any real-money monetization.",
-      "prompt": "[TASK P4-SEC-002] Economy exploit and anti-cheat review\n\nОПИСАНИЕ\nAdd tests and review notes for resource duplication, clock abuse, repeated worker execution, market arbitrage, and cargo settlement exploits.\n\nACCEPTANCE CRITERIA\n  1. Known exploit classes have regression tests or documented mitigations\n  2. Worker idempotency is verified for critical paths\n  3. Market/cargo/resource loops are reviewed\n  4. Risk register is updated with accepted risks\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - docs/security/economy-exploits.md\n  - backend/tests/security/economy-exploits.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-POL-003\n  - P3-MKT-002\n\nКАК ПРОВЕРИТЬ\n  Run economy exploit regression suite\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  This should happen before any real-money monetization."
+      "prompt": "[TASK P4-SEC-002] Economy exploit and anti-cheat review\n\nОПИСАНИЕ\nAdd tests and review notes for resource duplication, clock abuse, repeated worker execution, and cargo settlement exploits.\n\nACCEPTANCE CRITERIA\n  1. Known exploit classes have regression tests or documented mitigations\n  2. Worker idempotency is verified for critical paths\n  3. Cargo/resource loops are reviewed\n  4. Risk register is updated with accepted risks\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - docs/security/economy-exploits.md\n  - backend/tests/security/economy-exploits.test.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P2-POL-003\n\nКАК ПРОВЕРИТЬ\n  Run economy exploit regression suite\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  This should happen before any real-money monetization."
     },
     {
       "id": "P4-ANA-001",
       "epic": "EPIC-P4-ANALYTICS",
       "size": "M",
       "title": "Product analytics event taxonomy",
-      "description": "Define and implement core product analytics events for onboarding, retention, building, ships, research, expeditions, market, and monetization.",
+      "description": "Define and implement core product analytics events for onboarding, retention, building, ships, research, expeditions, and monetization.",
       "acceptance": [
         "Analytics event taxonomy is documented",
         "Events include stable names and safe properties",
@@ -2196,7 +1975,7 @@
       ],
       "verify": "Run local analytics sink and verify core events",
       "notes": "Analytics is required for balance and retention decisions.",
-      "prompt": "[TASK P4-ANA-001] Product analytics event taxonomy\n\nОПИСАНИЕ\nDefine and implement core product analytics events for onboarding, retention, building, ships, research, expeditions, market, and monetization.\n\nACCEPTANCE CRITERIA\n  1. Analytics event taxonomy is documented\n  2. Events include stable names and safe properties\n  3. No sensitive Telegram data is sent unnecessarily\n  4. Frontend and backend emit critical events consistently\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - docs/analytics/events.md\n  - frontend/src/lib/analytics.ts\n  - backend/src/lib/analytics.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-206\n  - P2-POL-003\n\nКАК ПРОВЕРИТЬ\n  Run local analytics sink and verify core events\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Analytics is required for balance and retention decisions."
+      "prompt": "[TASK P4-ANA-001] Product analytics event taxonomy\n\nОПИСАНИЕ\nDefine and implement core product analytics events for onboarding, retention, building, ships, research, expeditions, and monetization.\n\nACCEPTANCE CRITERIA\n  1. Analytics event taxonomy is documented\n  2. Events include stable names and safe properties\n  3. No sensitive Telegram data is sent unnecessarily\n  4. Frontend and backend emit critical events consistently\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - docs/analytics/events.md\n  - frontend/src/lib/analytics.ts\n  - backend/src/lib/analytics.ts\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P1-206\n  - P2-POL-003\n\nКАК ПРОВЕРИТЬ\n  Run local analytics sink and verify core events\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Analytics is required for balance and retention decisions."
     },
     {
       "id": "P4-MON-001",
@@ -2816,8 +2595,8 @@
       "id": "P2.1-406",
       "epic": "EPIC-P2.1-GAMEPLAY",
       "size": "L",
-      "title": "Экономика: все ресурсы с планет или производства (сталь и др.)",
-      "description": "Убрать обязательную зависимость ключевых ресурсов (например сталь) только от NPC-маркета: добавить производственные здания/рецепты в цепочке планетарной экономики. Обновить сиды building-types, рецепты, баланс-sim. Маркет остаётся опциональным обменником.",
+      "title": "Экономика: производственные цепочки для стали",
+      "description": "Все базовые ресурсы добываются или производятся; сталь создаётся через производственные здания/рецепты в цепочке планетарной экономики. Обновить сиды building-types, рецепты и balance-sim.",
       "acceptance": [
         "Каждый не-валютный ресурс имеет источник: добыча на планете или производство на фабрике из каталога",
         "Сталь производится игроком без обязательной покупки у NPC",
@@ -2832,9 +2611,9 @@
       "deps": [
         "P1-160"
       ],
-      "verify": "Симуляция и ручной прогон: сталь накапливается без маркета.",
-      "notes": "Согласовать с EPIC-P2-MKT — маркет не единственный источник базовых материалов.",
-      "prompt": "[TASK P2.1-406] Экономика: производственные цепочки, сталь не только маркет\n\nОПИСАНИЕ\nВсе базовые ресурсы добываются или производятся; сталь через производство.\n\nACCEPTANCE CRITERIA\n  1. Источники ресурсов закрыты цепочками\n  2. Сталь без обязательной покупки\n  3. Сиды и balance-sim синхронны\n\nЗАВИСИМОСТИ\n  P1-160\n\nКАК ПРОВЕРИТЬ\n  balance-sim сценарий без маркета.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Не ломать будущий NPC-маркет как опцию."
+      "verify": "Симуляция и ручной прогон: сталь накапливается через производство.",
+      "notes": "Ресурсные цепочки должны оставаться самодостаточными в планетарной экономике.",
+      "prompt": "[TASK P2.1-406] Экономика: производственные цепочки для стали\n\nОПИСАНИЕ\nВсе базовые ресурсы добываются или производятся; сталь через производство.\n\nACCEPTANCE CRITERIA\n  1. Источники ресурсов закрыты цепочками\n  2. Сталь без покупки\n  3. Сиды и balance-sim синхронны\n\nЗАВИСИМОСТИ\n  P1-160\n\nКАК ПРОВЕРИТЬ\n  balance-sim сценарий локального производства.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Не ломать планетарные производственные цепочки."
     },
     {
       "id": "P2.1-407",

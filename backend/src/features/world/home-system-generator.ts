@@ -27,7 +27,7 @@ import {
  * Capital planet (green, orbit tier 4) needs enough slots for the bootstrap
  * progression: command_center, mine, drill, smelter, fabrication_bay,
  * spaceport, shipyard, lab, solar_plants + room for storage and a small
- * fleet — without forcing the player into the market.
+ * fleet from local resource loops.
  */
 export const MIN_HOME_CAPITAL_SLOT_COUNT = 22;
 
@@ -149,7 +149,7 @@ export function rollPlanetSize(sizeClass: PlanetSizeClass, rnd: () => number): n
  * Starter resource stocks the capital ships with on day 1. Tuned so the
  * player can immediately queue the bootstrap chain (mine + drill + solar
  * → smelter → shipyard → colonizer) without grinding or visiting the
- * market.
+ * common pool first.
  */
 const CAPITAL_STARTING_RESOURCES: Record<string, number> = {
   iron: 800,

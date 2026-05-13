@@ -171,7 +171,7 @@ Closing policy:
 
 Epic closure (Playwright):
 
-- When merging the PR that **closes an epic rollup task** — task `id` matching `*-EPIC-*` in [`tasks/tasks.json`](tasks/tasks.json) (examples: `P2-EPIC-COLONIZE`, `P2-EPIC-MARKET-NPC`) — add label **`run-e2e`** on that PR before merge (create the label in the repo once if it does not exist). This triggers [.github/workflows/e2e.yml](.github/workflows/e2e.yml). Wait for it to pass or note the failure in the PR/issue.
+- When merging the PR that **closes an epic rollup task** — task `id` matching `*-EPIC-*` in [`tasks/tasks.json`](tasks/tasks.json) (examples: `P2-EPIC-COLONIZE`, `P2-EPIC-POLISH`) — add label **`run-e2e`** on that PR before merge (create the label in the repo once if it does not exist). This triggers [.github/workflows/e2e.yml](.github/workflows/e2e.yml). Wait for it to pass or note the failure in the PR/issue.
 - Do **not** add **`run-e2e`** on ordinary microtask PRs (`P2-COL-003`, `P2-RES-003`, etc.) unless the task explicitly requires browser E2E or the user asked for it.
 
 Status policy:
@@ -416,7 +416,7 @@ Verification that documentation stays in sync:
   - `Epic`: one of the `EPIC-*` ids from `tasks/tasks.json`
   - `Size`: `S`, `M`, `L`, `XL`
   - `Work Type`: `Epic`, `Infra`, `Schema`, `API`, `Worker`, `UI`, `Test`, `Bot`, `Docs`, `Feature`, `Chore`, `Spike`, `Deploy`, `Ops`, `Security`, `Analytics`, `Monetization`, `Live Ops`, `Content`, `Balance`, `Support`
-  - `Area`: `Infra`, `DB`, `Auth`, `World`, `Economy`, `Buildings`, `Ships`, `Expeditions`, `Frontend`, `Bot`, `QA`, `Phase 2 Outline`, `Colonization`, `Market`, `Research`, `Balance`, `Phase 3 Outline`, `Multiplayer Map`, `Alliances`, `Player Market`, `Production`, `Ops`, `Security`, `Analytics`, `Monetization`, `Live Ops`, `Content`, `Support`
+  - `Area`: `Infra`, `DB`, `Auth`, `World`, `Economy`, `Buildings`, `Ships`, `Expeditions`, `Frontend`, `Bot`, `QA`, `Phase 2 Outline`, `Colonization`, `Research`, `Balance`, `Phase 3 Outline`, `Multiplayer Map`, `Alliances`, `Production`, `Ops`, `Security`, `Analytics`, `Monetization`, `Live Ops`, `Content`, `Support`
   - `Priority`: `Now`, `High`, `Medium`, `Low`
   - `Estimate`: numeric story points where `S=1`, `M=3`, `L=5`, `XL=8`
   - `Verification`: `Not run`, `Local pass`, `CI pass`, `Manual needed`, `Accepted`, `Blocked`

@@ -100,9 +100,8 @@ export const BIOMES: Record<BiomeType, Biome> = {
     name: { ru: 'Газовый гигант', en: 'Gas Giant' },
     commonResources: ['methane'],
     // Tritium (a hydrogen isotope) is realistic on gas giants and gives the
-    // starter system access to a tritium source without forcing the player
-    // through the market or distant research first. Without it jump_ship
-    // cannot be built locally.
+    // starter system access to a tritium source without forcing distant
+    // exploration first. Without it jump_ship cannot be built locally.
     rareResources: ['tritium'],
     bonuses: ['infinite_gas'],
     penalties: ['no_factories'],

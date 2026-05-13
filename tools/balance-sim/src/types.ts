@@ -13,15 +13,7 @@ export interface ScenarioDefinition {
   structurePlan: StructureStep[];
   researchPlan: ResearchStep[];
   shipPlan: ShipStep[];
-  /** Expanded flat market trades (applied after optional marketChunks flattening) */
-  marketPlan?: MarketStep[];
-  /** Compact repetition helpers — flattened into marketPlan by the CLI loader */
-  marketChunks?: MarketChunk[];
 }
-
-export type MarketChunk =
-  | { op: 'repeatBuy'; resourceId: string; chunkAmount: number; repeat: number }
-  | { op: 'repeatSell'; resourceId: string; chunkAmount: number; repeat: number };
 
 export interface ScenarioFile {
   version: number;
@@ -42,10 +34,6 @@ export interface ResearchStep {
 export interface ShipStep {
   shipId: ShipId;
 }
-
-export type MarketStep =
-  | { kind: 'buy'; resourceId: string; amount: number }
-  | { kind: 'sell'; resourceId: string; amount: number };
 
 export interface MilestoneRecord {
   firstStructureCompleteSec: number | null;

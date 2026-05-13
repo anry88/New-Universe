@@ -1495,31 +1495,6 @@ echo "  $URL"
 gh project item-add "$PROJECT_NUMBER" --owner "$PROJECT_OWNER" --url "$URL" >/dev/null
 ISSUE_URL_BY_TASK_ID["P2-EPIC-COLONIZE"]="$URL"
 
-echo ">> P2-EPIC-MARKET-NPC: [P2-EPIC-MARKET-NPC] [Эпик] NPC-маркет (биржа)"
-URL=$(gh issue create --repo "$REPO" --title '[P2-EPIC-MARKET-NPC] [Эпик] NPC-маркет (биржа)' -l 'epic:EPIC-P2-OUT' -l 'phase:P2' -l 'size:L' --body '**ID:** P2-EPIC-MARKET-NPC
-**Epic:** EPIC-P2-OUT
-**Size:** L
-**Phase:** P2
-
-## Описание
-Игрок может выставлять и покупать ордера у NPC брокера в системе. Карго-перевозка автоматизированно.
-
-## Acceptance criteria
-1. Эконом-цикл: продать излишек одного ресурса за нужный
-
-## Файлы
-- `—`
-
-## Зависимости
-- P2-EPIC-COLONIZE
-
-## Как проверить
-—
-')
-echo "  $URL"
-gh project item-add "$PROJECT_NUMBER" --owner "$PROJECT_OWNER" --url "$URL" >/dev/null
-ISSUE_URL_BY_TASK_ID["P2-EPIC-MARKET-NPC"]="$URL"
-
 echo ">> P2-EPIC-RESEARCH: [P2-EPIC-RESEARCH] [Эпик] Research lvl 1-3 для всех веток"
 URL=$(gh issue create --repo "$REPO" --title '[P2-EPIC-RESEARCH] [Эпик] Research lvl 1-3 для всех веток' -l 'epic:EPIC-P2-OUT' -l 'phase:P2' -l 'size:L' --body '**ID:** P2-EPIC-RESEARCH
 **Epic:** EPIC-P2-OUT
@@ -1595,34 +1570,9 @@ echo "  $URL"
 gh project item-add "$PROJECT_NUMBER" --owner "$PROJECT_OWNER" --url "$URL" >/dev/null
 ISSUE_URL_BY_TASK_ID["P3-EPIC-ALLIANCES"]="$URL"
 
-echo ">> P3-EPIC-MARKET-PVP: [P3-EPIC-MARKET-PVP] [Эпик] Маркет между игроками"
-URL=$(gh issue create --repo "$REPO" --title '[P3-EPIC-MARKET-PVP] [Эпик] Маркет между игроками' -l 'epic:EPIC-P3-OUT' -l 'phase:P3' -l 'size:L' --body '**ID:** P3-EPIC-MARKET-PVP
-**Epic:** EPIC-P3-OUT
-**Size:** L
-**Phase:** P3
-
-## Описание
-Биржа доступна между игроками с автоматической доставкой через NPC-карго.
-
-## Acceptance criteria
-1. Игроки могут торговать друг с другом
-
-## Файлы
-- `—`
-
-## Зависимости
-- P2-EPIC-MARKET-NPC
-
-## Как проверить
-—
-')
-echo "  $URL"
-gh project item-add "$PROJECT_NUMBER" --owner "$PROJECT_OWNER" --url "$URL" >/dev/null
-ISSUE_URL_BY_TASK_ID["P3-EPIC-MARKET-PVP"]="$URL"
-
 echo ""
 echo "=== ГОТОВО ==="
-echo "Создано задач: 53"
+echo "Создано задач: 51"
 echo "Все добавлены в проект $PROJECT_OWNER/$PROJECT_NUMBER"
 echo ""
 echo "Следующий шаг: открой проект и сгруппируй по label \"phase:*\" или \"epic:*\""
