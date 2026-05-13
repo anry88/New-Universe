@@ -21,9 +21,6 @@ async function main() {
   const { createResearchWorker } = await import('./research.js');
   const researchWorker = await createResearchWorker();
 
-  const { createMarketWorker } = await import('./market.js');
-  const marketWorker = await createMarketWorker();
-
   const { createProductionOrdersWorker } = await import('./production-orders.js');
   const productionOrdersWorker = await createProductionOrdersWorker();
 
@@ -39,7 +36,6 @@ async function main() {
       notificationsWorker.close(),
       cargoRoutesWorker.close(),
       researchWorker.close(),
-      marketWorker.close(),
       productionOrdersWorker.close(),
     ]);
 

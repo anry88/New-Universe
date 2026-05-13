@@ -344,19 +344,18 @@ export const QueueStrip: React.FC<QueueStripProps> = ({ title, subtitle, etaSec,
 
 // --- Bottom nav ------------------------------------------------------------
 
-export type CosmicNavId = 'planets' | 'ships' | 'map' | 'tech' | 'market' | 'profile';
+export type CosmicNavId = 'planets' | 'ships' | 'map' | 'tech' | 'profile';
 
-const NAV_ITEMS: { id: CosmicNavId | 'home'; label: string; route: string; icon: 'planet' | 'ship' | 'map' | 'tech' | 'market' | 'user' | 'home' }[] = [
+const NAV_ITEMS: { id: CosmicNavId | 'home'; label: string; route: string; icon: 'planet' | 'ship' | 'map' | 'tech' | 'user' | 'home' }[] = [
   { id: 'home', label: 'nav.home', route: '/', icon: 'home' },
   { id: 'planets', label: 'nav.colonies', route: '/colonies', icon: 'planet' },
   { id: 'ships', label: 'nav.fleet', route: '/ships', icon: 'ship' },
   { id: 'map', label: 'nav.galaxy', route: '/map', icon: 'map' },
   { id: 'tech', label: 'nav.tech', route: '/research', icon: 'tech' },
-  { id: 'market', label: 'nav.market', route: '/market', icon: 'market' },
   { id: 'profile', label: 'nav.profile', route: '/profile', icon: 'user' },
 ];
 
-const NavIcon: React.FC<{ kind: 'planet' | 'ship' | 'map' | 'tech' | 'market' | 'user' | 'home'; active: boolean }> = ({
+const NavIcon: React.FC<{ kind: 'planet' | 'ship' | 'map' | 'tech' | 'user' | 'home'; active: boolean }> = ({
   kind,
   active,
 }) => {
@@ -413,14 +412,6 @@ const NavIcon: React.FC<{ kind: 'planet' | 'ship' | 'map' | 'tech' | 'market' | 
           <path d="M3 10 L12 3 L21 10 V20 H15 V14 H9 V20 H3 Z" />
         </svg>
       );
-    case 'market':
-      return (
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.6">
-          <circle cx="12" cy="12" r="8" />
-          <path d="M8.5 9.5 C8.5 8.2 9.8 7.5 12 7.5 C14.2 7.5 15.5 8.2 15.5 9.5 C15.5 10.8 14.2 11.2 12 11.5 C9.8 11.8 8.5 12.2 8.5 13.5 C8.5 14.8 9.8 15.5 12 15.5 C14.2 15.5 15.5 14.8 15.5 13.5" />
-          <path d="M12 6 V18" />
-        </svg>
-      );
   }
 };
 
@@ -435,8 +426,6 @@ export const CosmicBottomNav: React.FC<{ active?: CosmicNavId | 'home' }> = ({ a
       ? 'ships'
       : location.pathname.startsWith('/sector-map') || location.pathname.startsWith('/map')
         ? 'map'
-        : location.pathname.startsWith('/market')
-          ? 'market'
         : location.pathname.startsWith('/research')
           ? 'tech'
           : location.pathname.startsWith('/profile')

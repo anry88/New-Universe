@@ -3,7 +3,6 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-import { flattenScenario } from './flattenScenario.js';
 import { simulateScenario } from './simulate.js';
 import type { ScenarioFile } from './types.js';
 import { verifySummaryAgainstRanges } from './verifyRanges.js';
@@ -18,7 +17,7 @@ describe('balance-sim scenarios vs expected ranges', () => {
     const file = JSON.parse(readFileSync(scenarioPath, 'utf-8')) as ScenarioFile;
     const ranges = JSON.parse(readFileSync(rangesPath, 'utf-8')) as Record<string, unknown>;
 
-    const summaries = file.scenarios.map((sc) => simulateScenario(flattenScenario(sc), file.horizonSec));
+    const summaries = file.scenarios.map((sc) => simulateScenario(sc, file.horizonSec));
     const summaryPayload = {
       generatedAt: new Date().toISOString(),
       horizonSec: file.horizonSec,

@@ -6,9 +6,9 @@ This document exists for future verification. It records why the roadmap was exp
 
 ## Scope
 
-- P2 expands the current MVP into a broader solo game: colonies, cargo, NPC market, research levels 1-3, and balance/regression tooling.
+- P2 expands the current MVP into a broader solo game: colonies, cargo, research levels 1-3, and balance/regression tooling.
 - P2.3 adds the missing navigation bridge from the protected Home System into Common Pool: Jump Gate unlock, random jump, known destinations, and gate-routed scout/colonizer/cargo missions.
-- P3 introduces multiplayer surfaces: shared sector presence, alliances, and player-to-player market foundations.
+- P3 introduces multiplayer surfaces: shared sector presence and alliances.
 - P4 prepares production launch: deployment, observability, backups, security, analytics, and monetization readiness.
 - P5 defines post-launch live operations: events, content packs, balance loop, and support/admin runbooks.
 
@@ -17,13 +17,11 @@ This document exists for future verification. It records why the roadmap was exp
 | Epic | Phase | Title | Tasks |
 |---|---:|---|---:|
 | `EPIC-P2-COL` | P2 | Phase 2 — Colonization and second planet | 8 |
-| `EPIC-P2-MKT` | P2 | Phase 2 — NPC market and logistics | 5 |
 | `EPIC-P2-RES` | P2 | Phase 2 — Research levels 1-3 | 5 |
 | `EPIC-P2-POL` | P2 | Phase 2 — Balance, polish, regression | 4 |
 | `EPIC-P2.3-JUMP-GATE` | P2.3 | Phase 2.3 — Jump Gate and Common Pool routing | 9 |
 | `EPIC-P3-MAP` | P3 | Phase 3 — Multiplayer common map | 2 |
 | `EPIC-P3-ALL` | P3 | Phase 3 — Alliances | 2 |
-| `EPIC-P3-MKT` | P3 | Phase 3 — Player market | 2 |
 | `EPIC-P4-DEPLOY` | P4 | Phase 4 — Production deployment | 3 |
 | `EPIC-P4-OPS` | P4 | Phase 4 — Operations and observability | 2 |
 | `EPIC-P4-SEC` | P4 | Phase 4 — Security and abuse prevention | 2 |
@@ -158,83 +156,6 @@ Acceptance:
 
 Verify: Run backend and frontend colonization E2E tests
 
-### EPIC-P2-MKT — Phase 2 — NPC market and logistics
-
-#### P2-MKT-001 — NPC market data model
-
-Size: `M`  
-Depends on: `P1-102`, `P1-151`
-
-Add tables for NPC market offers, player orders, fulfillment state, prices, fees, and delivery references.
-
-Acceptance:
-- Market tables support buy and sell orders
-- Order state transitions are explicit
-- Indexes cover user, resource, state, and created_at queries
-- Schema supports future player market reuse
-
-Verify: Migration applies and schema tests validate order state constraints
-
-#### P2-MKT-002 — NPC broker pricing model
-
-Size: `M`  
-Depends on: `P2-MKT-001`
-
-Implement deterministic NPC pricing with spread, stock pressure, resource tier weighting, and anti-abuse limits.
-
-Acceptance:
-- Each resource has a deterministic baseline price
-- Buy/sell spread prevents trivial arbitrage
-- Prices can be recalculated without corrupting existing orders
-- Unit tests cover edge resources and tier effects
-
-Verify: Unit tests assert stable prices and no instant buy/sell profit loop
-
-#### P2-MKT-003 — Market order API
-
-Size: `M`  
-Depends on: `P2-MKT-002`, `P1-151`
-
-Add endpoints to list market offers and create/cancel NPC buy/sell orders.
-
-Acceptance:
-- GET market offers returns resource prices and availability
-- POST order validates ownership, resources, capacity, and price
-- Cancel returns reserved resources when allowed
-- All mutations use atomic resource transactions
-
-Verify: API tests cover create, reject, cancel, and insufficient resources
-
-#### P2-MKT-004 — Market fulfillment and NPC cargo delivery
-
-Size: `L`  
-Depends on: `P2-MKT-003`, `P2-COL-005`
-
-Implement worker/service logic that fulfills NPC orders and delivers bought goods through an abstracted cargo delivery path.
-
-Acceptance:
-- Fulfilled sell orders credit the player correctly
-- Fulfilled buy orders deliver resources after configured ETA
-- Worker is idempotent and retry-safe
-- Market fulfillment does not bypass storage caps
-
-Verify: Worker test fulfills buy and sell orders without duplicating resources
-
-#### P2-MKT-005 — Market UI
-
-Size: `M`  
-Depends on: `P2-MKT-003`, `P1-200`
-
-Build the Telegram Mini App market screen for viewing prices, placing orders, and tracking pending deliveries.
-
-Acceptance:
-- Player can browse buy/sell prices by resource
-- Player can place a valid market order
-- Pending orders and ETA are visible
-- Error states are clear for insufficient resources or storage
-
-Verify: Manual/UI test places one buy order and one sell order
-
 ### EPIC-P2-RES — Phase 2 — Research levels 1-3
 
 #### P2-RES-001 — Research effects engine
@@ -272,7 +193,7 @@ Verify: Seed database and verify expected research count and effects
 Size: `M`  
 Depends on: `P2-RES-002`, `P1-160`, `P1-170`
 
-Implement gates that unlock buildings, ships, colonization, cargo capacity, and market capabilities based on completed research.
+Implement gates that unlock buildings, ships, colonization, and cargo capacity based on completed research.
 
 Acceptance:
 - Backend validates unlock gates for gated actions
@@ -317,7 +238,7 @@ Verify: Manual/UI test starts and completes one level 2 research path
 #### P2-POL-001 — Economy balance simulator
 
 Size: `M`  
-Depends on: `P2-COL-007`, `P2-RES-002`, `P2-MKT-002`
+Depends on: `P2-COL-007`, `P2-RES-002`
 
 Create a deterministic simulator for first-day and first-week resource, building, ship, research, and colonization progression.
 
@@ -347,13 +268,13 @@ Verify: Run seed audit test suite
 #### P2-POL-003 — Phase 2 regression suite
 
 Size: `L`  
-Depends on: `P2-COL-008`, `P2-MKT-005`, `P2-RES-005`
+Depends on: `P2-COL-008`, `P2-RES-005`
 
-Create a regression suite covering P2 colonization, market, research, and cargo flows together.
+Create a regression suite covering P2 colonization, research, and cargo flows together.
 
 Acceptance:
-- Suite covers one full expansion path from first colony to first market order
-- Suite validates no resource duplication across cargo and market
+- Suite covers one full expansion path from research completion to first colony cargo transfer
+- Suite validates no resource duplication across colony cargo transfer
 - Suite is documented for local and CI execution
 - Failures point to the responsible feature area
 
@@ -523,38 +444,6 @@ Acceptance:
 
 Verify: API tests cover deposit/withdraw permission paths
 
-### EPIC-P3-MKT — Phase 3 — Player market
-
-#### P3-MKT-001 — Player market order book
-
-Size: `L`  
-Depends on: `P2-MKT-004`
-
-Extend the market model to support player-created buy/sell orders with escrow, cancellation, and settlement.
-
-Acceptance:
-- Player order book reuses safe market primitives from P2
-- Sell orders reserve resources in escrow
-- Buy orders reserve payment in escrow
-- Cancellation and matching are atomic
-
-Verify: Order matching tests cover partial fill, cancel, and settlement
-
-#### P3-MKT-002 — Player trade delivery and settlement
-
-Size: `L`  
-Depends on: `P3-MKT-001`, `P2-COL-005`
-
-Implement player-to-player trade delivery through NPC cargo abstraction or explicit cargo route depending on Phase 3 design decision.
-
-Acceptance:
-- Filled orders settle exactly once
-- Delivery timing is transparent to both players
-- Storage caps are enforced at destination
-- Failed delivery has a documented refund/holding behavior
-
-Verify: Two-player integration test completes a trade and validates balances
-
 ### EPIC-P4-DEPLOY — Phase 4 — Production deployment
 
 #### P4-DEP-001 — Production environment plan
@@ -654,14 +543,14 @@ Verify: Run security checklist and endpoint validation tests
 #### P4-SEC-002 — Economy exploit and anti-cheat review
 
 Size: `M`  
-Depends on: `P2-POL-003`, `P3-MKT-002`
+Depends on: `P2-POL-003`
 
-Add tests and review notes for resource duplication, clock abuse, repeated worker execution, market arbitrage, and cargo settlement exploits.
+Add tests and review notes for resource duplication, clock abuse, repeated worker execution, and cargo settlement exploits.
 
 Acceptance:
 - Known exploit classes have regression tests or documented mitigations
 - Worker idempotency is verified for critical paths
-- Market/cargo/resource loops are reviewed
+- Cargo/resource loops are reviewed
 - Risk register is updated with accepted risks
 
 Verify: Run economy exploit regression suite
@@ -673,7 +562,7 @@ Verify: Run economy exploit regression suite
 Size: `M`  
 Depends on: `P1-206`, `P2-POL-003`
 
-Define and implement core product analytics events for onboarding, retention, building, ships, research, expeditions, market, and monetization.
+Define and implement core product analytics events for onboarding, retention, building, ships, research, expeditions, and monetization.
 
 Acceptance:
 - Analytics event taxonomy is documented

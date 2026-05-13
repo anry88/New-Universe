@@ -1,7 +1,7 @@
 /**
  * Phase 2 regression gate (task P2-POL-003): one synthetic player runs research start→complete,
- * first extra colony, cargo transfer between owned planets, then first NPC market sell order.
- * Expect messages are prefixed by feature area so failures map to Colonization / Cargo / Market / Research.
+ * first extra colony, and cargo transfer between owned planets.
+ * Expect messages are prefixed by feature area so failures map to Colonization / Cargo / Research.
  */
 import Fastify from 'fastify';
 import crypto from 'crypto';
@@ -14,7 +14,6 @@ import {
   discoveredPlanets,
   planets,
   planetResources,
-  resources,
   researchProgress,
   ships,
   systems,
@@ -28,18 +27,16 @@ import { expeditionsRoutes } from '../../src/features/expeditions/routes.js';
 import { researchRoutes } from '../../src/features/research/routes.js';
 import { coloniesRoutes } from '../../src/routes/colonies.js';
 import { cargoRoutes } from '../../src/routes/cargo.js';
-import { marketRoutes } from '../../src/routes/market.js';
 import { seedResources } from '../../src/db/seed/resources.js';
 import { seedBuildingTypes } from '../../src/db/seed/building-types.js';
 import { seedShipTypes } from '../../src/db/seed/ship-types.js';
+import { seedResearchCatalog } from '../../src/db/seed/research.js';
 import { env } from '../../src/lib/env.js';
 import { processCompletedResearch } from '../../src/features/research/completion.js';
-import { calculateNpcMarketQuote } from '../../src/features/market/pricing.js';
 
 const AREA = {
   colonization: '[Colonization]',
   cargo: '[Cargo]',
-  market: '[Market]',
   research: '[Research]',
 } as const;
 
@@ -56,6 +53,7 @@ describe('Phase 2 regression suite', () => {
 
   beforeAll(async () => {
     await seedResources();
+    await seedResearchCatalog();
     await seedBuildingTypes();
     await seedShipTypes();
 
@@ -69,7 +67,6 @@ describe('Phase 2 regression suite', () => {
     await app.register(researchRoutes, { prefix: '/research' });
     await app.register(coloniesRoutes, { prefix: '/colonies' });
     await app.register(cargoRoutes, { prefix: '/cargo' });
-    await app.register(marketRoutes);
   });
 
   function createValidInitData(user: { id: number; first_name: string; username: string }): string {
@@ -87,7 +84,7 @@ describe('Phase 2 regression suite', () => {
     return params.toString();
   }
 
-  it('full path: research → first colony → cargo transfer → NPC market sell (resource accounting)', async () => {
+  it('full path: research → first colony → cargo transfer (resource accounting)', async () => {
     const tgId = Math.floor(Math.random() * 100000000);
     const tgUser = { id: tgId, first_name: 'P2Regress', username: `p2reg_${tgId}` };
     const initData = createValidInitData(tgUser);
@@ -257,41 +254,6 @@ describe('Phase 2 regression suite', () => {
       ironAfterCargo,
       `${AREA.cargo} iron on home must drop by cargo amount only (no duplicate booking vs planet stock)`,
     ).toBeCloseTo(ironBeforeCargo - cargoQty, 4);
-
-    const carbonMeta = await db.query.resources.findFirst({
-      where: eq(resources.id, 'carbon'),
-    });
-    const carbonTier = carbonMeta?.tier ?? 1;
-
-    const sellQty = 100;
-    const carbonBeforeSell = await planetAmount(homePlanetId, 'carbon');
-    expect(carbonBeforeSell, `${AREA.market} carbon on home before NPC sell`).toBeGreaterThanOrEqual(sellQty);
-
-    const quote = calculateNpcMarketQuote({
-      resourceId: 'carbon',
-      tier: carbonTier,
-      stockRatio: 1,
-    });
-
-    const marketRes = await app.inject({
-      method: 'POST',
-      url: '/market/orders',
-      headers: { authorization: `Bearer ${token}` },
-      body: {
-        planetId: homePlanetId,
-        side: 'sell',
-        resourceId: 'carbon',
-        quantity: sellQty,
-        expectedUnitPrice: quote.sellPrice,
-      },
-    });
-    expect(marketRes.statusCode, `${AREA.market} POST /market/orders (NPC sell)`).toBe(200);
-
-    const carbonAfterSell = await planetAmount(homePlanetId, 'carbon');
-    expect(
-      carbonAfterSell,
-      `${AREA.market} carbon must decrease by sold qty (stock not duplicated with order escrow)`,
-    ).toBeCloseTo(carbonBeforeSell - sellQty, 4);
 
     const latestColony = await db.query.colonies.findFirst({
       where: eq(colonies.ownerId, userId),

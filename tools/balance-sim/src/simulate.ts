@@ -15,7 +15,6 @@ import {
   composeEffects,
   type ResearchEffects,
 } from './effects.js';
-import { npcBuyPriceIronPerUnit, npcSellPriceIronPerUnit } from './marketQuote.js';
 import type {
   MilestoneRecord,
   ScenarioDefinition,
@@ -155,11 +154,6 @@ export function simulateScenario(
   let ri = 0;
   let yi = 0;
 
-  const marketRows = (scenario.marketPlan ?? []).map((step) => ({
-    step,
-    done: false as boolean,
-  }));
-
   const milestones: MilestoneRecord = {
     firstStructureCompleteSec: null,
     firstResearchCompleteSec: null,
@@ -286,34 +280,6 @@ export function simulateScenario(
         } else {
           const d = dominantDeficit(resources, spec.buildCost);
           if (d) stallByResource[d] = (stallByResource[d] ?? 0) + DT;
-        }
-      }
-    }
-
-    let marketProgress = true;
-    while (marketProgress) {
-      marketProgress = false;
-      for (const row of marketRows) {
-        if (row.done) continue;
-        const step = row.step;
-        if (step.kind === 'buy') {
-          const unit = npcBuyPriceIronPerUnit(step.resourceId);
-          const totalIron = unit * step.amount;
-          if ((resources.iron ?? 0) >= totalIron) {
-            resources.iron = (resources.iron ?? 0) - totalIron;
-            resources[step.resourceId] = (resources[step.resourceId] ?? 0) + step.amount;
-            row.done = true;
-            marketProgress = true;
-          }
-        } else {
-          const unit = npcSellPriceIronPerUnit(step.resourceId);
-          const have = resources[step.resourceId] ?? 0;
-          if (have >= step.amount) {
-            resources[step.resourceId] = have - step.amount;
-            resources.iron = (resources.iron ?? 0) + unit * step.amount;
-            row.done = true;
-            marketProgress = true;
-          }
         }
       }
     }

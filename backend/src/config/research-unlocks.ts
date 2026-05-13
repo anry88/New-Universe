@@ -27,12 +27,6 @@ export const CARGO_TRANSFER_RESEARCH_GATE: ResearchUnlockRequirement = {
   level: 1,
 };
 
-/** Creating or cancelling NPC broker orders */
-export const NPC_MARKET_TRADING_GATE: ResearchUnlockRequirement = {
-  branch: 'logistics',
-  level: 1,
-};
-
 /** Jump ship sector jumps (mirrors existing jump.ts rule; kept centralised for docs/tests) */
 export const JUMP_DRIVE_RESEARCH_GATE: ResearchUnlockRequirement = {
   branch: 'jump_drive',

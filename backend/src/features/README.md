@@ -95,7 +95,7 @@ Resource accrual, transactions, conversion, and explicit production orders. [Det
   - Caps each resource amount at its `storageCap`.
   - Used by planet view and production features to show current state without constant DB writes.
 - **`accrual.test.ts`** — Vitest coverage asserting: regen math (10/h for 1h → +10), storage cap enforcement, array of all planet resources, and multiple resources with different regen rates.
-- **`transactions.ts`** — exports `spendResources(planetId, costs[], outerTx?)` and `gainResources(planetId, gains[], outerTx?)` for atomic resource transactions. When `outerTx` is omitted, opens its own transaction; when provided, participates in the caller's Drizzle transaction (used by market fulfillment). Uses `SELECT FOR UPDATE` on `planet_resources` for row-level locking. Updates `lastUpdateAt` synchronously with spend/gain. Returns `{ success, balanceAfter }` or `{ success: false, error: "not enough X" }`.
+- **`transactions.ts`** — exports `spendResources(planetId, costs[], outerTx?)` and `gainResources(planetId, gains[], outerTx?)` for atomic resource transactions. When `outerTx` is omitted, opens its own transaction; when provided, participates in the caller's Drizzle transaction. Uses `SELECT FOR UPDATE` on `planet_resources` for row-level locking. Updates `lastUpdateAt` synchronously with spend/gain. Returns `{ success, balanceAfter }` or `{ success: false, error: "not enough X" }`.
   - Parallel calls do not lead to negative values (transaction isolation).
   - If resource is insufficient → transaction rolls back, nothing spent.
   - `lastUpdateAt` synced with spend/gain.
@@ -111,18 +111,6 @@ Onboarding progression sync for first-time users.
 - **`routes.ts`** — `tutorialRoutes(app)` registers `POST /tutorial/sync` (mounted at `/tutorial`) and returns persisted tutorial state for the current user.
 - **`service.ts`** — `syncTutorialProgress(userId)` maps game actions to steps (`mine`, `storage`, `scout`, first `expedition`), persists `users.tutorialStepCompleted`, and grants one-time completion reward (`+200 iron`, `+100 water`) through `gainResources` (atomic resource transaction).
 - **`tutorial.test.ts`** — integration coverage for completion + one-time reward behavior.
-
-## `market/`
-
-Market contracts and explicit order-state lifecycle rules.
-
-- **`README.md`** — [Detailed market documentation](./market/README.md).
-- **`types.ts`** — typed market DTOs and explicit status transition map used by upcoming market services/routes.
-- **`types.test.ts`** — Vitest coverage for allowed/forbidden market order transitions.
-- **`pricing.ts`** — deterministic NPC broker pricing model (baseline + spread + stock-pressure + anti-abuse checks).
-- **`pricing.test.ts`** — unit tests for stable prices, tier weighting, and no instant buy/sell profit loop.
-- **`orders.ts`** — market order domain service used by `routes/market.ts` for listing offers, creating NPC orders, validating reserves, and cancellation rollback.
-- **`orders.test.ts`** — integration tests covering offers list, successful create, insufficient reserve rejection, and cancel resource return.
 
 ## `expeditions/`
 
@@ -160,7 +148,7 @@ Procedural world generation primitives and visibility checks. Contains the home-
 Tech tree definitions and starting research on a planet.
 
 - **`data.ts`** — exports `TECH_TREE` and `getResearchDef(branch, level)` backed by **`shared/config/researchCatalog.ts`** (eight branches × **five** tiers); building prerequisites use catalog id `lab`, and all research costs use seeded resource ids (`iron`, `silicon`, `tritium`, ...).
-- **`gates.ts`** — progression gates: `loadUserResearchLevels(userId, db)`, `meetsResearchRequirement`, and `assertResearchRequirement` enforce unlock rules from `config/research-unlocks.ts` for buildings, ships, colonization, cargo routes, and NPC market orders.
+- **`gates.ts`** — progression gates: `loadUserResearchLevels(userId, db)`, `meetsResearchRequirement`, and `assertResearchRequirement` enforce unlock rules from `config/research-unlocks.ts` for buildings, ships, colonization, cargo routes, and jump drive.
 - **`completion.ts`** — `processCompletedResearch(db, options?)` scans due `research_progress` rows (`completes_at <= now`), optionally scoped to one user, increments `level` exactly once per completion, clears the timer, calls `invalidateResearchEffectsCache`, and inserts a `research_done` notification unless active-session sync passed `skipNotification`.
 - **`effects.ts`** — typed research-effects engine with deterministic stacking. Exports `getResearchEffectsForUser(userId)` plus apply helpers for production, storage, energy generation/storage/efficiency, ship speed, sensor range, and build time. Exports `invalidateResearchEffectsCache(userId)` as a hook after tier completions (no-op until memoization exists).
 - **`effects.test.ts`** — unit tests for deterministic composition and stacked resource/ship/sensor/build-time effects.

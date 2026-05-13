@@ -1,6 +1,6 @@
 # `frontend/src/locales` directory
 
-This directory contains flat JSON dictionaries for the Telegram Mini App UI. Keys are grouped by feature prefix (`common.*`, `build.*`, `jumpGate.*`, `market.*`, `production.*`, etc.) and consumed through `lib/i18n.tsx`.
+This directory contains flat JSON dictionaries for the Telegram Mini App UI. Keys are grouped by feature prefix (`common.*`, `build.*`, `production.*`, etc.) and consumed through `lib/i18n.tsx`.
 
 ## Files
 
