@@ -66,6 +66,7 @@ export function ExpeditionDialog({
   const [targetPlanetId, setTargetPlanetId] = useState<string | null>(null);
   const [selectedDestinationSystemId, setSelectedDestinationSystemId] =
     useState<string | null>(initialDestinationSystemId ?? null);
+  const [launchError, setLaunchError] = useState<string | null>(null);
   const [cargo] = useState(0);
   const launch = useLaunchExpedition();
 
@@ -242,12 +243,32 @@ export function ExpeditionDialog({
     ? jumpColonizationTargets
     : jumpPlanetTargets.filter((planet) => !planet.isDiscovered);
 
+  const formatLaunchError = (message: string) => {
+    const lower = message.toLowerCase();
+    if (lower.includes("ship must be idle")) return t("expedition.error.shipNotIdle");
+    if (lower.includes("targetplanetid") || lower.includes("target planet")) return t("expedition.error.targetRequired");
+    if (lower.includes("not enough jump_fuel")) return t("expedition.error.notEnoughJumpFuel");
+    if (lower.includes("not enough fuel")) return t("expedition.error.notEnoughFuel");
+    if (lower.includes("colonization on cooldown")) return t("expedition.error.cooldown");
+    if (lower.includes("colony limit reached")) return t("expedition.error.colonyLimit");
+    if (lower.includes("already colonized")) return t("expedition.error.alreadyColonized");
+    if (lower.includes("not discovered")) return t("expedition.error.notDiscovered");
+    if (lower.includes("protected home")) return t("expedition.error.protectedHome");
+    if (lower.includes("jump drive research")) return t("expedition.error.jumpDriveRequired");
+    if (lower.includes("jump gate calibration")) return t("expedition.error.jumpGateCalibrating");
+    if (lower.includes("known destination")) return t("expedition.error.knownDestination");
+    if (lower.includes("already surveyed")) return t("expedition.error.alreadySurveyed");
+    return t("expedition.error.generic", { message });
+  };
+
   const selectRouteMode = (nextRouteMode: ExpeditionRouteMode) => {
     setRouteMode(nextRouteMode);
     setTargetPlanetId(null);
+    setLaunchError(null);
   };
 
   const handleLaunch = async () => {
+    setLaunchError(null);
     try {
       await launch.mutateAsync({
         shipId: ship.id,
@@ -262,7 +283,9 @@ export function ExpeditionDialog({
       });
       onClose();
     } catch (err) {
-      console.error(err);
+      const message =
+        err instanceof Error ? err.message : t("expedition.error.unknown");
+      setLaunchError(formatLaunchError(message));
     }
   };
 
@@ -298,6 +321,7 @@ export function ExpeditionDialog({
       );
       if (!planet || !homeSystem) return;
       setTargetPlanetId(planet.id);
+      setLaunchError(null);
       setTarget({
         x: homeSystem.sectorX,
         y: homeSystem.sectorY,
@@ -659,7 +683,10 @@ export function ExpeditionDialog({
                           type="button"
                           disabled={disabled}
                           onClick={() =>
-                            setTargetPlanetId(active ? null : planet.id)
+                            {
+                              setTargetPlanetId(active ? null : planet.id);
+                              setLaunchError(null);
+                            }
                           }
                           style={{
                             borderRadius: 999,
@@ -1045,6 +1072,27 @@ export function ExpeditionDialog({
             </>
           )}
         </button>
+        {launchError ? (
+          <div
+            role="alert"
+            style={{
+              marginTop: 10,
+              display: "flex",
+              gap: 8,
+              alignItems: "flex-start",
+              padding: 10,
+              borderRadius: 12,
+              background: "rgba(248, 113, 113, 0.1)",
+              border: "1px solid rgba(248, 113, 113, 0.35)",
+              color: "#fecaca",
+              fontSize: 12,
+              lineHeight: 1.45,
+            }}
+          >
+            <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: 1 }} />
+            <span>{launchError}</span>
+          </div>
+        ) : null}
       </div>
     </div>
   );

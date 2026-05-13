@@ -10,13 +10,13 @@ Interplanetary logistics — cargo transfers between player-owned colonies.
   - Requires Logistics research for cargo usage; the same requirement is mirrored by ship construction so the UI blocks transporter builds before a player reaches an unusable send flow.
   - Requires explicit `routeMode='jump_gate'` cargo routes to connect owned settlements in the player's Home system or discovered public common systems.
   - Normalizes multiple load lines in one transfer order, aggregates duplicate resource ids for reservation/delivery, and enforces the ship cargo capacity limit.
-  - Calculates travel ETA, ordinary route fuel, optional Jump Fuel, distance, speed, and timer metadata server-side for both preview and launch.
+  - Calculates travel ETA, ordinary route fuel, optional Jump Fuel, distance, speed, and timer metadata server-side for both preview and launch. Same-system transfers use the shared planet-map distance between the origin and target bodies instead of the parent system's sector coordinate.
   - Reserves resources atomically on the origin planet (via `spendResources`), adding ordinary `fuel` and the shared Jump Fuel surcharge when the request explicitly selects `routeMode='jump_gate'`.
   - Creates a one-way `expeditions` record with type `cargo_transfer`.
   - Sets ship status to `moving` and populates `cargoJson`.
   - Enqueues a BullMQ `arrive_cargo` job for delivery processing using validated `env.REDIS_URL`.
   - Exports `completeCargoTransfer(expedition, shipId, tx, options?)`, used by both the cargo worker and active-session expedition sync to finish one-way delivery without a return phase.
-  - `completeCargoTransfer` conditionally claims only `in_flight` / `returning` cargo expeditions before applying target gains, so repeated or concurrent worker jobs settle the cargo once.
+  - `completeCargoTransfer` conditionally claims only `in_flight` / `returning` cargo expeditions before applying target gains, so repeated or concurrent worker jobs settle the cargo once. Delivery uses `gainResources`, which creates a zero-regen target stockpile row if the destination has never stored that resource.
 - **`cargo-transfer.test.ts`** — Integration tests for Logistics gating, cargo transfer previews, Home ↔ common-colony Jump Gate routes, insufficient route fuel / Jump Fuel, discovered-only target rejection, and idempotent worker delivery.
 
 ## Transfer Rules
@@ -31,6 +31,7 @@ Interplanetary logistics — cargo transfers between player-owned colonies.
 8. **Atomic reservation**: Resources, ordinary route `fuel`, and any selected Jump Fuel surcharge are deducted from the origin planet within the same DB transaction as the expedition record creation.
 9. **No duplication on cancel**: Resources are reserved up-front; delivery only adds to target when the BullMQ worker or online expedition sync completes the one-way transfer.
 10. **Idempotent settlement**: The delivery helper claims the expedition row before granting resources, preventing duplicate worker execution from crediting the target twice.
+11. **New target resources**: A cargo load may deliver resources absent from the destination inventory; the target row is created with `regenRate=0` and the delivered amount.
 
 ## Adding a new logistics action
 

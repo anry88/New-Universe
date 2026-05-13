@@ -88,7 +88,23 @@ async function gainResourcesInner(trx: any, planetId: string, gains: ResourceCha
     // 1. Sync resources first to avoid overwriting uncollected accruals
     await syncPlanetResources(planetId, trx);
 
-    const resourceIds = gains.map(g => g.resourceId);
+    const resourceIds = [...new Set(gains.map(g => g.resourceId))];
+
+    if (resourceIds.length > 0) {
+      const now = new Date();
+      await trx
+        .insert(planetResources)
+        .values(
+          resourceIds.map((resourceId) => ({
+            planetId,
+            resourceId,
+            amount: '0.0000',
+            regenRate: '0.0000',
+            lastUpdateAt: now,
+          })),
+        )
+        .onConflictDoNothing();
+    }
 
     // 2. Select for update
     const records = await trx
