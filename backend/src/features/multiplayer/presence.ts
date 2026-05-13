@@ -1,9 +1,30 @@
 import { db } from '../../db/index.js';
-import { systems, planets, colonies, ships, users } from '../../db/schema.js';
+import { systems, planets, colonies, ships, users, discoveredSystems } from '../../db/schema.js';
 import { eq, and, inArray } from 'drizzle-orm';
-import type { SectorPresencePayload, SectorPresenceEntity, WorldPosition } from '@shared/types/multiplayer.js';
+import type {
+  PresenceEntityRelation,
+  PresenceEntityType,
+  SectorPresencePayload,
+  SectorPresenceEntity,
+  SectorSystemAnchor,
+  SectorSystemAnchorsPayload,
+  SectorSystemAnchorTag,
+  WorldPosition,
+} from '@shared/types/multiplayer.js';
 
-export type { PresenceEntityKind, SectorPresenceEntity, SectorPresencePayload, WorldPosition } from '@shared/types/multiplayer.js';
+export type {
+  PresenceEntityKind,
+  PresenceEntityRelation,
+  PresenceEntityType,
+  SectorPresenceEntity,
+  SectorPresencePayload,
+  SectorSystemAnchor,
+  SectorSystemAnchorsPayload,
+  WorldPosition,
+} from '@shared/types/multiplayer.js';
+
+const RECENT_SYSTEM_LIMIT = 5;
+const ANCHOR_TAG_ORDER: SectorSystemAnchorTag[] = ['home', 'colony', 'fleet', 'recent', 'discovered'];
 
 function numericToFloat(v: unknown): number {
   if (typeof v === 'number') return v;
@@ -15,6 +36,100 @@ function maskPublicAlias(u: { tgUsername: string | null; tgFirstName: string | n
   if (u.tgUsername) return `@${u.tgUsername.slice(0, 12)}`;
   if (u.tgFirstName) return `${u.tgFirstName.slice(0, 1)}•••`;
   return 'Player';
+}
+
+function toWorldPosition(row: { x: unknown; y: unknown; z: unknown }): WorldPosition {
+  return {
+    x: numericToFloat(row.x),
+    y: numericToFloat(row.y),
+    z: numericToFloat(row.z),
+  };
+}
+
+function isProtectedForeignHomeSystem(
+  system: { isHome: boolean; ownerId: string | null },
+  viewerId: string,
+): boolean {
+  return Boolean(system.isHome && system.ownerId && system.ownerId !== viewerId);
+}
+
+function presenceMeta(entityType: PresenceEntityType, relation: PresenceEntityRelation) {
+  return { entityType, relation };
+}
+
+async function loadPublicMasks(ownerIds: Set<string>): Promise<Map<string, string>> {
+  if (ownerIds.size === 0) return new Map();
+
+  const profiles = await db
+    .select({
+      id: users.id,
+      tgUsername: users.tgUsername,
+      tgFirstName: users.tgFirstName,
+    })
+    .from(users)
+    .where(inArray(users.id, [...ownerIds]));
+
+  return new Map(profiles.map((p) => [p.id, maskPublicAlias(p)]));
+}
+
+function isoOrUndefined(value: Date | null | undefined): string | undefined {
+  return value ? value.toISOString() : undefined;
+}
+
+function maxDate(a: Date | undefined, b: Date | null | undefined): Date | undefined {
+  if (!b) return a;
+  if (!a || b.getTime() > a.getTime()) return b;
+  return a;
+}
+
+type AnchorAccumulator = Omit<SectorSystemAnchor, 'tags' | 'discoveredAt' | 'lastActivityAt'> & {
+  tags: Set<SectorSystemAnchorTag>;
+  discoveredAt?: Date;
+  lastActivityAt?: Date;
+};
+
+function ensureAnchor(
+  anchors: Map<string, AnchorAccumulator>,
+  row: {
+    systemId: string;
+    title: string;
+    sectorX: number;
+    sectorY: number;
+    sectorZ: number;
+    x: unknown;
+    y: unknown;
+    z: unknown;
+  },
+): AnchorAccumulator {
+  const existing = anchors.get(row.systemId);
+  if (existing) return existing;
+
+  const anchor: AnchorAccumulator = {
+    systemId: row.systemId,
+    title: row.title,
+    sector: [row.sectorX, row.sectorY, row.sectorZ],
+    worldPosition: toWorldPosition(row),
+    tags: new Set(),
+    colonyCount: 0,
+    shipCount: 0,
+  };
+  anchors.set(row.systemId, anchor);
+  return anchor;
+}
+
+function serializeAnchor(anchor: AnchorAccumulator): SectorSystemAnchor {
+  const tags = ANCHOR_TAG_ORDER.filter((tag) => anchor.tags.has(tag));
+  return {
+    systemId: anchor.systemId,
+    title: anchor.title,
+    sector: anchor.sector,
+    worldPosition: anchor.worldPosition,
+    tags,
+    discoveredAt: isoOrUndefined(anchor.discoveredAt),
+    lastActivityAt: isoOrUndefined(anchor.lastActivityAt),
+    colonyCount: anchor.colonyCount,
+    shipCount: anchor.shipCount,
+  };
 }
 
 /**
@@ -39,19 +154,16 @@ export async function getSectorPresence(
   const entities: SectorPresenceEntity[] = [];
 
   for (const sys of sectorSystems) {
-    if (sys.isHome && sys.ownerId && sys.ownerId !== viewerId) {
+    if (isProtectedForeignHomeSystem(sys, viewerId)) {
       continue;
     }
 
-    const worldPosition: WorldPosition = {
-      x: numericToFloat(sys.x),
-      y: numericToFloat(sys.y),
-      z: numericToFloat(sys.z),
-    };
+    const worldPosition = toWorldPosition(sys);
 
     if (sys.ownerId === viewerId && sys.isHome) {
       entities.push({
         kind: 'own_home_system',
+        ...presenceMeta('home', 'self'),
         systemId: sys.id,
         title: sys.name,
         visibility: 'full',
@@ -63,6 +175,7 @@ export async function getSectorPresence(
     if (!sys.ownerId) {
       entities.push({
         kind: 'neutral_system',
+        ...presenceMeta('public_sector', 'public'),
         systemId: sys.id,
         title: sys.name,
         visibility: 'summary',
@@ -91,7 +204,7 @@ export async function getSectorPresence(
 
   const foreignColonyOwners = new Set<string>();
   for (const row of colonyRows) {
-    if (row.systemIsHome && row.systemOwnerId && row.systemOwnerId !== viewerId) {
+    if (isProtectedForeignHomeSystem({ isHome: row.systemIsHome, ownerId: row.systemOwnerId }, viewerId)) {
       continue;
     }
     if (row.ownerId !== viewerId) {
@@ -99,34 +212,19 @@ export async function getSectorPresence(
     }
   }
 
-  let masks = new Map<string, string>();
-  if (foreignColonyOwners.size > 0) {
-    const profiles = await db
-      .select({
-        id: users.id,
-        tgUsername: users.tgUsername,
-        tgFirstName: users.tgFirstName,
-      })
-      .from(users)
-      .where(inArray(users.id, [...foreignColonyOwners]));
-
-    masks = new Map(profiles.map((p) => [p.id, maskPublicAlias(p)]));
-  }
+  const masks = await loadPublicMasks(foreignColonyOwners);
 
   for (const row of colonyRows) {
-    if (row.systemIsHome && row.systemOwnerId && row.systemOwnerId !== viewerId) {
+    if (isProtectedForeignHomeSystem({ isHome: row.systemIsHome, ownerId: row.systemOwnerId }, viewerId)) {
       continue;
     }
 
-    const worldPosition: WorldPosition = {
-      x: numericToFloat(row.sx),
-      y: numericToFloat(row.sy),
-      z: numericToFloat(row.sz),
-    };
+    const worldPosition: WorldPosition = toWorldPosition({ x: row.sx, y: row.sy, z: row.sz });
 
     if (row.ownerId === viewerId) {
       entities.push({
         kind: 'own_colony',
+        ...presenceMeta('colony', 'self'),
         systemId: row.systemId,
         planetId: row.planetId,
         title: row.planetName,
@@ -136,6 +234,7 @@ export async function getSectorPresence(
     } else {
       entities.push({
         kind: 'foreign_colony',
+        ...presenceMeta('colony', 'foreign'),
         systemId: row.systemId,
         planetId: row.planetId,
         title: 'Colony',
@@ -166,7 +265,7 @@ export async function getSectorPresence(
 
   const foreignShipOwners = new Set<string>();
   for (const row of shipRows) {
-    if (row.systemIsHome && row.systemOwnerId && row.systemOwnerId !== viewerId) {
+    if (isProtectedForeignHomeSystem({ isHome: row.systemIsHome, ownerId: row.systemOwnerId }, viewerId)) {
       continue;
     }
     if (row.ownerId !== viewerId) {
@@ -174,36 +273,21 @@ export async function getSectorPresence(
     }
   }
 
-  let shipMasks = new Map<string, string>();
-  if (foreignShipOwners.size > 0) {
-    const profiles = await db
-      .select({
-        id: users.id,
-        tgUsername: users.tgUsername,
-        tgFirstName: users.tgFirstName,
-      })
-      .from(users)
-      .where(inArray(users.id, [...foreignShipOwners]));
-
-    shipMasks = new Map(profiles.map((p) => [p.id, maskPublicAlias(p)]));
-  }
+  const shipMasks = await loadPublicMasks(foreignShipOwners);
 
   for (const row of shipRows) {
-    if (row.systemIsHome && row.systemOwnerId && row.systemOwnerId !== viewerId) {
+    if (isProtectedForeignHomeSystem({ isHome: row.systemIsHome, ownerId: row.systemOwnerId }, viewerId)) {
       continue;
     }
 
-    const worldPosition: WorldPosition = {
-      x: numericToFloat(row.sx),
-      y: numericToFloat(row.sy),
-      z: numericToFloat(row.sz),
-    };
+    const worldPosition: WorldPosition = toWorldPosition({ x: row.sx, y: row.sy, z: row.sz });
 
     const label = row.typeId.replace(/_/g, ' ');
 
     if (row.ownerId === viewerId) {
       entities.push({
         kind: 'own_ship',
+        ...presenceMeta('fleet', 'self'),
         systemId: row.systemId,
         planetId: row.planetId,
         shipId: row.shipId,
@@ -214,6 +298,7 @@ export async function getSectorPresence(
     } else {
       entities.push({
         kind: 'foreign_ship',
+        ...presenceMeta('fleet', 'foreign'),
         systemId: row.systemId,
         planetId: row.planetId,
         shipId: row.shipId,
@@ -229,4 +314,150 @@ export async function getSectorPresence(
     sector: [sectorX, sectorY, sectorZ],
     entities,
   };
+}
+
+/**
+ * Returns systems that can anchor the sector map selector: the viewer's home,
+ * discovered public systems, and systems containing the viewer's colonies or
+ * docked fleets. Foreign home systems are filtered even if a stale discovery
+ * row exists.
+ */
+export async function getSectorSystemAnchors(viewerId: string): Promise<SectorSystemAnchorsPayload> {
+  const anchors = new Map<string, AnchorAccumulator>();
+
+  const homeRows = await db
+    .select({
+      systemId: systems.id,
+      title: systems.name,
+      sectorX: systems.sectorX,
+      sectorY: systems.sectorY,
+      sectorZ: systems.sectorZ,
+      x: systems.x,
+      y: systems.y,
+      z: systems.z,
+    })
+    .from(systems)
+    .where(and(eq(systems.ownerId, viewerId), eq(systems.isHome, true)));
+
+  for (const row of homeRows) {
+    const anchor = ensureAnchor(anchors, row);
+    anchor.tags.add('home');
+  }
+
+  const discoveredRows = await db
+    .select({
+      systemId: systems.id,
+      ownerId: systems.ownerId,
+      isHome: systems.isHome,
+      title: systems.name,
+      sectorX: systems.sectorX,
+      sectorY: systems.sectorY,
+      sectorZ: systems.sectorZ,
+      x: systems.x,
+      y: systems.y,
+      z: systems.z,
+      discoveredAt: discoveredSystems.discoveredAt,
+    })
+    .from(discoveredSystems)
+    .innerJoin(systems, eq(discoveredSystems.systemId, systems.id))
+    .where(eq(discoveredSystems.userId, viewerId));
+
+  const visibleDiscoveredRows = discoveredRows.filter(
+    (row) => !isProtectedForeignHomeSystem(row, viewerId),
+  );
+  const recentDiscoveredIds = new Set(
+    [...visibleDiscoveredRows]
+      .sort((a, b) => b.discoveredAt.getTime() - a.discoveredAt.getTime())
+      .slice(0, RECENT_SYSTEM_LIMIT)
+      .map((row) => row.systemId),
+  );
+
+  for (const row of visibleDiscoveredRows) {
+    const anchor = ensureAnchor(anchors, row);
+    anchor.tags.add('discovered');
+    if (recentDiscoveredIds.has(row.systemId)) {
+      anchor.tags.add('recent');
+    }
+    anchor.discoveredAt = maxDate(anchor.discoveredAt, row.discoveredAt);
+    anchor.lastActivityAt = maxDate(anchor.lastActivityAt, row.discoveredAt);
+  }
+
+  const colonyRows = await db
+    .select({
+      colonyId: colonies.id,
+      systemId: systems.id,
+      ownerId: systems.ownerId,
+      isHome: systems.isHome,
+      title: systems.name,
+      sectorX: systems.sectorX,
+      sectorY: systems.sectorY,
+      sectorZ: systems.sectorZ,
+      x: systems.x,
+      y: systems.y,
+      z: systems.z,
+      foundedAt: colonies.foundedAt,
+    })
+    .from(colonies)
+    .innerJoin(planets, eq(colonies.planetId, planets.id))
+    .innerJoin(systems, eq(planets.systemId, systems.id))
+    .where(and(eq(colonies.ownerId, viewerId), eq(colonies.status, 'active')));
+
+  for (const row of colonyRows) {
+    if (isProtectedForeignHomeSystem(row, viewerId)) {
+      continue;
+    }
+
+    const anchor = ensureAnchor(anchors, row);
+    anchor.tags.add('colony');
+    anchor.colonyCount += 1;
+    anchor.lastActivityAt = maxDate(anchor.lastActivityAt, row.foundedAt);
+  }
+
+  const shipRows = await db
+    .select({
+      shipId: ships.id,
+      systemId: systems.id,
+      ownerId: systems.ownerId,
+      isHome: systems.isHome,
+      title: systems.name,
+      sectorX: systems.sectorX,
+      sectorY: systems.sectorY,
+      sectorZ: systems.sectorZ,
+      x: systems.x,
+      y: systems.y,
+      z: systems.z,
+    })
+    .from(ships)
+    .innerJoin(planets, eq(ships.locationPlanetId, planets.id))
+    .innerJoin(systems, eq(planets.systemId, systems.id))
+    .where(eq(ships.ownerId, viewerId));
+
+  for (const row of shipRows) {
+    if (isProtectedForeignHomeSystem(row, viewerId)) {
+      continue;
+    }
+
+    const anchor = ensureAnchor(anchors, row);
+    anchor.tags.add('fleet');
+    anchor.shipCount += 1;
+  }
+
+  const serialized = [...anchors.values()]
+    .map(serializeAnchor)
+    .sort((a, b) => {
+      if (a.tags.includes('home') !== b.tags.includes('home')) {
+        return a.tags.includes('home') ? -1 : 1;
+      }
+      const aAssetScore = Number(a.tags.includes('colony')) + Number(a.tags.includes('fleet'));
+      const bAssetScore = Number(b.tags.includes('colony')) + Number(b.tags.includes('fleet'));
+      if (aAssetScore !== bAssetScore) return bAssetScore - aAssetScore;
+
+      const aTime = a.lastActivityAt ? Date.parse(a.lastActivityAt) : 0;
+      const bTime = b.lastActivityAt ? Date.parse(b.lastActivityAt) : 0;
+      if (aTime !== bTime) return bTime - aTime;
+
+      return a.title.localeCompare(b.title);
+    });
+
+  return { systems: serialized };
 }

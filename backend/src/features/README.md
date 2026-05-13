@@ -54,7 +54,7 @@ Telegram Bot logic and webhook handling.
 Sector map visibility for Phase 3.
 
 - **`README.md`** — [multiplayer/presence documentation](./multiplayer/README.md).
-- **`presence.ts`** — `getSectorPresence(viewerId, sectorX, sectorY, sectorZ)` builds `SectorPresencePayload` for `GET /multiplayer/sectors/:sx/:sy/:sz/presence`.
+- **`presence.ts`** — `getSectorPresence(viewerId, sectorX, sectorY, sectorZ)` builds explicit home/colony/fleet/public-sector `SectorPresencePayload` markers for `GET /multiplayer/sectors/:sx/:sy/:sz/presence`, while `getSectorSystemAnchors(viewerId)` builds the Home/discovered/colony/fleet selector for `GET /multiplayer/systems`.
 - **`presence.test.ts`** — asserts foreign homeworlds never appear and foreign colonies are masked.
 
 ## `me/`

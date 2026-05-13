@@ -29,7 +29,7 @@ Cross-package contracts shared between the Fastify backend (`backend/`) and the 
     - **`expeditions.ts`** — `Expedition` and `ExpeditionResult` interfaces, including server-calculated `fuelRequired`, route `distance`, and timer fields consumed by fleet/map UI.
     - **`cargo.ts`** — `CargoTransferLoad` and `CargoTransferRequest` contracts for one-way cargo transfer orders; duplicate resource load lines are valid and aggregated by the backend.
     - **`market.ts`** — `MarketOffer`, market-order request/response payloads, and side/status primitives shared by market frontend hooks and backend routes.
-    - **`multiplayer.ts`** — `PresenceEntityKind`, `SectorPresenceEntity`, and `SectorPresencePayload` for the sector-map presence API (`GET /multiplayer/sectors/:sx/:sy/:sz/presence`).
+    - **`multiplayer.ts`** — `PresenceEntityKind`, explicit `PresenceEntityType` / `PresenceEntityRelation` metadata, `SectorPresenceEntity`, `SectorPresencePayload`, and `SectorSystemAnchor` contracts for the sector-map APIs (`GET /multiplayer/systems` and `GET /multiplayer/sectors/:sx/:sy/:sz/presence`).
     - **`production.ts`** — production recipe summaries, preview/start payloads, structured block reasons, and production-process DTOs shared by `/resources/production/*` and the frontend production dialog; `ProductionOrderStatus` includes `paused`, and orders may carry `pausedAt` plus active `energyPerHour`.
     - **`jump-gate.ts`** — `JumpGateStateResponse` and supporting locked-reason, anchor, calibration, random-jump availability, and known-destination DTOs for `GET /jump-gate/state`.
 
