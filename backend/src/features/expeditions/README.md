@@ -19,7 +19,7 @@ Ship launch and expedition scheduling live here. The module accepts launch reque
   - Verifies the ship is a `jump_ship` and `idle`.
   - Verifies `jump_drive` research level 1+.
   - Deducts 50 Jump Fuel from the ship's internal tank.
-  - Lazily generates the target sector and moves the ship to the first planet of its first system.
+  - Lazily generates the target sector and moves the ship to the first planet of the first public, non-home system; private Home Systems are never valid jump targets.
   - Updates `discovered_systems` and `discovered_planets` for the user.
 - **`launch.test.ts`** — Vitest integration suite for standard launches.
 - **`jump.test.ts`** — Vitest integration suite for the jump feature.

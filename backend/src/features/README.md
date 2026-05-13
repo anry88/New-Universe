@@ -4,6 +4,15 @@ Feature modules group business logic, route handlers, and tests for one bounded 
 
 Each subfolder is a single feature and is wired into Fastify from `backend/src/index.ts`. Add a new feature by creating `backend/src/features/<name>/{routes.ts,service.ts,<name>.test.ts}` and `app.register(<name>Routes, { prefix: '/<name>' })` in `index.ts`. When the feature is a single action module instead of a long-lived service class, keep the domain logic in that named file and document the exception locally.
 
+## `jump-gate/`
+
+Private Home System Jump Gate state.
+
+- **`README.md`** — [Jump Gate state documentation](./jump-gate/README.md).
+- **`routes.ts`** — `jumpGateRoutes(app)` registers `GET /jump-gate/state` for authenticated clients.
+- **`service.ts`** — `getJumpGateState(userId)` derives unlock from completed `jump_drive >= 1`, creates/updates the player's `jump_gates` row when unlocked, returns the outer-orbit home anchor, calibration state, random-jump availability, and discovered public destination summaries.
+- **`service.test.ts`** — asserts locked/unlocked state, unfinished research staying locked, persistence creation, public destination filtering, and calibration finalization.
+
 ## `buildings/`
 
 Planet infrastructure management.
@@ -45,7 +54,7 @@ Telegram Bot logic and webhook handling.
 Sector map visibility for Phase 3.
 
 - **`README.md`** — [multiplayer/presence documentation](./multiplayer/README.md).
-- **`presence.ts`** — `getSectorPresence(viewerId, sectorX, sectorY, sectorZ)` builds `SectorPresencePayload` for `GET /multiplayer/sectors/:sx/:sy/:sz/presence`.
+- **`presence.ts`** — `getSectorPresence(viewerId, sectorX, sectorY, sectorZ)` builds explicit home/colony/fleet/public-sector `SectorPresencePayload` markers for `GET /multiplayer/sectors/:sx/:sy/:sz/presence`, while `getSectorSystemAnchors(viewerId)` builds the Home/discovered/colony/fleet selector for `GET /multiplayer/systems`.
 - **`presence.test.ts`** — asserts foreign homeworlds never appear and foreign colonies are masked.
 
 ## `me/`
@@ -111,7 +120,7 @@ Ship launch and travel scheduling. [Detailed documentation](./expeditions/README
   - `POST /` — launches a standard expedition to a route point. Accepts `{ shipId, targetX, targetY, targetZ, cargoLoaded }`; fuel is calculated server-side from distance and ship fuel consumption. `targetPlanetId` is valid for recon survey targets and required for colonizer deployments to discovered planets; same-system targeted launches use shared system-map planet distance, while logistics ships are rejected and must use `/cargo/transfer`.
   - `POST /jump` — performs an inter-sector jump using a Jump Ship. Accepts `{ shipId, targetSector: { x, y, z } }`.
 - **`launch.ts`** — `launchExpedition(userId, request)` validates ship ownership and idle state, rejects logistics ships from generic expeditions, checks the launch planet has enough cargo stock, computes and spends fuel, creates an `expeditions` row with `status='in_flight'`, updates the ship to `moving`, computes `eta = distance × 60 / speed × engine_factor`, and enqueues the delayed BullMQ job. Effective speed is resolved through `features/research/effects.ts`; same-system target-planet launches derive distance from `@shared/format/systemMapLayout`, and colonizer launches are one-way and must pass colonization gates before launch.
-- **`jump.ts`** — `jumpShip(userId, request)` handles specialized Jump Ship teleportation. Checks for Jump Drive research lvl 1+, deducts 50 fuel from the ship's internal tank, lazily generates the target sector/system, and moves the ship to the first planet of the target system. Updates discovery records.
+- **`jump.ts`** — `jumpShip(userId, request)` handles specialized Jump Ship teleportation. Checks for Jump Drive research lvl 1+, deducts 50 fuel from the ship's internal tank, lazily generates the target sector, selects the first public non-home system, and moves the ship to its first planet. Updates discovery records.
 - **`launch.test.ts`** — Vitest integration suite covering the happy path, non-idle ship rejection, insufficient fuel, and missing auth.
 - **`jump.test.ts`** — Vitest integration suite for the jump feature.
 

@@ -16,6 +16,7 @@ import { tutorialRoutes } from './features/tutorial/routes.js';
 import { coloniesRoutes } from './routes/colonies.js';
 import { cargoRoutes } from './routes/cargo.js';
 import { multiplayerRoutes } from './routes/multiplayer.js';
+import { jumpGateRoutes } from './features/jump-gate/routes.js';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 
@@ -48,6 +49,7 @@ await fastify.register(tutorialRoutes, { prefix: '/tutorial' });
 await fastify.register(coloniesRoutes, { prefix: '/colonies' });
 await fastify.register(cargoRoutes, { prefix: '/cargo' });
 await fastify.register(multiplayerRoutes, { prefix: '/multiplayer' });
+await fastify.register(jumpGateRoutes, { prefix: '/jump-gate' });
 
 const start = async () => {
   try {

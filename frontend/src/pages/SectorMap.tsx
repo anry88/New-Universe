@@ -6,7 +6,11 @@ import { useMe } from '../hooks/useMe';
 import { apiFetch } from '../lib/api';
 import { CosmicBottomNav } from '../components/cosmic/atoms';
 import { SectorRenderer } from '../components/pixi/SectorRenderer';
-import type { SectorPresencePayload } from '@shared/types/multiplayer';
+import type {
+  SectorPresencePayload,
+  SectorSystemAnchorTag,
+  SectorSystemAnchorsPayload,
+} from '@shared/types/multiplayer';
 import { useI18n } from '../lib/i18n';
 
 function parseCoord(raw: string | null, fallback: number): number {
@@ -17,7 +21,7 @@ function parseCoord(raw: string | null, fallback: number): number {
 
 /**
  * Sector-scale multiplayer map — shows anonymized foreign markers and local assets
- * for one sector cube via `GET /multiplayer/sectors/:sx/:sy/:sz/presence`.
+ * for one sector cube, anchored by Home/discovered/colony/fleet system choices.
  */
 export function SectorMapPage() {
   const navigate = useNavigate();
@@ -26,15 +30,44 @@ export function SectorMapPage() {
   const { t } = useI18n();
 
   const home = meData?.homeSystem;
+  const selectedSystemId = searchParams.get('systemId');
+
+  const { data: anchorData } = useQuery({
+    queryKey: ['sector-system-anchors'],
+    queryFn: () => apiFetch<SectorSystemAnchorsPayload>('/multiplayer/systems'),
+    enabled: Boolean(meData?.id && home),
+  });
+  const anchorSystems = anchorData?.systems ?? [];
 
   const sector = useMemo(() => {
+    const selectedAnchor = anchorSystems.find((anchor) => anchor.systemId === selectedSystemId);
+    if (selectedAnchor) {
+      return {
+        sx: selectedAnchor.sector[0],
+        sy: selectedAnchor.sector[1],
+        sz: selectedAnchor.sector[2],
+      };
+    }
+
     const h = meData?.homeSystem;
     return {
       sx: parseCoord(searchParams.get('sx'), h?.sectorX ?? 0),
       sy: parseCoord(searchParams.get('sy'), h?.sectorY ?? 0),
       sz: parseCoord(searchParams.get('sz'), h?.sectorZ ?? 0),
     };
-  }, [searchParams, meData?.homeSystem]);
+  }, [anchorSystems, selectedSystemId, searchParams, meData?.homeSystem]);
+
+  const selectedAnchor = useMemo(
+    () =>
+      anchorSystems.find((anchor) => anchor.systemId === selectedSystemId) ??
+      anchorSystems.find(
+        (anchor) =>
+          anchor.sector[0] === sector.sx &&
+          anchor.sector[1] === sector.sy &&
+          anchor.sector[2] === sector.sz,
+      ),
+    [anchorSystems, selectedSystemId, sector.sx, sector.sy, sector.sz],
+  );
 
   const [draftSx, setDraftSx] = useState(sector.sx);
   const [draftSy, setDraftSy] = useState(sector.sy);
@@ -58,6 +91,17 @@ export function SectorMapPage() {
   const applySector = () => {
     setSearchParams({ sx: String(draftSx), sy: String(draftSy), sz: String(draftSz) });
   };
+
+  const selectAnchor = (systemId: string, sectorCoords: [number, number, number]) => {
+    setSearchParams({
+      systemId,
+      sx: String(sectorCoords[0]),
+      sy: String(sectorCoords[1]),
+      sz: String(sectorCoords[2]),
+    });
+  };
+
+  const tagLabel = (tag: SectorSystemAnchorTag) => t(`sector.anchor.${tag}`);
 
   if (isLoading) {
     return (
@@ -133,6 +177,8 @@ export function SectorMapPage() {
             padding: '10px 12px',
             backdropFilter: 'blur(8px)',
             pointerEvents: 'auto',
+            maxHeight: 220,
+            overflowY: 'auto',
           }}
         >
           <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 13, color: 'var(--text)' }}>
@@ -141,6 +187,87 @@ export function SectorMapPage() {
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-faint)', marginTop: 4 }}>
             {t('sector.subtitle')}
           </div>
+          {anchorSystems.length > 0 && (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ fontSize: 10, color: 'var(--text-dim)', marginBottom: 6 }}>
+                {t('sector.systemSelector')}
+              </div>
+              <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2 }}>
+                {anchorSystems.map((anchor) => {
+                  const active = selectedAnchor?.systemId === anchor.systemId;
+                  const meta = [
+                    anchor.colonyCount > 0
+                      ? t('sector.anchor.colonyCount', { count: anchor.colonyCount })
+                      : null,
+                    anchor.shipCount > 0
+                      ? t('sector.anchor.shipCount', { count: anchor.shipCount })
+                      : null,
+                  ].filter(Boolean);
+
+                  return (
+                    <button
+                      key={anchor.systemId}
+                      type="button"
+                      onClick={() => selectAnchor(anchor.systemId, anchor.sector)}
+                      style={{
+                        flex: '0 0 160px',
+                        textAlign: 'left',
+                        borderRadius: 8,
+                        border: active ? '1px solid var(--accent)' : '1px solid var(--line)',
+                        background: active ? 'rgba(91,215,255,0.14)' : 'rgba(8,12,22,0.74)',
+                        color: 'var(--text)',
+                        padding: '7px 8px',
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 700,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {anchor.title}
+                      </div>
+                      <div
+                        style={{
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: 9,
+                          color: 'var(--text-faint)',
+                          marginTop: 3,
+                        }}
+                      >
+                        {anchor.sector.join(':')}
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 5 }}>
+                        {anchor.tags.map((tag) => (
+                          <span
+                            key={tag}
+                            style={{
+                              borderRadius: 999,
+                              border: '1px solid rgba(148,163,184,0.25)',
+                              color: tag === 'home' ? 'var(--accent)' : 'var(--text-dim)',
+                              fontSize: 8,
+                              padding: '1px 5px',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {tagLabel(tag)}
+                          </span>
+                        ))}
+                      </div>
+                      {meta.length > 0 && (
+                        <div style={{ fontSize: 9, color: 'var(--text-dim)', marginTop: 5 }}>
+                          {meta.join(' · ')}
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
             <label style={{ fontSize: 10, color: 'var(--text-dim)' }}>
               sx
@@ -224,7 +351,7 @@ export function SectorMapPage() {
           minHeight: 0,
           width: '100%',
           height: 'calc(100vh - 64px)',
-          paddingTop: 152,
+          paddingTop: anchorSystems.length > 0 ? 252 : 152,
           boxSizing: 'border-box',
         }}
       >

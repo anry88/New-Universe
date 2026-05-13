@@ -1,4 +1,4 @@
-/** HTTP GET `/multiplayer/sectors/:sx/:sy/:sz/presence` response shape. */
+/** Multiplayer sector map response shapes. */
 
 export type PresenceEntityKind =
   | 'neutral_system'
@@ -8,6 +8,10 @@ export type PresenceEntityKind =
   | 'foreign_ship'
   | 'own_ship';
 
+export type PresenceEntityType = 'home' | 'colony' | 'fleet' | 'public_sector';
+export type PresenceEntityRelation = 'self' | 'foreign' | 'public';
+export type PresenceVisibility = 'full' | 'summary';
+
 export interface WorldPosition {
   x: number;
   y: number;
@@ -16,16 +20,36 @@ export interface WorldPosition {
 
 export interface SectorPresenceEntity {
   kind: PresenceEntityKind;
+  entityType: PresenceEntityType;
+  relation: PresenceEntityRelation;
   systemId: string;
   planetId?: string;
   shipId?: string;
   title: string;
   subtitle?: string;
-  visibility: 'full' | 'summary';
+  visibility: PresenceVisibility;
   worldPosition: WorldPosition;
 }
 
 export interface SectorPresencePayload {
   sector: [number, number, number];
   entities: SectorPresenceEntity[];
+}
+
+export type SectorSystemAnchorTag = 'home' | 'discovered' | 'recent' | 'colony' | 'fleet';
+
+export interface SectorSystemAnchor {
+  systemId: string;
+  title: string;
+  sector: [number, number, number];
+  worldPosition: WorldPosition;
+  tags: SectorSystemAnchorTag[];
+  discoveredAt?: string;
+  lastActivityAt?: string;
+  colonyCount: number;
+  shipCount: number;
+}
+
+export interface SectorSystemAnchorsPayload {
+  systems: SectorSystemAnchor[];
 }
