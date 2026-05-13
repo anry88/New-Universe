@@ -24,7 +24,7 @@ This document is a checkpoint for future planning reviews. It separates implemen
 | MVP playable | P0/P1 issues closed, **P1.1 fix-epic closed (research/resources/onboarding bugs resolved)**, first-day E2E passes, Telegram auth works, resource/building/ship/expedition loop works |
 | Phase 2 complete | Colonization E2E passes, research levels 1-3 work, cargo transfer flow passes, balance simulator and P2 regression suite pass |
 | Phase 2.1 complete | `P2.1-400` roll-up evidence is recorded in [`ROADMAP_P2_1_GAMEPLAY.md`](ROADMAP_P2_1_GAMEPLAY.md), all child issues `P2.1-401…418` are closed, default CI passes, and the closing PR runs the `run-e2e` browser smoke gate |
-| Phase 2.3 complete | `P2.3-500` roll-up evidence is recorded in [`ROADMAP_P2_3_JUMP_GATE.md`](ROADMAP_P2_3_JUMP_GATE.md), all child issues `P2.3-501…508` are closed or explicitly replaced, default CI passes, and the closing PR runs the `run-e2e` browser smoke gate |
+| Phase 2.3 complete | `P2.3-500` roll-up evidence is recorded in [`ROADMAP_P2_3_JUMP_GATE.md`](ROADMAP_P2_3_JUMP_GATE.md), the Jump Gate regression suite is documented in [`docs/testing/jump-gate-regression.md`](../docs/testing/jump-gate-regression.md), all child issues `P2.3-501…508` are closed or explicitly replaced, default CI passes, and the closing PR runs the `run-e2e` browser smoke gate |
 | Phase 3 ready | Two-player visibility model is proven and alliance membership works |
 | Launch ready | Staging deploy/rollback succeeds, backups restore, monitoring alerts fire, security checklist passes |
 | Live ops ready | Event framework works, content validation exists, balance review loop and support runbook are usable |
@@ -47,6 +47,17 @@ Roll-up issue: [`P2-EPIC-POLISH`](https://github.com/anry88/New-Universe/issues/
 | Known P2 tuning risks recorded before Phase 3 task breakdown | [`docs/phase2/tuning-risks.md`](../docs/phase2/tuning-risks.md) | Reviewer read-through |
 
 **Repository-wide CI mirror (Docker):** from repo root, `./scripts/ci-verify.sh` matches [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) (backend `npm test` includes audit + all e2e tests including Phase 2 regression). **Optional browser gate for epic PR merge:** add label **`run-e2e`** and/or `RUN_PLAYWRIGHT_E2E=1 ./scripts/ci-verify.sh` per [`.github/workflows/e2e.yml`](../.github/workflows/e2e.yml).
+
+## Phase 2.3 Jump Gate rollup gate (P2.3-500)
+
+Roll-up issue: `P2.3-500`. Evidence for the final Jump Gate path lives in [`ROADMAP_P2_3_JUMP_GATE.md`](ROADMAP_P2_3_JUMP_GATE.md) and [`docs/testing/jump-gate-regression.md`](../docs/testing/jump-gate-regression.md).
+
+| Acceptance criterion | Evidence in repo | How to verify locally |
+|----------------------|------------------|------------------------|
+| Jump Gate random and known-destination travel are server-authoritative | [`backend/tests/e2e/jump-gate-regression.test.ts`](../backend/tests/e2e/jump-gate-regression.test.ts) | `cd backend && npx vitest run tests/e2e/jump-gate-regression.test.ts` |
+| Common Pool discovery, colonization, and cargo delivery work through gate routes | [`backend/tests/e2e/jump-gate-regression.test.ts`](../backend/tests/e2e/jump-gate-regression.test.ts) | `cd backend && npm run test:e2e` |
+| Foreign Home Systems stay out of common/sector payloads | [`backend/tests/e2e/jump-gate-regression.test.ts`](../backend/tests/e2e/jump-gate-regression.test.ts) | `cd backend && npx vitest run tests/e2e/jump-gate-regression.test.ts` |
+| Mobile Telegram Mini App smoke is documented for the roll-up PR | [`docs/testing/jump-gate-regression.md`](../docs/testing/jump-gate-regression.md) | Manual smoke with mobile viewport; closing PR must carry `run-e2e` |
 
 ## Known Gaps After This Expansion
 
