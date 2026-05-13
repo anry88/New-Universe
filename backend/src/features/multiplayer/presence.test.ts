@@ -1,97 +1,320 @@
 import { describe, expect, it } from 'vitest';
 import { db } from '../../db/index.js';
-import { users, systems, planets, colonies, jumpGates } from '../../db/schema.js';
-import { getSectorPresence } from './presence.js';
+import {
+  users,
+  systems,
+  planets,
+  colonies,
+  ships,
+  shipTypes,
+  discoveredSystems,
+  jumpGates,
+} from '../../db/schema.js';
+import { getSectorPresence, getSectorSystemAnchors } from './presence.js';
+
+function randomSector() {
+  const base = Math.floor(Math.random() * 40000) + 500;
+  return {
+    sx: base,
+    sy: base + 1,
+    sz: base + 2,
+  };
+}
+
+let testUserCounter = 0;
+
+function randomTgId(): bigint {
+  testUserCounter += 1;
+  return BigInt(Date.now()) * 1000000n + BigInt(process.pid) * 1000n + BigInt(testUserCounter);
+}
+
+async function createUser(username: string) {
+  const [row] = await db.insert(users).values({
+    tgId: randomTgId(),
+    tgUsername: username,
+  }).returning();
+
+  return row;
+}
+
+async function createSystem(input: {
+  ownerId?: string | null;
+  isHome?: boolean;
+  sector: ReturnType<typeof randomSector>;
+  name: string;
+  seed: number;
+  x?: string;
+  y?: string;
+  z?: string;
+}) {
+  const [row] = await db.insert(systems).values({
+    ownerId: input.ownerId ?? null,
+    isHome: input.isHome ?? false,
+    sectorX: input.sector.sx,
+    sectorY: input.sector.sy,
+    sectorZ: input.sector.sz,
+    x: input.x ?? '10.00',
+    y: input.y ?? '10.00',
+    z: input.z ?? '10.00',
+    name: input.name,
+    seed: input.seed,
+  }).returning();
+
+  return row;
+}
+
+async function createPlanet(systemId: string, name: string) {
+  const [row] = await db.insert(planets).values({
+    systemId,
+    biome: 'rocky',
+    size: 10,
+    slotCount: 8,
+    name,
+  }).returning();
+
+  return row;
+}
+
+async function createShipType(id: string) {
+  const [row] = await db.insert(shipTypes).values({
+    id,
+    name: { en: id, ru: id },
+    role: 'scout',
+    hp: 10,
+    speed: '10.00',
+    cargo: 0,
+    dps: 0,
+    armor: 0,
+    fuelConsumption: '1.00',
+    buildTimeSec: 60,
+    buildCost: {},
+    requiredBuildings: [],
+    sensorRange: 30,
+  }).returning();
+
+  return row;
+}
 
 describe('getSectorPresence', () => {
   it('never exposes another players home system in the sector slice', async () => {
-    const SX = Math.floor(Math.random() * 40000) + 500;
-    const SY = Math.floor(Math.random() * 40000) + 500;
-    const SZ = Math.floor(Math.random() * 40000) + 500;
-    const [viewer] = await db.insert(users).values({
-      tgId: BigInt(Math.floor(Math.random() * 1e12)),
-      tgUsername: 'mp_viewer',
-    }).returning();
-
-    const [foreign] = await db.insert(users).values({
-      tgId: BigInt(Math.floor(Math.random() * 1e12)),
-      tgUsername: 'mp_foreign',
-    }).returning();
-
-    const [foreignHome] = await db.insert(systems).values({
+    const sector = randomSector();
+    const viewer = await createUser('mp_viewer');
+    const foreign = await createUser('mp_foreign');
+    const foreignHome = await createSystem({
       ownerId: foreign.id,
       isHome: true,
-      sectorX: SX,
-      sectorY: SY,
-      sectorZ: SZ,
-      x: '10.00',
-      y: '10.00',
-      z: '10.00',
+      sector,
       name: 'Secret Homeworld',
       seed: 1,
-    }).returning();
+    });
+    const foreignHomePlanet = await createPlanet(foreignHome.id, 'Hidden Capital');
+    const foreignShipType = await createShipType(`mp_hidden_scout_${sector.sx}`);
 
     await db.insert(jumpGates).values({
       userId: foreign.id,
       homeSystemId: foreignHome.id,
     });
 
-    const payload = await getSectorPresence(viewer.id, SX, SY, SZ);
+    await db.insert(colonies).values({
+      ownerId: foreign.id,
+      planetId: foreignHomePlanet.id,
+      status: 'active',
+    });
+
+    const [foreignHomeShip] = await db.insert(ships).values({
+      ownerId: foreign.id,
+      typeId: foreignShipType.id,
+      locationPlanetId: foreignHomePlanet.id,
+      status: 'idle',
+    }).returning();
+
+    const payload = await getSectorPresence(viewer.id, sector.sx, sector.sy, sector.sz);
 
     expect(payload.entities.some((e) => e.systemId === foreignHome.id)).toBe(false);
+    expect(payload.entities.some((e) => e.planetId === foreignHomePlanet.id)).toBe(false);
+    expect(payload.entities.some((e) => e.shipId === foreignHomeShip.id)).toBe(false);
     expect(payload.entities.some((e) => e.title === 'Secret Homeworld')).toBe(false);
     expect(payload.entities.some((e) => e.title.includes('Jump Gate'))).toBe(false);
   });
 
-  it('lists neutral systems and masks foreign colonies', async () => {
-    const SX = Math.floor(Math.random() * 40000) + 500;
-    const SY = Math.floor(Math.random() * 40000) + 500;
-    const SZ = Math.floor(Math.random() * 40000) + 500;
-    const [viewer] = await db.insert(users).values({
-      tgId: BigInt(Math.floor(Math.random() * 1e12)),
-      tgUsername: 'mp_viewer2',
-    }).returning();
+  it('projects explicit home, public, colony, and fleet entities for multiple players in one sector', async () => {
+    const sector = randomSector();
+    const viewer = await createUser('mp_viewer2');
+    const rival = await createUser('longrivalname_x');
+    const shipType = await createShipType(`mp_visible_scout_${sector.sx}`);
 
-    const [rival] = await db.insert(users).values({
-      tgId: BigInt(Math.floor(Math.random() * 1e12)),
-      tgUsername: 'longrivalname_x',
-    }).returning();
+    const viewerHome = await createSystem({
+      ownerId: viewer.id,
+      isHome: true,
+      sector,
+      name: 'Viewer Home',
+      seed: 2,
+      x: '20.00',
+      y: '25.00',
+      z: '30.00',
+    });
 
-    const [neutralSys] = await db.insert(systems).values({
-      ownerId: null,
-      isHome: false,
-      sectorX: SX,
-      sectorY: SY,
-      sectorZ: SZ,
+    const neutralSys = await createSystem({
+      sector,
+      name: 'Open Nexus',
+      seed: 3,
       x: '50.00',
       y: '60.00',
       z: '70.00',
-      name: 'Open Nexus',
-      seed: 2,
-    }).returning();
+    });
 
-    const [colonyPlanet] = await db.insert(planets).values({
-      systemId: neutralSys.id,
-      biome: 'rocky',
-      size: 10,
-      slotCount: 8,
-      name: 'Settlement Prime',
-    }).returning();
+    const viewerColonyPlanet = await createPlanet(neutralSys.id, 'Settlement Prime');
+    const rivalColonyPlanet = await createPlanet(neutralSys.id, 'Rival Outpost');
 
     await db.insert(colonies).values({
-      ownerId: rival.id,
-      planetId: colonyPlanet.id,
+      ownerId: viewer.id,
+      planetId: viewerColonyPlanet.id,
       status: 'active',
     });
 
-    const payload = await getSectorPresence(viewer.id, SX, SY, SZ);
+    await db.insert(colonies).values({
+      ownerId: rival.id,
+      planetId: rivalColonyPlanet.id,
+      status: 'active',
+    });
 
-    expect(payload.entities.some((e) => e.kind === 'neutral_system' && e.systemId === neutralSys.id)).toBe(true);
+    const [viewerShip] = await db.insert(ships).values({
+      ownerId: viewer.id,
+      typeId: shipType.id,
+      locationPlanetId: viewerColonyPlanet.id,
+      status: 'idle',
+    }).returning();
+
+    const [rivalShip] = await db.insert(ships).values({
+      ownerId: rival.id,
+      typeId: shipType.id,
+      locationPlanetId: rivalColonyPlanet.id,
+      status: 'idle',
+    }).returning();
+
+    const payload = await getSectorPresence(viewer.id, sector.sx, sector.sy, sector.sz);
+
+    const ownHome = payload.entities.find((e) => e.kind === 'own_home_system' && e.systemId === viewerHome.id);
+    expect(ownHome).toMatchObject({
+      entityType: 'home',
+      relation: 'self',
+      visibility: 'full',
+    });
+
+    const neutral = payload.entities.find((e) => e.kind === 'neutral_system' && e.systemId === neutralSys.id);
+    expect(neutral).toMatchObject({
+      entityType: 'public_sector',
+      relation: 'public',
+      visibility: 'summary',
+    });
+
+    const ownColony = payload.entities.find((e) => e.kind === 'own_colony');
+    expect(ownColony).toMatchObject({
+      entityType: 'colony',
+      relation: 'self',
+      planetId: viewerColonyPlanet.id,
+      visibility: 'full',
+    });
 
     const foreignColony = payload.entities.find((e) => e.kind === 'foreign_colony');
-    expect(foreignColony).toBeDefined();
-    expect(foreignColony?.visibility).toBe('summary');
+    expect(foreignColony).toMatchObject({
+      entityType: 'colony',
+      relation: 'foreign',
+      planetId: rivalColonyPlanet.id,
+      visibility: 'summary',
+    });
     expect(foreignColony?.subtitle).toContain('@longrivalnam');
-    expect(foreignColony?.planetId).toBe(colonyPlanet.id);
+
+    const ownFleet = payload.entities.find((e) => e.kind === 'own_ship');
+    expect(ownFleet).toMatchObject({
+      entityType: 'fleet',
+      relation: 'self',
+      shipId: viewerShip.id,
+      visibility: 'full',
+    });
+
+    const foreignFleet = payload.entities.find((e) => e.kind === 'foreign_ship');
+    expect(foreignFleet).toMatchObject({
+      entityType: 'fleet',
+      relation: 'foreign',
+      shipId: rivalShip.id,
+      visibility: 'summary',
+    });
+  });
+});
+
+describe('getSectorSystemAnchors', () => {
+  it('returns home, discovered, colony, and fleet anchors without foreign home leaks', async () => {
+    const homeSector = randomSector();
+    const commonSector = randomSector();
+    const hiddenSector = randomSector();
+    const viewer = await createUser('mp_anchor_viewer');
+    const rival = await createUser('mp_anchor_rival');
+    const shipType = await createShipType(`mp_anchor_scout_${homeSector.sx}`);
+
+    const home = await createSystem({
+      ownerId: viewer.id,
+      isHome: true,
+      sector: homeSector,
+      name: 'Anchor Home',
+      seed: 4,
+    });
+
+    const common = await createSystem({
+      sector: commonSector,
+      name: 'Anchor Common',
+      seed: 5,
+      x: '42.00',
+      y: '45.00',
+      z: '0.00',
+    });
+    const commonPlanet = await createPlanet(common.id, 'Anchor Colony');
+
+    await db.insert(discoveredSystems).values({
+      userId: viewer.id,
+      systemId: common.id,
+      discoveredAt: new Date('2026-05-01T12:00:00.000Z'),
+    });
+    await db.insert(colonies).values({
+      ownerId: viewer.id,
+      planetId: commonPlanet.id,
+      status: 'active',
+      foundedAt: new Date('2026-05-02T12:00:00.000Z'),
+    });
+    await db.insert(ships).values({
+      ownerId: viewer.id,
+      typeId: shipType.id,
+      locationPlanetId: commonPlanet.id,
+      status: 'idle',
+    });
+
+    const foreignHome = await createSystem({
+      ownerId: rival.id,
+      isHome: true,
+      sector: hiddenSector,
+      name: 'Hidden Anchor Home',
+      seed: 6,
+    });
+
+    await db.insert(discoveredSystems).values({
+      userId: viewer.id,
+      systemId: foreignHome.id,
+      discoveredAt: new Date('2026-05-03T12:00:00.000Z'),
+    });
+
+    const payload = await getSectorSystemAnchors(viewer.id);
+
+    const homeAnchor = payload.systems.find((anchor) => anchor.systemId === home.id);
+    expect(homeAnchor?.tags).toContain('home');
+    expect(homeAnchor?.sector).toEqual([homeSector.sx, homeSector.sy, homeSector.sz]);
+
+    const commonAnchor = payload.systems.find((anchor) => anchor.systemId === common.id);
+    expect(commonAnchor?.tags).toEqual(['colony', 'fleet', 'recent', 'discovered']);
+    expect(commonAnchor?.colonyCount).toBe(1);
+    expect(commonAnchor?.shipCount).toBe(1);
+    expect(commonAnchor?.sector).toEqual([commonSector.sx, commonSector.sy, commonSector.sz]);
+
+    expect(payload.systems.some((anchor) => anchor.systemId === foreignHome.id)).toBe(false);
+    expect(payload.systems.some((anchor) => anchor.title === 'Hidden Anchor Home')).toBe(false);
   });
 });

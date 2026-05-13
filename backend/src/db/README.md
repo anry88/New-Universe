@@ -35,7 +35,7 @@ Each module owns one domain and exports the Drizzle table objects. `schema.ts` r
   - `market_order_fills` — immutable fill records tied to orders/offers, with execution price/qty, fees, and optional delivery expedition reference.
 - **`production.ts`** — `production_orders` table. Stores explicit manufacturing processes with `userId`, `planetId`, `buildingId`, `recipeId`, `quantity`, `status` (`queued` / `paused` / terminal states), JSONB `inputs`/`outputs`, `startedAt`, `completesAt`, `pausedAt`, and `completedAt`; indexed by due status plus user/planet status for worker ticks and UI process lists.
 - **`colonies.ts`** — `colonies` table. Columns: `id` (UUID PK), `ownerId` (references `users.id`), `planetId` (references `planets.id`), `foundedAt`, `status`. A planet can only have one colony total across all players (`colonies_planet_id_idx`); rows represent both neutral/common-space colonies and colonizer-settled non-capital bodies inside the player's own home system.
-- **`multiplayer.ts`** — documents that Phase 3 sector presence composes `systems`, `planets`, `colonies`, `ships`, and `users`; no extra tables in this slice (see `features/multiplayer/presence.ts`).
+- **`multiplayer.ts`** — documents that Phase 3 sector presence composes `systems`, `discovered_systems`, `planets`, `colonies`, `ships`, and `users`; exports type-only source-table/model contracts for home, colony, fleet, and public-sector presence without adding extra tables in this slice (see `features/multiplayer/presence.ts`).
 
 
 ## Seed scripts (`seed/`)
