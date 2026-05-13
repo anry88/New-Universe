@@ -157,8 +157,15 @@ describe('Jump Gate end-to-end regression suite', () => {
       where: and(eq(systems.ownerId, userId), eq(systems.isHome, true)),
     });
     expect(homeSystem, `${AREA.jump} home system`).toBeDefined();
+    if (!homeSystem) {
+      throw new Error(`${AREA.jump} home system missing`);
+    }
+    await db
+      .update(systems)
+      .set({ x: '0.00', y: '0.00', z: '0.00' })
+      .where(eq(systems.id, homeSystem.id));
     const homePlanets = await db.query.planets.findMany({
-      where: eq(planets.systemId, homeSystem!.id),
+      where: eq(planets.systemId, homeSystem.id),
     });
     const [homePlanet] = homePlanets.sort((a, b) => a.name.localeCompare(b.name));
     expect(homePlanet, `${AREA.jump} home capital`).toBeDefined();
