@@ -13,6 +13,7 @@ This document explains how the New Universe backend, frontend, and supporting co
 - [Backend tests (`backend/tests`)](backend/tests/README.md)
 - [Frontend source root (`frontend/src`)](frontend/src/README.md)
 - [Shared cross-package types (`shared`)](shared/README.md)
+- [Production infrastructure plan (`infra/production`)](infra/production/README.md)
 - [Economy balance simulator (`tools/balance-sim`)](tools/balance-sim/README.md)
 
 ## Overview
@@ -23,10 +24,11 @@ New Universe is a Telegram Mini App space-strategy game. The implementation is s
 - `frontend/` — Vite + React 18 Telegram Mini App client. Entry point is `frontend/src/main.tsx`, which initializes the Telegram Apps SDK (`init`, `miniApp.mount`, `themeParams.mount`, `viewport.mount`, `miniApp.ready`), boots Sentry, optionally mocks the Telegram environment for browser dev (`mockEnv.ts`), and renders `App.tsx` into `#root`.
 - `frontend/public/brand/` — static brand assets served by Vite. `new-universe-logo.svg` is the Cosmic Atlas galaxy-sign favicon, and `new-universe-logo-512.png` is the Telegram bot avatar export.
 - `shared/` — cross-package contracts (`shared/types/` payloads plus `shared/config/` progression catalogs such as the research tree) consumed by both backend and frontend so shapes stay in sync.
+- `infra/production/` — production infrastructure planning and runbooks. The initial near-free environment target is documented in [`infra/production/README.md`](infra/production/README.md) and [`docs/production/environment.md`](docs/production/environment.md); it deliberately contains no secrets or irreversible deployment automation yet.
 
 The `dev/`, `docs/`, and `tasks/` folders contain non-runtime materials: dev-environment scaffolding, the GDD/roadmap PDFs, and the task plan / GitHub Project automation scripts. They do not ship as application code.
 
-Phase 2 polish epic (**P2-EPIC-POLISH**) completion evidence lives in [`tasks/ROADMAP_COVERAGE_MATRIX.md`](tasks/ROADMAP_COVERAGE_MATRIX.md); accepted tuning risks before Phase 3 planning are listed in [`docs/phase2/tuning-risks.md`](docs/phase2/tuning-risks.md). Launch security gates live in [`docs/security/launch-checklist.md`](docs/security/launch-checklist.md), and economy abuse coverage / accepted risk tracking lives in [`docs/security/economy-exploits.md`](docs/security/economy-exploits.md).
+Phase 2 polish epic (**P2-EPIC-POLISH**) completion evidence lives in [`tasks/ROADMAP_COVERAGE_MATRIX.md`](tasks/ROADMAP_COVERAGE_MATRIX.md); accepted tuning risks before Phase 3 planning are listed in [`docs/phase2/tuning-risks.md`](docs/phase2/tuning-risks.md). The near-free production environment plan lives in [`docs/production/environment.md`](docs/production/environment.md). Launch security gates live in [`docs/security/launch-checklist.md`](docs/security/launch-checklist.md), and economy abuse coverage / accepted risk tracking lives in [`docs/security/economy-exploits.md`](docs/security/economy-exploits.md).
 
 The `tools/` folder hosts offline agents (not bundled into Docker images). Today `tools/balance-sim` mirrors seeded costs/timers for deterministic first-week progression runs that write JSON artifacts for balance comparisons.
 
@@ -93,6 +95,10 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 ### Launch security
 
 Production startup runs `assertProductionSecurityConfig` from `lib/security.ts`, rejecting placeholder or short `JWT_SECRET`, `SERVER_SECRET`, and `TELEGRAM_BOT_SECRET`, and requiring `PUBLIC_FRONTEND_URL` / `TELEGRAM_APP_URL`. Telegram Bot webhooks validate `X-Telegram-Bot-Api-Secret-Token` in production. The launch checklist lives in [`docs/security/launch-checklist.md`](docs/security/launch-checklist.md); economy abuse regression coverage and accepted market/trade risks are tracked in [`docs/security/economy-exploits.md`](docs/security/economy-exploits.md).
+
+### Production environment
+
+The first production target is a near-free closed-alpha topology: Cloudflare Pages for static frontend hosting, tiny Fly.io runtimes for the backend API and worker, Neon Free for Postgres, Upstash Redis Free for Redis/BullMQ while command volume stays under quota, and provider secret stores for all runtime secrets. The decision, rollback approach, cost estimate, and pre-automation checklist are documented in [`docs/production/environment.md`](docs/production/environment.md); the infrastructure runbook lives in [`infra/production/README.md`](infra/production/README.md).
 
 ### World generation
 
