@@ -91,7 +91,7 @@ export async function computeCurrentResources(planetId: string, tx?: any) {
       : researchEffects ? applyStorageCap(baseStorageCap, researchEffects) : baseStorageCap;
     const lastUpdateAt = new Date(record.lastUpdateAt);
 
-    const timeDiffMs = now.getTime() - lastUpdateAt.getTime();
+    const timeDiffMs = Math.max(0, now.getTime() - lastUpdateAt.getTime());
     const timeDiffHours = timeDiffMs / 1000 / 3600;
     const accrual = isEnergy ? 0 : regenRate * timeDiffHours;
     

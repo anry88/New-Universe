@@ -5,7 +5,7 @@ import {
   shipTypes,
   notifications,
 } from '../../db/schema.js';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 import { gainResources, spendResources } from '../resources/transactions.js';
 import { applyShipSpeed, getResearchEffectsForUser } from '../research/effects.js';
 import { CARGO_TRANSFER_RESEARCH_GATE } from '../../config/research-unlocks.js';
@@ -214,9 +214,6 @@ export async function completeCargoTransfer(
   tx: any,
   options: { skipNotifications?: boolean } = {},
 ): Promise<boolean> {
-  if (expedition.status === 'completed') {
-    return false;
-  }
   if (expedition.type !== 'cargo_transfer') {
     throw new Error(`Invalid expedition type for cargo transfer: ${expedition.type}`);
   }
@@ -230,23 +227,34 @@ export async function completeCargoTransfer(
     normalizeCargoLoads(resultLoads),
   );
 
-  const gainResult = await gainResources(expedition.targetPlanetId, deliveryResources, tx);
-  if (!gainResult.success) {
-    throw new Error(gainResult.error || 'Failed to apply resources to target planet');
-  }
+  const completedResult = {
+    ...result,
+    deliveryMode: 'one_way' as const,
+    resources: deliveryResources,
+  };
 
-  await tx
+  const [claimedExpedition] = await tx
     .update(expeditions)
     .set({
       status: 'completed',
       returnedAt: new Date(),
-      result: {
-        ...result,
-        deliveryMode: 'one_way',
-        resources: deliveryResources,
-      },
+      result: completedResult,
     })
-    .where(eq(expeditions.id, expedition.id));
+    .where(
+      and(
+        eq(expeditions.id, expedition.id),
+        inArray(expeditions.status, ['in_flight', 'returning']),
+      ),
+    )
+    .returning();
+  if (!claimedExpedition) {
+    return false;
+  }
+
+  const gainResult = await gainResources(expedition.targetPlanetId, deliveryResources, tx);
+  if (!gainResult.success) {
+    throw new Error(gainResult.error || 'Failed to apply resources to target planet');
+  }
 
   await tx
     .update(ships)

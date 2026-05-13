@@ -9,6 +9,8 @@ New Universe — это многопользовательская космич�
 - [New Universe GDD Addendum v1.1](docs/New_Universe_GDD_Addendum_v1.1.pdf)
 - [Infrastructure Costs](docs/Stellar_Forge_Infra_Costs.pdf)
 - [Architecture Diagrams](docs/Stellar_Forge_Diagrams.html)
+- [Launch Security Checklist](docs/security/launch-checklist.md)
+- [Economy Exploit Review](docs/security/economy-exploits.md)
 
 Все проектные документы и спецификации доступны в папке [docs/](docs/).
 

@@ -25,7 +25,7 @@ New Universe is a Telegram Mini App space-strategy game. The implementation is s
 
 The `dev/`, `docs/`, and `tasks/` folders contain non-runtime materials: dev-environment scaffolding, the GDD/roadmap PDFs, and the task plan / GitHub Project automation scripts. They do not ship as application code.
 
-Phase 2 polish epic (**P2-EPIC-POLISH**) completion evidence lives in [`tasks/ROADMAP_COVERAGE_MATRIX.md`](tasks/ROADMAP_COVERAGE_MATRIX.md); accepted tuning risks before Phase 3 planning are listed in [`docs/phase2/tuning-risks.md`](docs/phase2/tuning-risks.md).
+Phase 2 polish epic (**P2-EPIC-POLISH**) completion evidence lives in [`tasks/ROADMAP_COVERAGE_MATRIX.md`](tasks/ROADMAP_COVERAGE_MATRIX.md); accepted tuning risks before Phase 3 planning are listed in [`docs/phase2/tuning-risks.md`](docs/phase2/tuning-risks.md). Launch security gates live in [`docs/security/launch-checklist.md`](docs/security/launch-checklist.md), and economy abuse coverage / accepted risk tracking lives in [`docs/security/economy-exploits.md`](docs/security/economy-exploits.md).
 
 The `tools/` folder hosts offline agents (not bundled into Docker images). Today `tools/balance-sim` mirrors seeded costs/timers for deterministic first-week progression runs that write JSON artifacts for balance comparisons.
 
@@ -36,7 +36,7 @@ The `tools/` folder hosts offline agents (not bundled into Docker images). Today
 `backend/src/index.ts` is the only HTTP process today:
 
 - Plugins: `@fastify/cors`, `@fastify/helmet` (registered for every route).
-- Abuse limits: `lib/rate-limit.ts` registers global Fastify rate limiting, uses Redis as the production limiter store, and each public mutation route declares per-route rate-limit/security metadata plus body/params JSON schemas where applicable. The focused `npm run security:check` gate audits this route surface.
+- Abuse limits: `lib/rate-limit.ts` registers global Fastify rate limiting, uses Redis as the production limiter store, and each public mutation route declares per-route rate-limit/security metadata plus body/params JSON schemas where applicable. The focused `npm run security:check` gate audits this route surface and runs economy exploit regressions from `backend/tests/security`.
 - Logging: Pino instance from `lib/logger.ts`, switched to `pino-pretty` in development.
 - Request IDs: every incoming request gets a UUID via `middleware/request-id.ts` and the ID is exposed under the `requestId` log key.
 - Sentry: `lib/sentry.ts` is imported as the very first module to capture early-startup errors; it stays disabled when `SENTRY_DSN` is empty.
@@ -51,7 +51,7 @@ The `tools/` folder hosts offline agents (not bundled into Docker images). Today
 - **`tick-expeditions`**: The most complex worker; it interpolates ship positions on the **sector XY plane** during travel (Z stays at the origin system’s sector Z for fog-of-war), performs real-time visibility checks with planet-size discovery radii, inserts targeted recon discoveries idempotently, and turns one-way colonizer arrivals into settled colonies with a completed Command Center after atomically claiming the target planet. The same `processExpeditions({ userId, skipNotifications })` path powers online `/me` sync for due arrivals without Telegram pushes.
 - **`tick-ships`**: Finalizes ship production. Jobs update only still-building due rows and skip notification creation when the ship was already completed by online sync.
 - **`notifications`**: Processes pending notifications from the database and sends them to Telegram via the Bot API every minute, respecting a 20 msgs/min per user rate limit.
-- **`cargo-routes`**: Completes interplanetary one-way resource transfers triggered from the API; handles multi-load aggregation, atomicity, idempotency, and resource delivery.
+- **`cargo-routes`**: Completes interplanetary one-way resource transfers triggered from the API; handles multi-load aggregation, atomicity, idempotent row claiming under duplicate worker jobs, and resource delivery.
 - **`research`**: Applies finished lab timers (`research_progress.completes_at`), bumps completed tier levels once, triggers effect-cache invalidation hooks, and queues `research_done` notifications only for offline/worker completions.
 - **`production-orders`**: Every 30 seconds runs `ProductionService.processDueOrders` so explicit refinery/smelter/fabricator/cryo processes pause when active energy demand drains the battery, resume after charge returns, and grant outputs after inputs were reserved at start time.
 
@@ -93,7 +93,7 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 
 ### Launch security
 
-Production startup runs `assertProductionSecurityConfig` from `lib/security.ts`, rejecting placeholder or short `JWT_SECRET`, `SERVER_SECRET`, and `TELEGRAM_BOT_SECRET`, and requiring `PUBLIC_FRONTEND_URL` / `TELEGRAM_APP_URL`. Telegram Bot webhooks validate `X-Telegram-Bot-Api-Secret-Token` in production. The launch checklist lives in [`docs/security/launch-checklist.md`](docs/security/launch-checklist.md).
+Production startup runs `assertProductionSecurityConfig` from `lib/security.ts`, rejecting placeholder or short `JWT_SECRET`, `SERVER_SECRET`, and `TELEGRAM_BOT_SECRET`, and requiring `PUBLIC_FRONTEND_URL` / `TELEGRAM_APP_URL`. Telegram Bot webhooks validate `X-Telegram-Bot-Api-Secret-Token` in production. The launch checklist lives in [`docs/security/launch-checklist.md`](docs/security/launch-checklist.md); economy abuse regression coverage and accepted market/trade risks are tracked in [`docs/security/economy-exploits.md`](docs/security/economy-exploits.md).
 
 ### World generation
 
@@ -151,7 +151,7 @@ Production startup runs `assertProductionSecurityConfig` from `lib/security.ts`,
 
 ## CI and automation
 
-- **`.github/workflows/ci.yml`** — on each PR / push to `main`: a separate `security` job runs backend security checks, and the `check` job runs Docker Postgres/Redis, backend lint/build/migrate/seed/unit tests, frontend lint/build/unit tests (fast path). No Playwright.
+- **`.github/workflows/ci.yml`** — on each PR / push to `main`: a separate `security` job runs backend migrations/seed data and `npm run security:check` (route security plus economy exploit regressions), and the `check` job runs Docker Postgres/Redis, backend lint/build/migrate/seed/unit tests, frontend lint/build/unit tests (fast path). No Playwright.
 - **`.github/workflows/e2e.yml`** — Playwright Chromium on `frontend/tests/e2e` when triggered by workflow dispatch or by PR label **`run-e2e`** (not `epic:*` — every task issue already has an `epic:EPIC-…` label from import).
 - **`scripts/ci-verify.sh`** — local mirror of `ci.yml`; set `RUN_PLAYWRIGHT_E2E=1` to include Playwright like `e2e.yml`.
 

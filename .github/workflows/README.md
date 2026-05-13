@@ -5,7 +5,7 @@ Short reference for agents — keep in sync when editing YAML.
 ## Workflows
 
 - **`ci.yml`** — Runs on every PR to `main`:
-  - `security` job: Docker-backed backend `npm run security:check` for route security metadata/schema audits, rate-limit key checks, and Telegram initData replay-window tests.
+  - `security` job: Docker-backed backend migrations/seed data plus `npm run security:check` for route security metadata/schema audits, rate-limit key checks, Telegram initData replay-window tests, and economy exploit regressions.
   - `check` job: Docker Postgres/Redis, backend lint/build/migrate/seed/unit tests, frontend lint/build/unit tests.
     **Does not** run Playwright (fast feedback on small PRs).
 
