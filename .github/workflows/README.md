@@ -4,7 +4,7 @@ Short reference for agents — keep in sync when editing YAML.
 
 ## Workflows
 
-- **`ci.yml`** — Runs on PRs and pushes to `main` only when code/tooling paths change (`backend/`, `frontend/`, `shared/`, `scripts/`, `tools/`, `dev/`, `docker-compose.yml`, or this workflow). Docs-only / README-only changes do not trigger it:
+- **`ci.yml`** — Runs on PRs and pushes to `main` only when code/tooling paths change (`backend/`, `frontend/`, `shared/`, `scripts/`, `tools/`, `dev/`, `docker-compose.yml`, `deploy.yml`, or this workflow). Docs-only / README-only changes do not trigger it:
   - `security` job: Docker-backed backend migrations/seed data plus `npm run security:check` for route security metadata/schema audits, rate-limit key checks, Telegram initData replay-window tests, and economy exploit regressions.
   - `check` job: Docker Postgres/Redis, backend lint/build/migrate/seed/unit tests, frontend lint/build/unit tests.
     **Does not** run Playwright (fast feedback on small PRs).
@@ -20,3 +20,5 @@ Agents **must** add **`run-e2e`** on PRs that close epic rollup tasks (`*-EPIC-*
 Required status checks in branch protection should include the **`ci.yml`** jobs (`security` and `check`) if you want small PRs to stay fast while still blocking obvious launch-security regressions; add the **`e2e.yml`** job only when you require browser E2E on every merge (not recommended with this layout).
 
 - **`project-status.yml`** — Project automation (task IDs, board columns). Runs on PR events, issue closed, and **`workflow_dispatch`** (Actions → Project Status → Run workflow) to call `node tasks/project_status.mjs sync-ready` without opening a PR. On **manual dispatch**, the PR sync and issue-close sync steps are **skipped** (`if: github.event_name == 'pull_request'` / `issues`) — only `sync-ready` runs; this is expected. The job sets **`TASKS_JSON`** to `${{ github.workspace }}/tasks/tasks.json` so the script always reads the checked-out plan file.
+
+- **`deploy.yml`** — Manual staging/production deployment workflow for task **P4-DEP-002**. Runs only through **workflow dispatch** and references GitHub Environments (`staging` / `production`) for approvals, environment variables, and secrets. The deploy action builds backend/frontend artifacts, pauses the worker, optionally runs Drizzle migrations and idempotent seeders, deploys the Fly.io API and worker apps, uploads the frontend to Cloudflare Pages, then creates a git tag and GitHub Release changelog. The rollback action redeploys previously tagged Fly images and rebuilds Cloudflare Pages from the rollback git tag. Production dispatch is blocked unless it runs from `main`, uses an explicit semver-like release tag, and includes a staging deploy + rollback drill URL. See [`docs/production/release-workflow.md`](../../docs/production/release-workflow.md).

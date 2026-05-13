@@ -98,7 +98,7 @@ Production startup runs `assertProductionSecurityConfig` from `lib/security.ts`,
 
 ### Production environment
 
-The first production target is a near-free closed-alpha topology: Cloudflare Pages for static frontend hosting, tiny Fly.io runtimes for the backend API and worker, Neon Free for Postgres, Upstash Redis Free for Redis/BullMQ while command volume stays under quota, and provider secret stores for all runtime secrets. The decision, rollback approach, cost estimate, and pre-automation checklist are documented in [`docs/production/environment.md`](docs/production/environment.md); the infrastructure runbook lives in [`infra/production/README.md`](infra/production/README.md).
+The first production target is a near-free closed-alpha topology: Cloudflare Pages for static frontend hosting, tiny Fly.io runtimes for the backend API and worker, Neon Free for Postgres, Upstash Redis Free for Redis/BullMQ while command volume stays under quota, and provider secret stores for all runtime secrets. The decision, rollback approach, cost estimate, and pre-automation checklist are documented in [`docs/production/environment.md`](docs/production/environment.md). The manual, environment-gated deploy/rollback workflow is documented in [`docs/production/release-workflow.md`](docs/production/release-workflow.md), implemented by [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml), and summarized in [`infra/production/README.md`](infra/production/README.md).
 
 ### World generation
 

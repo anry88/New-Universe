@@ -45,6 +45,7 @@ Primary links:
 - `docker-compose.yml` — local stack: Postgres 16, Redis 7, Backend (Fastify, hot reload), optional Worker/Frontend/devtools profiles.
 - `.github/workflows/ci.yml` — default PR CI: separate `security` job (backend migrate/seed + security/economy exploit checks) plus `check` job for lint, type-check, migrate, seed, unit tests (backend + frontend). **No Playwright.**
 - `.github/workflows/e2e.yml` — Playwright E2E (see [.github/workflows/README.md](.github/workflows/README.md)): manual dispatch, or PR labeled **`run-e2e`** only (task issues already carry `epic:EPIC-…` from import — never auto-trigger on that substring).
+- `.github/workflows/deploy.yml` — manual, GitHub-Environment-gated deployment and rollback workflow for staging/production (see [docs/production/release-workflow.md](docs/production/release-workflow.md)). Requires staging deploy + rollback drill evidence before production dispatch.
 - `scripts/ci-verify.sh` — local automation mirror of `ci.yml`; set `RUN_PLAYWRIGHT_E2E=1` to include the same Playwright step as `e2e.yml`.
 
 ## First Pass For Any Agent
