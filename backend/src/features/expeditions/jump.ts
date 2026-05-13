@@ -2,6 +2,7 @@ import type {
   JumpGateJumpResponse,
   JumpGateKnownDestinationSummary,
 } from '@shared/types/jump-gate.js';
+import { JUMP_GATE_SHIP_FUEL_COST } from '@shared/config/expeditionRouting.js';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { db as defaultDb } from '../../db/index.js';
 import {
@@ -57,7 +58,6 @@ type LoadedShipContext = {
 
 type LoadShipContextResult = LoadedShipContext | { error: JumpResult };
 
-const JUMP_FUEL_COST = 50;
 const RANDOM_JUMP_ATTEMPTS = 8;
 const RANDOM_JUMP_SECTOR_RANGE = 8;
 
@@ -149,6 +149,7 @@ function serializeDestination(
       z: system.sectorZ,
     },
     planetCount,
+    planets: [],
     discoveredAt: row.discoveredAt.toISOString(),
     source: row.source,
     lastVisitedAt: row.lastVisitedAt?.toISOString() ?? null,
@@ -213,12 +214,12 @@ async function loadShipContext(
     };
   }
 
-  if (Number(shipRow.fuel) < JUMP_FUEL_COST) {
+  if (Number(shipRow.fuel) < JUMP_GATE_SHIP_FUEL_COST) {
     return {
       error: {
         success: false,
         status: 400,
-        error: `Insufficient Jump Fuel in tank (required ${JUMP_FUEL_COST})`,
+        error: `Insufficient Jump Fuel in tank (required ${JUMP_GATE_SHIP_FUEL_COST})`,
       } as JumpResult,
     };
   }
@@ -353,7 +354,7 @@ async function jumpToSystem(params: {
     const [updatedShip] = await tx
       .update(ships)
       .set({
-        fuel: (Number(shipRow.fuel) - JUMP_FUEL_COST).toFixed(2),
+        fuel: (Number(shipRow.fuel) - JUMP_GATE_SHIP_FUEL_COST).toFixed(2),
         locationPlanetId: targetPlanet.id,
       })
       .where(and(
