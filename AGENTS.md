@@ -133,6 +133,29 @@ Your goal is not just to edit files. Your goal is to complete the task end to en
    - Summarize implementation and verification in the final response.
    - If GitHub access is available, link the implementation PR to the completed issue/task and update the GitHub issue/Project record according to the rules below.
 
+## GitHub API Rate-Limit Policy
+
+Чтобы меньше бить лимиты GitHub API, каждый агент выполняет только целевые `gh`-операции.
+
+- По умолчанию используем `gh` только для действий с высоким приоритетом:
+  - создание/переключение задачи на ветку (`gh issue develop`) при явном старте из issue;
+  - создание PR (`gh pr create`);
+  - единичное закрытие/слияние PR, комментарии по статусам и переходы проекта, которые реально меняют состояние работы.
+- Всё, что можно решить локально, выполняем без `gh`:
+  - чтение задач и зависимостей — через `tasks/tasks.json`, локальные task notes и git branch;
+  - проверка соответствия задач и зависимостей — через `jq`/`rg` в репозитории;
+  - повседневные проверки состояния CI — через результаты локального `ci-verify` и вывод команд, уже выполненных в чате.
+- Не используем `gh` для частых поллинг-команд между шагами: `gh issue list`, `gh issue view`, `gh pr status`, `gh project item-list` без явной необходимости.
+- Обязательные минимальные точки записи в GitHub:
+  - при старте задачи: `node tasks/project_status.mjs start <TASK_ID> --branch <branch>` (или его эквивалент);
+  - при блокировке: `node tasks/project_status.mjs task <TASK_ID> --status "Blocked" --verification "Blocked" --comment "..."`;
+  - при создании PR и переходе в review: один `node tasks/project_status.mjs task <TASK_ID> --status "Review" --verification "Local pass|CI pass" ...`;
+  - при финальном закрытии/готовности к закрытию: обновление проверки и `Closes` в PR.
+- Если `gh` сообщает о лимите:
+  - не запускаем повторные `gh`-попытки в цикле (без паузы 60s+ это не спасает);
+  - продолжаем локальную работу и фиксируем отложенные GH-операции в последнем сообщении пользователю;
+  - после восстановления лимита выполняем только отложенные изменения статусов/комментариев по списку.
+
 ## Missing Inputs And Secrets
 
 - If a task needs a token, Sentry DSN/project name, Telegram bot username, public tunnel URL, deployment URL, or other external value that is not available locally, stop and ask the user directly.
@@ -206,6 +229,8 @@ Status policy:
 - **Optional blocking** — add the `playwright` job from `e2e.yml` as a required check only if you want Playwright to gate every merge (usually omit).
 
 ## Useful Commands
+
+> В этом разделе команды `gh` применяются только в тех точках, где нужно зафиксировать изменение статуса/PR в GitHub. Для чтения контекста и зависимостей используем локальные `tasks/tasks.json` и `rg`.
 
 Inspect a task from the local source of truth:
 
@@ -425,7 +450,7 @@ Verification that documentation stays in sync:
   - `epic:<EPIC_ID>`
   - `phase:P0`, `phase:P1`, `phase:P1.1`, `phase:P2`, `phase:P2.1`, `phase:P2.2`, `phase:P2.3`, `phase:P3`, `phase:P4`, `phase:P5`
   - `size:S`, `size:M`, `size:L`, `size:XL`
-- Before creating anything in GitHub, search existing issues by task ID.
+- Before creating anything new in GitHub, first validate task-id mapping locally (`tasks/tasks.json`, local notes, and existing branch names); call GitHub search only when the local source-of-truth is missing a mapping.
 - If continuing a partially completed import or task setup, use idempotent behavior.
 - When starting a task, move the Project item from `Ready` to `In Progress`.
 - When opening a PR, move it to `Review`.
