@@ -400,9 +400,10 @@ jobs:
           npm run db:seed
 
       - name: Deploy backend API
+        working-directory: backend
         run: |
-          flyctl deploy backend \
-            --config backend/fly-api.generated.toml \
+          flyctl deploy . \
+            --config fly-api.generated.toml \
             --remote-only \
             --image-label "$RELEASE_TAG" \
             --strategy rolling \
@@ -411,9 +412,10 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
       - name: Deploy worker
+        working-directory: backend
         run: |
-          flyctl deploy backend \
-            --config backend/fly-worker.generated.toml \
+          flyctl deploy . \
+            --config fly-worker.generated.toml \
             --remote-only \
             --image-label "$RELEASE_TAG" \
             --strategy rolling \
@@ -560,6 +562,7 @@ jobs:
           EOF
 
       - name: Redeploy previous backend and worker images
+        working-directory: backend
         run: |
           set -euo pipefail
 
@@ -578,13 +581,13 @@ jobs:
             exit "$scale_status"
           fi
 
-          flyctl deploy \
-            --config backend/fly-api.generated.toml \
+          flyctl deploy . \
+            --config fly-api.generated.toml \
             --image "registry.fly.io/$FLY_API_APP:$ROLLBACK_RELEASE_TAG" \
             --strategy immediate \
             --yes
-          flyctl deploy \
-            --config backend/fly-worker.generated.toml \
+          flyctl deploy . \
+            --config fly-worker.generated.toml \
             --image "registry.fly.io/$FLY_WORKER_APP:$ROLLBACK_RELEASE_TAG" \
             --strategy immediate \
             --yes
