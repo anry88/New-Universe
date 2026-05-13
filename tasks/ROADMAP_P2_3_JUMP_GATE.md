@@ -51,6 +51,7 @@ Run from the repository root:
 
 ```bash
 jq -r '.tasks[].id | select(test("^P2\\.3-5"))' tasks/tasks.json
+cd backend && npx vitest run tests/e2e/jump-gate-regression.test.ts
 ./scripts/ci-verify.sh
 ```
 
@@ -61,3 +62,22 @@ RUN_PLAYWRIGHT_E2E=1 ./scripts/ci-verify.sh
 ```
 
 If Playwright cannot run locally, add the `run-e2e` label to the PR and treat GitHub Actions as the authoritative browser result.
+
+## P2.3-508 regression evidence
+
+Automated backend evidence lives in [`backend/tests/e2e/jump-gate-regression.test.ts`](../backend/tests/e2e/jump-gate-regression.test.ts) and is documented in [`docs/testing/jump-gate-regression.md`](../docs/testing/jump-gate-regression.md).
+
+The scenario covers:
+
+- Jump Drive I unlock and `/jump-gate/random-jump`.
+- Saved known-destination repeat jump through `/jump-gate/destinations/:systemId/jump`.
+- Common Pool scout discovery through `/expeditions` with `routeMode: "jump_gate"`.
+- Colonizer arrival through `processExpeditions`, including single colony and command-center creation.
+- Cargo delivery through `/cargo/transfer` with `routeMode: "jump_gate"` and repeated cargo worker execution.
+- Foreign Home System filtering in `/jump-gate/state`, `/multiplayer/systems`, and `/multiplayer/sectors/:sx/:sy/:sz/presence`.
+
+Known residual risks before closing `P2.3-500`:
+
+- Browser navigation/mobile viewport coverage is manual or `run-e2e` only; default CI intentionally remains backend/unit focused.
+- The e2e uses DB fast-forwarding for timers and one generated Common Pool destination rather than exhaustive procedural-sector sampling.
+- Production Telegram bot/webhook configuration remains covered by launch-readiness checks, not this regression.

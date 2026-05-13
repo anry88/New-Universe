@@ -4,15 +4,19 @@ This directory contains end-to-end tests that validate full game loops.
 
 ## Files
 
+- **`colonization.test.ts`** — implements the "Colonization Lifecycle" scenario (task P2-COL-008).
+  - Verifies colonization prerequisites and research gates.
+  - Tests colonization cooldown and capacity limits.
+  - Validates successful colony founding and initial cargo transfers.
 - **`first-day.test.ts`** — implements the "First Day" player journey (task P1-240).
   - Verifies registration and home system generation.
   - Tests selected-resource mine construction and upgrades.
   - Simulates ship production and expedition launching.
   - Validates fog-of-war discovery mechanics and resource constraints.
-- **`colonization.test.ts`** — implements the "Colonization Lifecycle" scenario (task P2-COL-008).
-  - Verifies colonization prerequisites and research gates.
-  - Tests colonization cooldown and capacity limits.
-  - Validates successful colony founding and initial cargo transfers.
+- **`jump-gate-regression.test.ts`** — implements the Phase 2.3 Jump Gate regression scenario (task P2.3-508).
+  - Verifies Jump Drive unlock, random jump, known-destination repeat jump, Common Pool discovery, colonizer settlement, and Jump Gate cargo delivery.
+  - Checks stale foreign Home System rows are filtered from Jump Gate known destinations, sector anchors, and sector presence payloads.
+  - Re-runs worker/online-sync paths to assert discovery, colony, command center, and cargo delivery side effects are idempotent.
 - **`phase2-regression.test.ts`** — Phase 2 gate ([`docs/testing/phase2-regression.md`](../../../docs/testing/phase2-regression.md), task P2-POL-003).
   - One player journey: mining research completion → first extra colony → `cargo_light` transfer.
   - Assert messages use `[Research]` / `[Colonization]` / `[Cargo]` prefixes for failure triage.
