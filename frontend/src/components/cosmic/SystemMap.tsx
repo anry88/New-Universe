@@ -25,7 +25,6 @@
 import React, {
   useCallback,
   useEffect,
-  useId,
   useMemo,
   useRef,
   useState,
@@ -90,6 +89,8 @@ interface JumpGateMarkerConfig {
 const MIN_SCALE = 0.1;
 const MAX_SCALE = 5;
 const DISPLAY_SCALE_FACTOR = 0.3;
+const SHIP_MARKER_TICK_MS = 2500;
+const PICK_DELTA_EPSILON = 0.03;
 
 /** Below this drag distance (CSS px), a one-finger gesture counts as a tap for expedition aiming. */
 const EXPEDITION_TAP_THRESHOLD_PX = 14;
@@ -133,6 +134,422 @@ function worldRayToSectorDelta(
   };
 }
 
+interface RouteLineProps {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  color: string;
+  thickness: number;
+  dash: number;
+  gap: number;
+  opacity: number;
+  zIndex?: number;
+}
+
+const RouteLine = React.memo(function RouteLine({
+  x1,
+  y1,
+  x2,
+  y2,
+  color,
+  thickness,
+  dash,
+  gap,
+  opacity,
+  zIndex = 1,
+}: RouteLineProps) {
+  const length = Math.hypot(x2 - x1, y2 - y1);
+  if (length < 1) return null;
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: x1,
+        top: y1 - thickness / 2,
+        width: length,
+        height: thickness,
+        transform: `rotate(${Math.atan2(y2 - y1, x2 - x1)}rad)`,
+        transformOrigin: "0 50%",
+        background: `repeating-linear-gradient(90deg, ${color} 0 ${dash}px, transparent ${dash}px ${
+          dash + gap
+        }px)`,
+        opacity,
+        pointerEvents: "none",
+        zIndex,
+      }}
+    />
+  );
+});
+
+interface ExpeditionTrailSegment {
+  id: string;
+  originX: number;
+  originY: number;
+  endpointX: number;
+  endpointY: number;
+}
+
+function buildExpeditionTrailSegments(
+  activeExpeditions: Expedition[],
+  layoutByPlanetId: Map<string, PlanetLayout>,
+  system: HomeSystem,
+): ExpeditionTrailSegment[] {
+  return activeExpeditions.flatMap((exp) => {
+    const origin = layoutByPlanetId.get(exp.originPlanetId);
+    if (!origin) return [];
+
+    const targetPlanet = exp.targetPlanetId
+      ? layoutByPlanetId.get(exp.targetPlanetId)
+      : null;
+    const endpoint = targetPlanet
+      ? { x: targetPlanet.x, y: targetPlanet.y }
+      : sectorDeltaToSystemMapPoint(
+          { x: origin.x, y: origin.y },
+          Number(exp.targetX) - system.sectorX,
+          Number(exp.targetY) - system.sectorY,
+        );
+
+    return [
+      {
+        id: exp.id,
+        originX: origin.x,
+        originY: origin.y,
+        endpointX: endpoint.x,
+        endpointY: endpoint.y,
+      },
+    ];
+  });
+}
+
+const ExpeditionTrailLayer = React.memo(function ExpeditionTrailLayer({
+  segments,
+}: {
+  segments: ExpeditionTrailSegment[];
+}) {
+  return (
+    <>
+      {segments.map((segment) => (
+        <RouteLine
+          key={segment.id}
+          x1={segment.originX}
+          y1={segment.originY}
+          x2={segment.endpointX}
+          y2={segment.endpointY}
+          color="#F4B84A"
+          thickness={1.4}
+          dash={6}
+          gap={6}
+          opacity={0.55}
+        />
+      ))}
+    </>
+  );
+});
+
+const OrbitRings = React.memo(function OrbitRings({
+  orbitRadii,
+  isPicking,
+}: {
+  orbitRadii: number[];
+  isPicking: boolean;
+}) {
+  return (
+    <>
+      {orbitRadii.map((orbitRadius) => (
+        <div
+          key={`orbit-${orbitRadius}`}
+          style={{
+            position: "absolute",
+            left: -orbitRadius,
+            top: -orbitRadius,
+            width: orbitRadius * 2,
+            height: orbitRadius * 2,
+            border: "1.5px solid rgba(150,175,220,0.22)",
+            borderRadius: "50%",
+            pointerEvents: isPicking ? "none" : "auto",
+          }}
+        />
+      ))}
+    </>
+  );
+});
+
+interface PlanetMarkersProps {
+  layouts: PlanetLayout[];
+  selectedId: string | null;
+  pickedTargetPlanetId?: string | null;
+  canPickPlanet: boolean;
+  isPicking: boolean;
+  onPickPlanet?: (planetId: string) => void;
+  onSelectPlanet: (planetId: string) => void;
+}
+
+const PlanetMarkers = React.memo(function PlanetMarkers({
+  layouts,
+  selectedId,
+  pickedTargetPlanetId,
+  canPickPlanet,
+  isPicking,
+  onPickPlanet,
+  onSelectPlanet,
+}: PlanetMarkersProps) {
+  return (
+    <>
+      {layouts.map((l) => {
+        const biome = resolveBiome(l.planet.biome);
+        const meta = BIOME_META[biome];
+        const isSelected =
+          l.planet.id === selectedId || pickedTargetPlanetId === l.planet.id;
+
+        return (
+          <button
+            key={l.planet.id}
+            type="button"
+            data-testid={`planet-btn-${l.planet.id}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (canPickPlanet && onPickPlanet) {
+                onPickPlanet(l.planet.id);
+                return;
+              }
+              onSelectPlanet(l.planet.id);
+            }}
+            style={{
+              position: "absolute",
+              left: l.x - l.spriteSize / 2,
+              top: l.y - l.spriteSize / 2,
+              width: l.spriteSize,
+              height: l.spriteSize,
+              background: "transparent",
+              border: 0,
+              padding: 0,
+              cursor: canPickPlanet
+                ? "pointer"
+                : isPicking
+                  ? "inherit"
+                  : "pointer",
+              pointerEvents: canPickPlanet
+                ? "auto"
+                : isPicking
+                  ? "none"
+                  : "auto",
+              filter: isSelected
+                ? `drop-shadow(0 0 10px ${meta.accent})`
+                : "drop-shadow(0 6px 14px rgba(0,0,0,0.5))",
+            }}
+          >
+            <PlanetSvg
+              biome={biome}
+              size={l.spriteSize}
+              uid={`map-${l.planet.id}`}
+            />
+            <div
+              style={{
+                position: "absolute",
+                top: "100%",
+                left: "50%",
+                transform: "translate(-50%, 4px)",
+                fontFamily: "var(--font-mono)",
+                fontSize: 9,
+                letterSpacing: "0.1em",
+                color: isSelected ? meta.accent : "var(--text-dim)",
+                whiteSpace: "nowrap",
+                pointerEvents: "none",
+                textShadow: "0 1px 2px rgba(0,0,0,0.8)",
+              }}
+            >
+              {(l.planet.name || "?").toUpperCase()}
+            </div>
+          </button>
+        );
+      })}
+    </>
+  );
+});
+
+const ShipMarkers = React.memo(function ShipMarkers({
+  ships,
+  activeExpeditions,
+  layoutByPlanetId,
+  system,
+  isPicking,
+}: {
+  ships: Ship[];
+  activeExpeditions: Expedition[];
+  layoutByPlanetId: Map<string, PlanetLayout>;
+  system: HomeSystem;
+  isPicking: boolean;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+  const hasMovingShips =
+    activeExpeditions.length > 0 &&
+    ships.some((ship) => ship.status === "moving");
+  const expeditionByShipId = useMemo(
+    () => new Map(activeExpeditions.map((exp) => [exp.shipId, exp])),
+    [activeExpeditions],
+  );
+
+  useEffect(() => {
+    if (!hasMovingShips) return;
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), SHIP_MARKER_TICK_MS);
+    return () => clearInterval(timer);
+  }, [hasMovingShips, activeExpeditions]);
+
+  return (
+    <>
+      {ships.map((ship, shipIdx) => {
+        if (!["idle", "moving"].includes(ship.status) || !ship.locationPlanetId)
+          return null;
+        const layout = layoutByPlanetId.get(ship.locationPlanetId);
+        if (!layout) return null;
+
+        let sx,
+          sy,
+          angle = 0;
+        let isMoving = false;
+        let isReturning = false;
+
+        if (ship.status === "moving") {
+          const exp = expeditionByShipId.get(ship.id);
+          if (exp && exp.result && typeof exp.result === "object") {
+            const res = exp.result as Record<string, number>;
+            if (res.distance !== undefined && res.speed) {
+              const durationMs =
+                ((res.distance * 60) / res.speed) *
+                (res.engineFactor || 1) *
+                1000;
+              const etaMs = new Date(exp.eta).getTime();
+              let progress = 0;
+              if (exp.status === "in_flight") {
+                progress = 1 - (etaMs - now) / durationMs;
+              } else {
+                progress = (etaMs - now) / durationMs;
+                isReturning = true;
+              }
+              progress = Math.max(0, Math.min(1, progress));
+
+              const targetPlanet = exp.targetPlanetId
+                ? layoutByPlanetId.get(exp.targetPlanetId)
+                : null;
+              let endX: number;
+              let endY: number;
+              if (targetPlanet) {
+                endX = targetPlanet.x;
+                endY = targetPlanet.y;
+              } else {
+                const endpoint = sectorDeltaToSystemMapPoint(
+                  { x: layout.x, y: layout.y },
+                  Number(exp.targetX) - system.sectorX,
+                  Number(exp.targetY) - system.sectorY,
+                );
+                endX = endpoint.x;
+                endY = endpoint.y;
+              }
+
+              const targetAngle = Math.atan2(endY - layout.y, endX - layout.x);
+              sx = layout.x + (endX - layout.x) * progress;
+              sy = layout.y + (endY - layout.y) * progress;
+
+              angle = targetAngle + (isReturning ? Math.PI : 0);
+              isMoving = true;
+            }
+          }
+        }
+
+        if (!isMoving) {
+          const r = layout.orbitRadius + 22;
+          const a = layout.angle + 0.18 + shipIdx * 0.06;
+          sx = Math.cos(a) * r;
+          sy = Math.sin(a) * r;
+          angle = a + Math.PI / 2;
+        }
+
+        return (
+          <div
+            key={ship.id}
+            style={{
+              position: "absolute",
+              left: sx! - 8,
+              top: sy! - 8,
+              width: 16,
+              height: 16,
+              color: isMoving
+                ? isReturning
+                  ? "#F4B84A"
+                  : "#5BD7FF"
+                : "#5BFFA9",
+              transform: `rotate(${angle}rad)`,
+              filter: isMoving ? "drop-shadow(0 0 4px currentColor)" : "none",
+              pointerEvents: isPicking ? "none" : "auto",
+              transition: isMoving
+                ? `left ${SHIP_MARKER_TICK_MS}ms linear, top ${SHIP_MARKER_TICK_MS}ms linear`
+                : "none",
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <polygon points="0,0 16,8 0,16 4,8" />
+            </svg>
+          </div>
+        );
+      })}
+    </>
+  );
+});
+
+const DraftExpeditionTrail = React.memo(function DraftExpeditionTrail({
+  launch,
+  target,
+}: {
+  launch: PlanetLayout;
+  target: { x: number; y: number };
+}) {
+  return (
+    <>
+      <RouteLine
+        x1={launch.x}
+        y1={launch.y}
+        x2={target.x}
+        y2={target.y}
+        color="#5BD7FF"
+        thickness={2.5}
+        dash={10}
+        gap={6}
+        opacity={0.92}
+        zIndex={3}
+      />
+      <div
+        style={{
+          position: "absolute",
+          left: target.x - 9,
+          top: target.y - 9,
+          width: 18,
+          height: 18,
+          border: "2px solid #a5b4fc",
+          borderRadius: "50%",
+          pointerEvents: "none",
+          zIndex: 4,
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          left: target.x - 4,
+          top: target.y - 4,
+          width: 8,
+          height: 8,
+          background: "#c7d2fe",
+          borderRadius: "50%",
+          pointerEvents: "none",
+          zIndex: 4,
+        }}
+      />
+    </>
+  );
+});
+
 export function CosmicSystemRenderer({
   system,
   ships,
@@ -146,7 +563,6 @@ export function CosmicSystemRenderer({
   const { locale, t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 0.3 });
-  const [now, setNow] = useState(Date.now());
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pointerCount, setPointerCount] = useState(0);
   const [isColonyDialogOpen, setIsColonyDialogOpen] = useState(false);
@@ -157,7 +573,9 @@ export function CosmicSystemRenderer({
     startX: number;
     startY: number;
   } | null>(null);
-  const expeditionDraftGradId = useId().replace(/:/g, "");
+  const pickEmitFrameRef = useRef<number | null>(null);
+  const pendingPickDeltaRef = useRef<{ dx: number; dy: number } | null>(null);
+  const lastPickDeltaRef = useRef<{ dx: number; dy: number } | null>(null);
 
   // ----- Layout ----------------------------------------------------------
 
@@ -171,12 +589,23 @@ export function CosmicSystemRenderer({
     }));
   }, [system]);
 
+  const layoutByPlanetId = useMemo(
+    () => new Map(layouts.map((layout) => [layout.planet.id, layout])),
+    [layouts],
+  );
+
   const activeExpeditions = useMemo(
     () =>
       expeditions.filter(
         (exp) => exp.status === "in_flight" || exp.status === "returning",
       ),
     [expeditions],
+  );
+
+  const expeditionTrailSegments = useMemo(
+    () =>
+      buildExpeditionTrailSegments(activeExpeditions, layoutByPlanetId, system),
+    [activeExpeditions, layoutByPlanetId, system],
   );
 
   const selected = useMemo(
@@ -222,6 +651,79 @@ export function CosmicSystemRenderer({
   const visibleOuterRadius = jumpGate
     ? jumpGateOrbitRadius + 64
     : planetOuterRadius;
+  const isPicking = Boolean(expeditionPick);
+  const canPickPlanet = Boolean(expeditionPick?.onPickPlanet);
+  const onPickSectorDelta = expeditionPick?.onPickSectorDelta;
+  const onPickPlanet = expeditionPick?.onPickPlanet;
+  const pickedTargetPlanetId = expeditionPick?.targetPlanetId ?? null;
+
+  const selectPlanet = useCallback((planetId: string) => {
+    setSelectedId(planetId);
+  }, []);
+
+  const emitPickSectorDelta = useCallback(
+    (dx: number, dy: number, immediate = false) => {
+      if (!onPickSectorDelta) return;
+
+      const last = lastPickDeltaRef.current;
+      if (last && Math.hypot(dx - last.dx, dy - last.dy) < PICK_DELTA_EPSILON) {
+        return;
+      }
+
+      if (immediate) {
+        if (pickEmitFrameRef.current !== null) {
+          window.cancelAnimationFrame(pickEmitFrameRef.current);
+          pickEmitFrameRef.current = null;
+        }
+        pendingPickDeltaRef.current = null;
+        lastPickDeltaRef.current = { dx, dy };
+        onPickSectorDelta(dx, dy);
+        return;
+      }
+
+      pendingPickDeltaRef.current = { dx, dy };
+      if (pickEmitFrameRef.current !== null) return;
+
+      pickEmitFrameRef.current = window.requestAnimationFrame(() => {
+        pickEmitFrameRef.current = null;
+        const pending = pendingPickDeltaRef.current;
+        pendingPickDeltaRef.current = null;
+        if (!pending) return;
+
+        const currentLast = lastPickDeltaRef.current;
+        if (
+          currentLast &&
+          Math.hypot(pending.dx - currentLast.dx, pending.dy - currentLast.dy) <
+            PICK_DELTA_EPSILON
+        ) {
+          return;
+        }
+
+        lastPickDeltaRef.current = pending;
+        onPickSectorDelta(pending.dx, pending.dy);
+      });
+    },
+    [onPickSectorDelta],
+  );
+
+  useEffect(() => {
+    if (onPickSectorDelta) return;
+    if (pickEmitFrameRef.current !== null) {
+      window.cancelAnimationFrame(pickEmitFrameRef.current);
+      pickEmitFrameRef.current = null;
+    }
+    pendingPickDeltaRef.current = null;
+    lastPickDeltaRef.current = null;
+  }, [onPickSectorDelta]);
+
+  useEffect(
+    () => () => {
+      if (pickEmitFrameRef.current !== null) {
+        window.cancelAnimationFrame(pickEmitFrameRef.current);
+      }
+    },
+    [],
+  );
 
   // ----- Pan / pinch / wheel --------------------------------------------
 
@@ -318,9 +820,7 @@ export function CosmicSystemRenderer({
             e.clientX,
             e.clientY,
           );
-          const launch = layouts.find(
-            (l) => l.planet.id === expeditionPick!.launchPlanetId,
-          );
+          const launch = layoutByPlanetId.get(expeditionPick.launchPlanetId);
           const { dx, dy } = worldRayToSectorDelta(
             wx,
             wy,
@@ -328,7 +828,7 @@ export function CosmicSystemRenderer({
             launch?.y ?? 0,
             wPerLy,
           );
-          expeditionPick.onPickSectorDelta(dx, dy);
+          emitPickSectorDelta(dx, dy);
 
           if (moved < EXPEDITION_TAP_THRESHOLD_PX) {
             return;
@@ -369,14 +869,8 @@ export function CosmicSystemRenderer({
         }));
       }
     },
-    [expeditionPick, transform.x, transform.y],
+    [emitPickSectorDelta, expeditionPick, layoutByPlanetId, transform],
   );
-
-  // Tick for movement animations
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   const onPointerUp = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
@@ -415,9 +909,7 @@ export function CosmicSystemRenderer({
           e.clientX,
           e.clientY,
         );
-        const launch = layouts.find(
-          (l) => l.planet.id === pickCfg.launchPlanetId,
-        );
+        const launch = layoutByPlanetId.get(pickCfg.launchPlanetId);
         const { dx, dy } = worldRayToSectorDelta(
           wx,
           wy,
@@ -425,7 +917,7 @@ export function CosmicSystemRenderer({
           launch?.y ?? 0,
           wPerLy,
         );
-        pickCfg.onPickSectorDelta(dx, dy);
+        emitPickSectorDelta(dx, dy, true);
       }
       if (
         !pickCfg &&
@@ -442,7 +934,13 @@ export function CosmicSystemRenderer({
 
       expeditionPanArmRef.current = null;
     },
-    [expeditionPick, transform, layouts, selectedId],
+    [
+      emitPickSectorDelta,
+      expeditionPick,
+      layoutByPlanetId,
+      selectedId,
+      transform,
+    ],
   );
 
   // Wheel handler: must be passive: false to call preventDefault. React's
@@ -542,21 +1040,7 @@ export function CosmicSystemRenderer({
           }}
         >
           {/* Orbit rings */}
-          {orbitRadii.map((orbitRadius) => (
-            <div
-              key={`orbit-${orbitRadius}`}
-              style={{
-                position: "absolute",
-                left: -orbitRadius,
-                top: -orbitRadius,
-                width: orbitRadius * 2,
-                height: orbitRadius * 2,
-                border: "1.5px solid rgba(150,175,220,0.22)",
-                borderRadius: "50%",
-                pointerEvents: expeditionPick ? "none" : "auto",
-              }}
-            />
-          ))}
+          <OrbitRings orbitRadii={orbitRadii} isPicking={isPicking} />
 
           {/* Sun */}
           <div
@@ -643,204 +1127,45 @@ export function CosmicSystemRenderer({
           ) : null}
 
           {/* Planets */}
-          {layouts.map((l) => {
-            const biome = resolveBiome(l.planet.biome);
-            const meta = BIOME_META[biome];
-            const isSelected =
-              l.planet.id === selectedId ||
-              expeditionPick?.targetPlanetId === l.planet.id;
-
-            return (
-              <button
-                key={l.planet.id}
-                type="button"
-                data-testid={`planet-btn-${l.planet.id}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (expeditionPick?.onPickPlanet) {
-                    expeditionPick.onPickPlanet(l.planet.id);
-                    return;
-                  }
-                  setSelectedId(l.planet.id);
-                }}
-                style={{
-                  position: "absolute",
-                  left: l.x - l.spriteSize / 2,
-                  top: l.y - l.spriteSize / 2,
-                  width: l.spriteSize,
-                  height: l.spriteSize,
-                  background: "transparent",
-                  border: 0,
-                  padding: 0,
-                  cursor: expeditionPick?.onPickPlanet ? "pointer" : expeditionPick ? "inherit" : "pointer",
-                  pointerEvents: expeditionPick?.onPickPlanet
-                    ? "auto"
-                    : expeditionPick
-                      ? "none"
-                      : "auto",
-                  filter: isSelected
-                    ? `drop-shadow(0 0 10px ${meta.accent})`
-                    : "drop-shadow(0 6px 14px rgba(0,0,0,0.5))",
-                }}
-              >
-                <PlanetSvg
-                  biome={biome}
-                  size={l.spriteSize}
-                  uid={`map-${l.planet.id}`}
-                />
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "100%",
-                    left: "50%",
-                    transform: "translate(-50%, 4px)",
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 9,
-                    letterSpacing: "0.1em",
-                    color: isSelected ? meta.accent : "var(--text-dim)",
-                    whiteSpace: "nowrap",
-                    pointerEvents: "none",
-                    textShadow: "0 1px 2px rgba(0,0,0,0.8)",
-                  }}
-                >
-                  {(l.planet.name || "?").toUpperCase()}
-                </div>
-              </button>
-            );
-          })}
+          <PlanetMarkers
+            layouts={layouts}
+            selectedId={selectedId}
+            pickedTargetPlanetId={pickedTargetPlanetId}
+            canPickPlanet={canPickPlanet}
+            isPicking={isPicking}
+            onPickPlanet={onPickPlanet}
+            onSelectPlanet={selectPlanet}
+          />
 
           {/* Ship markers — small green chevron just outside parking orbit or on trail */}
-          {ships.map((ship, shipIdx) => {
-            if (
-              !["idle", "moving"].includes(ship.status) ||
-              !ship.locationPlanetId
-            )
-              return null;
-            const layout = layouts.find(
-              (l) => l.planet.id === ship.locationPlanetId,
-            );
-            if (!layout) return null;
-
-            let sx,
-              sy,
-              angle = 0;
-            let isMoving = false;
-            let isReturning = false;
-
-            if (ship.status === "moving") {
-              const exp = activeExpeditions.find((e) => e.shipId === ship.id);
-              if (exp && exp.result && typeof exp.result === "object") {
-                const res = exp.result as Record<string, number>;
-                if (res.distance !== undefined && res.speed) {
-                  const durationMs =
-                    ((res.distance * 60) / res.speed) *
-                    (res.engineFactor || 1) *
-                    1000;
-                  const etaMs = new Date(exp.eta).getTime();
-                  let progress = 0;
-                  if (exp.status === "in_flight") {
-                    progress = 1 - (etaMs - now) / durationMs;
-                  } else {
-                    progress = (etaMs - now) / durationMs;
-                    isReturning = true;
-                  }
-                  progress = Math.max(0, Math.min(1, progress));
-
-                  const targetPlanet = exp.targetPlanetId
-                    ? layouts.find((l) => l.planet.id === exp.targetPlanetId)
-                    : null;
-                  let endX: number;
-                  let endY: number;
-                  if (targetPlanet) {
-                    endX = targetPlanet.x;
-                    endY = targetPlanet.y;
-                  } else {
-                    const endpoint = sectorDeltaToSystemMapPoint(
-                      { x: layout.x, y: layout.y },
-                      Number(exp.targetX) - system.sectorX,
-                      Number(exp.targetY) - system.sectorY,
-                    );
-                    endX = endpoint.x;
-                    endY = endpoint.y;
-                  }
-
-                  const targetAngle = Math.atan2(
-                    endY - layout.y,
-                    endX - layout.x,
-                  );
-                  sx = layout.x + (endX - layout.x) * progress;
-                  sy = layout.y + (endY - layout.y) * progress;
-
-                  angle = targetAngle + (isReturning ? Math.PI : 0);
-                  isMoving = true;
-                }
-              }
-            }
-
-            if (!isMoving) {
-              const r = layout.orbitRadius + 22;
-              const a = layout.angle + 0.18 + shipIdx * 0.06;
-              sx = Math.cos(a) * r;
-              sy = Math.sin(a) * r;
-              angle = a + Math.PI / 2;
-            }
-
-            return (
-              <div
-                key={ship.id}
-                style={{
-                  position: "absolute",
-                  left: sx! - 8,
-                  top: sy! - 8,
-                  width: 16,
-                  height: 16,
-                  color: isMoving
-                    ? isReturning
-                      ? "#F4B84A"
-                      : "#5BD7FF"
-                    : "#5BFFA9",
-                  transform: `rotate(${angle}rad)`,
-                  filter: isMoving
-                    ? "drop-shadow(0 0 4px currentColor)"
-                    : "none",
-                  pointerEvents: expeditionPick ? "none" : "auto",
-                  transition: "left 1s linear, top 1s linear",
-                }}
-              >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 16 16"
-                  fill="currentColor"
-                >
-                  <polygon points="0,0 16,8 0,16 4,8" />
-                </svg>
-              </div>
-            );
-          })}
+          <ShipMarkers
+            ships={ships}
+            activeExpeditions={activeExpeditions}
+            layoutByPlanetId={layoutByPlanetId}
+            system={system}
+            isPicking={isPicking}
+          />
 
           {/* Draft course for expedition launcher (vector from home star, shown from launch planet). */}
           {expeditionPick &&
             (() => {
-              const launch = layouts.find(
-                (l) => l.planet.id === expeditionPick.launchPlanetId,
+              const launch = layoutByPlanetId.get(
+                expeditionPick.launchPlanetId,
               );
-              const targetPlanet = layouts.find(
-                (l) => l.planet.id === expeditionPick.targetPlanetId,
-              );
+              const targetPlanet = expeditionPick.targetPlanetId
+                ? layoutByPlanetId.get(expeditionPick.targetPlanetId)
+                : null;
               if (!launch) return null;
 
               const { sectorDx, sectorDy } = expeditionPick;
               const h = Math.hypot(sectorDx, sectorDy);
 
-              let trailLength: number;
               let endX: number;
               let endY: number;
 
               if (targetPlanet) {
                 endX = targetPlanet.x;
                 endY = targetPlanet.y;
-                trailLength = Math.hypot(endX - launch.x, endY - launch.y);
               } else {
                 if (h < 1e-6) return null;
                 const wPerLy =
@@ -854,122 +1179,18 @@ export function CosmicSystemRenderer({
                 );
                 endX = endpoint.x;
                 endY = endpoint.y;
-                trailLength = Math.hypot(endX - launch.x, endY - launch.y);
               }
-              const svgPad = trailLength + 80;
               return (
-                <svg
+                <DraftExpeditionTrail
                   key="expedition-draft-trail"
-                  style={{
-                    position: "absolute",
-                    left: launch.x - svgPad,
-                    top: launch.y - svgPad,
-                    width: svgPad * 2,
-                    height: svgPad * 2,
-                    pointerEvents: "none",
-                    zIndex: 3,
-                  }}
-                  viewBox={`${-svgPad} ${-svgPad} ${svgPad * 2} ${svgPad * 2}`}
-                >
-                  <defs>
-                    <linearGradient
-                      id={`exp-draft-line-${expeditionDraftGradId}`}
-                      x1="0%"
-                      y1="0%"
-                      x2="100%"
-                      y2="0%"
-                    >
-                      <stop
-                        offset="0%"
-                        stopColor="#5BD7FF"
-                        stopOpacity={0.95}
-                      />
-                      <stop
-                        offset="100%"
-                        stopColor="#6366f1"
-                        stopOpacity={0.75}
-                      />
-                    </linearGradient>
-                  </defs>
-                  <line
-                    x1={0}
-                    y1={0}
-                    x2={endX - launch.x}
-                    y2={endY - launch.y}
-                    stroke={`url(#exp-draft-line-${expeditionDraftGradId})`}
-                    strokeWidth={2.5}
-                    strokeDasharray="10 6"
-                    opacity={0.92}
-                  />
-                  <circle
-                    cx={endX - launch.x}
-                    cy={endY - launch.y}
-                    r={9}
-                    fill="none"
-                    stroke="#a5b4fc"
-                    strokeWidth={2}
-                  />
-                  <circle
-                    cx={endX - launch.x}
-                    cy={endY - launch.y}
-                    r={4}
-                    fill="#c7d2fe"
-                  />
-                </svg>
+                  launch={launch}
+                  target={{ x: endX, y: endY }}
+                />
               );
             })()}
 
           {/* Expedition trails */}
-          {activeExpeditions.map((exp) => {
-            const origin = layouts.find(
-              (l) => l.planet.id === exp.originPlanetId,
-            );
-            if (!origin) return null;
-            const targetPlanet = exp.targetPlanetId
-              ? layouts.find((l) => l.planet.id === exp.targetPlanetId)
-              : null;
-            const endpoint = targetPlanet
-              ? { x: targetPlanet.x, y: targetPlanet.y }
-              : sectorDeltaToSystemMapPoint(
-                  { x: origin.x, y: origin.y },
-                  Number(exp.targetX) - system.sectorX,
-                  Number(exp.targetY) - system.sectorY,
-                );
-            const minX = Math.min(origin.x, endpoint.x);
-            const minY = Math.min(origin.y, endpoint.y);
-            const maxX = Math.max(origin.x, endpoint.x);
-            const maxY = Math.max(origin.y, endpoint.y);
-            const pad = 80;
-            const viewX = minX - pad;
-            const viewY = minY - pad;
-            const viewW = Math.max(1, maxX - minX + pad * 2);
-            const viewH = Math.max(1, maxY - minY + pad * 2);
-            return (
-              <svg
-                key={exp.id}
-                style={{
-                  position: "absolute",
-                  left: viewX,
-                  top: viewY,
-                  width: viewW,
-                  height: viewH,
-                  pointerEvents: "none",
-                }}
-                viewBox={`${viewX} ${viewY} ${viewW} ${viewH}`}
-              >
-                <line
-                  x1={origin.x}
-                  y1={origin.y}
-                  x2={endpoint.x}
-                  y2={endpoint.y}
-                  stroke="#F4B84A"
-                  strokeWidth={1.2}
-                  strokeDasharray="6 6"
-                  opacity={0.55}
-                />
-              </svg>
-            );
-          })}
+          <ExpeditionTrailLayer segments={expeditionTrailSegments} />
         </div>
       </div>
 
@@ -1066,7 +1287,9 @@ export function CosmicSystemRenderer({
           pointerEvents: "auto",
         }}
       >
-        {t("map.resetZoom", { scale: (transform.scale / DISPLAY_SCALE_FACTOR).toFixed(2) }).toUpperCase()}
+        {t("map.resetZoom", {
+          scale: (transform.scale / DISPLAY_SCALE_FACTOR).toFixed(2),
+        }).toUpperCase()}
       </button>
 
       {/* Selected planet info card */}
@@ -1096,11 +1319,24 @@ export function CosmicSystemRenderer({
               fontFamily: "var(--font-mono)",
               fontSize: 9,
               letterSpacing: "0.2em",
-              color: BIOME_META[resolveBiome(selected.planet.isDiscovered !== false ? selected.planet.biome : "unknown")].accent,
+              color:
+                BIOME_META[
+                  resolveBiome(
+                    selected.planet.isDiscovered !== false
+                      ? selected.planet.biome
+                      : "unknown",
+                  )
+                ].accent,
               marginBottom: 4,
             }}
           >
-            {t("map.selected").toUpperCase()} · {getBiomeTag(selected.planet.isDiscovered !== false ? selected.planet.biome : "unknown", locale)}
+            {t("map.selected").toUpperCase()} ·{" "}
+            {getBiomeTag(
+              selected.planet.isDiscovered !== false
+                ? selected.planet.biome
+                : "unknown",
+              locale,
+            )}
           </div>
           <div
             style={{
@@ -1110,7 +1346,9 @@ export function CosmicSystemRenderer({
               marginBottom: 8,
             }}
           >
-            {selected.planet.isDiscovered !== false ? selected.planet.name : t("map.unmappedPlanet")}
+            {selected.planet.isDiscovered !== false
+              ? selected.planet.name
+              : t("map.unmappedPlanet")}
           </div>
           <div
             style={{
@@ -1127,7 +1365,9 @@ export function CosmicSystemRenderer({
               {t("map.size")}
             </span>
             <b style={{ color: "var(--text)", fontWeight: 600 }}>
-              {selected.planet.isDiscovered !== false ? selected.planet.size : "???"}
+              {selected.planet.isDiscovered !== false
+                ? selected.planet.size
+                : "???"}
             </b>
           </div>
           <div
@@ -1145,8 +1385,13 @@ export function CosmicSystemRenderer({
               {t("planet.slots")}
             </span>
             <b style={{ color: "var(--text)", fontWeight: 600 }}>
-              {selected.planet.isDiscovered !== false ? (selected.planet.buildings?.length ?? 0) : 0} /{" "}
-              {selected.planet.isDiscovered !== false ? (selected.planet.slotCount ?? 0) : "???"}
+              {selected.planet.isDiscovered !== false
+                ? (selected.planet.buildings?.length ?? 0)
+                : 0}{" "}
+              /{" "}
+              {selected.planet.isDiscovered !== false
+                ? (selected.planet.slotCount ?? 0)
+                : "???"}
             </b>
           </div>
           <div
@@ -1156,11 +1401,25 @@ export function CosmicSystemRenderer({
               paddingTop: 8,
             }}
           >
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.08em", color: "var(--text-dim)", marginBottom: 6 }}>
+            <div
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 10,
+                letterSpacing: "0.08em",
+                color: "var(--text-dim)",
+                marginBottom: 6,
+              }}
+            >
               {t("map.mineableResources").toUpperCase()}
             </div>
             {mineableResources.length === 0 ? (
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-faint)" }}>
+              <div
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 11,
+                  color: "var(--text-faint)",
+                }}
+              >
                 {t("map.noMineableResources")}
               </div>
             ) : (
@@ -1178,8 +1437,12 @@ export function CosmicSystemRenderer({
                       color: "var(--text)",
                     }}
                   >
-                    <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <b style={{ color: "var(--accent)" }}>{getResourceSymbol(resource.resourceId)}</b>
+                    <span
+                      style={{ display: "flex", alignItems: "center", gap: 6 }}
+                    >
+                      <b style={{ color: "var(--accent)" }}>
+                        {getResourceSymbol(resource.resourceId)}
+                      </b>
                       {getResourceLabel(resource.resourceId, locale)}
                     </span>
                     <span style={{ color: "var(--text-dim)" }}>
