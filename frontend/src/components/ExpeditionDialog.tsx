@@ -3,7 +3,10 @@ import type {
   JumpGateDestinationPlanetSummary,
   JumpGateKnownDestinationSummary,
 } from "@shared/types/jump-gate";
-import type { ExpeditionRouteMode } from "@shared/config/expeditionRouting";
+import {
+  JUMP_FUEL_RESOURCE_ID,
+  type ExpeditionRouteMode,
+} from "@shared/config/expeditionRouting";
 import { useLaunchExpedition } from "../hooks/useExpeditions";
 import { useJumpGateState } from "../hooks/useJumpGateState";
 import { useMe } from "../hooks/useMe";
@@ -119,7 +122,12 @@ export function ExpeditionDialog({
     const row = shipPlanet?.resources?.find((r) => r.resourceId === "fuel");
     return Math.floor(Number(row?.amount ?? 0));
   }, [shipPlanet?.resources]);
-  const jumpFuelAvailable = Math.floor(Number(ship.fuel ?? 0));
+  const jumpFuelAvailable = useMemo(() => {
+    const row = shipPlanet?.resources?.find(
+      (r) => r.resourceId === JUMP_FUEL_RESOURCE_ID,
+    );
+    return Math.floor(Number(row?.amount ?? 0));
+  }, [shipPlanet?.resources]);
 
   const sameSystemPlanetDistance = useMemo(() => {
     if (

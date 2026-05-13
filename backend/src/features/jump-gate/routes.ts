@@ -70,6 +70,7 @@ export async function jumpGateRoutes(app: FastifyInstance) {
       targetSystem: result.targetSystem,
       arrivalPlanetId: result.arrivalPlanetId,
       destination: result.destination,
+      jumpFuelRequired: result.jumpFuelRequired,
     });
   });
 
@@ -103,6 +104,7 @@ export async function jumpGateRoutes(app: FastifyInstance) {
       targetSystem: result.targetSystem,
       arrivalPlanetId: result.arrivalPlanetId,
       destination: result.destination,
+      jumpFuelRequired: result.jumpFuelRequired,
     });
   });
 }

@@ -81,6 +81,7 @@ describe('production orders', () => {
       { planetId: planet.id, resourceId: 'methane', amount: '1000', regenRate: '0' },
       { planetId: planet.id, resourceId: 'sulfur', amount: '1000', regenRate: '0' },
       { planetId: planet.id, resourceId: 'ice', amount: '1000', regenRate: '0' },
+      { planetId: planet.id, resourceId: 'tritium', amount: '1000', regenRate: '0' },
       { planetId: planet.id, resourceId: 'fuel', amount: '1000', regenRate: '0' },
       { planetId: planet.id, resourceId: 'electronics', amount: '0', regenRate: '0' },
       { planetId: planet.id, resourceId: 'energy', amount: '500', regenRate: '0' },
@@ -224,6 +225,20 @@ describe('production orders', () => {
     const oilInput = oilPreview.inputs.find((input) => input.resourceId === 'oil')!.amount;
     const methaneInput = methanePreview.inputs.find((input) => input.resourceId === 'methane')!.amount;
     expect(methaneInput).toBeGreaterThan(oilInput);
+
+    const jumpFuelPreview = await productionService.preview(refinery.user.id, {
+      planetId: refinery.planet.id,
+      buildingId: refinery.building.id,
+      recipeId: 'jump_fuel_from_ice_tritium',
+      quantity: 10,
+    });
+    expect(jumpFuelPreview.canStart).toBe(true);
+    expect(jumpFuelPreview.output).toEqual({ resourceId: 'jump_fuel', amount: 10 });
+    expect(jumpFuelPreview.inputs.map((input) => input.resourceId).sort()).toEqual([
+      'ice',
+      'sulfur',
+      'tritium',
+    ]);
   });
 
   it('blocks process start without available energy and supports fuel-generator charge recipes', async () => {

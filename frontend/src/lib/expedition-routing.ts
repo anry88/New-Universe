@@ -3,7 +3,7 @@ import {
   calculateExpeditionEtaSeconds,
   calculateExpeditionRequiredFuel,
   calculateSectorRouteDistance,
-  JUMP_GATE_SHIP_FUEL_COST,
+  JUMP_GATE_JUMP_FUEL_COST,
 } from "@shared/config/expeditionRouting";
 
 export interface ExpeditionPreviewInput {
@@ -51,7 +51,7 @@ export function buildExpeditionPreview(
       returnTrip,
     ),
     jumpFuelRequired:
-      input.routeMode === "jump_gate" ? JUMP_GATE_SHIP_FUEL_COST : 0,
+      input.routeMode === "jump_gate" ? JUMP_GATE_JUMP_FUEL_COST : 0,
     returnTrip,
   };
 }

@@ -25,14 +25,20 @@ import { expeditionsRoutes } from "./routes.js";
 import { seedResources } from "../../db/seed/resources.js";
 import { seedShipTypes } from "../../db/seed/ship-types.js";
 import { seedBuildingTypes } from "../../db/seed/building-types.js";
+import { seedResearchCatalog } from "../../db/seed/research.js";
 import { systemMapPlanetDistanceLy } from "@shared/format/systemMapLayout.js";
 import { processExpeditions } from "../../workers/tick-expeditions.js";
+import {
+  JUMP_FUEL_RESOURCE_ID,
+  JUMP_GATE_JUMP_FUEL_COST,
+} from "@shared/config/expeditionRouting.js";
 
 describe("Expeditions - POST /expeditions", () => {
   beforeAll(async () => {
     await seedResources();
     await seedShipTypes();
     await seedBuildingTypes();
+    await seedResearchCatalog();
   });
 
   async function createTestUser() {
@@ -70,30 +76,18 @@ describe("Expeditions - POST /expeditions", () => {
     return { system: system!, planet: planet! };
   }
 
-  async function ensureFuel(planetId: string, amount: number) {
-    await db
-      .insert(resources)
-      .values({
-        id: "fuel",
-        name: { ru: "fuel", en: "fuel" },
-        tier: 1,
-        symbol: "F",
-        baseRegenRate: 0,
-        defaultStorageCap: 5000,
-      })
-      .onConflictDoNothing();
-
+  async function ensureResource(planetId: string, resourceId: string, amount: number) {
     const existing = await db.query.planetResources.findFirst({
       where: and(
         eq(planetResources.planetId, planetId),
-        eq(planetResources.resourceId, "fuel"),
+        eq(planetResources.resourceId, resourceId),
       ),
     });
 
     if (!existing) {
       await db.insert(planetResources).values({
         planetId,
-        resourceId: "fuel",
+        resourceId,
         amount: amount.toFixed(4),
         lastUpdateAt: new Date(),
         regenRate: "0",
@@ -110,9 +104,29 @@ describe("Expeditions - POST /expeditions", () => {
       .where(
         and(
           eq(planetResources.planetId, planetId),
-          eq(planetResources.resourceId, "fuel"),
+          eq(planetResources.resourceId, resourceId),
         ),
       );
+  }
+
+  async function ensureFuel(planetId: string, amount: number) {
+    await db
+      .insert(resources)
+      .values({
+        id: "fuel",
+        name: { ru: "fuel", en: "fuel" },
+        tier: 1,
+        symbol: "F",
+        baseRegenRate: 0,
+        defaultStorageCap: 5000,
+      })
+      .onConflictDoNothing();
+
+    await ensureResource(planetId, "fuel", amount);
+  }
+
+  async function ensureJumpFuel(planetId: string, amount: number) {
+    await ensureResource(planetId, JUMP_FUEL_RESOURCE_ID, amount);
   }
 
   async function createIdleScout(userId: string, planetId: string, fuel = "0") {
@@ -484,7 +498,8 @@ describe("Expeditions - POST /expeditions", () => {
 
     await unlockJumpGate(userId);
     await ensureFuel(planet.id, 100);
-    const ship = await createIdleScout(userId, planet.id, "50");
+    await ensureJumpFuel(planet.id, JUMP_GATE_JUMP_FUEL_COST);
+    const ship = await createIdleScout(userId, planet.id);
 
     const response = await app.inject({
       method: "POST",
@@ -513,7 +528,13 @@ describe("Expeditions - POST /expeditions", () => {
     expect(body.expedition.result.jumpFuelRequired).toBe(50);
     expect(body.expedition.result.distance).toBe(10);
     expect(body.expedition.result.fuelRequired).toBe(6);
-    expect(body.ship.fuel).toBe("0.00");
+    const jumpFuel = await db.query.planetResources.findFirst({
+      where: and(
+        eq(planetResources.planetId, planet.id),
+        eq(planetResources.resourceId, JUMP_FUEL_RESOURCE_ID),
+      ),
+    });
+    expect(Number(jumpFuel!.amount)).toBe(0);
   });
 
   it("launches a colonizer through the Jump Gate and lets the worker found the target colony", async () => {
@@ -533,7 +554,8 @@ describe("Expeditions - POST /expeditions", () => {
       value: 2,
     });
     await ensureFuel(planet.id, 100);
-    const ship = await createIdleColonizer(userId, planet.id, "50");
+    await ensureJumpFuel(planet.id, JUMP_GATE_JUMP_FUEL_COST);
+    const ship = await createIdleColonizer(userId, planet.id);
 
     const response = await app.inject({
       method: "POST",
@@ -584,6 +606,32 @@ describe("Expeditions - POST /expeditions", () => {
     expect(commandCenter).toBeDefined();
   });
 
+  it("rejects Jump Gate routes without stored Jump Fuel on the launch planet", async () => {
+    const { app, token, userId } = await createTestUser();
+    const { planet } = await getHomeContext(userId);
+    const destination = await createKnownPublicDestination(userId);
+
+    await unlockJumpGate(userId);
+    await ensureFuel(planet.id, 100);
+    await ensureJumpFuel(planet.id, JUMP_GATE_JUMP_FUEL_COST - 1);
+    const ship = await createIdleScout(userId, planet.id);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/expeditions",
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        shipId: ship.id,
+        routeMode: "jump_gate",
+        destinationSystemId: destination.system.id,
+        cargoLoaded: 0,
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error).toContain("not enough jump_fuel");
+  });
+
   it("rejects Jump Gate colonization of an undiscovered target planet", async () => {
     const { app, token, userId } = await createTestUser();
     const { planet } = await getHomeContext(userId);
@@ -591,7 +639,7 @@ describe("Expeditions - POST /expeditions", () => {
 
     await unlockJumpGate(userId);
     await ensureFuel(planet.id, 100);
-    const ship = await createIdleColonizer(userId, planet.id, "50");
+    const ship = await createIdleColonizer(userId, planet.id);
 
     const response = await app.inject({
       method: "POST",
@@ -646,7 +694,7 @@ describe("Expeditions - POST /expeditions", () => {
       .onConflictDoNothing();
     await unlockJumpGate(userId);
     await ensureFuel(planet.id, 100);
-    const ship = await createIdleScout(userId, planet.id, "50");
+    const ship = await createIdleScout(userId, planet.id);
 
     const response = await app.inject({
       method: "POST",

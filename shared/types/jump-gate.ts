@@ -101,4 +101,6 @@ export interface JumpGateJumpResponse {
   targetSystem: JumpGateJumpTargetSystem;
   arrivalPlanetId: string;
   destination: JumpGateKnownDestinationSummary;
+  /** Jump Fuel reserved from the launch planet inventory. */
+  jumpFuelRequired: number;
 }

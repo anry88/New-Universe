@@ -117,6 +117,19 @@ export const HOME_SYSTEM_BASE_BIOME_IDS = [
 export const HOME_SYSTEM_PLANET_COUNT_MIN = 9;
 export const HOME_SYSTEM_PLANET_COUNT_MAX = 9;
 
+/** Mirrors `shared/config/expeditionRouting.ts`. */
+export const JUMP_FUEL_RESOURCE_ID = 'jump_fuel';
+export const JUMP_GATE_JUMP_FUEL_COST = 50;
+
+/** Mirrors `jump_fuel_from_ice_tritium` in `shared/config/productionRecipes.ts`. */
+export const JUMP_FUEL_RECIPE = {
+  id: 'jump_fuel_from_ice_tritium',
+  buildingId: 'refinery',
+  output: { resourceId: JUMP_FUEL_RESOURCE_ID, amount: 1 },
+  inputs: { ice: 3, tritium: 0.05, sulfur: 0.2 },
+  baseDurationSec: 18,
+} as const;
+
 export const BUILDINGS = {
   command_center: {
     deps: [] as { typeId: string; level: number }[],
@@ -200,7 +213,7 @@ export const BUILDINGS = {
     baseTimeSec: 1500,
     category: 'production',
     maxLevel: MAX_BUILDING_LEVEL,
-    recipes: ['fuel_from_oil', 'fuel_from_methane'],
+    recipes: ['fuel_from_oil', 'fuel_from_methane', 'jump_fuel_from_ice_tritium'],
   },
   cryo_factory: {
     deps: [{ typeId: 'command_center', level: 3 }],
@@ -366,6 +379,7 @@ export const RESOURCE_TIER: Record<string, number> = {
   cobalt: 3,
   silicon_carbide: 3,
   tritium: 3,
+  jump_fuel: 3,
   antimatter: 4,
   dark_matter: 4,
   iridium: 4,

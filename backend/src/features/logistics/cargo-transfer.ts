@@ -12,14 +12,21 @@ import { CARGO_TRANSFER_RESEARCH_GATE } from '../../config/research-unlocks.js';
 import { assertResearchRequirement, loadUserResearchLevels } from '../research/gates.js';
 import type { CargoTransferLoad, CargoTransferRequest } from '@shared/types/cargo.js';
 import { getPlayerPlanetSettlement } from '../colonies/ownership.js';
+import {
+  JUMP_FUEL_RESOURCE_ID,
+  JUMP_GATE_JUMP_FUEL_COST,
+} from '@shared/config/expeditionRouting.js';
+import { getJumpGateState } from '../jump-gate/service.js';
 import { env } from '../../lib/env.js';
 
 type CargoTransferResultPayload = {
+  routeMode?: 'standard' | 'jump_gate';
   deliveryMode?: 'one_way';
   resources?: CargoTransferLoad[];
   loads?: CargoTransferLoad[];
   totalCargo?: number;
   maxCargo?: number;
+  jumpFuelRequired?: number;
   distance?: number;
   speed?: number;
   engineFactor?: number;
@@ -68,6 +75,10 @@ export async function launchCargoTransfer(
 ) {
   if (!request) throw new Error('Request body is missing');
   const { shipId, targetPlanetId, resources } = request;
+  const requestedRouteMode = request.routeMode ?? 'standard';
+  if (!['standard', 'jump_gate'].includes(requestedRouteMode)) {
+    throw new Error('Cargo routeMode must be standard or jump_gate');
+  }
   const loads = normalizeCargoLoads(resources);
   const reservedResources = aggregateCargoLoads(loads);
 
@@ -114,6 +125,26 @@ export async function launchCargoTransfer(
 
     const originSystem = originSettlement.planet.system as { sectorX: number; sectorY: number; sectorZ: number };
     const targetSystem = targetSettlement.planet.system as { sectorX: number; sectorY: number; sectorZ: number };
+    const interSystemTransfer = originSettlement.planet.systemId !== targetSettlement.planet.systemId;
+    const useJumpGateRoute = requestedRouteMode === 'jump_gate';
+    if (useJumpGateRoute && !interSystemTransfer) {
+      throw new Error('Jump Gate cargo route requires a different target system');
+    }
+    const jumpFuelRequired = useJumpGateRoute ? JUMP_GATE_JUMP_FUEL_COST : 0;
+    if (useJumpGateRoute) {
+      const gateState = await getJumpGateState(userId, { database: tx });
+      if (!gateState.unlocked) {
+        throw new Error(
+          gateState.lockedReason?.code === 'jump_drive_required'
+            ? 'Jump Drive research level 1 required'
+            : 'Jump Gate is locked',
+        );
+      }
+      if (gateState.calibration.status === 'calibrating') {
+        throw new Error('Jump Gate calibration is still in progress');
+      }
+    }
+
     const origin = {
       x: Number(originSystem.sectorX),
       y: Number(originSystem.sectorY),
@@ -145,7 +176,14 @@ export async function launchCargoTransfer(
     const eta = new Date(Date.now() + etaSeconds * 1000);
 
     // 6. Atomic resource reservation on origin
-    const spendResult = await spendResources(ship.locationPlanetId, reservedResources, tx);
+    const transferCosts = [...reservedResources];
+    if (jumpFuelRequired > 0) {
+      transferCosts.push({
+        resourceId: JUMP_FUEL_RESOURCE_ID,
+        amount: jumpFuelRequired,
+      });
+    }
+    const spendResult = await spendResources(ship.locationPlanetId, transferCosts, tx);
     if (!spendResult.success) {
       throw new Error(spendResult.error || 'Failed to reserve resources');
     }
@@ -164,11 +202,13 @@ export async function launchCargoTransfer(
         status: 'in_flight',
         eta,
         result: {
+          routeMode: useJumpGateRoute ? 'jump_gate' : 'standard',
           deliveryMode: 'one_way',
           resources: reservedResources,
           loads,
           totalCargo,
           maxCargo: ship.cargoCapacity,
+          jumpFuelRequired,
           distance,
           speed,
           engineFactor: 1,

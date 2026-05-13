@@ -51,6 +51,7 @@ export const RESOURCE_CATALOG_ROWS: ResourceCatalogRow[] = [
     defaultStorageCap: 1000,
   },
   { id: 'tritium', symbol: 'T', tier: 3, name: { ru: 'Тритий', en: 'Tritium' }, baseRegenRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.tritium, defaultStorageCap: 500 },
+  { id: 'jump_fuel', symbol: 'JF', tier: 3, name: { ru: 'Прыжковое топливо', en: 'Jump Fuel' }, baseRegenRate: 0, defaultStorageCap: 500 },
 
   { id: 'antimatter', symbol: 'Am', tier: 4, name: { ru: 'Антиматерия', en: 'Antimatter' }, baseRegenRate: 0, defaultStorageCap: 100 },
   { id: 'dark_matter', symbol: 'Dm', tier: 4, name: { ru: 'Тёмная материя', en: 'Dark Matter' }, baseRegenRate: 0, defaultStorageCap: 100 },

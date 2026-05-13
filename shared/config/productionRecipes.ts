@@ -102,6 +102,22 @@ export const PRODUCTION_RECIPES: ProductionRecipe[] = [
     baseDurationSec: 14,
   },
   {
+    id: 'jump_fuel_from_ice_tritium',
+    buildingTypeId: 'refinery',
+    name: { ru: 'Прыжковое топливо', en: 'Jump Fuel' },
+    description: {
+      ru: 'Стабилизирует тритий льдом и серным катализатором в том же НПЗ, где производится обычное топливо.',
+      en: 'Stabilizes tritium with ice and a sulfur catalyst in the same refinery used for ordinary fuel.',
+    },
+    output: { resourceId: 'jump_fuel', amount: 1 },
+    inputs: [
+      { resourceId: 'ice', amount: 3 },
+      { resourceId: 'tritium', amount: 0.05 },
+      { resourceId: 'sulfur', amount: 0.2 },
+    ],
+    baseDurationSec: 18,
+  },
+  {
     id: 'energy_from_fuel',
     buildingTypeId: 'fuel_generator',
     name: { ru: 'Заряд от топлива', en: 'Charge from Fuel' },
