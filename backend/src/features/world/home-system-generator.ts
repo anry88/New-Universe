@@ -22,6 +22,7 @@ import {
   PLANET_SIZE_RANGE,
   PlanetSizeClass,
 } from './biomes.js';
+import { env } from '../../lib/env.js';
 
 /**
  * Capital planet (green, orbit tier 4) needs enough slots for the bootstrap
@@ -162,8 +163,7 @@ const CAPITAL_STARTING_RESOURCES: Record<string, number> = {
 };
 
 export async function generateHomeSystem(userId: string, tx?: any) {
-  const SERVER_SECRET = process.env.SERVER_SECRET || 'default-secret';
-  const seed = hashString(`${userId}-${SERVER_SECRET}`);
+  const seed = hashString(`${userId}-${env.SERVER_SECRET}`);
   const random = createRandom(seed);
 
   const perform = async (database: any) => {

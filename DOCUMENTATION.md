@@ -36,6 +36,7 @@ The `tools/` folder hosts offline agents (not bundled into Docker images). Today
 `backend/src/index.ts` is the only HTTP process today:
 
 - Plugins: `@fastify/cors`, `@fastify/helmet` (registered for every route).
+- Abuse limits: `lib/rate-limit.ts` registers global Fastify rate limiting, uses Redis as the production limiter store, and each public mutation route declares per-route rate-limit/security metadata plus body/params JSON schemas where applicable. The focused `npm run security:check` gate audits this route surface.
 - Logging: Pino instance from `lib/logger.ts`, switched to `pino-pretty` in development.
 - Request IDs: every incoming request gets a UUID via `middleware/request-id.ts` and the ID is exposed under the `requestId` log key.
 - Sentry: `lib/sentry.ts` is imported as the very first module to capture early-startup errors; it stays disabled when `SENTRY_DSN` is empty.
@@ -88,7 +89,11 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 
 ### Authentication
 
-`POST /auth/telegram` is the only Telegram login endpoint today. The request flows through `middleware/telegram-auth.ts`, which validates the `X-Telegram-Init-Data` header using `lib/telegram.ts` and returns localized auth errors via `lib/i18n.ts`. On first contact, `features/auth/service.ts#loginWithTelegram` creates a `users` row inside a transaction, initializes `preferredLocale` from Telegram `language_code` (`ru*` → `ru`, otherwise `en`), and immediately calls `features/world/home-system-generator.ts#generateHomeSystem` to seed the player's deterministic nine-planet home system with resource richness, zero-regen starter planet inventory, a starting `command_center` building, and a **`discovered_planets` row only for the capital** (other home bodies unlock after scout survey, then require colonizer settlement before construction). The service signs a 30-day JWT (`JWT_SECRET`), and the route sets a `Set-Cookie: session=<token>` cookie (`HttpOnly`, `SameSite=Strict`, `Secure` only in production) and returns `{ user, token }`.
+`POST /auth/telegram` is the only Telegram login endpoint today. The request flows through `middleware/telegram-auth.ts`, which validates the `X-Telegram-Init-Data` header using `lib/telegram.ts` and returns localized auth errors via `lib/i18n.ts`. Hashes are compared with constant-time equality, `auth_date` must be present, stale values older than 1 hour are rejected, and future-dated values beyond 60 seconds of clock skew are also rejected to constrain replay. On first contact, `features/auth/service.ts#loginWithTelegram` creates a `users` row inside a transaction, initializes `preferredLocale` from Telegram `language_code` (`ru*` → `ru`, otherwise `en`), and immediately calls `features/world/home-system-generator.ts#generateHomeSystem` to seed the player's deterministic nine-planet home system with resource richness, zero-regen starter planet inventory, a starting `command_center` building, and a **`discovered_planets` row only for the capital** (other home bodies unlock after scout survey, then require colonizer settlement before construction). The service signs a 30-day JWT (`JWT_SECRET`), and the route sets a `Set-Cookie: session=<token>` cookie (`HttpOnly`, `SameSite=Strict`, `Secure` only in production) and returns `{ user, token }`.
+
+### Launch security
+
+Production startup runs `assertProductionSecurityConfig` from `lib/security.ts`, rejecting placeholder or short `JWT_SECRET`, `SERVER_SECRET`, and `TELEGRAM_BOT_SECRET`, and requiring `PUBLIC_FRONTEND_URL` / `TELEGRAM_APP_URL`. Telegram Bot webhooks validate `X-Telegram-Bot-Api-Secret-Token` in production. The launch checklist lives in [`docs/security/launch-checklist.md`](docs/security/launch-checklist.md).
 
 ### World generation
 
@@ -146,7 +151,7 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 
 ## CI and automation
 
-- **`.github/workflows/ci.yml`** — on each PR / push to `main`: Docker Postgres/Redis, backend lint/build/migrate/seed/unit tests, frontend lint/build/unit tests (fast path). No Playwright.
+- **`.github/workflows/ci.yml`** — on each PR / push to `main`: a separate `security` job runs backend security checks, and the `check` job runs Docker Postgres/Redis, backend lint/build/migrate/seed/unit tests, frontend lint/build/unit tests (fast path). No Playwright.
 - **`.github/workflows/e2e.yml`** — Playwright Chromium on `frontend/tests/e2e` when triggered by workflow dispatch or by PR label **`run-e2e`** (not `epic:*` — every task issue already has an `epic:EPIC-…` label from import).
 - **`scripts/ci-verify.sh`** — local mirror of `ci.yml`; set `RUN_PLAYWRIGHT_E2E=1` to include Playwright like `e2e.yml`.
 

@@ -12,6 +12,27 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Start infrastructure
+        run: docker compose up -d --wait postgres redis
+
+      - name: Build backend
+        run: docker compose build backend
+
+      - name: Backend Security Checks
+        run: docker compose run --rm backend npm run security:check
+
+      - name: Cleanup
+        if: always()
+        run: docker compose down -v
+
   check:
     runs-on: ubuntu-latest
     steps:

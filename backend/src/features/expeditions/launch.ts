@@ -27,6 +27,7 @@ import {
 import { checkColonizationGates } from "../colonies/colonization-rules.js";
 import { colonyService } from "../colonies/colonies.js";
 import { systemMapPlanetDistanceLy } from "@shared/format/systemMapLayout.js";
+import { env } from "../../lib/env.js";
 import { getJumpGateState } from "../jump-gate/service.js";
 
 export interface LaunchExpeditionResult {
@@ -527,7 +528,7 @@ export async function launchExpedition(
         ...args: any[]
       ) => any;
       const redis = new Redis(
-        process.env.REDIS_URL || "redis://localhost:6379",
+        env.REDIS_URL,
         {
           maxRetriesPerRequest: null,
           lazyConnect: true,

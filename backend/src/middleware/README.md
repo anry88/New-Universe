@@ -8,11 +8,11 @@ Cross-cutting Fastify hooks and `preHandler` plugins. Everything in this folder 
 - **`telegram-auth.ts`** — `telegramAuthMiddleware(request, reply)` is a Fastify `preHandler`. It rejects the request with localized `401 Unauthorized` JSON (resolved from Telegram `language_code` when available, otherwise `Accept-Language`) in four cases:
   1. The `X-Telegram-Init-Data` header is missing or not a string.
   2. `validateTelegramInitData(initData, env.TELEGRAM_BOT_TOKEN)` returned `null` (bad hash).
-  3. `isInitDataExpired(validatedData.auth_date)` is `true` (older than 1 hour).
+  3. `isInitDataExpired(validatedData.auth_date)` is `true` (older than 1 hour, malformed, or more than 60 seconds in the future).
   4. The parsed `initData` did not contain a `user` field.
   
   On success it sets `request.user = validatedData.user` (typed via `types/fastify.d.ts`) so downstream handlers can read the verified Telegram user without re-parsing. The `index.ts` `preHandler` hook then enriches `request.log` with `userId: request.user.id` automatically.
-- **`telegram-auth.test.ts`** — Vitest coverage for the four failure paths plus the happy path; uses `vi.mock` to replace `lib/telegram` so the test is hermetic and independent of the real bot token.
+- **`telegram-auth.test.ts`** — Vitest coverage for the failure paths plus the happy path, including stale and future-dated `auth_date` replay rejection.
 
 ## Adding a middleware
 

@@ -6,10 +6,12 @@ type ApiErrorKey =
   | 'internalServerError'
   | 'invalidPreferredLocale'
   | 'invalidSessionToken'
+  | 'invalidTelegramWebhookSecret'
   | 'invalidTelegramInitData'
   | 'missingSessionToken'
   | 'missingTelegramInitData'
   | 'missingTelegramUser'
+  | 'rateLimitExceeded'
   | 'telegramInitDataExpired'
   | 'userNotFound';
 
@@ -30,6 +32,10 @@ const ERROR_TEXT: Record<ApiErrorKey, Record<Locale, { error: string; message: s
     en: { error: 'Unauthorized', message: 'Invalid or expired session token' },
     ru: { error: 'Не авторизовано', message: 'Сессия недействительна или истекла' },
   },
+  invalidTelegramWebhookSecret: {
+    en: { error: 'Unauthorized', message: 'Invalid Telegram webhook secret' },
+    ru: { error: 'Не авторизовано', message: 'Неверный секрет Telegram webhook' },
+  },
   invalidTelegramInitData: {
     en: { error: 'Unauthorized', message: 'Invalid Telegram initData hash' },
     ru: { error: 'Не авторизовано', message: 'Неверная подпись Telegram initData' },
@@ -45,6 +51,10 @@ const ERROR_TEXT: Record<ApiErrorKey, Record<Locale, { error: string; message: s
   missingTelegramUser: {
     en: { error: 'Unauthorized', message: 'User data missing in initData' },
     ru: { error: 'Не авторизовано', message: 'В initData отсутствуют данные пользователя' },
+  },
+  rateLimitExceeded: {
+    en: { error: 'Too Many Requests', message: 'Rate limit exceeded' },
+    ru: { error: 'Слишком много запросов', message: 'Превышен лимит запросов' },
   },
   telegramInitDataExpired: {
     en: { error: 'Unauthorized', message: 'Telegram initData expired' },

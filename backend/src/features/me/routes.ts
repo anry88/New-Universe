@@ -32,6 +32,8 @@ import {
   type UpdatePreferredLocaleResponse,
 } from "@shared/types/locale.js";
 import { resolvePlanetEnergyState } from "../resources/energy.js";
+import { mutationRateLimit } from "../../lib/rate-limit.js";
+import { objectBodySchema, securityRouteConfig } from "../../lib/security.js";
 
 type UserRow = typeof users.$inferSelect;
 
@@ -361,7 +363,15 @@ export async function meRoutes(app: FastifyInstance) {
     }
   });
 
-  app.patch("/preferences", async (request, reply) => {
+  app.patch("/preferences", {
+    config: securityRouteConfig(mutationRateLimit, 'body'),
+    schema: {
+      body: objectBodySchema(
+        { preferredLocale: { type: 'string', enum: ['en', 'ru'] } },
+        ['preferredLocale'],
+      ),
+    },
+  }, async (request, reply) => {
     const user = await loadSessionUser(request, reply);
     if (!user) return;
 

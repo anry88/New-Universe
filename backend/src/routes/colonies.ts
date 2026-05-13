@@ -4,6 +4,8 @@ import { env } from '../lib/env.js';
 import { foundColony } from '../features/colonies/found-colony.js';
 import { checkColonizationGates } from '../features/colonies/colonization-rules.js';
 import { COLONIZATION_RULES } from '../config/colonization-rules.js';
+import { mutationRateLimit } from '../lib/rate-limit.js';
+import { nonEmptyStringSchema, objectBodySchema, securityRouteConfig } from '../lib/security.js';
 
 /**
  * Colonies routes.
@@ -37,7 +39,18 @@ export async function coloniesRoutes(app: FastifyInstance) {
    * POST /colonies/found
    * Found a new colony on a discovered planet using a colonizer ship.
    */
-  app.post('/found', async (request, reply) => {
+  app.post('/found', {
+    config: securityRouteConfig(mutationRateLimit, 'body'),
+    schema: {
+      body: objectBodySchema(
+        {
+          shipId: nonEmptyStringSchema,
+          planetId: nonEmptyStringSchema,
+        },
+        ['shipId', 'planetId'],
+      ),
+    },
+  }, async (request, reply) => {
     const userId = (request as any).userId;
     const { shipId, planetId } = request.body as { shipId: string; planetId: string };
 

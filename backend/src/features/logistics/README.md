@@ -12,7 +12,7 @@ Interplanetary logistics — cargo transfers between player-owned colonies.
   - Reserves resources atomically on the origin planet (via `spendResources`), adding the shared Jump Fuel surcharge when the request explicitly selects `routeMode='jump_gate'`.
   - Creates a one-way `expeditions` record with type `cargo_transfer`.
   - Sets ship status to `moving` and populates `cargoJson`.
-  - Enqueues a BullMQ `arrive_cargo` job for delivery processing.
+  - Enqueues a BullMQ `arrive_cargo` job for delivery processing using validated `env.REDIS_URL`.
   - Exports `completeCargoTransfer(expedition, shipId, tx, options?)`, used by both the cargo worker and active-session expedition sync to finish one-way delivery without a return phase.
 - **`cargo-transfer.test.ts`** — Integration tests for the cargo transfer flow.
 

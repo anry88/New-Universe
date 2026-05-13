@@ -7,7 +7,7 @@ This is the backend application source. It is a Fastify v5 + TypeScript project 
 - [`db/`](db/README.md) — Drizzle ORM client, schema (per-domain table modules), generated migrations, and seed scripts.
 - [`config/`](config/README.md) — static balancing/config constants used by backend subsystems.
 - [`features/`](features/README.md) — feature modules (`auth`, `bot`, `me`, `world`, `buildings`, `resources`, `ships`, `expeditions`, `jump-gate`, `research`, `tutorial`, `multiplayer`). Each feature owns its own route handlers, service logic, and tests.
-- [`lib/`](lib/README.md) — shared infrastructure: env validation, logger, Sentry, Telegram `initData` validation.
+- [`lib/`](lib/README.md) — shared infrastructure: env validation, logger, Sentry, Telegram `initData` validation, production security checks, and Fastify rate limits.
 - [`middleware/`](middleware/README.md) — Fastify hooks: request ID generator, Telegram auth `preHandler`.
 - [`routes/`](routes/README.md) — top-level routes that are not feature-scoped (`/health`, `/webhook/telegram`, `/cargo/*`, `/colonies/*`, `/multiplayer/*`).
 - [`workers/`](workers/README.md) — BullMQ workers for periodic ticks (expeditions, buildings, ships, research, production orders, notifications, cargo).
@@ -19,8 +19,8 @@ This is the backend application source. It is a Fastify v5 + TypeScript project 
   1. Imports `./lib/sentry.js` first so Sentry can capture early-startup errors.
   2. Builds a Fastify instance with the Pino `logger`, disables built-in request logging in production, sets the request ID generator from `middleware/request-id.ts`, and labels the ID as `requestId`.
   3. Adds a `preHandler` hook that creates a per-request child logger with `userId` once `request.user` has been attached by an auth middleware.
-  4. Registers `@fastify/cors` and `@fastify/helmet` globally.
-  5. Registers `healthRoutes`, `botRoutes`, `authRoutes` (mounted at `/auth`), `meRoutes` (mounted at `/me`, including active-session timer finalization and active production-process payloads), `buildingsRoutes` (mounted at `/buildings`, including extractor resource switching), `resourcesRoutes` (mounted at `/resources`, including `/resources/production/*`), `shipsRoutes` (mounted at `/ships`), `expeditionsRoutes` (mounted at `/expeditions`, excluding logistics ships and using same-system map distance for targeted colonizer/recon launches plus deprecated-compatible `/expeditions/jump`), `researchRoutes` (mounted at `/research`, including `/research/rush`), `tutorialRoutes` (mounted at `/tutorial`), `coloniesRoutes` (mounted at `/colonies`), `cargoRoutes` (mounted at `/cargo`, including one-way multi-load `/cargo/transfer` for logistics-role transports with inter-system Jump Fuel cost), `multiplayerRoutes` (mounted at `/multiplayer`, exposing `/multiplayer/systems` and `/multiplayer/sectors/:sx/:sy/:sz/presence`), and `jumpGateRoutes` (mounted at `/jump-gate`, exposing `/jump-gate/state`, `/jump-gate/random-jump`, and `/jump-gate/destinations/:systemId/jump`).
+  4. Registers `@fastify/cors`, `@fastify/helmet`, and `registerRateLimit` globally.
+  5. Registers `healthRoutes`, `botRoutes`, `authRoutes` (mounted at `/auth`), `meRoutes` (mounted at `/me`, including active-session timer finalization and active production-process payloads), `buildingsRoutes` (mounted at `/buildings`, including extractor resource switching), `resourcesRoutes` (mounted at `/resources`, including `/resources/production/*`), `shipsRoutes` (mounted at `/ships`), `expeditionsRoutes` (mounted at `/expeditions`, excluding logistics ships and using same-system map distance for targeted colonizer/recon launches plus deprecated-compatible `/expeditions/jump`), `researchRoutes` (mounted at `/research`, including `/research/rush`), `tutorialRoutes` (mounted at `/tutorial`), `coloniesRoutes` (mounted at `/colonies`), `cargoRoutes` (mounted at `/cargo`, including one-way multi-load `/cargo/transfer` for logistics-role transports and explicit Jump Fuel-paid cargo gate routes), `multiplayerRoutes` (mounted at `/multiplayer`, exposing `/multiplayer/systems` and `/multiplayer/sectors/:sx/:sy/:sz/presence`), and `jumpGateRoutes` (mounted at `/jump-gate`, exposing `/jump-gate/state`, `/jump-gate/random-jump`, and `/jump-gate/destinations/:systemId/jump`). Public mutation routes declare per-route security metadata and Fastify JSON schemas where they accept body/params.
   6. Calls `fastify.listen({ port: env.PORT, host: '0.0.0.0' })`. On failure, logs and exits with code `1`.
 - **`test-env.ts`** — Vitest environment shim that pre-populates the env vars Zod requires, so `lib/env.ts` does not abort the process when tests load it. Imported via `vitest-setup.ts`.
 - **`vitest-setup.ts`** — Vitest `setupFiles` entry. Runs once per worker before tests, currently delegates to `test-env.ts`.
@@ -49,6 +49,7 @@ The repository ships with the following npm scripts in `backend/package.json` (a
 - `npm run build` — `tsc` typecheck + emit to `dist/`.
 - `npm test` / `npm run test:watch` — Vitest run / watch mode for unit/integration tests.
 - `npm run test:e2e` — Vitest run for end-to-end integration tests.
+- `npm run security:check` — focused launch security gate: route metadata/schema audit, rate-limit key tests, and Telegram initData replay-window tests.
 - `npm run lint` — ESLint over `*.ts`.
 
 - `npm run db:generate` / `db:migrate` / `db:seed` / `db:studio` — Drizzle Kit operations.

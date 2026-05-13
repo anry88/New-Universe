@@ -36,6 +36,7 @@ import { countUserBuildingsOfType } from './count-user-buildings.js';
 import { BUILDING_TYPE_CATALOG_ROWS } from '../../db/seed/catalog-rows.js';
 import { getPlanetSettlementOwnerId, getPlayerPlanetSettlement } from '../colonies/ownership.js';
 import { syncEnergyResourceRow } from '../resources/energy.js';
+import { env } from '../../lib/env.js';
 
 type BuildingOutput = {
   resourceId?: string;
@@ -456,7 +457,7 @@ export class BuildingService {
       try {
         const { Queue: BQueue } = await import('bullmq');
         const Redis = (await import('ioredis')).default as unknown as new (...args: any[]) => any;
-        const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+        const redis = new Redis(env.REDIS_URL, {
           maxRetriesPerRequest: null,
           lazyConnect: true,
         });
@@ -696,7 +697,7 @@ export class BuildingService {
       try {
         const { Queue: BQueue } = await import('bullmq');
         const Redis = (await import('ioredis')).default as unknown as new (...args: any[]) => any;
-        const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+        const redis = new Redis(env.REDIS_URL, {
           maxRetriesPerRequest: null,
           lazyConnect: true,
         });

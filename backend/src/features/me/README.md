@@ -15,7 +15,7 @@ This feature handles the retrieval of the current player's state. It is the prim
     - `expeditions`: list of active expeditions.
     - `research`: research progress rows with `startedAt` while a tier timer is active.
     - `rushPricing`: account-wide rush pricing metadata for live diamond-cost previews.
-  - `PATCH /me/preferences` accepts `{ preferredLocale: 'en' | 'ru' }`, updates `users.preferredLocale`, and returns the persisted locale for frontend refetch/sync.
+  - `PATCH /me/preferences` is mutation-rate-limited, JSON-schema-validated, accepts `{ preferredLocale: 'en' | 'ru' }`, updates `users.preferredLocale`, and returns the persisted locale for frontend refetch/sync.
 - **`me.test.ts`** — Vitest coverage for the `me` feature. It tests both authorized (with token) and unauthorized (missing token) access paths.
 
 ## Adding to player state

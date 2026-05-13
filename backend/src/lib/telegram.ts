@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { env } from './env.js';
 import { logger } from './logger.js';
+import { constantTimeEqual } from './security.js';
 
 export interface TelegramUser {
   id: number;
@@ -19,6 +20,9 @@ export interface TelegramInitData {
   auth_date: number;
   hash: string;
 }
+
+export const TELEGRAM_INIT_DATA_MAX_AGE_SECONDS = 60 * 60;
+export const TELEGRAM_INIT_DATA_FUTURE_SKEW_SECONDS = 60;
 
 /**
  * Validates Telegram Mini App initData.
@@ -50,12 +54,20 @@ export function validateTelegramInitData(initData: string, botToken: string): Te
     .update(dataToCheck.join('\n'))
     .digest('hex');
 
-  if (checkHash !== hash) {
+  if (!constantTimeEqual(checkHash, hash)) {
     return null;
   }
 
-  // Parse fields
-  const authDate = parseInt(urlParams.get('auth_date') || '0', 10);
+  const rawAuthDate = urlParams.get('auth_date');
+  if (!rawAuthDate || !/^\d+$/.test(rawAuthDate)) {
+    return null;
+  }
+
+  const authDate = Number.parseInt(rawAuthDate, 10);
+  if (!Number.isSafeInteger(authDate) || authDate <= 0) {
+    return null;
+  }
+
   const userJson = urlParams.get('user');
   let user: TelegramUser | undefined;
 
@@ -77,10 +89,22 @@ export function validateTelegramInitData(initData: string, botToken: string): Te
 }
 
 /**
- * Checks if auth_date is within allowed range (1 hour).
+ * Checks whether auth_date is outside the accepted replay window.
  */
-export function isInitDataExpired(authDate: number, maxAgeInSeconds = 3600): boolean {
+export function isInitDataExpired(
+  authDate: number,
+  maxAgeInSeconds = TELEGRAM_INIT_DATA_MAX_AGE_SECONDS,
+  maxFutureSkewInSeconds = TELEGRAM_INIT_DATA_FUTURE_SKEW_SECONDS,
+): boolean {
   const now = Math.floor(Date.now() / 1000);
+  if (!Number.isSafeInteger(authDate) || authDate <= 0) {
+    return true;
+  }
+
+  if (authDate - now > maxFutureSkewInSeconds) {
+    return true;
+  }
+
   return now - authDate > maxAgeInSeconds;
 }
 

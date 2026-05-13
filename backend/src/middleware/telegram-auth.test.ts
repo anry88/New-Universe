@@ -102,6 +102,26 @@ describe('telegramAuthMiddleware', () => {
     expect(response.json().message).toContain('Telegram initData expired');
   });
 
+  it('rejects initData replayed from the future beyond clock skew', async () => {
+    const app = Fastify();
+    app.get('/test', { preHandler: [telegramAuthMiddleware] }, async () => ({ ok: true }));
+
+    const user = { id: 123, first_name: 'Test' };
+    const futureAuthDate = Math.floor(Date.now() / 1000) + 120;
+    const initData = createValidInitData(user, futureAuthDate);
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/test',
+      headers: {
+        'x-telegram-init-data': initData,
+      },
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(response.json().message).toContain('Telegram initData expired');
+  });
+
   it('localizes auth errors from Accept-Language', async () => {
     const app = Fastify();
     app.get('/test', { preHandler: [telegramAuthMiddleware] }, async () => ({ ok: true }));

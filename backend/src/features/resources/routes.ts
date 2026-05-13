@@ -5,6 +5,14 @@ import { convertResources, buyResourceWithDiamonds, quoteResourceWithDiamonds } 
 import { computeCurrentResources } from './accrual.js';
 import { productionService, ProductionOperationError } from './production.js';
 import type { ProductionPreviewRequest, ProductionStartRequest } from '@shared/types/production.js';
+import { mutationRateLimit } from '../../lib/rate-limit.js';
+import {
+  nonEmptyStringSchema,
+  objectBodySchema,
+  paramsSchema,
+  positiveNumberSchema,
+  securityRouteConfig,
+} from '../../lib/security.js';
 
 function readUserIdFromRequest(request: FastifyRequest): { userId?: string; error?: { status: number; body: Record<string, string> } } {
   const authHeader = request.headers.authorization;
@@ -46,7 +54,28 @@ export async function resourcesRoutes(app: FastifyInstance) {
     return reply.send({ recipes: productionService.listRecipes() });
   });
 
-  app.post('/production/preview', async (request, reply) => {
+  const productionBodySchema = objectBodySchema(
+    {
+      planetId: nonEmptyStringSchema,
+      buildingId: nonEmptyStringSchema,
+      recipeId: nonEmptyStringSchema,
+      quantity: positiveNumberSchema,
+    },
+    ['planetId', 'buildingId', 'recipeId', 'quantity'],
+  );
+  const resourceAmountPurchaseSchema = objectBodySchema(
+    {
+      planetId: nonEmptyStringSchema,
+      resourceId: nonEmptyStringSchema,
+      amount: positiveNumberSchema,
+    },
+    ['planetId', 'resourceId', 'amount'],
+  );
+
+  app.post('/production/preview', {
+    config: securityRouteConfig(mutationRateLimit, 'body'),
+    schema: { body: productionBodySchema },
+  }, async (request, reply) => {
     const auth = readUserIdFromRequest(request);
     if (auth.error) return reply.status(auth.error.status).send(auth.error.body);
 
@@ -66,7 +95,10 @@ export async function resourcesRoutes(app: FastifyInstance) {
     }));
   });
 
-  app.post('/production/start', async (request, reply) => {
+  app.post('/production/start', {
+    config: securityRouteConfig(mutationRateLimit, 'body'),
+    schema: { body: productionBodySchema },
+  }, async (request, reply) => {
     const auth = readUserIdFromRequest(request);
     if (auth.error) return reply.status(auth.error.status).send(auth.error.body);
 
@@ -108,7 +140,12 @@ export async function resourcesRoutes(app: FastifyInstance) {
     return reply.send({ orders: await productionService.listOrders(auth.userId!, planetId) });
   });
 
-  app.post('/production/sync/:planetId', async (request, reply) => {
+  app.post('/production/sync/:planetId', {
+    config: securityRouteConfig(mutationRateLimit, 'params'),
+    schema: {
+      params: paramsSchema({ planetId: nonEmptyStringSchema }, ['planetId']),
+    },
+  }, async (request, reply) => {
     const auth = readUserIdFromRequest(request);
     if (auth.error) return reply.status(auth.error.status).send(auth.error.body);
     const { planetId } = request.params as { planetId: string };
@@ -116,7 +153,20 @@ export async function resourcesRoutes(app: FastifyInstance) {
     return reply.send({ success: true });
   });
 
-  app.post('/convert', async (request, reply) => {
+  app.post('/convert', {
+    config: securityRouteConfig(mutationRateLimit, 'body'),
+    schema: {
+      body: objectBodySchema(
+        {
+          planetId: nonEmptyStringSchema,
+          from: nonEmptyStringSchema,
+          to: nonEmptyStringSchema,
+          amount: positiveNumberSchema,
+        },
+        ['planetId', 'from', 'to', 'amount'],
+      ),
+    },
+  }, async (request, reply) => {
     const authHeader = request.headers.authorization;
     const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
 
@@ -165,7 +215,10 @@ export async function resourcesRoutes(app: FastifyInstance) {
     return reply.send(result.data);
   });
 
-  app.post('/buy-with-diamonds', async (request, reply) => {
+  app.post('/buy-with-diamonds', {
+    config: securityRouteConfig(mutationRateLimit, 'body'),
+    schema: { body: resourceAmountPurchaseSchema },
+  }, async (request, reply) => {
     const authHeader = request.headers.authorization;
     const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
 
@@ -212,7 +265,10 @@ export async function resourcesRoutes(app: FastifyInstance) {
     return reply.send(result.data);
   });
 
-  app.post('/buy-with-diamonds/quote', async (request, reply) => {
+  app.post('/buy-with-diamonds/quote', {
+    config: securityRouteConfig(mutationRateLimit, 'body'),
+    schema: { body: resourceAmountPurchaseSchema },
+  }, async (request, reply) => {
     const authHeader = request.headers.authorization;
     const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
 

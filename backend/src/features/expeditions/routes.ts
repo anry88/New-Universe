@@ -7,9 +7,41 @@ import jwt from "jsonwebtoken";
 import { env } from "../../lib/env.js";
 import { launchExpedition } from "./launch.js";
 import { jumpShip } from "./jump.js";
+import { mutationRateLimit } from "../../lib/rate-limit.js";
+import {
+  boundedNumberSchema,
+  nonEmptyStringSchema,
+  nonNegativeNumberSchema,
+  objectBodySchema,
+  optionalNullableStringSchema,
+  safeIntegerSchema,
+  securityRouteConfig,
+} from "../../lib/security.js";
 
 export async function expeditionsRoutes(app: FastifyInstance) {
-  app.post("/jump", async (request, reply) => {
+  app.post("/jump", {
+    config: securityRouteConfig(mutationRateLimit, 'body'),
+    schema: {
+      body: objectBodySchema(
+        {
+          shipId: nonEmptyStringSchema,
+          mode: { type: 'string', enum: ['random'] },
+          destinationSystemId: nonEmptyStringSchema,
+          targetSector: {
+            type: 'object',
+            required: ['x', 'y', 'z'],
+            properties: {
+              x: safeIntegerSchema,
+              y: safeIntegerSchema,
+              z: safeIntegerSchema,
+            },
+            additionalProperties: false,
+          },
+        },
+        ['shipId'],
+      ),
+    },
+  }, async (request, reply) => {
     const authHeader = request.headers.authorization;
     const token = authHeader?.startsWith("Bearer ")
       ? authHeader.slice(7)
@@ -57,7 +89,25 @@ export async function expeditionsRoutes(app: FastifyInstance) {
     });
   });
 
-  app.post("/", async (request, reply) => {
+  app.post("/", {
+    config: securityRouteConfig(mutationRateLimit, 'body'),
+    schema: {
+      body: objectBodySchema(
+        {
+          shipId: nonEmptyStringSchema,
+          routeMode: { type: "string", enum: ["local", "jump_gate"] },
+          targetX: boundedNumberSchema,
+          targetY: boundedNumberSchema,
+          targetZ: boundedNumberSchema,
+          fuelLoaded: nonNegativeNumberSchema,
+          cargoLoaded: nonNegativeNumberSchema,
+          targetPlanetId: optionalNullableStringSchema,
+          destinationSystemId: nonEmptyStringSchema,
+        },
+        ["shipId", "cargoLoaded"],
+      ),
+    },
+  }, async (request, reply) => {
     const authHeader = request.headers.authorization;
     const token = authHeader?.startsWith("Bearer ")
       ? authHeader.slice(7)

@@ -17,6 +17,7 @@ import {
   JUMP_GATE_JUMP_FUEL_COST,
 } from '@shared/config/expeditionRouting.js';
 import { getJumpGateState } from '../jump-gate/service.js';
+import { env } from '../../lib/env.js';
 
 type CargoTransferResultPayload = {
   routeMode?: 'standard' | 'jump_gate';
@@ -233,7 +234,7 @@ export async function launchCargoTransfer(
     try {
       const { Queue: BullQueue } = await import('bullmq');
       const Redis = (await import('ioredis')).default as unknown as new (...args: any[]) => any;
-      const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+      const redis = new Redis(env.REDIS_URL, {
         maxRetriesPerRequest: null,
         lazyConnect: true,
       });
