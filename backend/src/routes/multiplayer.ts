@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import jwt from 'jsonwebtoken';
 import { env } from '../lib/env.js';
-import { getSectorPresence } from '../features/multiplayer/presence.js';
+import { getSectorPresence, getSectorSystemAnchors } from '../features/multiplayer/presence.js';
 
 function parseSectorCoord(raw: string): number | null {
   const n = Number.parseInt(raw, 10);
@@ -32,6 +32,16 @@ export async function multiplayerRoutes(app: FastifyInstance) {
         message: 'Invalid or expired session token',
       });
     }
+  });
+
+  app.get('/systems', async (request, reply) => {
+    const userId = (request as { userId?: string }).userId;
+    if (!userId) {
+      return reply.status(401).send({ error: 'Unauthorized', message: 'Missing user' });
+    }
+
+    const payload = await getSectorSystemAnchors(userId);
+    return reply.send(payload);
   });
 
   app.get('/sectors/:sx/:sy/:sz/presence', async (request, reply) => {
