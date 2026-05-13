@@ -55,16 +55,15 @@ The `tools/` folder hosts offline agents (not bundled into Docker images). Today
 - **`research`**: Applies finished lab timers (`research_progress.completes_at`), bumps completed tier levels once, triggers effect-cache invalidation hooks, and queues `research_done` notifications only for offline/worker completions.
 - **`production-orders`**: Every 30 seconds runs `ProductionService.processDueOrders` so explicit refinery/smelter/fabricator/cryo processes pause when active energy demand drains the battery, resume after charge returns, and grant outputs after inputs were reserved at start time.
 
-
 ### Telegram Bot
 
 The bot entry point is `POST /webhook/telegram`. Incoming updates are dispatched through `features/bot/service.ts`.
+
 - `/start` command: implemented in `features/bot/commands.ts`, sends a welcome message with an inline button to launch the Mini App via `web_app` type.
 - `/add_diamond` command: admin-only command in `features/bot/commands.ts` with aliases and `env.ADMIN_TELEGRAM_IDS` allowlist, `username + amount` input, structured `admin.add_diamond` success logging, and structured rejection logs for invalid syntax, unauthorized actors, invalid amounts, and missing users.
 - Update handling: `features/bot/webhook.ts` parses the update and routes it to command handlers. `routes/bot.ts` logs safe webhook context for every incoming update so stale webhook/configuration problems are visible before command execution.
 
 ### Database (Drizzle ORM + Postgres)
-
 
 `backend/src/db/index.ts` opens a `postgres-js` connection from `DATABASE_URL` and exposes a typed Drizzle client via `db`. The schema is split per domain under `backend/src/db/schema/` and re-exported from `backend/src/db/schema.ts`:
 
@@ -84,7 +83,6 @@ The bot entry point is `POST /webhook/telegram`. Incoming updates are dispatched
 
 Phase 2 research definitions (**eight branches × five tiers**, including the Energy and Weapons branches) with typed effects live in **`shared/config/researchCatalog.ts`** and are re-exported from `backend/src/config/research-catalog.ts` for seeding and runtime research/effects logic. The catalog also owns the one-active-research timer curve: core branches run from 10 minutes to 24 hours, infrastructure/logistics branches extend to 30–36 hours, and Jump Drive reaches 72 hours. Energy research tiers modify server-side generation, battery capacity, and energy demand while leaving `battery` / `solar_plant` available as level-0 infrastructure. Colonization tuning (colony caps vs logistics level, founding costs, cooldown, distance) lives in `backend/src/config/colonization-rules.ts` and is enforced in `features/colonies/colonization-rules.ts`. Progression gates that tie research completions to buildings, ships, colonization, cargo logistics, and jump travel are declared in `backend/src/config/research-unlocks.ts` and enforced in `backend/src/features/research/gates.ts`.
 
-
 Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Kit (`npm run db:generate`, `npm run db:migrate`). Static reference data is loaded by `backend/src/db/seed.ts`, which runs the four seeders in `backend/src/db/seed/` (`resources`, `research-branches`, `building-types`, `ship-types`).
 
 ### Authentication
@@ -101,11 +99,13 @@ Production startup runs `assertProductionSecurityConfig` from `lib/security.ts`,
 
 ### Frontend
 
-`frontend/src/main.tsx` is the only entry point. It depends on `@telegram-apps/sdk-react` for Telegram launch parameters, theme, and viewport, and renders `App.tsx`. 
+`frontend/src/main.tsx` is the only entry point. It depends on `@telegram-apps/sdk-react` for Telegram launch parameters, theme, and viewport, and renders `App.tsx`.
+
 - `lib/api.ts` — a unified fetch client that automatically sends the session token in the `Authorization` header, Telegram `initDataRaw` in the `X-Telegram-Init-Data` header, and the persisted locale in `Accept-Language`.
 - `lib/i18n.tsx`, `lib/locale.ts`, and `locales/` — EN/RU dictionary loading, runtime `t(key, params?)` translation, persisted locale switching, and Telegram/Accept-Language locale normalization.
 - `hooks/useAuth.ts` — manages the auth flow and session token.
 - `hooks/useMe.ts` — uses TanStack Query to fetch and cache the current player state from `GET /me`; countdowns tick locally and the hook schedules one refetch at the nearest due building/research/ship/expedition timestamp.
+- `pages/SystemMap.tsx` — interactive home-system map and Jump Gate destination surface backed by `components/cosmic/SystemMap.tsx`; the renderer keeps static orbit/planet/trail layers memoized, draws route lines with lightweight CSS elements, and throttles expedition aim updates so route-heavy systems stay usable on mobile.
 - `pages/SectorMap.tsx` — Phase 3 sector radar: queries `GET /multiplayer/systems` to offer Home/discovered/colony/fleet system anchors for the Sector button flow, then queries `GET /multiplayer/sectors/:sx/:sy/:sz/presence`; `lib/sectorMap.ts` feeds relation counters and visibility-safe detail labels, while `components/pixi/SectorRenderer.tsx` renders the Pixi grid/markers with distinct local, neutral, foreign, colony, fleet, and unknown-summary states.
 - `hooks/useColonies.ts` — manages the collection of player-owned planets and tracks the focal planet across the UI via a dedicated Zustand store; discovered-but-unsettled planets are excluded until a colonizer arrives.
 - `pages/Home.tsx` — main game screen with resource bar, tab bar, and navigation; inactive-tutorial shortcut uses **`tutorial-launcher`** CSS so it sits below the resource bar (no overlap).
@@ -127,6 +127,7 @@ Production startup runs `assertProductionSecurityConfig` from `lib/security.ts`,
 ### Shared types and config
 
 `shared/types/` is the cross-cutting contract folder for backend ↔ frontend payloads:
+
 - `locale.ts` — supported-locale contract (`en`/`ru`), locale normalization, and `/me/preferences` payloads.
 - `user.ts` — `User` interface (`preferredLocale`, `diamonds`, onboarding fields, home system linkage).
 - `buildings.ts` — building types, construction and extractor-resource switching requests, and structured build-block reasons including planet-resource, extractor-selection, and deposit-limit failures.

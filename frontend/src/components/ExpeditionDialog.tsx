@@ -22,7 +22,10 @@ import {
 } from "lucide-react";
 import { useState, useMemo, useCallback } from "react";
 import { CosmicBackground } from "./cosmic/atoms";
-import { CosmicSystemRenderer } from "./cosmic/SystemMap";
+import {
+  CosmicSystemRenderer,
+  type ExpeditionPickConfig,
+} from "./cosmic/SystemMap";
 import { useI18n } from "../lib/i18n";
 import { buildExpeditionPreview } from "../lib/expedition-routing";
 import { systemMapPlanetDistanceLy } from "@shared/format/systemMapLayout";
@@ -49,7 +52,8 @@ export function ExpeditionDialog({
   onClose,
 }: ExpeditionDialogProps) {
   const { data: meData } = useMe();
-  const { data: jumpGateState, isLoading: jumpGateLoading } = useJumpGateState();
+  const { data: jumpGateState, isLoading: jumpGateLoading } =
+    useJumpGateState();
   const { locale, t } = useI18n();
   const [routeMode, setRouteMode] = useState<ExpeditionRouteMode>(
     initialRouteMode ?? "local",
@@ -68,8 +72,7 @@ export function ExpeditionDialog({
   const homeSystem = meData?.homeSystem;
   const isColonizer =
     shipType.role === "colonization" || ship.typeId === "colonizer";
-  const supportsJumpGateExpedition =
-    shipType.role === "recon" || isColonizer;
+  const supportsJumpGateExpedition = shipType.role === "recon" || isColonizer;
   const colonizationTargets = useMemo(
     () =>
       (homeSystem?.planets ?? []).filter(
@@ -95,7 +98,9 @@ export function ExpeditionDialog({
     [meData?.planets, ship.locationPlanetId],
   );
   const selectedLocalTargetPlanet = useMemo(
-    () => colonizationTargets.find((planet) => planet.id === targetPlanetId) ?? null,
+    () =>
+      colonizationTargets.find((planet) => planet.id === targetPlanetId) ??
+      null,
     [colonizationTargets, targetPlanetId],
   );
   const knownDestinations = jumpGateState?.knownDestinations ?? [];
@@ -113,9 +118,7 @@ export function ExpeditionDialog({
     () =>
       jumpPlanetTargets.filter(
         (planet) =>
-          planet.isDiscovered &&
-          !planet.isColonized &&
-          !planet.isOwnedColony,
+          planet.isDiscovered && !planet.isColonized && !planet.isOwnedColony,
       ),
     [jumpPlanetTargets],
   );
@@ -225,13 +228,13 @@ export function ExpeditionDialog({
     ? t("expedition.loadingJumpGate")
     : !jumpGateState
       ? t("jumpGate.error.loadFailed")
-    : !jumpGateState.unlocked
-      ? t("expedition.jumpGateLocked")
-      : jumpGateState.calibration.status === "calibrating"
-        ? t("jumpGate.random.calibrationInProgress")
-        : knownDestinations.length === 0
-          ? t("jumpGate.destinations.empty")
-          : t("expedition.jumpGateReady");
+      : !jumpGateState.unlocked
+        ? t("expedition.jumpGateLocked")
+        : jumpGateState.calibration.status === "calibrating"
+          ? t("jumpGate.random.calibrationInProgress")
+          : knownDestinations.length === 0
+            ? t("jumpGate.destinations.empty")
+            : t("expedition.jumpGateReady");
 
   const jumpPlanetLabel = (planet: JumpGateDestinationPlanetSummary) =>
     planet.name ?? t("expedition.unknownBody", { index: planet.orbitIndex });
@@ -253,9 +256,7 @@ export function ExpeditionDialog({
         targetY: routeTarget.y,
         targetZ: routeTarget.z,
         destinationSystemId:
-          routeMode === "jump_gate"
-            ? selectedDestination?.systemId
-            : undefined,
+          routeMode === "jump_gate" ? selectedDestination?.systemId : undefined,
         cargoLoaded: cargo,
         targetPlanetId: targetPlanetId ?? undefined,
       });
@@ -268,12 +269,23 @@ export function ExpeditionDialog({
   const onPickSectorDelta = useCallback(
     (dx: number, dy: number) => {
       if (routeMode !== "local" || isColonizer) return;
-      setTarget((prev) => ({
-        ...prev,
-        x: originX + dx,
-        y: originY + dy,
-        z: originZ,
-      }));
+      const nextX = originX + dx;
+      const nextY = originY + dy;
+      setTarget((prev) => {
+        if (
+          Math.abs(prev.x - nextX) < 0.03 &&
+          Math.abs(prev.y - nextY) < 0.03 &&
+          prev.z === originZ
+        ) {
+          return prev;
+        }
+        return {
+          ...prev,
+          x: nextX,
+          y: nextY,
+          z: originZ,
+        };
+      });
     },
     [originX, originY, originZ, isColonizer, routeMode],
   );
@@ -281,7 +293,9 @@ export function ExpeditionDialog({
   const onPickPlanet = useCallback(
     (planetId: string) => {
       if (routeMode !== "local" || !isColonizer) return;
-      const planet = colonizationTargets.find((candidate) => candidate.id === planetId);
+      const planet = colonizationTargets.find(
+        (candidate) => candidate.id === planetId,
+      );
       if (!planet || !homeSystem) return;
       setTargetPlanetId(planet.id);
       setTarget({
@@ -296,17 +310,30 @@ export function ExpeditionDialog({
   const sectorDx = routeTarget.x - originX;
   const sectorDy = routeTarget.y - originY;
 
-  const expeditionPick =
-    routeMode === "local" && ship.locationPlanetId && homeSystem
-      ? {
-          sectorDx,
-          sectorDy,
-          launchPlanetId: ship.locationPlanetId,
-          targetPlanetId: routeMode === "local" ? targetPlanetId : null,
-          onPickSectorDelta,
-          onPickPlanet: isColonizer ? onPickPlanet : undefined,
-        }
-      : undefined;
+  const expeditionPick = useMemo<ExpeditionPickConfig | undefined>(
+    () =>
+      routeMode === "local" && ship.locationPlanetId && homeSystem
+        ? {
+            sectorDx,
+            sectorDy,
+            launchPlanetId: ship.locationPlanetId,
+            targetPlanetId: targetPlanetId,
+            onPickSectorDelta,
+            onPickPlanet: isColonizer ? onPickPlanet : undefined,
+          }
+        : undefined,
+    [
+      homeSystem,
+      isColonizer,
+      onPickPlanet,
+      onPickSectorDelta,
+      routeMode,
+      sectorDx,
+      sectorDy,
+      ship.locationPlanetId,
+      targetPlanetId,
+    ],
+  );
 
   return (
     <div
@@ -456,7 +483,9 @@ export function ExpeditionDialog({
           }}
         >
           <strong style={{ color: "var(--text)" }}>
-            {isColonizer ? t("expedition.selectTarget") : t("expedition.pickRoute")}
+            {isColonizer
+              ? t("expedition.selectTarget")
+              : t("expedition.pickRoute")}
           </strong>{" "}
           —{" "}
           {isColonizer
@@ -474,10 +503,9 @@ export function ExpeditionDialog({
             marginBottom: 10,
           }}
         >
-          {(
-            supportsJumpGateExpedition
-              ? (["local", "jump_gate"] as ExpeditionRouteMode[])
-              : (["local"] as ExpeditionRouteMode[])
+          {(supportsJumpGateExpedition
+            ? (["local", "jump_gate"] as ExpeditionRouteMode[])
+            : (["local"] as ExpeditionRouteMode[])
           ).map((mode) => {
             const active = routeMode === mode;
             return (
@@ -517,14 +545,31 @@ export function ExpeditionDialog({
               marginBottom: 12,
             }}
           >
-            <div style={{ fontSize: 11, color: "var(--text-dim)", lineHeight: 1.4 }}>
-              <strong style={{ color: "var(--text)" }}>{t("jumpGate.title")}</strong>{" "}
+            <div
+              style={{
+                fontSize: 11,
+                color: "var(--text-dim)",
+                lineHeight: 1.4,
+              }}
+            >
+              <strong style={{ color: "var(--text)" }}>
+                {t("jumpGate.title")}
+              </strong>{" "}
               - {jumpGateStatusText}
             </div>
             {knownDestinations.length > 0 ? (
-              <div style={{ display: "flex", gap: 8, overflowX: "auto", marginTop: 10, paddingBottom: 2 }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  overflowX: "auto",
+                  marginTop: 10,
+                  paddingBottom: 2,
+                }}
+              >
                 {knownDestinations.map((destination) => {
-                  const active = selectedDestination?.systemId === destination.systemId;
+                  const active =
+                    selectedDestination?.systemId === destination.systemId;
                   return (
                     <button
                       key={destination.systemId}
@@ -537,20 +582,48 @@ export function ExpeditionDialog({
                         flex: "0 0 170px",
                         textAlign: "left",
                         borderRadius: 10,
-                        border: active ? "1px solid var(--accent)" : "1px solid var(--line)",
-                        background: active ? "rgba(91,215,255,0.13)" : "rgba(14,20,36,0.76)",
+                        border: active
+                          ? "1px solid var(--accent)"
+                          : "1px solid var(--line)",
+                        background: active
+                          ? "rgba(91,215,255,0.13)"
+                          : "rgba(14,20,36,0.76)",
                         color: "var(--text)",
                         padding: "8px 10px",
                       }}
                     >
-                      <div style={{ fontSize: 12, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 800,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
                         {destination.systemName}
                       </div>
-                      <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--text-faint)", marginTop: 4 }}>
-                        [{destination.sector.x}, {destination.sector.y}, {destination.sector.z}]
+                      <div
+                        style={{
+                          fontFamily: "var(--font-mono)",
+                          fontSize: 9,
+                          color: "var(--text-faint)",
+                          marginTop: 4,
+                        }}
+                      >
+                        [{destination.sector.x}, {destination.sector.y},{" "}
+                        {destination.sector.z}]
                       </div>
-                      <div style={{ fontSize: 10, color: "var(--text-dim)", marginTop: 4 }}>
-                        {t("expedition.planetCount", { count: destination.planetCount })}
+                      <div
+                        style={{
+                          fontSize: 10,
+                          color: "var(--text-dim)",
+                          marginTop: 4,
+                        }}
+                      >
+                        {t("expedition.planetCount", {
+                          count: destination.planetCount,
+                        })}
                       </div>
                     </button>
                   );
@@ -559,25 +632,48 @@ export function ExpeditionDialog({
             ) : null}
             {selectedDestination ? (
               <div style={{ marginTop: 10 }}>
-                <div style={{ fontSize: 10, color: "var(--text-faint)", marginBottom: 6, fontWeight: 700 }}>
-                  {t(isColonizer ? "expedition.gateColonizerTargets" : "expedition.gateSurveyTargets").toUpperCase()}
+                <div
+                  style={{
+                    fontSize: 10,
+                    color: "var(--text-faint)",
+                    marginBottom: 6,
+                    fontWeight: 700,
+                  }}
+                >
+                  {t(
+                    isColonizer
+                      ? "expedition.gateColonizerTargets"
+                      : "expedition.gateSurveyTargets",
+                  ).toUpperCase()}
                 </div>
                 {selectableJumpPlanets.length > 0 ? (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                     {selectableJumpPlanets.map((planet) => {
                       const active = targetPlanetId === planet.id;
-                      const disabled = isColonizer && (!planet.isDiscovered || planet.isColonized);
+                      const disabled =
+                        isColonizer &&
+                        (!planet.isDiscovered || planet.isColonized);
                       return (
                         <button
                           key={planet.id}
                           type="button"
                           disabled={disabled}
-                          onClick={() => setTargetPlanetId(active ? null : planet.id)}
+                          onClick={() =>
+                            setTargetPlanetId(active ? null : planet.id)
+                          }
                           style={{
                             borderRadius: 999,
-                            border: active ? "1px solid var(--accent)" : "1px solid rgba(148,163,184,0.25)",
-                            background: active ? "rgba(91,215,255,0.14)" : "rgba(14,20,36,0.7)",
-                            color: disabled ? "var(--text-faint)" : active ? "var(--accent)" : "var(--text-dim)",
+                            border: active
+                              ? "1px solid var(--accent)"
+                              : "1px solid rgba(148,163,184,0.25)",
+                            background: active
+                              ? "rgba(91,215,255,0.14)"
+                              : "rgba(14,20,36,0.7)",
+                            color: disabled
+                              ? "var(--text-faint)"
+                              : active
+                                ? "var(--accent)"
+                                : "var(--text-dim)",
                             padding: "6px 9px",
                             fontSize: 11,
                             cursor: disabled ? "not-allowed" : "pointer",
@@ -596,7 +692,13 @@ export function ExpeditionDialog({
                   </div>
                 )}
                 {selectedJumpTargetPlanet?.isOwnedColony ? (
-                  <div style={{ marginTop: 8, fontSize: 11, color: "var(--text-dim)" }}>
+                  <div
+                    style={{
+                      marginTop: 8,
+                      fontSize: 11,
+                      color: "var(--text-dim)",
+                    }}
+                  >
                     {t("expedition.ownedColonyTarget")}
                   </div>
                 ) : null}
@@ -704,7 +806,8 @@ export function ExpeditionDialog({
                   fontSize: 13,
                 }}
               >
-                <Box size={16} style={{ opacity: 0.85 }} /> {t("expedition.distance")}
+                <Box size={16} style={{ opacity: 0.85 }} />{" "}
+                {t("expedition.distance")}
               </div>
               <span
                 style={{
@@ -735,7 +838,8 @@ export function ExpeditionDialog({
                   fontSize: 13,
                 }}
               >
-                <Timer size={16} style={{ opacity: 0.85 }} /> {t("expedition.oneWayEta")}
+                <Timer size={16} style={{ opacity: 0.85 }} />{" "}
+                {t("expedition.oneWayEta")}
               </div>
               <span
                 style={{
@@ -771,8 +875,12 @@ export function ExpeditionDialog({
                     fontSize: 13,
                   }}
                 >
-                  <Fuel size={16} style={{ opacity: 0.85 }} /> {t("expedition.fuel")} (
-                  {preview.returnTrip ? t("expedition.roundTrip") : t("expedition.oneWay")} {t("expedition.estimate")})
+                  <Fuel size={16} style={{ opacity: 0.85 }} />{" "}
+                  {t("expedition.fuel")} (
+                  {preview.returnTrip
+                    ? t("expedition.roundTrip")
+                    : t("expedition.oneWay")}{" "}
+                  {t("expedition.estimate")})
                 </div>
                 <span
                   style={{
@@ -807,7 +915,8 @@ export function ExpeditionDialog({
                       fontSize: 13,
                     }}
                   >
-                    <Navigation size={16} style={{ opacity: 0.85 }} /> {t("expedition.jumpFuel")}
+                    <Navigation size={16} style={{ opacity: 0.85 }} />{" "}
+                    {t("expedition.jumpFuel")}
                   </div>
                   <span
                     style={{
@@ -858,9 +967,7 @@ export function ExpeditionDialog({
                     size={18}
                     style={{ flexShrink: 0, marginTop: 2 }}
                   />
-                  <span>
-                    {t("expedition.shortFuel")}
-                  </span>
+                  <span>{t("expedition.shortFuel")}</span>
                 </div>
               ) : null}
               {shortOnJumpFuel ? (
@@ -924,11 +1031,13 @@ export function ExpeditionDialog({
             </>
           ) : jumpGateBlocked ? (
             <>
-              <Target size={20} /> {t("expedition.jumpGateUnavailable").toUpperCase()}
+              <Target size={20} />{" "}
+              {t("expedition.jumpGateUnavailable").toUpperCase()}
             </>
           ) : launchBlocked ? (
             <>
-              <Target size={20} /> {t("expedition.insufficientFuel").toUpperCase()}
+              <Target size={20} />{" "}
+              {t("expedition.insufficientFuel").toUpperCase()}
             </>
           ) : (
             <>
