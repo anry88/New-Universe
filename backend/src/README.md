@@ -49,7 +49,8 @@ The repository ships with the following npm scripts in `backend/package.json` (a
 - `npm run build` — `tsc` typecheck + emit to `dist/`.
 - `npm test` / `npm run test:watch` — Vitest run / watch mode for unit/integration tests.
 - `npm run test:e2e` — Vitest run for end-to-end integration tests.
-- `npm run security:check` — focused launch security gate: route metadata/schema audit, rate-limit key tests, and Telegram initData replay-window tests.
+- `npm run security:economy` — focused economy exploit regression suite for duplicate spend, clock skew, worker idempotency, and cargo settlement races.
+- `npm run security:check` — focused launch security gate: route metadata/schema audit, rate-limit key tests, Telegram initData replay-window tests, and economy exploit regressions.
 - `npm run lint` — ESLint over `*.ts`.
 
 - `npm run db:generate` / `db:migrate` / `db:seed` / `db:studio` — Drizzle Kit operations.

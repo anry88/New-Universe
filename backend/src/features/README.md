@@ -90,12 +90,12 @@ Resource accrual, transactions, conversion, and explicit production orders. [Det
 - **`convert.ts`** — `convertResources(userId, { planetId, from, to, amount })` converts ice ↔ water on a player-owned planet. Validates planet ownership, checks for a `cryo_factory` building (level ≥ 1), then atomically spends the source resource plus stored `energy` before granting the target resource. Ice→water converts at 1:1; water→ice incurs a 5% loss (100 → 95). Also exports `buyResourceWithDiamonds` with rarity-aware pricing derived from `resources.tier` (`units-per-diamond` curve per tier), deducts `users.diamonds`, then credits `planet_resources`.
 - **`wallet.ts`** — `grantDiamondsToUserByUsername` supports admin wallet updates by username.
 - **`convert.test.ts`** — Vitest integration suite covering conversion flow plus buy-with-diamonds success and validation failures.
-- **`accrual.ts`** — exports `computeCurrentResources(planetId, tx?)` which lazily computes current resource amounts without writing to the database. For each resource: `amount += regenRate × (now - lastUpdateAt)`. Respects `defaultStorageCap` from the `resources` table and applies research production/storage multipliers via `features/research/effects.ts`. Returns array of `{ resourceId, amount, regenRate, lastUpdateAt, storageCap }`.
+- **`accrual.ts`** — exports `computeCurrentResources(planetId, tx?)` which lazily computes current resource amounts without writing to the database. For each resource: `amount += regenRate × max(0, now - lastUpdateAt)`, so future timestamp skew does not subtract or mint stockpile balance. Respects `defaultStorageCap` from the `resources` table and applies research production/storage multipliers via `features/research/effects.ts`. Returns array of `{ resourceId, amount, regenRate, lastUpdateAt, storageCap }`.
   - Does NOT write to the database - this is a read-only computation for lazy updates.
   - Caps each resource amount at its `storageCap`.
   - Used by planet view and production features to show current state without constant DB writes.
 - **`accrual.test.ts`** — Vitest coverage asserting: regen math (10/h for 1h → +10), storage cap enforcement, array of all planet resources, and multiple resources with different regen rates.
-- **`transactions.ts`** — exports `spendResources(planetId, costs[], outerTx?)` and `gainResources(planetId, gains[], outerTx?)` for atomic resource transactions. When `outerTx` is omitted, opens its own transaction; when provided, participates in the caller's Drizzle transaction. Uses `SELECT FOR UPDATE` on `planet_resources` for row-level locking. Updates `lastUpdateAt` synchronously with spend/gain. Returns `{ success, balanceAfter }` or `{ success: false, error: "not enough X" }`.
+- **`transactions.ts`** — exports `spendResources(planetId, costs[], outerTx?)` and `gainResources(planetId, gains[], outerTx?)` for atomic resource transactions. When `outerTx` is omitted, opens its own transaction; when provided, participates in the caller's Drizzle transaction. Uses `SELECT FOR UPDATE` on `planet_resources` for row-level locking, including duplicate resource ids in the same cost list. Updates `lastUpdateAt` synchronously with spend/gain. Returns `{ success, balanceAfter }` or `{ success: false, error: "not enough X" }`.
   - Parallel calls do not lead to negative values (transaction isolation).
   - If resource is insufficient → transaction rolls back, nothing spent.
   - `lastUpdateAt` synced with spend/gain.
@@ -188,8 +188,8 @@ Player colonies and settled planets.
 
 Interplanetary cargo transfers. [Detailed documentation](./logistics/README.md).
 
-- **`cargo-transfer.ts`** — `launchCargoTransfer(userId, request)` action module. Validates settlement ownership including the home capital, logistics ship role, multi-load capacity, and planet state; reserves aggregated resources atomically and adds a stored `jump_fuel` surcharge only for explicit `routeMode='jump_gate'` cargo routes; creates a one-way `expeditions` record with type `cargo_transfer`; enqueues a BullMQ `arrive_cargo` job and shares `completeCargoTransfer` with active-session expedition sync.
-- **`cargo-transfer.test.ts`** — integration tests for the cargo transfer flow, including cross-system Jump Fuel validation.
+- **`cargo-transfer.ts`** — `launchCargoTransfer(userId, request)` action module. Validates settlement ownership including the home capital, logistics ship role, multi-load capacity, and planet state; reserves aggregated resources atomically and adds a stored `jump_fuel` surcharge only for explicit `routeMode='jump_gate'` cargo routes; creates a one-way `expeditions` record with type `cargo_transfer`; enqueues a BullMQ `arrive_cargo` job and shares `completeCargoTransfer` with active-session expedition sync. Completion conditionally claims only active cargo rows before delivery so duplicate or concurrent workers skip already-settled cargo.
+- **`cargo-transfer.test.ts`** — integration tests for the cargo transfer flow, including cross-system Jump Fuel validation and duplicate-delivery protection.
 
 ## Adding a new feature module
 

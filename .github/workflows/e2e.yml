@@ -8,6 +8,15 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
     branches: [main]
+    paths:
+      - '.github/workflows/e2e.yml'
+      - 'backend/**'
+      - 'frontend/**'
+      - 'shared/**'
+      - 'scripts/**'
+      - 'tools/**'
+      - 'dev/**'
+      - 'docker-compose.yml'
 
 concurrency:
   group: e2e-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}

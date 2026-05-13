@@ -41,7 +41,7 @@ Primary links:
 - `docs/` — GDD, addenda, infrastructure costs, architecture diagrams.
 - `dev/` — starter Docker/dev scaffolding from the planning bundle.
 - `docker-compose.yml` — local stack: Postgres 16, Redis 7, Backend (Fastify, hot reload), optional Worker/Frontend/devtools profiles.
-- `.github/workflows/ci.yml` — default PR CI: separate `security` job plus `check` job for lint, type-check, migrate, seed, unit tests (backend + frontend). **No Playwright.**
+- `.github/workflows/ci.yml` — default PR CI: separate `security` job (backend migrate/seed + security/economy exploit checks) plus `check` job for lint, type-check, migrate, seed, unit tests (backend + frontend). **No Playwright.**
 - `.github/workflows/e2e.yml` — Playwright E2E (see [.github/workflows/README.md](.github/workflows/README.md)): manual dispatch, or PR labeled **`run-e2e`** only (task issues already carry `epic:EPIC-…` from import — never auto-trigger on that substring).
 - `scripts/ci-verify.sh` — local automation mirror of `ci.yml`; set `RUN_PLAYWRIGHT_E2E=1` to include the same Playwright step as `e2e.yml`.
 
@@ -192,7 +192,7 @@ Status policy:
 
 ## Verification contract (agents & CI)
 
-- **Default PR pipeline** — [`.github/workflows/ci.yml`](.github/workflows/ci.yml): `security` job for backend security checks plus `check` job for lint, build, Drizzle migrate/seed, backend + frontend unit tests. When adding or reordering these steps, update [`scripts/ci-verify.sh`](scripts/ci-verify.sh) in the same change. **Do not** add Playwright here — use `e2e.yml`.
+- **Default PR pipeline** — [`.github/workflows/ci.yml`](.github/workflows/ci.yml): `security` job for backend migrations/seed plus security/economy exploit checks, and `check` job for lint, build, Drizzle migrate/seed, backend + frontend unit tests. When adding or reordering these steps, update [`scripts/ci-verify.sh`](scripts/ci-verify.sh) in the same change. **Do not** add Playwright here — use `e2e.yml`.
 - **Playwright E2E** — [`.github/workflows/e2e.yml`](.github/workflows/e2e.yml). Runs on workflow dispatch or on PRs labeled **`run-e2e`** (see [.github/workflows/README.md](.github/workflows/README.md)). Task labels like `epic:EPIC-P2-RES` apply to **every** imported issue — they must **not** auto-trigger E2E.
 - **Local** — `./scripts/ci-verify.sh` mirrors `ci.yml` (Docker Compose with `up --wait`; ends with `docker compose down -v`). `RUN_PLAYWRIGHT_E2E=1 ./scripts/ci-verify.sh` adds the Playwright install/run block used in `e2e.yml`.
 - **Backend/db** — migrations and seeds must succeed via `docker compose run --rm backend npm run db:migrate` and `docker compose run --rm backend npm run db:seed`. Skipping them after schema edits is invalid unless the task/PR documents why.

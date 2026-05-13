@@ -3,8 +3,26 @@ name: CI
 on:
   pull_request:
     branches: [main]
+    paths:
+      - '.github/workflows/ci.yml'
+      - 'backend/**'
+      - 'frontend/**'
+      - 'shared/**'
+      - 'scripts/**'
+      - 'tools/**'
+      - 'dev/**'
+      - 'docker-compose.yml'
   push:
     branches: [main]
+    paths:
+      - '.github/workflows/ci.yml'
+      - 'backend/**'
+      - 'frontend/**'
+      - 'shared/**'
+      - 'scripts/**'
+      - 'tools/**'
+      - 'dev/**'
+      - 'docker-compose.yml'
   workflow_dispatch:
 
 concurrency:
@@ -25,6 +43,12 @@ jobs:
 
       - name: Build backend
         run: docker compose build backend
+
+      - name: Backend Security Migrations
+        run: docker compose run --rm backend npm run db:migrate
+
+      - name: Backend Security Seed
+        run: docker compose run --rm backend npm run db:seed
 
       - name: Backend Security Checks
         run: docker compose run --rm backend npm run security:check

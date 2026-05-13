@@ -4,12 +4,12 @@ Short reference for agents — keep in sync when editing YAML.
 
 ## Workflows
 
-- **`ci.yml`** — Runs on every PR to `main`:
-  - `security` job: Docker-backed backend `npm run security:check` for route security metadata/schema audits, rate-limit key checks, and Telegram initData replay-window tests.
+- **`ci.yml`** — Runs on PRs and pushes to `main` only when code/tooling paths change (`backend/`, `frontend/`, `shared/`, `scripts/`, `tools/`, `dev/`, `docker-compose.yml`, or this workflow). Docs-only / README-only changes do not trigger it:
+  - `security` job: Docker-backed backend migrations/seed data plus `npm run security:check` for route security metadata/schema audits, rate-limit key checks, Telegram initData replay-window tests, and economy exploit regressions.
   - `check` job: Docker Postgres/Redis, backend lint/build/migrate/seed/unit tests, frontend lint/build/unit tests.
     **Does not** run Playwright (fast feedback on small PRs).
 
-- **`e2e.yml`** — Playwright Chromium against `frontend/tests/e2e`. Runs when:
+- **`e2e.yml`** — Playwright Chromium against `frontend/tests/e2e`. Pull request events are path-filtered to the same code/tooling paths as `ci.yml`, so docs-only / README-only changes do not trigger it. Runs when:
   - **Workflow dispatch** (Actions → E2E → Run workflow).
   - **Pull request** to `main` **and** the PR has the explicit label **`run-e2e`** (add it when you want a full browser gate — e.g. epic wrap-up).  
     The label must exist in the repository (create **`run-e2e`** once under *Issues → Labels* or via `gh label create run-e2e`); without it, GitHub cannot attach it to a PR and E2E will never satisfy the workflow `if:` guard.
