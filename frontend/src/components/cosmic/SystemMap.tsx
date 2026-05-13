@@ -68,6 +68,7 @@ interface CosmicSystemRendererProps {
   onColonizeClick?: (planet: Planet) => void;
   ownedPlanetIds: Set<string>;
   expeditionPick?: ExpeditionPickConfig;
+  jumpGate?: JumpGateMarkerConfig | null;
 }
 
 interface PlanetLayout {
@@ -78,6 +79,12 @@ interface PlanetLayout {
   x: number;
   y: number;
   spriteSize: number;
+}
+
+interface JumpGateMarkerConfig {
+  unlocked: boolean;
+  statusLabel: string;
+  onClick: () => void;
 }
 
 const MIN_SCALE = 0.1;
@@ -134,6 +141,7 @@ export function CosmicSystemRenderer({
   onColonizeClick,
   ownedPlanetIds,
   expeditionPick,
+  jumpGate,
 }: CosmicSystemRendererProps) {
   const { locale, t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -194,14 +202,26 @@ export function CosmicSystemRenderer({
     return buildSystemMapOrbitGuideRadii(system?.planets ?? []);
   }, [system?.planets]);
 
-  const visibleOuterRadius = useMemo(
+  const planetOuterRadius = useMemo(
     () =>
       Math.max(
+        120,
         ...orbitRadii,
         ...layouts.map((layout) => layout.orbitRadius + layout.spriteSize / 2),
       ) + 60,
     [layouts, orbitRadii],
   );
+  const jumpGateOrbitRadius = planetOuterRadius + 84;
+  const jumpGatePosition = useMemo(() => {
+    const angle = -0.68;
+    return {
+      x: Math.cos(angle) * jumpGateOrbitRadius,
+      y: Math.sin(angle) * jumpGateOrbitRadius,
+    };
+  }, [jumpGateOrbitRadius]);
+  const visibleOuterRadius = jumpGate
+    ? jumpGateOrbitRadius + 64
+    : planetOuterRadius;
 
   // ----- Pan / pinch / wheel --------------------------------------------
 
@@ -551,6 +571,76 @@ export function CosmicSystemRenderer({
           >
             <SunSvg size={112} />
           </div>
+
+          {jumpGate ? (
+            <button
+              type="button"
+              data-testid="jump-gate-marker"
+              onClick={(e) => {
+                e.stopPropagation();
+                jumpGate.onClick();
+              }}
+              style={{
+                position: "absolute",
+                left: jumpGatePosition.x - 34,
+                top: jumpGatePosition.y - 34,
+                width: 68,
+                height: 68,
+                border: jumpGate.unlocked
+                  ? "1.5px solid rgba(91,215,255,0.82)"
+                  : "1.5px dashed rgba(148,163,184,0.55)",
+                borderRadius: "50%",
+                background: jumpGate.unlocked
+                  ? "radial-gradient(circle, rgba(91,215,255,0.28), rgba(8,12,22,0.78) 64%)"
+                  : "radial-gradient(circle, rgba(148,163,184,0.15), rgba(8,12,22,0.78) 64%)",
+                color: jumpGate.unlocked ? "#5BD7FF" : "rgba(203,213,225,0.72)",
+                boxShadow: jumpGate.unlocked
+                  ? "0 0 28px rgba(91,215,255,0.36), inset 0 0 18px rgba(91,215,255,0.18)"
+                  : "inset 0 0 16px rgba(148,163,184,0.12)",
+                pointerEvents: expeditionPick ? "none" : "auto",
+                cursor: expeditionPick ? "inherit" : "pointer",
+                transform: "translateZ(0)",
+                zIndex: 2,
+              }}
+              aria-label={t("jumpGate.title")}
+            >
+              <span
+                style={{
+                  position: "absolute",
+                  inset: 12,
+                  border: "1px solid currentColor",
+                  borderRadius: 18,
+                  transform: "rotate(45deg)",
+                  opacity: 0.9,
+                }}
+              />
+              <span
+                style={{
+                  position: "absolute",
+                  inset: 25,
+                  borderRadius: "50%",
+                  background: "currentColor",
+                  boxShadow: "0 0 14px currentColor",
+                }}
+              />
+              <span
+                style={{
+                  position: "absolute",
+                  top: "100%",
+                  left: "50%",
+                  transform: "translate(-50%, 7px)",
+                  minWidth: 120,
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 9,
+                  letterSpacing: "0.08em",
+                  color: jumpGate.unlocked ? "#5BD7FF" : "var(--text-dim)",
+                  textShadow: "0 1px 2px rgba(0,0,0,0.8)",
+                }}
+              >
+                {jumpGate.statusLabel.toUpperCase()}
+              </span>
+            </button>
+          ) : null}
 
           {/* Planets */}
           {layouts.map((l) => {

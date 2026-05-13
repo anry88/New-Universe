@@ -33,6 +33,8 @@ interface ExpeditionDialogProps {
   originX: number;
   originY: number;
   originZ: number;
+  initialRouteMode?: ExpeditionRouteMode;
+  initialDestinationSystemId?: string | null;
   onClose: () => void;
 }
 
@@ -42,12 +44,16 @@ export function ExpeditionDialog({
   originX,
   originY,
   originZ,
+  initialRouteMode,
+  initialDestinationSystemId,
   onClose,
 }: ExpeditionDialogProps) {
   const { data: meData } = useMe();
   const { data: jumpGateState, isLoading: jumpGateLoading } = useJumpGateState();
   const { locale, t } = useI18n();
-  const [routeMode, setRouteMode] = useState<ExpeditionRouteMode>("local");
+  const [routeMode, setRouteMode] = useState<ExpeditionRouteMode>(
+    initialRouteMode ?? "local",
+  );
   const [target, setTarget] = useState({
     x: originX + 10,
     y: originY + 10,
@@ -55,7 +61,7 @@ export function ExpeditionDialog({
   });
   const [targetPlanetId, setTargetPlanetId] = useState<string | null>(null);
   const [selectedDestinationSystemId, setSelectedDestinationSystemId] =
-    useState<string | null>(null);
+    useState<string | null>(initialDestinationSystemId ?? null);
   const [cargo] = useState(0);
   const launch = useLaunchExpedition();
 

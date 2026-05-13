@@ -14,19 +14,27 @@ export function ColoniesPage() {
   const { t } = useI18n();
   const { planets, focalPlanetId, focalPlanet, setFocalPlanetId, isLoading } = useColonies();
   const [transferOrigin, setTransferOrigin] = useState<Planet | null>(null);
+  const [transferTargetPlanetId, setTransferTargetPlanetId] = useState<string | null>(null);
+  const [transferUseJumpGateRoute, setTransferUseJumpGateRoute] = useState(false);
 
   useEffect(() => {
     if (isLoading) return;
     const params = new URLSearchParams(location.search);
     const cargoOriginId = params.get('cargoOrigin');
+    const cargoTargetId = params.get('cargoTarget');
+    const cargoRoute = params.get('cargoRoute');
     if (!cargoOriginId) return;
 
     const origin = planets.find((planet) => planet.id === cargoOriginId);
     if (!origin) return;
 
     setFocalPlanetId(origin.id);
+    setTransferTargetPlanetId(cargoTargetId);
+    setTransferUseJumpGateRoute(cargoRoute === 'jump_gate');
     setTransferOrigin(origin);
     params.delete('cargoOrigin');
+    params.delete('cargoTarget');
+    params.delete('cargoRoute');
     navigate(
       {
         pathname: location.pathname,
@@ -156,7 +164,13 @@ export function ColoniesPage() {
       {transferOrigin && (
         <CargoTransferDialog
           originPlanet={transferOrigin}
-          onClose={() => setTransferOrigin(null)}
+          initialTargetPlanetId={transferTargetPlanetId}
+          initialUseJumpGateRoute={transferUseJumpGateRoute}
+          onClose={() => {
+            setTransferOrigin(null);
+            setTransferTargetPlanetId(null);
+            setTransferUseJumpGateRoute(false);
+          }}
         />
       )}
 
