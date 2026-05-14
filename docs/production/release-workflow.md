@@ -85,18 +85,22 @@ For a full local staging deploy, copy the template once, fill the local-only sec
 cp scripts/deploy-local.staging.env.example scripts/deploy-local.staging.env
 # edit scripts/deploy-local.staging.env
 
-scripts/deploy-local.sh --env-file scripts/deploy-local.staging.env --full
+env -i HOME="$HOME" PATH="$PATH" TMPDIR="${TMPDIR:-/tmp}" \
+  scripts/deploy-local.sh --env-file scripts/deploy-local.staging.env --full
 ```
 
 For staging database replacement without touching frontend, the narrow local path is:
 
 ```bash
-DATABASE_URL_FILE=/path/to/new-staging-db-url \
-SENTRY_DSN=<backend-sentry-dsn-if-rotating> \
-scripts/deploy-local.sh --skip-frontend --skip-migrate
+env -i HOME="$HOME" PATH="$PATH" TMPDIR="${TMPDIR:-/tmp}" \
+  DATABASE_URL_FILE=/path/to/new-staging-db-url \
+  SENTRY_DSN=<backend-sentry-dsn-if-rotating> \
+  scripts/deploy-local.sh --skip-frontend --skip-migrate
 ```
 
 Do not point the fallback script at a normal local-development `.env` unless every value in that file is meant for the target deployment. The script refuses local `DATABASE_URL` values by default and refuses local tunnel frontend API URLs by default, but it cannot know whether other values such as `PUBLIC_FRONTEND_URL` or `REDIS_URL` are production-safe unless they are deliberately selected through `SYNC_SECRET_NAMES`.
+
+Always run the local fallback from a clean process environment (`env -i ...`) rather than the current shell. Operator shells often contain variables for local Docker builds, and inherited values such as `DATABASE_URL`, `REDIS_URL`, `VITE_API_URL`, or `PUBLIC_FRONTEND_URL` can silently target the wrong database, API, or frontend bundle if they are not intentionally supplied for the deploy.
 
 ## Production gate
 

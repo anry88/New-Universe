@@ -368,6 +368,7 @@ Do not treat generated planning PDFs or CSV files as implementation code.
 - Если вы встречаете не локализованные тексты (включая подписи кнопок, описания, ошибки и сообщения состояния), их нужно локализовать на все доступные в игре языки (как минимум RU/EN) до закрытия задачи, вместо того чтобы оставлять hardcoded-строки или English-плейсхолдеры.
 - Если для сущности, которой в UI нужен визуальный ассет (здания, исследования, корабли, ресурсы и т.д.), отсутствует финальное изображение, нужно сгенерировать/добавить его в стиле Cosmic Atlas из дизайна проекта и подключить в работу, а не использовать заглушки.
 - Do not commit secrets. `.env` stays local and must not be committed.
+- When running `scripts/deploy-local.sh` from a workstation, assume the current shell may contain local Docker/build variables. Do not `source` deployment env files into the shared shell. Run the script from a clean environment with explicit allowlisted process variables, for example `env -i HOME="$HOME" PATH="$PATH" TMPDIR="${TMPDIR:-/tmp}" scripts/deploy-local.sh --env-file scripts/deploy-local.staging.env --full`, so local `DATABASE_URL`, `REDIS_URL`, `VITE_API_URL`, `PUBLIC_FRONTEND_URL`, or similar values cannot leak into staging/production deploys.
 - Update the matching `README.md` files (see "Documentation Update Rules" below) in the same change as the code, so the documentation tree never drifts out of sync with the source tree.
 
 ## Documentation Update Rules
