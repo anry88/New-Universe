@@ -268,7 +268,7 @@ export async function generateHomeSystem(userId: string, tx?: any) {
       for (const [resId, slotCount] of resourceSlotCounts.entries()) {
         // Most T3/T4 resources are research-gated; never auto-seed them at
         // the home system. Starter exceptions are explicit in the orbit plan:
-        // tritium (jump ship), nitrogen (rare gas), and gold (rocky rare).
+        // tritium (Jump Fuel), nitrogen (rare gas), and gold (rocky rare).
         const t3t4forbidden = [
           'mercury',
           'magnesium',

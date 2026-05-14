@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMe } from '../hooks/useMe';
 import { CosmicSystemRenderer } from '../components/cosmic/SystemMap';
 import { CosmicBottomNav } from '../components/cosmic/atoms';
+import { ShipIconBadge } from '../components/cosmic/ships';
 import {
   AlertTriangle,
   ChevronLeft,
@@ -30,7 +31,7 @@ import type { Ship, ShipType } from '@shared/types/ships';
 
 type TFunction = (key: string, params?: Record<string, string | number>) => string;
 
-interface JumpShipOption {
+interface ReconProbeOption {
   ship: Ship;
   type: ShipType | undefined;
   planetName: string;
@@ -77,6 +78,7 @@ function formatJumpGateError(message: string, t: TFunction) {
   if (normalized.includes('jump gate calibration is still in progress')) return t('jumpGate.random.calibrationInProgress');
   if (normalized.includes('random_jump_cooldown')) return t('jumpGate.error.randomCooldownShort');
   if (normalized.includes('ship state changed')) return t('jumpGate.error.shipChanged');
+  if (normalized.includes('recon probe')) return t('jumpGate.error.noJumpShip');
   return t('jumpGate.error.server', { message });
 }
 
@@ -129,13 +131,13 @@ export function SystemMapPage() {
       null,
     [home?.id, meData?.planets],
   );
-  const jumpShipOptions = useMemo<JumpShipOption[]>(() => {
+  const reconProbeOptions = useMemo<ReconProbeOption[]>(() => {
     const typeById = new Map((shipTypes ?? []).map((type) => [type.id, type]));
     const planetById = new Map((meData?.planets ?? []).map((planet) => [planet.id, planet]));
 
     return (meData?.ships ?? []).flatMap((ship) => {
       const type = typeById.get(ship.typeId);
-      const supportsRandomJump = ship.typeId === 'jump_ship' || type?.role === 'exploration';
+      const supportsRandomJump = ship.typeId === 'recon_probe' || type?.role === 'exploration';
       if (!supportsRandomJump || ship.status !== 'idle' || !ship.locationPlanetId) return [];
 
       const planet = planetById.get(ship.locationPlanetId);
@@ -156,9 +158,9 @@ export function SystemMapPage() {
       ];
     });
   }, [meData?.planets, meData?.ships, shipTypes, t]);
-  const selectedJumpShip =
-    jumpShipOptions.find((option) => option.ship.id === randomJumpShipId) ??
-    jumpShipOptions[0] ??
+  const selectedReconProbe =
+    reconProbeOptions.find((option) => option.ship.id === randomJumpShipId) ??
+    reconProbeOptions[0] ??
     null;
   const randomJumpBlockedReason = useMemo(() => {
     if (jumpGateLoading) return t('common.processing');
@@ -178,33 +180,33 @@ export function SystemMapPage() {
       }
       return t('jumpGate.error.unavailable');
     }
-    if (!selectedJumpShip) return t('jumpGate.error.noJumpShip');
-    if (selectedJumpShip.jumpFuelAvailable < JUMP_GATE_JUMP_FUEL_COST) {
+    if (!selectedReconProbe) return t('jumpGate.error.noJumpShip');
+    if (selectedReconProbe.jumpFuelAvailable < JUMP_GATE_JUMP_FUEL_COST) {
       return t('jumpGate.error.insufficientJumpFuel');
     }
     return null;
-  }, [jumpGateLoading, jumpGateState, locale, selectedJumpShip, t]);
+  }, [jumpGateLoading, jumpGateState, locale, selectedReconProbe, t]);
 
   useEffect(() => {
-    if (jumpShipOptions.length === 0) {
+    if (reconProbeOptions.length === 0) {
       if (randomJumpShipId) setRandomJumpShipId('');
       return;
     }
-    if (!jumpShipOptions.some((option) => option.ship.id === randomJumpShipId)) {
-      setRandomJumpShipId(jumpShipOptions[0].ship.id);
+    if (!reconProbeOptions.some((option) => option.ship.id === randomJumpShipId)) {
+      setRandomJumpShipId(reconProbeOptions[0].ship.id);
     }
-  }, [jumpShipOptions, randomJumpShipId]);
+  }, [reconProbeOptions, randomJumpShipId]);
 
   const handleRandomJump = async () => {
     setGateError(null);
     setGateNotice(null);
-    if (randomJumpBlockedReason || !selectedJumpShip) {
+    if (randomJumpBlockedReason || !selectedReconProbe) {
       setGateError(randomJumpBlockedReason ?? t('jumpGate.error.noJumpShip'));
       return;
     }
 
     try {
-      const result = await randomJump.mutateAsync({ shipId: selectedJumpShip.ship.id });
+      const result = await randomJump.mutateAsync({ shipId: selectedReconProbe.ship.id });
       setGateNotice(t('jumpGate.random.success', { system: result.targetSystem.name }));
     } catch (err) {
       setGateError(formatJumpGateError(err instanceof Error ? err.message : String(err), t));
@@ -377,7 +379,7 @@ export function SystemMapPage() {
         <JumpGatePanel
           state={jumpGateState}
           isLoading={jumpGateLoading}
-          jumpShipOptions={jumpShipOptions}
+          reconProbeOptions={reconProbeOptions}
           selectedShipId={randomJumpShipId}
           onSelectShip={setRandomJumpShipId}
           randomJumpBlockedReason={randomJumpBlockedReason}
@@ -402,7 +404,7 @@ export function SystemMapPage() {
 interface JumpGatePanelProps {
   state: JumpGateStateResponse | undefined;
   isLoading: boolean;
-  jumpShipOptions: JumpShipOption[];
+  reconProbeOptions: ReconProbeOption[];
   selectedShipId: string;
   onSelectShip: (shipId: string) => void;
   randomJumpBlockedReason: string | null;
@@ -421,7 +423,7 @@ interface JumpGatePanelProps {
 function JumpGatePanel({
   state,
   isLoading,
-  jumpShipOptions,
+  reconProbeOptions,
   selectedShipId,
   onSelectShip,
   randomJumpBlockedReason,
@@ -437,8 +439,8 @@ function JumpGatePanel({
   onOpenSector,
 }: JumpGatePanelProps) {
   const selectedShip =
-    jumpShipOptions.find((option) => option.ship.id === selectedShipId) ??
-    jumpShipOptions[0] ??
+    reconProbeOptions.find((option) => option.ship.id === selectedShipId) ??
+    reconProbeOptions[0] ??
     null;
   const destinations = state?.knownDestinations ?? [];
 
@@ -514,14 +516,23 @@ function JumpGatePanel({
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text)', fontWeight: 800, fontSize: 13 }}>
-            <Rocket size={16} color="var(--accent)" />
+            {selectedShip ? (
+              <ShipIconBadge
+                typeId={selectedShip.ship.typeId}
+                status={selectedShip.ship.status}
+                size={22}
+                title={selectedShip.type?.name[locale as 'en' | 'ru'] ?? selectedShip.ship.typeId}
+              />
+            ) : (
+              <Rocket size={16} color="var(--accent)" />
+            )}
             {t('jumpGate.random.action')}
           </div>
           <div style={{ marginTop: 10 }}>
             <select
               value={selectedShip?.ship.id ?? ''}
               onChange={(event) => onSelectShip(event.target.value)}
-              disabled={jumpShipOptions.length === 0}
+              disabled={reconProbeOptions.length === 0}
               style={{
                 width: '100%',
                 minWidth: 0,
@@ -533,10 +544,10 @@ function JumpGatePanel({
                 fontSize: 12,
               }}
             >
-              {jumpShipOptions.length === 0 ? (
+              {reconProbeOptions.length === 0 ? (
                 <option value="">{t('jumpGate.random.noShipOption')}</option>
               ) : (
-                jumpShipOptions.map((option) => (
+                reconProbeOptions.map((option) => (
                   <option key={option.ship.id} value={option.ship.id}>
                     {(option.type?.name[locale as 'en' | 'ru'] ?? option.ship.typeId)} · {option.planetName}
                   </option>

@@ -75,10 +75,12 @@ export interface JumpGateStateResponse {
 }
 
 export interface JumpGateRandomJumpRequest {
+  /** One-use `recon_probe` id used to open a new public destination system. */
   shipId: string;
 }
 
 export interface JumpGateKnownDestinationJumpRequest {
+  /** Idle ship id for direct travel to an already known destination. */
   shipId: string;
 }
 

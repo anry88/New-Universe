@@ -29,8 +29,8 @@ describe('research gates', () => {
   it('assertResearchRequirement throws with descriptive message', () => {
     const map = levelsMapFromRows([]);
     expect(() =>
-      assertResearchRequirement(map, SHIP_RESEARCH_GATES.jump_ship, 'Build ship jump_ship'),
-    ).toThrow(/jump_ship/);
+      assertResearchRequirement(map, SHIP_RESEARCH_GATES.recon_probe, 'Build ship recon_probe'),
+    ).toThrow(/recon_probe/);
   });
 
   it('gates cargo_light construction behind Logistics level 1', () => {

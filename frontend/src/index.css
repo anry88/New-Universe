@@ -1837,13 +1837,31 @@ body {
 }
 .ship-row {
   display: grid;
-  grid-template-columns: 70px 1fr 90px;
+  grid-template-columns: 76px 1fr 90px;
   gap: 10px;
   align-items: center;
   padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: rgba(14, 20, 36, 0.7);
+}
+.ship-visual {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.ship-icon-badge {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, currentColor 34%, transparent);
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 50% 42%, color-mix(in srgb, currentColor 18%, transparent), transparent 68%),
+    rgba(5, 8, 17, 0.72);
+  box-shadow: 0 0 14px color-mix(in srgb, currentColor 18%, transparent);
 }
 .ship-cls {
   font-family: var(--font-mono);
@@ -1856,6 +1874,8 @@ body {
   line-height: 1.2;
   color: var(--accent);
   border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  max-width: 72px;
+  overflow-wrap: anywhere;
 }
 .ship-name {
   font-family: var(--font-display);

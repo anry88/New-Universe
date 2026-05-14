@@ -6,7 +6,7 @@ This document records the planning scope for roll-up task `P2.3-500`. Phase 2.3 
 
 No existing epic cleanly owns this work:
 
-- `P1-182` implemented the first backend jump endpoint, but it is too direct: the client picks a sector and the server moves the Jump Ship immediately.
+- `P1-182` implemented the first backend jump endpoint, but it is too direct: the client picks a sector and the server moves the old Jump Ship immediately. The current catalog uses `recon_probe` as a one-use discovery hull instead.
 - `EPIC-P2-COL` owns colony creation and cargo basics, but not navigation into Common Pool.
 - `EPIC-P3-MAP` owns multiplayer presence after entities are already in Common Pool.
 

@@ -26,6 +26,7 @@ import {
   CosmicSystemRenderer,
   type ExpeditionPickConfig,
 } from "./cosmic/SystemMap";
+import { ShipIconBadge } from "./cosmic/ships";
 import { useI18n } from "../lib/i18n";
 import { buildExpeditionPreview } from "../lib/expedition-routing";
 import { systemMapPlanetDistanceLy } from "@shared/format/systemMapLayout";
@@ -399,17 +400,12 @@ export function ExpeditionDialog({
             minWidth: 0,
           }}
         >
-          <div
-            style={{
-              padding: 10,
-              borderRadius: 16,
-              background: "rgba(91, 215, 255, 0.12)",
-              border: "1px solid rgba(91, 215, 255, 0.35)",
-              color: "var(--accent)",
-            }}
-          >
-            <Navigation size={22} />
-          </div>
+          <ShipIconBadge
+            typeId={ship.typeId}
+            status={ship.status}
+            size={36}
+            title={shipType.name[locale]}
+          />
           <div style={{ minWidth: 0 }}>
             <div
               style={{

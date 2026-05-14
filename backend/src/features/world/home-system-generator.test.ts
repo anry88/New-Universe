@@ -353,7 +353,7 @@ describe('Home System Generator', () => {
     }
   });
 
-  it('gives every starter system enough tritium to build a jump_ship', async () => {
+  it('gives every starter system enough tritium for Jump Fuel production', async () => {
     const [user] = await db.insert(users).values({
       tgId: BigInt(Math.floor(Math.random() * 1000000000)),
       tgUsername: 'testuser_tritium_starter',

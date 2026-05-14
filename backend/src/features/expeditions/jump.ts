@@ -65,6 +65,7 @@ type LoadShipContextResult = LoadedShipContext | { error: JumpResult };
 
 const RANDOM_JUMP_ATTEMPTS = 8;
 const RANDOM_JUMP_SECTOR_RANGE = 8;
+const DISCOVERY_PROBE_TYPE_ID = 'recon_probe';
 
 function hashString(str: string): number {
   let hash = 0;
@@ -172,16 +173,6 @@ async function loadShipContext(
 
   if (!shipRow) {
     return { error: { success: false, status: 404, error: 'Ship not found' } as JumpResult };
-  }
-
-  if (shipRow.typeId !== 'jump_ship') {
-    return {
-      error: {
-        success: false,
-        status: 400,
-        error: 'Only Jump Ships can perform jumps',
-      } as JumpResult,
-    };
   }
 
   if (shipRow.status !== 'idle') {
@@ -343,6 +334,7 @@ async function jumpToSystem(params: {
   targetSystem: typeof systems.$inferSelect;
   targetPlanet: typeof planets.$inferSelect;
   source: 'random_jump' | 'known_destination';
+  consumeShip: boolean;
   now: Date;
   database: typeof defaultDb;
 }): Promise<JumpResult> {
@@ -352,6 +344,7 @@ async function jumpToSystem(params: {
     targetSystem,
     targetPlanet,
     source,
+    consumeShip,
     now,
     database,
   } = params;
@@ -375,19 +368,29 @@ async function jumpToSystem(params: {
       } satisfies JumpResult;
     }
 
-    const [updatedShip] = await tx
-      .update(ships)
-      .set({
-        locationPlanetId: targetPlanet.id,
-      })
-      .where(and(
-        eq(ships.id, shipRow.id),
-        eq(ships.ownerId, userId),
-        eq(ships.status, 'idle'),
-      ))
-      .returning();
+    const changedShips = consumeShip
+      ? await tx
+          .delete(ships)
+          .where(and(
+            eq(ships.id, shipRow.id),
+            eq(ships.ownerId, userId),
+            eq(ships.status, 'idle'),
+          ))
+          .returning()
+      : await tx
+          .update(ships)
+          .set({
+            locationPlanetId: targetPlanet.id,
+          })
+          .where(and(
+            eq(ships.id, shipRow.id),
+            eq(ships.ownerId, userId),
+            eq(ships.status, 'idle'),
+          ))
+          .returning();
+    const [changedShip] = changedShips;
 
-    if (!updatedShip) {
+    if (!changedShip) {
       throw new Error('Ship state changed before jump could be committed');
     }
 
@@ -433,11 +436,11 @@ async function jumpToSystem(params: {
       success: true,
       status: 200,
       ship: {
-        id: updatedShip.id,
-        typeId: updatedShip.typeId,
-        status: updatedShip.status,
-        fuel: updatedShip.fuel,
-        locationPlanetId: updatedShip.locationPlanetId,
+        id: changedShip.id,
+        typeId: changedShip.typeId,
+        status: consumeShip ? 'consumed' : changedShip.status,
+        fuel: changedShip.fuel,
+        locationPlanetId: consumeShip ? null : changedShip.locationPlanetId,
       },
       targetSystem: summarizeTargetSystem(targetSystem),
       targetPlanet,
@@ -501,6 +504,14 @@ export async function jumpShip(
     if ('success' in resolvedKnownSystem) return resolvedKnownSystem;
     targetSystem = resolvedKnownSystem;
   } else {
+    if (shipContext.shipRow.typeId !== DISCOVERY_PROBE_TYPE_ID) {
+      return {
+        success: false,
+        status: 400,
+        error: 'Only Recon Probes can open new systems',
+      };
+    }
+
     if (!gateState.randomJumpAvailability.available) {
       return {
         success: false,
@@ -536,6 +547,7 @@ export async function jumpShip(
     targetSystem,
     targetPlanet,
     source,
+    consumeShip: source === 'random_jump',
     now,
     database,
   });
