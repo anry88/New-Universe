@@ -345,7 +345,7 @@ describe("Expeditions - POST /expeditions", () => {
     });
 
     expect(response.statusCode).toBe(400);
-    expect(response.json().error).toContain("idle");
+    expect(response.json().error).toContain("already assigned");
   });
 
   it("should return 400 when there is not enough fuel", async () => {
@@ -436,7 +436,7 @@ describe("Expeditions - POST /expeditions", () => {
     });
 
     expect(response.statusCode).toBe(400);
-    expect(response.json().error).toContain("targetPlanetId");
+    expect(response.json().error).toContain("colonization target planet");
   });
 
   it("launches a colonizer one-way to a selected discovered planet", async () => {
@@ -629,7 +629,7 @@ describe("Expeditions - POST /expeditions", () => {
     });
 
     expect(response.statusCode).toBe(400);
-    expect(response.json().error).toContain("not enough jump_fuel");
+    expect(response.json().error).toContain("not enough jump fuel");
   });
 
   it("rejects Jump Gate colonization of an undiscovered target planet", async () => {
@@ -655,7 +655,7 @@ describe("Expeditions - POST /expeditions", () => {
     });
 
     expect(response.statusCode).toBe(400);
-    expect(response.json().error).toContain("Planet not discovered");
+    expect(response.json().error).toContain("Scout this planet");
   });
 
   it("rejects Jump Gate routes to stale foreign home-system destinations", async () => {
@@ -709,6 +709,6 @@ describe("Expeditions - POST /expeditions", () => {
     });
 
     expect(response.statusCode).toBe(400);
-    expect(response.json().error).toContain("public Jump Gate target");
+    expect(response.json().error).toContain("public common system");
   });
 });

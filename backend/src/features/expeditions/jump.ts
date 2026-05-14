@@ -20,6 +20,8 @@ import { getJumpGateState } from '../jump-gate/service.js';
 import { getOrCreateSector } from '../world/sectors.js';
 import { generateSystemsInSector } from '../world/sector-generator.js';
 import { spendResources } from '../resources/transactions.js';
+import { formatInsufficientResourceMessage, shipLabel } from '@shared/types/entity-labels.js';
+import type { JumpGateAvailabilityBlockedCode } from '@shared/types/jump-gate.js';
 
 export interface JumpRequest {
   shipId: string;
@@ -66,6 +68,21 @@ type LoadShipContextResult = LoadedShipContext | { error: JumpResult };
 const RANDOM_JUMP_ATTEMPTS = 8;
 const RANDOM_JUMP_SECTOR_RANGE = 8;
 const DISCOVERY_PROBE_TYPE_ID = 'recon_probe';
+
+function randomJumpBlockedMessage(code: JumpGateAvailabilityBlockedCode | null): string {
+  switch (code) {
+    case 'jump_drive_required':
+      return 'Jump Drive research level 1 required';
+    case 'calibration_in_progress':
+      return 'Jump Gate calibration is still in progress';
+    case 'random_jump_cooldown':
+      return 'Random jump is still on cooldown.';
+    case 'home_system_missing':
+      return 'Home system is unavailable.';
+    default:
+      return 'Random jump is unavailable.';
+  }
+}
 
 function hashString(str: string): number {
   let hash = 0;
@@ -172,7 +189,7 @@ async function loadShipContext(
   });
 
   if (!shipRow) {
-    return { error: { success: false, status: 404, error: 'Ship not found' } as JumpResult };
+    return { error: { success: false, status: 404, error: 'Ship not found.' } as JumpResult };
   }
 
   if (shipRow.status !== 'idle') {
@@ -180,7 +197,7 @@ async function loadShipContext(
       error: {
         success: false,
         status: 400,
-        error: 'Ship must be idle to jump',
+        error: 'Ship is already assigned to another mission.',
       } as JumpResult,
     };
   }
@@ -190,7 +207,7 @@ async function loadShipContext(
       error: {
         success: false,
         status: 400,
-        error: 'Ship must be stationed on a planet to jump',
+        error: 'Ship must be docked at a planet before launch.',
       } as JumpResult,
     };
   }
@@ -205,7 +222,7 @@ async function loadShipContext(
       error: {
         success: false,
         status: 400,
-        error: 'Ship origin system is missing',
+        error: 'Launch planet is unavailable.',
       } as JumpResult,
     };
   }
@@ -221,7 +238,7 @@ async function loadShipContext(
       error: {
         success: false,
         status: 400,
-        error: `not enough ${JUMP_FUEL_RESOURCE_ID}`,
+        error: formatInsufficientResourceMessage(JUMP_FUEL_RESOURCE_ID, 'en'),
       } as JumpResult,
     };
   }
@@ -282,7 +299,7 @@ async function resolveKnownTargetSystem(
     return {
       success: false,
       status: 404,
-      error: 'Known destination not found',
+      error: 'This Jump Gate destination is no longer available.',
     };
   }
 
@@ -298,7 +315,7 @@ async function resolveKnownTargetSystem(
     return {
       success: false,
       status: 400,
-      error: 'Known destination is not a public Jump Gate target',
+      error: 'Jump Gate destination must be a public common system.',
     };
   }
 
@@ -321,7 +338,7 @@ async function loadArrivalPlanet(
     return {
       success: false,
       status: 500,
-      error: 'Target system has no planets',
+      error: 'Destination system has no planets.',
     };
   }
 
@@ -465,7 +482,7 @@ export async function jumpShip(
     return {
       success: false,
       status: 400,
-      error: 'Manual sector jumps are deprecated; use random jump or destinationSystemId',
+      error: 'Choose random jump or a known Jump Gate destination.',
     };
   }
 
@@ -508,7 +525,7 @@ export async function jumpShip(
       return {
         success: false,
         status: 400,
-        error: 'Only Recon Probes can open new systems',
+        error: `${shipLabel(DISCOVERY_PROBE_TYPE_ID, 'en')} is required to open new systems.`,
       };
     }
 
@@ -516,7 +533,7 @@ export async function jumpShip(
       return {
         success: false,
         status: 400,
-        error: gateState.randomJumpAvailability.blockedCode ?? 'Random jump is unavailable',
+        error: randomJumpBlockedMessage(gateState.randomJumpAvailability.blockedCode),
       };
     }
 
@@ -533,7 +550,7 @@ export async function jumpShip(
       return {
         success: false,
         status: 500,
-        error: 'No public systems generated for random jump',
+        error: 'No public destination systems are available.',
       };
     }
   }

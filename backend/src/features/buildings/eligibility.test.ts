@@ -107,6 +107,9 @@ describe('resolveBuildBlockedReason', () => {
       researchGate: emptyGate,
     });
     expect(reason?.code).toBe('building_blocked_dependency');
+    expect(formatBuildBlockedMessage(reason!, 'en')).toBe('Requires Command Center level 1.');
+    expect(formatBuildBlockedMessage(reason!, 'ru')).toBe('Требуется здание «Командный центр» уровня 1.');
+    expect(formatBuildBlockedMessage(reason!, 'en')).not.toContain('command_center');
   });
 });
 
@@ -124,14 +127,14 @@ describe('planet resource construction rules', () => {
       planetResourceIds: ['water', 'iron'],
     });
     expect(oilReason?.code).toBe('building_blocked_planet_resource');
-    expect(formatBuildBlockedMessage(oilReason!, 'en')).toContain('oil or methane deposit');
+    expect(formatBuildBlockedMessage(oilReason!, 'en')).toContain('Oil or Methane deposit');
 
     const biomassReason = resolvePlanetResourceBlockedReason({
       typeId: 'biomass_harvester',
       planetResourceIds: ['iron'],
     });
     expect(biomassReason?.code).toBe('building_blocked_planet_resource');
-    expect(formatBuildBlockedMessage(biomassReason!, 'en')).toContain('water or biomass deposit');
+    expect(formatBuildBlockedMessage(biomassReason!, 'en')).toContain('Water or Biomass deposit');
   });
 
   it('allows oil pumps on methane and bioreactors on water', () => {
@@ -267,7 +270,8 @@ describe('planet resource construction rules', () => {
       usedExtractorCountsByResourceId: { iron: 2 },
     });
     expect(exhausted?.code).toBe('building_blocked_deposit_limit');
-    expect(formatBuildBlockedMessage(exhausted!, 'en')).toContain('deposit limit reached');
-    expect(formatBuildBlockedMessage(exhausted!, 'ru')).toContain('Лимит месторождений');
+    expect(formatBuildBlockedMessage(exhausted!, 'en')).toContain('Iron deposits are already assigned');
+    expect(formatBuildBlockedMessage(exhausted!, 'ru')).toContain('Месторождения «Железо»');
+    expect(formatBuildBlockedMessage(exhausted!, 'en')).not.toContain('resourceId');
   });
 });

@@ -7,6 +7,7 @@
  */
 import React from 'react';
 import type { Locale } from '@shared/types/locale';
+import { shipLabel } from '@shared/types/entity-labels';
 
 export interface ShipIconProps {
   size?: number;
@@ -154,12 +155,12 @@ export function resolveShipType(typeId: string | undefined | null): ShipDef {
 
   return {
     Icon: IconUnknownShip,
-    label: typeId || 'Unknown',
-    labels: { en: typeId || 'Unknown', ru: typeId || 'Неизвестно' },
-    tag: typeId ? typeId.slice(0, 6).toUpperCase() : 'SHIP',
+    label: shipLabel(typeId, 'en'),
+    labels: { en: shipLabel(typeId, 'en'), ru: shipLabel(typeId, 'ru') },
+    tag: 'SHIP',
     tags: {
-      en: typeId ? typeId.slice(0, 6).toUpperCase() : 'SHIP',
-      ru: typeId ? typeId.slice(0, 6).toUpperCase() : 'КОРАБЛЬ',
+      en: 'SHIP',
+      ru: 'КОРАБЛЬ',
     },
   };
 }

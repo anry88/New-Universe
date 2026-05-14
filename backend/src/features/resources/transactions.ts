@@ -3,6 +3,7 @@ import { planetResources } from '../../db/schema.js';
 import { eq, and, inArray } from 'drizzle-orm';
 import { syncPlanetResources } from './accrual.js';
 import { ENERGY_RESOURCE_ID, resolvePlanetEnergyState } from './energy.js';
+import { formatInsufficientResourceMessage } from '@shared/types/entity-labels.js';
 
 interface ResourceChange {
   resourceId: string;
@@ -13,6 +14,12 @@ interface TransactionResult {
   success: boolean;
   balanceAfter?: Record<string, number>;
   error?: string;
+  code?: 'insufficient_resource';
+  details?: {
+    resourceId: string;
+    required: number;
+    available: number;
+  };
 }
 
 async function spendResourcesInner(trx: any, planetId: string, costs: ResourceChange[]): Promise<TransactionResult> {
@@ -47,7 +54,13 @@ async function spendResourcesInner(trx: any, planetId: string, costs: ResourceCh
       if (current < cost.amount) {
         return {
           success: false,
-          error: `not enough ${cost.resourceId}`,
+          error: formatInsufficientResourceMessage(cost.resourceId, 'en'),
+          code: 'insufficient_resource',
+          details: {
+            resourceId: cost.resourceId,
+            required: cost.amount,
+            available: current,
+          },
         };
       }
       balance[cost.resourceId] = current - cost.amount;

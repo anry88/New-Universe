@@ -101,7 +101,13 @@ describe('Resource Transactions', () => {
     ]);
 
     expect(result.success).toBe(false);
-    expect(result.error).toContain('not enough test-iron');
+    expect(result.error).toContain('not enough test iron');
+    expect(result.error).not.toContain('test-iron');
+    expect(result.details).toMatchObject({
+      resourceId: 'test-iron',
+      required: 50,
+      available: 20,
+    });
 
     const record = await db.query.planetResources.findFirst({
       where: (pr, { eq }) => and(eq(pr.planetId, planetId), eq(pr.resourceId, 'test-iron')),

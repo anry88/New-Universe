@@ -72,14 +72,17 @@ function formatLockedReason(state: JumpGateStateResponse | undefined, t: TFuncti
 
 function formatJumpGateError(message: string, t: TFunction) {
   const normalized = message.toLowerCase();
-  if (normalized.includes('not enough jump_fuel')) return t('jumpGate.error.insufficientJumpFuel');
+  if (normalized.includes('not enough jump_fuel') || normalized.includes('not enough jump fuel')) {
+    return t('jumpGate.error.insufficientJumpFuel');
+  }
   if (normalized.includes('jump drive research level 1 required')) return t('jumpGate.locked.jumpDriveRequired', { level: 1 });
   if (normalized.includes('jump gate is locked')) return t('jumpGate.error.locked');
   if (normalized.includes('jump gate calibration is still in progress')) return t('jumpGate.random.calibrationInProgress');
   if (normalized.includes('random_jump_cooldown')) return t('jumpGate.error.randomCooldownShort');
+  if (normalized.includes('random jump is still on cooldown')) return t('jumpGate.error.randomCooldownShort');
   if (normalized.includes('ship state changed')) return t('jumpGate.error.shipChanged');
   if (normalized.includes('recon probe')) return t('jumpGate.error.noJumpShip');
-  return t('jumpGate.error.server', { message });
+  return message.includes('_') ? t('jumpGate.error.unavailable') : message;
 }
 
 function destinationCounts(destination: JumpGateKnownDestinationSummary) {

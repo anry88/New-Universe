@@ -36,7 +36,10 @@ describe('resolveBuildingType', () => {
     for (const known of Object.values(BUILDING_BY_TYPE)) {
       expect(def).not.toBe(known);
     }
-    expect(def.label).toBe('nonexistent_building');
+    expect(def.label).toBe('Nonexistent Building');
+    expect(def.labels.en).toBe('Nonexistent Building');
+    expect(def.labels.ru).toBe('Nonexistent Building');
+    expect(def.labels.en).not.toContain('_');
     expect(def.cat).toBe('Unknown');
     expect(warn).toHaveBeenCalled();
 

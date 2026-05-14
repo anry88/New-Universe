@@ -587,7 +587,7 @@ describe('cargoTransfer', () => {
       targetPlanetId,
       routeMode: 'jump_gate',
       resources: [{ resourceId: 'iron', amount: 10 }],
-    })).rejects.toThrow('not enough jump_fuel');
+    })).rejects.toThrow('not enough jump fuel');
   });
 
   it('rejects cargo transfer without route fuel', async () => {

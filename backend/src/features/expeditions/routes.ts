@@ -1,12 +1,15 @@
 import { FastifyInstance } from "fastify";
-import type {
-  ExpeditionJumpRequest,
-  LaunchExpeditionRequest,
+import {
+  formatLaunchExpeditionErrorMessage,
+  type ExpeditionJumpRequest,
+  type LaunchExpeditionErrorDetails,
+  type LaunchExpeditionRequest,
 } from "@shared/types/expeditions.js";
 import jwt from "jsonwebtoken";
 import { env } from "../../lib/env.js";
 import { launchExpedition } from "./launch.js";
 import { jumpShip } from "./jump.js";
+import { resolveRequestLocale } from "../../lib/i18n.js";
 import { mutationRateLimit } from "../../lib/rate-limit.js";
 import {
   boundedNumberSchema,
@@ -68,8 +71,9 @@ export async function expeditionsRoutes(app: FastifyInstance) {
     const { shipId } = body;
 
     if (!shipId) {
+      const locale = resolveRequestLocale(request);
       return reply.status(400).send({
-        error: "shipId is required",
+        error: formatLaunchExpeditionErrorMessage({ code: "expedition_ship_required" }, locale),
       });
     }
 
@@ -142,18 +146,25 @@ export async function expeditionsRoutes(app: FastifyInstance) {
       destinationSystemId,
     } = (request.body ?? {}) as Partial<LaunchExpeditionRequest>;
 
+    if (!shipId) {
+      const locale = resolveRequestLocale(request);
+      return reply.status(400).send({
+        error: formatLaunchExpeditionErrorMessage({ code: "expedition_ship_required" }, locale),
+      });
+    }
+
     if (
-      !shipId ||
       cargoLoaded === undefined ||
       ((routeMode ?? "local") === "local" &&
         (targetX === undefined || targetY === undefined || targetZ === undefined)) ||
       ((routeMode ?? "local") === "jump_gate" && !destinationSystemId)
     ) {
+      const locale = resolveRequestLocale(request);
       return reply.status(400).send({
         error:
-          (routeMode ?? "local") === "local"
-            ? "shipId, targetX, targetY, targetZ, and cargoLoaded are required"
-            : "shipId, destinationSystemId, and cargoLoaded are required",
+          (routeMode ?? "local") === "jump_gate" && !destinationSystemId
+            ? formatLaunchExpeditionErrorMessage({ code: "expedition_destination_required" }, locale)
+            : formatLaunchExpeditionErrorMessage({ code: "expedition_invalid_numbers", routeMode: "local" }, locale),
       });
     }
 
@@ -170,7 +181,15 @@ export async function expeditionsRoutes(app: FastifyInstance) {
     });
 
     if (!result.success) {
-      return reply.status(result.status).send({ error: result.error });
+      const locale = resolveRequestLocale(request);
+      const details = result.code
+        ? ({ code: result.code, ...(result.details ?? {}) } as LaunchExpeditionErrorDetails)
+        : null;
+      return reply.status(result.status).send({
+        error: details ? formatLaunchExpeditionErrorMessage(details, locale) : result.error,
+        code: result.code,
+        details: result.details,
+      });
     }
 
     return reply.send({

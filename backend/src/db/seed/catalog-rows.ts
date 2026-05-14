@@ -335,8 +335,8 @@ export const BUILDING_TYPE_CATALOG_ROWS: BuildingCatalogRow[] = [
     id: 'wind_turbine',
     name: { ru: 'Ветротурбина', en: 'Wind Turbine' },
     description: {
-      ru: 'Генерирует энергию из атмосферных потоков. Выход масштабируется от массы планеты через показатель размера.',
-      en: 'Generates energy from atmospheric currents. Output scales with planet mass through the size proxy.',
+      ru: 'Генерирует энергию из атмосферных потоков. Крупные планеты дают более стабильный поток.',
+      en: 'Generates energy from atmospheric currents. Larger planets provide steadier output.',
     },
     category: 'energy',
     maxLevel: MAX_BUILDING_LEVEL,
@@ -350,8 +350,8 @@ export const BUILDING_TYPE_CATALOG_ROWS: BuildingCatalogRow[] = [
     id: 'fuel_generator',
     name: { ru: 'Топливный генератор', en: 'Fuel Generator' },
     description: {
-      ru: 'Заряжает аккумуляторы ручными рецептами из топлива, нефти или метана с разной энергоотдачей.',
-      en: 'Charges batteries through manual recipes from fuel, oil, or methane with different energy yields.',
+      ru: 'Заряжает аккумуляторы топливом, нефтью или метаном с разной энергоотдачей.',
+      en: 'Charges batteries with fuel, oil, or methane at different energy yields.',
     },
     category: 'energy',
     maxLevel: MAX_BUILDING_LEVEL,

@@ -133,7 +133,7 @@ describe('Buildings Service - POST /buildings/build', () => {
     });
 
     expect(response.statusCode).toBe(400);
-    expect(response.json().message).toContain('no active command center');
+    expect(response.json().message).toContain('active settlement');
   });
 
   it('allows construction on a settled colony in a neutral system', async () => {
@@ -411,7 +411,7 @@ describe('Buildings Service - POST /buildings/build', () => {
 
     expect(response.statusCode).toBe(400);
     const body = response.json();
-    expect(body.message).toContain('Slot already occupied');
+    expect(body.message).toContain('slot is already occupied');
   });
 
   it('should return 400 when build queue is full', async () => {
@@ -516,7 +516,7 @@ describe('Buildings Service - POST /buildings/build', () => {
 
     expect(response.statusCode).toBe(400);
     const body = response.json();
-    expect(body.message).toContain('Planet not found');
+    expect(body.message).toContain('active settlement');
   });
 
   it('blocks mines on planets without metal deposits', async () => {
@@ -633,7 +633,7 @@ describe('Buildings Service - POST /buildings/build', () => {
     expect(response.statusCode).toBe(400);
     const body = response.json();
     expect(body.code).toBe('building_blocked_planet_resource');
-    expect(body.message).toContain('oil or methane deposit');
+    expect(body.message).toContain('Oil or Methane deposit');
   });
 
   it('allows oil pumps to target methane deposits', async () => {

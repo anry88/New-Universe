@@ -170,7 +170,8 @@ describe('Recon Probe Jump Gate Discovery', () => {
 
     expect(result.success).toBe(false);
     expect(result.status).toBe(400);
-    expect(result.error).toMatch(/manual sector jumps are deprecated/i);
+    expect(result.error).toContain('known Jump Gate destination');
+    expect(result.error).not.toContain('destinationSystemId');
 
     const createdSector = await db.query.sectors.findFirst({
       where: and(eq(sectors.x, 2), eq(sectors.y, 3), eq(sectors.z, 4)),
@@ -199,7 +200,8 @@ describe('Recon Probe Jump Gate Discovery', () => {
     );
 
     expect(result.success).toBe(false);
-    expect(result.error).toMatch(/only recon probes/i);
+    expect(result.error).toContain('Recon Probe');
+    expect(result.error).not.toContain('recon_probe');
     const stillDocked = await db.query.ships.findFirst({
       where: eq(ships.id, scout.id),
     });
@@ -347,7 +349,7 @@ describe('Recon Probe Jump Gate Discovery', () => {
     );
 
     expect(result.success).toBe(false);
-    expect(result.error).toContain('not enough jump_fuel');
+    expect(result.error).toContain('not enough jump fuel');
     const createdSector = await db.query.sectors.findFirst({
       where: and(eq(sectors.x, 11), eq(sectors.y, 12), eq(sectors.z, 13)),
     });

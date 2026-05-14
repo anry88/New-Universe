@@ -215,7 +215,7 @@ describe('Building Upgrade - POST /buildings/upgrade', () => {
 
     expect(response.statusCode).toBe(400);
     const body = response.json();
-    expect(body.message).toContain('already in queue');
+    expect(body.message).toContain('already in the queue');
   });
 
   it('should return 400 when planet build queue is full', async () => {

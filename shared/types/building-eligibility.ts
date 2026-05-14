@@ -1,4 +1,5 @@
 import type { BuildBlockedReason, BuildingOutput } from './buildings.js';
+import { buildingLabel, formatEntityList, resourceLabel } from './entity-labels.js';
 import { researchBranchLabel } from './research.js';
 import type { ResearchUnlockRequirement } from '../config/buildingResearchGates.js';
 import { extractionRateForResource } from '../config/resourceExtractionRates.js';
@@ -53,57 +54,6 @@ function researchLevel(levels: Map<string, number> | Record<string, number>, bra
 
 function uniqueKnownResourceIds(resourceIds: Iterable<string>): string[] {
   return [...new Set([...resourceIds].filter(Boolean))];
-}
-
-function resourceLabel(resourceId: string, lang: 'en' | 'ru'): string {
-  switch (resourceId) {
-    case 'metal':
-      return lang === 'ru' ? 'металлов' : 'metal';
-    case 'gas':
-      return lang === 'ru' ? 'газа' : 'gas';
-    case 'oil_or_methane':
-      return lang === 'ru' ? 'нефти или метана' : 'oil or methane';
-    case 'water_or_biomass':
-      return lang === 'ru' ? 'воды или биомассы' : 'water or biomass';
-    case 'iron':
-      return lang === 'ru' ? 'железа' : 'iron';
-    case 'copper':
-      return lang === 'ru' ? 'меди' : 'copper';
-    case 'aluminum':
-      return lang === 'ru' ? 'алюминия' : 'aluminum';
-    case 'silver':
-      return lang === 'ru' ? 'серебра' : 'silver';
-    case 'carbon':
-      return lang === 'ru' ? 'углерода' : 'carbon';
-    case 'silicon':
-      return lang === 'ru' ? 'кремния' : 'silicon';
-    case 'sulfur':
-      return lang === 'ru' ? 'серы' : 'sulfur';
-    case 'titanium':
-      return lang === 'ru' ? 'титана' : 'titanium';
-    case 'gold':
-      return lang === 'ru' ? 'золота' : 'gold';
-    case 'water':
-      return lang === 'ru' ? 'воды' : 'water';
-    case 'methane':
-      return lang === 'ru' ? 'метана' : 'methane';
-    case 'oxygen':
-      return lang === 'ru' ? 'кислорода' : 'oxygen';
-    case 'hydrogen':
-      return lang === 'ru' ? 'водорода' : 'hydrogen';
-    case 'nitrogen':
-      return lang === 'ru' ? 'азота' : 'nitrogen';
-    case 'ice':
-      return lang === 'ru' ? 'льда' : 'ice';
-    case 'oil':
-      return lang === 'ru' ? 'нефти' : 'oil';
-    case 'tritium':
-      return lang === 'ru' ? 'трития' : 'tritium';
-    case 'biomass':
-      return lang === 'ru' ? 'биомассы' : 'biomass';
-    default:
-      return resourceId;
-  }
 }
 
 export function isSelectableExtractorType(typeId: string): typeId is ExtractorTypeId {
@@ -387,40 +337,55 @@ export function resolveBuildingProductionRateForResource(input: {
 
 export function formatBuildBlockedMessage(reason: BuildBlockedReason, lang: 'en' | 'ru'): string {
   switch (reason.code) {
-    case 'building_blocked_per_planet':
+    case 'building_blocked_per_planet': {
+      const label = buildingLabel(reason.details.typeId, lang);
       return lang === 'ru'
-        ? `На этой планете уже есть максимум этого здания (${reason.details.current}/${reason.details.limit}).`
-        : `This planet already has the maximum of this building (${reason.details.current}/${reason.details.limit}).`;
-    case 'building_blocked_global':
+        ? `На этой планете уже достигнут лимит для здания «${label}» (${reason.details.current}/${reason.details.limit}).`
+        : `This planet already has the maximum number of ${label} buildings (${reason.details.current}/${reason.details.limit}).`;
+    }
+    case 'building_blocked_global': {
+      const label = buildingLabel(reason.details.typeId, lang);
       return lang === 'ru'
-        ? `Достигнут аккаунтный лимит этого здания (${reason.details.current}/${reason.details.limit}).`
-        : `Account-wide limit reached for this building (${reason.details.current}/${reason.details.limit}).`;
-    case 'building_blocked_dependency':
+        ? `Достигнут общий лимит для здания «${label}» (${reason.details.current}/${reason.details.limit}).`
+        : `Account-wide limit reached for ${label} (${reason.details.current}/${reason.details.limit}).`;
+    }
+    case 'building_blocked_dependency': {
+      const label = buildingLabel(reason.details.requiredTypeId, lang);
       return lang === 'ru'
-        ? `Требуется здание ${reason.details.requiredTypeId} уровня ${reason.details.requiredLevel}.`
-        : `Requires building ${reason.details.requiredTypeId} at level ${reason.details.requiredLevel}.`;
+        ? `Требуется здание «${label}» уровня ${reason.details.requiredLevel}.`
+        : `Requires ${label} level ${reason.details.requiredLevel}.`;
+    }
     case 'building_blocked_research': {
       const branchLabel = researchBranchLabel(reason.details.branch, lang);
       return lang === 'ru'
         ? `Требуется исследование «${branchLabel}» уровня ${reason.details.level}.`
         : `Requires ${branchLabel} research level ${reason.details.level}.`;
     }
-    case 'building_blocked_planet_resource':
+    case 'building_blocked_planet_resource': {
+      const label = resourceLabel(reason.details.resourceId, lang);
       return lang === 'ru'
-        ? `На этой планете нет подходящего месторождения: ${resourceLabel(reason.details.resourceId, lang)}.`
-        : `This planet has no ${resourceLabel(reason.details.resourceId, lang)} deposit.`;
-    case 'building_blocked_resource_selection_required':
+        ? `На этой планете нет подходящего месторождения: ${label}.`
+        : `This planet has no suitable ${label} deposit.`;
+    }
+    case 'building_blocked_resource_selection_required': {
+      const accepted = formatEntityList(reason.details.acceptedResourceIds, resourceLabel, lang);
       return lang === 'ru'
-        ? 'Выберите месторождение для этой добывающей постройки.'
-        : 'Select a deposit for this extraction building.';
-    case 'building_blocked_invalid_resource_selection':
+        ? `Выберите месторождение для этой добывающей постройки${accepted ? `: ${accepted}.` : '.'}`
+        : `Select a deposit for this extraction building${accepted ? `: ${accepted}.` : '.'}`;
+    }
+    case 'building_blocked_invalid_resource_selection': {
+      const resource = resourceLabel(reason.details.resourceId, lang);
+      const accepted = formatEntityList(reason.details.acceptedResourceIds, resourceLabel, lang);
       return lang === 'ru'
-        ? `Эта постройка не может добывать ${resourceLabel(reason.details.resourceId, lang)} на выбранной планете.`
-        : `This building cannot extract ${resourceLabel(reason.details.resourceId, lang)} on the selected planet.`;
-    case 'building_blocked_deposit_limit':
+        ? `Эта постройка не может добывать ${resource} на выбранной планете${accepted ? `. Доступно: ${accepted}.` : '.'}`
+        : `This building cannot extract ${resource} on the selected planet${accepted ? `. Available deposits: ${accepted}.` : '.'}`;
+    }
+    case 'building_blocked_deposit_limit': {
+      const label = resourceLabel(reason.details.resourceId, lang);
       return lang === 'ru'
-        ? `Лимит месторождений ${resourceLabel(reason.details.resourceId, lang)} исчерпан (${reason.details.current}/${reason.details.limit}).`
-        : `${resourceLabel(reason.details.resourceId, lang)} deposit limit reached (${reason.details.current}/${reason.details.limit}).`;
+        ? `Месторождения «${label}» уже заняты (${reason.details.current}/${reason.details.limit}).`
+        : `${label} deposits are already assigned (${reason.details.current}/${reason.details.limit}).`;
+    }
     case 'building_blocked_max_level':
       return lang === 'ru'
         ? `Достигнут максимальный уровень здания (${reason.details.maxLevel}).`

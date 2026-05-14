@@ -15,7 +15,7 @@ import {
 } from '@shared/config/expeditionRouting';
 import { formatTimerDuration } from '../lib/timers';
 import { getResourceLabel, getResourceSymbol } from './cosmic/resources';
-import { ShipIconBadge } from './cosmic/ships';
+import { getShipClassTag, ShipIconBadge } from './cosmic/ships';
 
 interface CargoTransferDialogProps {
   originPlanet: Planet;
@@ -197,7 +197,7 @@ export function CargoTransferDialog({
                         />
                         <div>
                           <div className="text-sm font-bold text-slate-200">{type?.name[locale] || t('cargo.unknownShip')}</div>
-                          <div className="text-[10px] text-slate-400">{t('cargo.shipId', { id: ship.id.slice(0, 8) })}</div>
+                          <div className="text-[10px] text-slate-400">{getShipClassTag(ship.typeId, locale)}</div>
                         </div>
                       </div>
                       <div className="text-right">

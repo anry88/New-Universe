@@ -3,10 +3,15 @@ import { ships, shipTypes, buildings, planets, users, notifications } from '../.
 import { eq, and, sql, gte, isNotNull, lte, inArray } from 'drizzle-orm';
 import { spendResources } from '../resources/transactions.js';
 import { SHIP_RESEARCH_GATES } from '../../config/research-unlocks.js';
-import { assertResearchRequirement, loadUserResearchLevels } from '../research/gates.js';
+import { loadUserResearchLevels, meetsResearchRequirement } from '../research/gates.js';
 import { rushDiamondCost, rushRemainingSeconds } from '../../lib/diamonds.js';
 import { getPlayerPlanetSettlement } from '../colonies/ownership.js';
 import { env } from '../../lib/env.js';
+import {
+  formatShipBuildErrorMessage,
+  type ShipBuildErrorCode,
+  type ShipBuildErrorDetails,
+} from '@shared/types/ships.js';
 
 export interface BuildShipRequest {
   planetId: string;
@@ -18,9 +23,22 @@ export interface BuildShipResult {
   status: number;
   ship?: typeof ships.$inferSelect;
   error?: string;
+  code?: ShipBuildErrorCode;
+  details?: Omit<ShipBuildErrorDetails, 'code'>;
 }
 
 const MAX_QUEUED_SHIPS = 1;
+
+function shipBuildFailure(status: number, details: ShipBuildErrorDetails): BuildShipResult {
+  const { code, ...rest } = details;
+  return {
+    success: false,
+    status,
+    error: formatShipBuildErrorMessage(details, 'en'),
+    code,
+    details: rest,
+  };
+}
 
 export async function buildShip(
   userId: string,
@@ -33,12 +51,12 @@ export async function buildShip(
     where: eq(planets.id, planetId),
   });
   if (!planet) {
-    return { success: false, status: 404, error: 'Planet not found' };
+    return shipBuildFailure(404, { code: 'ship_build_planet_not_found' });
   }
 
   const settlement = await getPlayerPlanetSettlement(userId, planetId, db);
   if (!settlement?.isSettled) {
-    return { success: false, status: 403, error: 'Planet does not belong to you' };
+    return shipBuildFailure(403, { code: 'ship_build_planet_not_owned' });
   }
 
   const shipyard = await db.query.buildings.findFirst({
@@ -48,18 +66,14 @@ export async function buildShip(
     ),
   });
   if (!shipyard) {
-    return {
-      success: false,
-      status: 400,
-      error: 'Shipyard required to build ships',
-    };
+    return shipBuildFailure(400, { code: 'ship_build_shipyard_required' });
   }
 
   const type = await db.query.shipTypes.findFirst({
     where: eq(shipTypes.id, typeSlug),
   });
   if (!type) {
-    return { success: false, status: 404, error: `Unknown ship type: ${typeSlug}` };
+    return shipBuildFailure(404, { code: 'ship_build_unknown_type', typeId: typeSlug });
   }
 
   const requiredBldgs = type.requiredBuildings as { typeId: string; level: number }[];
@@ -71,21 +85,24 @@ export async function buildShip(
       ),
     });
     if (!depBuilding || depBuilding.level < dep.level) {
-      return {
-        success: false,
-        status: 400,
-        error: `Missing required building: ${dep.typeId} level ${dep.level}`,
-      };
+      return shipBuildFailure(400, {
+        code: 'ship_build_missing_building',
+        typeId: dep.typeId,
+        requiredLevel: dep.level,
+      });
     }
   }
 
   const shipGate = SHIP_RESEARCH_GATES[typeSlug];
   if (shipGate) {
-    try {
-      const levels = await loadUserResearchLevels(userId, db);
-      assertResearchRequirement(levels, shipGate, `Build ship ${typeSlug}`);
-    } catch (e: any) {
-      return { success: false, status: 400, error: e.message ?? String(e) };
+    const levels = await loadUserResearchLevels(userId, db);
+    if (!meetsResearchRequirement(levels, shipGate)) {
+      return shipBuildFailure(400, {
+        code: 'ship_build_missing_research',
+        branch: shipGate.branch,
+        requiredLevel: shipGate.level,
+        currentLevel: levels.get(shipGate.branch) ?? 0,
+      });
     }
   }
 
@@ -100,11 +117,7 @@ export async function buildShip(
     );
   const queueCount = Number(queuedShips[0]?.count || 0);
   if (queueCount >= MAX_QUEUED_SHIPS) {
-    return {
-      success: false,
-      status: 400,
-      error: `Shipyard queue is full (max ${MAX_QUEUED_SHIPS} ship at a time)`,
-    };
+    return shipBuildFailure(400, { code: 'ship_build_queue_full', maxQueuedShips: MAX_QUEUED_SHIPS });
   }
 
   const costs = type.buildCost as Record<string, number>;
@@ -118,7 +131,12 @@ export async function buildShip(
       }));
       const spendResult = await spendResources(planetId, resourceCosts, tx);
       if (!spendResult.success) {
-        return { success: false, status: 400, error: spendResult.error } as BuildShipResult;
+        return shipBuildFailure(400, {
+          code: 'insufficient_resource',
+          resourceId: spendResult.details?.resourceId ?? resourceCosts[0]?.resourceId ?? 'resource',
+          required: spendResult.details?.required,
+          available: spendResult.details?.available,
+        });
       }
     }
 

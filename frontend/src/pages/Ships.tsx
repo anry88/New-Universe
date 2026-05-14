@@ -13,7 +13,7 @@ import { ChevronLeft } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { Ship } from "@shared/types/ships";
 import type { Building, Planet } from "@shared/types/world";
-import { getResourceSymbol } from "../components/cosmic/resources";
+import { getResourceLabel, getResourceSymbol } from "../components/cosmic/resources";
 import { timerSnapshot } from "../lib/timers";
 import { useI18n } from "../lib/i18n";
 import {
@@ -23,6 +23,7 @@ import {
 import { resolveBuildingType } from "../components/cosmic/buildings";
 import {
   getShipClassTag,
+  getShipLabel,
   isShipTypeVisible,
   isShipTypeVisibleInShipyard,
   ShipIconBadge,
@@ -138,7 +139,7 @@ export function ShipsPage() {
     }
 
     return t("ships.blocked.resource", {
-      resource: getResourceSymbol(reason.resourceId),
+      resource: getResourceLabel(reason.resourceId, locale),
       required: reason.required,
       available: reason.available,
     });
@@ -453,7 +454,7 @@ export function ShipsPage() {
                       typeId={ship.typeId}
                       status={effectiveStatus}
                       size={36}
-                      title={type?.name?.[locale] ?? ship.typeId}
+                      title={type?.name?.[locale] ?? getShipLabel(ship.typeId, locale)}
                     />
                     <div
                       className="ship-cls"
@@ -464,7 +465,7 @@ export function ShipsPage() {
                   </div>
                   <div>
                     <div className="ship-name">
-                      {type?.name?.[locale] ?? ship.typeId}
+                      {type?.name?.[locale] ?? getShipLabel(ship.typeId, locale)}
                     </div>
                     <div className="ship-loc">{shipLocation}</div>
                     <button

@@ -3,7 +3,8 @@ import jwt from 'jsonwebtoken';
 import { env } from '../../lib/env.js';
 import { buildShip, getShipQueue, rushShipBuild, syncReadyShips } from './build.js';
 import { db } from '../../db/index.js';
-import { RushShipBuildRequest } from '@shared/types/ships.js';
+import { formatShipBuildErrorMessage, RushShipBuildRequest, type ShipBuildErrorDetails } from '@shared/types/ships.js';
+import { resolveRequestLocale } from '../../lib/i18n.js';
 import { mutationRateLimit } from '../../lib/rate-limit.js';
 import { nonEmptyStringSchema, objectBodySchema, securityRouteConfig } from '../../lib/security.js';
 
@@ -57,16 +58,25 @@ export async function shipsRoutes(app: FastifyInstance) {
     };
 
     if (!planetId || !typeSlug) {
+      const locale = resolveRequestLocale(request);
       return reply.status(400).send({
         error: 'Bad Request',
-        message: 'planetId and typeSlug are required',
+        message: locale === 'ru' ? 'Выберите планету и тип корабля.' : 'Select a planet and ship type.',
       });
     }
 
     const result = await buildShip(auth.userId, { planetId, typeSlug });
 
     if (!result.success) {
-      return reply.status(result.status).send({ error: result.error });
+      const locale = resolveRequestLocale(request);
+      const details = result.code
+        ? ({ code: result.code, ...(result.details ?? {}) } as ShipBuildErrorDetails)
+        : null;
+      return reply.status(result.status).send({
+        error: details ? formatShipBuildErrorMessage(details, locale) : result.error,
+        code: result.code,
+        details: result.details,
+      });
     }
 
     return reply.send({ ship: result.ship });
