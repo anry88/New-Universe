@@ -160,7 +160,8 @@ describe('Ship Building - POST /ships/build', () => {
     });
 
     expect(blockedResponse.statusCode).toBe(400);
-    expect(blockedResponse.json().error).toContain('shipyard level 2');
+    expect(blockedResponse.json().error).toContain('Shipyard level 2');
+    expect(blockedResponse.json().error).not.toContain('cargo_light');
 
     await db
       .update(buildings)
@@ -178,7 +179,8 @@ describe('Ship Building - POST /ships/build', () => {
     });
 
     expect(researchBlockedResponse.statusCode).toBe(400);
-    expect(researchBlockedResponse.json().error).toContain('logistics research level 1');
+    expect(researchBlockedResponse.json().error).toContain('Logistics research level 1');
+    expect(researchBlockedResponse.json().error).not.toContain('cargo_light');
 
     await db.insert(researchProgress).values({
       userId,
@@ -218,7 +220,9 @@ describe('Ship Building - POST /ships/build', () => {
 
     expect(response.statusCode).toBe(400);
     const body = response.json();
-    expect(body.error).toContain('Shipyard required');
+    expect(body.error).toContain('Shipyard is required');
+    expect(body.error).not.toContain('shipyard');
+    expect(body.code).toBe('ship_build_shipyard_required');
   });
 
   it('should return 400 when shipyard queue is full', async () => {
@@ -297,7 +301,9 @@ describe('Ship Building - POST /ships/build', () => {
 
     expect(response.statusCode).toBe(404);
     const body = response.json();
-    expect(body.error).toContain('Unknown ship type');
+    expect(body.error).toContain('Ship type not found');
+    expect(body.error).not.toContain('nonexistent_ship');
+    expect(body.code).toBe('ship_build_unknown_type');
   });
 
   it('should return 400 when research gate blocks gated hull types', async () => {
@@ -355,6 +361,9 @@ describe('Ship Building - POST /ships/build', () => {
     expect(response.statusCode).toBe(400);
     const body = response.json();
     expect(body.error).toContain('not enough');
+    expect(body.error).toContain('fuel');
+    expect(body.error).not.toContain('fuelRequired');
+    expect(body.code).toBe('insufficient_resource');
   });
 
   it('syncs only the current user ready ships and suppresses stale pending notifications', async () => {

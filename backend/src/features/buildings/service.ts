@@ -447,7 +447,11 @@ export class BuildingService {
       if (resourceCosts.length > 0) {
         const spendResult = await spendResources(planetId, resourceCosts, tx);
         if (!spendResult.success) {
-          throw new Error(spendResult.error);
+          throw new BuildingOperationError(
+            spendResult.error ?? 'Insufficient resources',
+            spendResult.code ?? 'insufficient_resource',
+            spendResult.details,
+          );
         }
       }
 
@@ -682,7 +686,11 @@ export class BuildingService {
       if (resourceCosts.length > 0) {
         const spendResult = await spendResources(building.planetId, resourceCosts, tx);
         if (!spendResult.success) {
-          throw new Error(spendResult.error);
+          throw new BuildingOperationError(
+            spendResult.error ?? 'Insufficient resources',
+            spendResult.code ?? 'insufficient_resource',
+            spendResult.details,
+          );
         }
       }
 

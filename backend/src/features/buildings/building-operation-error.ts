@@ -1,4 +1,4 @@
-/** Thrown for deterministic client-facing construction failures (codes align with shared BuildBlockedReason). */
+/** Thrown for deterministic client-facing construction failures with structured client-safe details. */
 export class BuildingOperationError extends Error {
   readonly code: string;
   readonly details?: Record<string, unknown>;

@@ -10,6 +10,7 @@
  */
 import React from 'react';
 import type { Locale } from '@shared/types/locale';
+import { buildingLabel, humanizeEntityId } from '@shared/types/entity-labels';
 
 export type BuildingTypeId =
   | 'command_center'
@@ -365,8 +366,8 @@ export const BUILDING_BY_TYPE: Record<BuildingTypeId, BuildingDef> = {
  * IMPORTANT: never silently fall back to a real catalog entry like `mine` —
  * that was the source of a long-standing bug where fabrication_bay (and
  * any other un-registered building) rendered as a Mine in the UI. We now
- * return a placeholder definition that uses the storage icon and the raw
- * type id as label, so missing icons are visible at a glance instead of
+ * return a placeholder definition that uses the storage icon and a humanized
+ * generic label, so missing icons are visible at a glance instead of
  * masquerading as something else.
  */
 export function resolveBuildingType(typeId: string | undefined | null): BuildingDef {
@@ -379,10 +380,11 @@ export function resolveBuildingType(typeId: string | undefined | null): Building
   if (typeof console !== 'undefined') {
     console.warn(`[buildings] unknown building typeId="${typeId}" — rendered as placeholder`);
   }
+  const fallbackLabel = humanizeEntityId(typeId);
   return {
     Icon: IconStorage,
-    label: typeId || 'Unknown',
-    labels: { en: typeId || 'Unknown', ru: typeId || 'Неизвестно' },
+    label: fallbackLabel,
+    labels: { en: buildingLabel(typeId, 'en'), ru: buildingLabel(typeId, 'ru') },
     cat: 'Unknown',
     cats: { en: 'Unknown', ru: 'Неизвестно' },
   };

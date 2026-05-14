@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ResearchProgress } from "@shared/types/research";
-import type { ShipType } from "@shared/types/ships";
+import { formatShipBuildErrorMessage, type ShipType } from "@shared/types/ships";
 import type { Planet } from "@shared/types/world";
 import { resolveShipBuildBlockedReason } from "./ship-build-eligibility";
 
@@ -89,5 +89,24 @@ describe("resolveShipBuildBlockedReason", () => {
       requiredLevel: 1,
       currentLevel: 0,
     });
+  });
+
+  it("formats shipyard API blockers with localized entity names", () => {
+    const missingBuilding = formatShipBuildErrorMessage({
+      code: "ship_build_missing_building",
+      typeId: "shipyard",
+      requiredLevel: 2,
+    }, "en");
+    const insufficientResource = formatShipBuildErrorMessage({
+      code: "insufficient_resource",
+      resourceId: "methane",
+      required: 100,
+      available: 90,
+    }, "ru");
+
+    expect(missingBuilding).toBe("Requires Shipyard level 2.");
+    expect(missingBuilding).not.toContain("shipyard");
+    expect(insufficientResource).toBe("Не хватает ресурса: Метан.");
+    expect(insufficientResource).not.toContain("methane");
   });
 });

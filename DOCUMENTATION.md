@@ -137,13 +137,14 @@ The first production target is a near-free closed-alpha topology: Cloudflare Pag
 `shared/types/` is the cross-cutting contract folder for backend ↔ frontend payloads:
 
 - `locale.ts` — supported-locale contract (`en`/`ru`), locale normalization, and `/me/preferences` payloads.
+- `entity-labels.ts` — localized user-facing labels for resource, building, and ship ids plus safe fallback humanization and insufficient-resource messages, shared by backend error payloads and frontend Cosmic fallback labels so raw slugs stay out of gameplay copy.
 - `user.ts` — `User` interface (`preferredLocale`, `diamonds`, onboarding fields, home system linkage).
 - `buildings.ts` — building types, construction and extractor-resource switching requests, and structured build-block reasons including planet-resource, extractor-selection, and deposit-limit failures.
 - `auth.ts` — `AuthResponse` interface.
 - `research.ts` — research DTOs, `StartResearchRequest` / `StartResearchResponse`, `RushResearchRequest` / `RushResearchResponse`, `ResearchRequirementRef`, `RESEARCH_BRANCH_LABELS_EN`, plus `ResourceId` union used by tech-tree costs and unlock messaging on both backend and frontend.
 - `diamonds.ts` — shared rush-pricing metadata and formula used by building, ship, and research rush previews.
-- `expeditions.ts` — expedition DTOs plus `LaunchExpeditionRequest` and `ExpeditionResult` (`routeMode`, `fuelRequired`, `jumpFuelRequired`, route distance/speed/timer data) shared by map/fleet countdown UI and backend launch records.
-- `ships.ts` — fleet DTOs including active build `queueStartedAt` for local ETA/progress rendering.
+- `expeditions.ts` — expedition DTOs plus `LaunchExpeditionRequest` and `ExpeditionResult` (`routeMode`, `fuelRequired`, `jumpFuelRequired`, route distance/speed/timer data) shared by map/fleet countdown UI and backend launch records, plus localized launch-blocker formatting.
+- `ships.ts` — fleet DTOs including active build `queueStartedAt` for local ETA/progress rendering, plus localized ship-build blocker formatting for backend and shipyard UI parity.
 - `cargo.ts` — one-way cargo transfer request/load and preview DTOs shared by the colonies dialog, `/cargo/transfer/preview`, and `/cargo/transfer`, including server-calculated ETA, ordinary route `fuel`, and optional stored Jump Fuel costs.
 - `multiplayer.ts` — sector presence and selector contracts, including explicit home/colony/fleet/public-sector entity metadata and `SectorSystemAnchor` tags for Home/discovered/recent/colony/fleet anchors.
 - `world.ts` — world DTOs including `Planet.isColonized`, which lets the frontend separate survey visibility from settlement ownership, `PlanetResource.richness` for deposit-aware UI gates, `Building.selectedResourceId` for extractor targets, `Building.production.activeOrders` for slot-level process chips, `Planet.energy` / `Building.energy` for battery charge and energy-shortage UI, plus active building `queueStartedAt`.

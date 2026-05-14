@@ -1,4 +1,8 @@
 import type { Ship, ShipType } from "@shared/types/ships";
+import {
+  formatLaunchExpeditionErrorMessage,
+  type LaunchExpeditionErrorDetails,
+} from "@shared/types/expeditions";
 import type {
   JumpGateDestinationPlanetSummary,
   JumpGateKnownDestinationSummary,
@@ -26,7 +30,7 @@ import {
   CosmicSystemRenderer,
   type ExpeditionPickConfig,
 } from "./cosmic/SystemMap";
-import { ShipIconBadge } from "./cosmic/ships";
+import { getShipClassTag, ShipIconBadge } from "./cosmic/ships";
 import { useI18n } from "../lib/i18n";
 import { buildExpeditionPreview } from "../lib/expedition-routing";
 import { systemMapPlanetDistanceLy } from "@shared/format/systemMapLayout";
@@ -244,11 +248,18 @@ export function ExpeditionDialog({
     ? jumpColonizationTargets
     : jumpPlanetTargets.filter((planet) => !planet.isDiscovered);
 
-  const formatLaunchError = (message: string) => {
+  const formatLaunchError = (message: string, code?: string, details?: unknown) => {
+    if (code) {
+      return formatLaunchExpeditionErrorMessage(
+        { code, ...((details ?? {}) as Record<string, unknown>) } as LaunchExpeditionErrorDetails,
+        locale,
+      );
+    }
+
     const lower = message.toLowerCase();
     if (lower.includes("ship must be idle")) return t("expedition.error.shipNotIdle");
     if (lower.includes("targetplanetid") || lower.includes("target planet")) return t("expedition.error.targetRequired");
-    if (lower.includes("not enough jump_fuel")) return t("expedition.error.notEnoughJumpFuel");
+    if (lower.includes("not enough jump_fuel") || lower.includes("jump fuel")) return t("expedition.error.notEnoughJumpFuel");
     if (lower.includes("not enough fuel")) return t("expedition.error.notEnoughFuel");
     if (lower.includes("colonization on cooldown")) return t("expedition.error.cooldown");
     if (lower.includes("colony limit reached")) return t("expedition.error.colonyLimit");
@@ -259,7 +270,7 @@ export function ExpeditionDialog({
     if (lower.includes("jump gate calibration")) return t("expedition.error.jumpGateCalibrating");
     if (lower.includes("known destination")) return t("expedition.error.knownDestination");
     if (lower.includes("already surveyed")) return t("expedition.error.alreadySurveyed");
-    return t("expedition.error.generic", { message });
+    return message.includes("_") ? t("expedition.error.unknown") : message;
   };
 
   const selectRouteMode = (nextRouteMode: ExpeditionRouteMode) => {
@@ -284,9 +295,9 @@ export function ExpeditionDialog({
       });
       onClose();
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : t("expedition.error.unknown");
-      setLaunchError(formatLaunchError(message));
+      const apiError = err as Error & { data?: { code?: string; details?: unknown } };
+      const message = err instanceof Error ? err.message : t("expedition.error.unknown");
+      setLaunchError(formatLaunchError(message, apiError.data?.code, apiError.data?.details));
     }
   };
 
@@ -422,7 +433,7 @@ export function ExpeditionDialog({
             >
               {shipType.name[locale]}{" "}
               <span style={{ fontFamily: "var(--font-mono)", opacity: 0.75 }}>
-                · {ship.id.slice(0, 8)}
+                · {getShipClassTag(ship.typeId, locale)}
               </span>
             </div>
           </div>

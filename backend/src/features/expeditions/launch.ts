@@ -1,5 +1,10 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
-import type { LaunchExpeditionRequest } from "@shared/types/expeditions.js";
+import {
+  formatLaunchExpeditionErrorMessage,
+  type LaunchExpeditionErrorCode,
+  type LaunchExpeditionErrorDetails,
+  type LaunchExpeditionRequest,
+} from "@shared/types/expeditions.js";
 import type { ExpeditionRouteMode } from "@shared/config/expeditionRouting.js";
 import {
   calculateExpeditionEtaSeconds,
@@ -40,6 +45,8 @@ export interface LaunchExpeditionResult {
     completesAt: string;
   };
   error?: string;
+  code?: LaunchExpeditionErrorCode;
+  details?: Omit<LaunchExpeditionErrorDetails, "code">;
 }
 
 type ShipLaunchRow = {
@@ -62,6 +69,20 @@ type ShipLaunchRow = {
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
+}
+
+function launchFailure(
+  status: number,
+  details: LaunchExpeditionErrorDetails,
+): LaunchExpeditionResult {
+  const { code, ...rest } = details;
+  return {
+    success: false,
+    status,
+    error: formatLaunchExpeditionErrorMessage(details, "en"),
+    code,
+    details: rest,
+  };
 }
 
 async function getAvailableCargo(planetId: string, tx: any): Promise<number> {
@@ -92,19 +113,11 @@ export async function launchExpedition(
   const routeMode: ExpeditionRouteMode = request.routeMode ?? "local";
 
   if (!shipId) {
-    return {
-      success: false,
-      status: 400,
-      error: "shipId is required",
-    };
+    return launchFailure(400, { code: "expedition_ship_required" });
   }
 
   if (routeMode !== "local" && routeMode !== "jump_gate") {
-    return {
-      success: false,
-      status: 400,
-      error: "routeMode must be local or jump_gate",
-    };
+    return launchFailure(400, { code: "expedition_invalid_route_mode" });
   }
 
   const localRouteTargetInvalid =
@@ -117,30 +130,18 @@ export async function launchExpedition(
     (fuelLoaded !== undefined && !isFiniteNumber(fuelLoaded)) ||
     !isFiniteNumber(cargoLoaded)
   ) {
-    return {
-      success: false,
-      status: 400,
-      error:
-        routeMode === "local"
-          ? "targetX, targetY, targetZ, optional fuelLoaded, and cargoLoaded must be numbers"
-          : "optional fuelLoaded and cargoLoaded must be numbers",
-    };
+    return launchFailure(400, {
+      code: "expedition_invalid_numbers",
+      routeMode,
+    });
   }
 
   if (routeMode === "jump_gate" && !destinationSystemId) {
-    return {
-      success: false,
-      status: 400,
-      error: "destinationSystemId is required for jump_gate routes",
-    };
+    return launchFailure(400, { code: "expedition_destination_required" });
   }
 
   if (cargoLoaded < 0) {
-    return {
-      success: false,
-      status: 400,
-      error: "cargoLoaded must be 0 or greater",
-    };
+    return launchFailure(400, { code: "expedition_cargo_negative" });
   }
 
   const shipRows = (await defaultDb
@@ -170,43 +171,26 @@ export async function launchExpedition(
 
   const shipRow = shipRows[0];
   if (!shipRow) {
-    return {
-      success: false,
-      status: 404,
-      error: "Ship not found",
-    };
+    return launchFailure(404, { code: "expedition_ship_not_found" });
   }
 
   if (shipRow.shipOwnerId !== userId) {
-    return {
-      success: false,
-      status: 403,
-      error: "Ship does not belong to you",
-    };
+    return launchFailure(403, { code: "expedition_ship_not_owned" });
   }
 
   if (shipRow.shipStatus !== "idle") {
-    return {
-      success: false,
-      status: 400,
-      error: "Ship must be idle before launch",
-    };
+    return launchFailure(400, { code: "expedition_ship_not_idle" });
   }
 
   if (!shipRow.shipLocationPlanetId || !shipRow.originPlanetId) {
-    return {
-      success: false,
-      status: 400,
-      error: "Ship must be located on a player planet",
-    };
+    return launchFailure(400, { code: "expedition_ship_not_on_planet" });
   }
 
   if (shipRow.shipRole === "logistics") {
-    return {
-      success: false,
-      status: 400,
-      error: "Cargo ships must use cargo transfer",
-    };
+    return launchFailure(400, {
+      code: "expedition_logistics_route_required",
+      shipTypeId: shipRow.shipTypeId,
+    });
   }
 
   if (
@@ -214,11 +198,7 @@ export async function launchExpedition(
     shipRow.shipRole !== "recon" &&
     shipRow.shipRole !== "colonization"
   ) {
-    return {
-      success: false,
-      status: 400,
-      error: "Jump Gate expedition routes support recon and colonizer ships",
-    };
+    return launchFailure(400, { code: "expedition_jump_gate_role_required" });
   }
 
   let resolvedTargetX = routeMode === "local" ? targetX! : 0;
@@ -231,22 +211,16 @@ export async function launchExpedition(
   if (routeMode === "jump_gate") {
     const gateState = await getJumpGateState(userId);
     if (!gateState.unlocked) {
-      return {
-        success: false,
-        status: 400,
-        error:
+      return launchFailure(400, {
+        code:
           gateState.lockedReason?.code === "jump_drive_required"
-            ? "Jump Drive research level 1 required"
-            : "Jump Gate is locked",
-      };
+            ? "expedition_jump_drive_required"
+            : "expedition_jump_gate_locked",
+      });
     }
 
     if (gateState.calibration.status === "calibrating") {
-      return {
-        success: false,
-        status: 400,
-        error: "Jump Gate calibration is still in progress",
-      };
+      return launchFailure(400, { code: "expedition_jump_gate_calibrating" });
     }
 
     const knownDestination = await defaultDb.query.discoveredSystems.findFirst({
@@ -256,11 +230,7 @@ export async function launchExpedition(
       ),
     });
     if (!knownDestination) {
-      return {
-        success: false,
-        status: 404,
-        error: "Known destination not found",
-      };
+      return launchFailure(404, { code: "expedition_known_destination_not_found" });
     }
 
     destinationSystem =
@@ -272,11 +242,7 @@ export async function launchExpedition(
         ),
       })) ?? null;
     if (!destinationSystem) {
-      return {
-        success: false,
-        status: 400,
-        error: "Known destination is not a public Jump Gate target",
-      };
+      return launchFailure(400, { code: "expedition_known_destination_not_public" });
     }
 
     jumpFuelRequired = JUMP_GATE_JUMP_FUEL_COST;
@@ -288,31 +254,18 @@ export async function launchExpedition(
   }
 
   if (shipRow.shipRole === "colonization" && !targetPlanetId) {
-    return {
-      success: false,
-      status: 400,
-      error: "Colonizer expeditions require targetPlanetId",
-    };
+    return launchFailure(400, { code: "expedition_colonizer_target_required" });
   }
 
   if (cargoLoaded > shipRow.shipCargoCapacity) {
-    return {
-      success: false,
-      status: 400,
-      error: "not enough cargo capacity",
-    };
+    return launchFailure(400, { code: "expedition_cargo_capacity" });
   }
 
   let resolvedTargetPlanetId: string | null = null;
   let sameSystemPlanetDistance: number | null = null;
   if (targetPlanetId) {
     if (shipRow.shipRole !== "recon" && shipRow.shipRole !== "colonization") {
-      return {
-        success: false,
-        status: 400,
-        error:
-          "targetPlanetId is only supported for recon or colonization expeditions",
-      };
+      return launchFailure(400, { code: "expedition_target_role_required" });
     }
 
     const targetPlanet = await defaultDb.query.planets.findFirst({
@@ -321,26 +274,17 @@ export async function launchExpedition(
     });
 
     if (!targetPlanet?.system) {
-      return { success: false, status: 404, error: "Target planet not found" };
+      return launchFailure(404, { code: "expedition_target_not_found" });
     }
 
     const sys = targetPlanet.system;
     if (routeMode === "jump_gate") {
       if (!destinationSystem || targetPlanet.systemId !== destinationSystem.id) {
-        return {
-          success: false,
-          status: 400,
-          error:
-            "targetPlanetId must belong to the selected Jump Gate destination system",
-        };
+        return launchFailure(400, { code: "expedition_target_wrong_gate_destination" });
       }
 
       if (sys.isHome || sys.ownerId) {
-        return {
-          success: false,
-          status: 400,
-          error: "Jump Gate target planet must be in a public common system",
-        };
+        return launchFailure(400, { code: "expedition_target_not_public" });
       }
     } else {
       if (
@@ -348,22 +292,13 @@ export async function launchExpedition(
         Math.trunc(resolvedTargetY) !== sys.sectorY ||
         Math.trunc(resolvedTargetZ) !== sys.sectorZ
       ) {
-        return {
-          success: false,
-          status: 400,
-          error:
-            "targetSector must match the target system sector when targetPlanetId is set",
-        };
+        return launchFailure(400, { code: "expedition_target_sector_mismatch" });
       }
     }
 
     if (shipRow.shipRole === "recon") {
       if (routeMode === "local" && (!sys.isHome || sys.ownerId !== userId)) {
-        return {
-          success: false,
-          status: 400,
-          error: "targetPlanetId must refer to a planet in your home system",
-        };
+        return launchFailure(400, { code: "expedition_target_home_required" });
       }
 
       const already = await defaultDb.query.discoveredPlanets.findFirst({
@@ -373,29 +308,23 @@ export async function launchExpedition(
         ),
       });
       if (already) {
-        return {
-          success: false,
-          status: 400,
-          error: "Planet is already surveyed",
-        };
+        return launchFailure(400, { code: "expedition_target_already_surveyed" });
       }
     } else {
       const gates = await checkColonizationGates(userId, targetPlanetId);
       if (!gates.allowed) {
-        return {
-          success: false,
-          status: 400,
-          error: gates.reason || "Colonization requirements not met",
-        };
+        return launchFailure(400, {
+          code: "expedition_colonization_blocked",
+          reason: gates.reason,
+        });
       }
 
       const eligibility = await colonyService.canColonize(userId, targetPlanetId);
       if (!eligibility.allowed) {
-        return {
-          success: false,
-          status: 400,
-          error: eligibility.reason || "Cannot colonize this planet",
-        };
+        return launchFailure(400, {
+          code: "expedition_colonization_blocked",
+          reason: eligibility.reason,
+        });
       }
     }
 
@@ -457,11 +386,7 @@ export async function launchExpedition(
       tx,
     );
     if (availableCargo < cargoLoaded) {
-      return {
-        success: false,
-        status: 400,
-        error: "not enough cargo",
-      } satisfies LaunchExpeditionResult;
+      return launchFailure(400, { code: "expedition_cargo_unavailable" });
     }
 
     const launchCosts = [{ resourceId: "fuel", amount: fuelRequired }];
@@ -474,11 +399,12 @@ export async function launchExpedition(
 
     const fuelSpend = await spendResources(shipRow.shipLocationPlanetId!, launchCosts, tx);
     if (!fuelSpend.success) {
-      return {
-        success: false,
-        status: 400,
-        error: fuelSpend.error || "not enough fuel",
-      } satisfies LaunchExpeditionResult;
+      return launchFailure(400, {
+        code: "insufficient_resource",
+        resourceId: fuelSpend.details?.resourceId ?? launchCosts[0]?.resourceId ?? "fuel",
+        required: fuelSpend.details?.required,
+        available: fuelSpend.details?.available,
+      });
     }
 
     const [expedition] = await tx

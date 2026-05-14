@@ -41,6 +41,25 @@ describe('catalog seed audit (P2-POL-002)', () => {
     expect(bioreactor!.description!.en).toContain('water');
   });
 
+  it('keeps player-facing catalog names and descriptions free of task or implementation metadata', () => {
+    const metaPattern = /\b(P\d(?:\.\d)?-\d+|task-id|task|slug|proxy|server|internal|technical)\b/i;
+    const texts = [
+      ...RESOURCE_CATALOG_ROWS.flatMap((row) => [row.name.en, row.name.ru]),
+      ...BUILDING_TYPE_CATALOG_ROWS.flatMap((row) => [
+        row.name.en,
+        row.name.ru,
+        row.description?.en ?? '',
+        row.description?.ru ?? '',
+      ]),
+      ...SHIP_TYPE_CATALOG_ROWS.flatMap((row) => [row.name.en, row.name.ru]),
+    ];
+
+    for (const text of texts) {
+      expect(text).not.toMatch(metaPattern);
+    }
+  });
+
+
   it('keeps high-tier ship infrastructure costs realistic', () => {
     expect(HIGH_TIER_UPGRADE_COSTS_BY_BUILDING.spaceport).toMatchObject({
       aluminum: expect.any(Number),

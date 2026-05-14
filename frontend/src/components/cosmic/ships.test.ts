@@ -31,7 +31,9 @@ describe('ship icon resolver', () => {
   it('returns a placeholder for unknown ship types', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const def = resolveShipType('unknown_hull');
-    expect(def.label).toBe('unknown_hull');
+    expect(def.label).toBe('Unknown Hull');
+    expect(def.tag).toBe('SHIP');
+    expect(def.label).not.toContain('_');
     expect(def).not.toBe(SHIP_BY_TYPE.scout);
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
