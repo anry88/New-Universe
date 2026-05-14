@@ -33,10 +33,10 @@ import { env } from '../../lib/env.js';
 export const MIN_HOME_CAPITAL_SLOT_COUNT = 22;
 
 /**
- * Fixed at 9 planets so every new player gets the full starter resource
+ * Fixed at 8 planets so every new player gets the full starter resource
  * surface without making rare/extreme worlds common.
  */
-export const HOME_PLANET_COUNT = 9;
+export const HOME_PLANET_COUNT = 8;
 
 /**
  * Planned starter layout (orbit inner → outer). One slot per biome below
@@ -45,13 +45,12 @@ export const HOME_PLANET_COUNT = 9;
  *
  *   tier 1 — volcanic (hot sulfur/copper world)
  *   tier 1 — volcanic (hot titanium/sulfur reserve)
- *   tier 2 — rocky    (iron/copper/aluminum belt)
- *   tier 2 — rocky    (silicon/carbon/titanium belt)
- *   tier 3 — ocean    (water/biomass)
+ *   tier 2 — rocky    (iron/copper/aluminum/silver belt)
+ *   tier 2 — rocky    (silicon/carbon/titanium/gold belt)
+ *   tier 3 — ocean    (water/biomass/oil + light gases)
  *   tier 4 — green    ★ capital (habitable, deeper safe orbit)
- *   tier 5 — gas_giant (methane/tritium)
- *   tier 6 — ice      (ice/water outer body; no biomass)
- *   tier 6 — ice      (ice/tritium outer reserve; no biomass)
+ *   tier 5 — gas_giant (methane/oxygen/hydrogen/nitrogen)
+ *   tier 6 — ice      (ice/water/oil/tritium layered outer reserve)
  */
 interface HomePlanetOrbitPlanEntry {
   biome: BiomeType;
@@ -70,32 +69,28 @@ export const HOME_PLANET_ORBIT_PLAN: readonly HomePlanetOrbitPlanEntry[] = [
   },
   {
     biome: 'rocky',
-    resources: ['iron', 'copper', 'aluminum'],
+    resources: ['iron', 'copper', 'aluminum', 'silver'],
   },
   {
     biome: 'rocky',
-    resources: ['silicon', 'carbon', 'titanium'],
+    resources: ['silicon', 'carbon', 'titanium', 'gold'],
   },
   {
     biome: 'ocean',
-    resources: ['water', 'biomass', 'oil'],
+    resources: ['water', 'water', 'water', 'biomass', 'oil', 'oxygen', 'hydrogen'],
   },
   {
     biome: 'green',
-    resources: ['water', 'iron', 'carbon', 'silicon', 'methane', 'oil', 'biomass'],
+    resources: ['water', 'iron', 'iron', 'carbon', 'silicon', 'oil', 'methane', 'biomass'],
     isCapital: true,
   },
   {
     biome: 'gas_giant',
-    resources: ['methane', 'tritium'],
+    resources: ['methane', 'oxygen', 'hydrogen', 'nitrogen'],
   },
   {
     biome: 'ice',
-    resources: ['ice', 'water'],
-  },
-  {
-    biome: 'ice',
-    resources: ['ice', 'water', 'tritium'],
+    resources: ['ice', 'ice', 'water', 'oil', 'tritium'],
   },
 ] as const;
 
@@ -260,18 +255,20 @@ export async function generateHomeSystem(userId: string, tx?: any) {
         })
         .returning();
 
-      // Resource set per planet is hand-authored for the starter system:
-      // neutral worlds carry most progression resources, while extreme
-      // worlds provide one focused specialty deposit.
+      // Resource slots per planet are hand-authored for the starter system.
+      // Repeating a resource id in the plan means multiple local deposit
+      // cells (`richness.value`), e.g. the capital has 2 iron slots and the
+      // ocean world has 3 water slots.
       const planetResourcesList = [...planetPlan.resources];
+      const resourceSlotCounts = new Map<string, number>();
+      for (const resId of planetResourcesList) {
+        resourceSlotCounts.set(resId, (resourceSlotCounts.get(resId) ?? 0) + 1);
+      }
 
-      const uniqueResources = [...new Set(planetResourcesList)];
-
-      for (const resId of uniqueResources) {
-        // T3/T4 resources are research-gated; never auto-seed at the
-        // home system. Note that `tritium` is intentionally *not* in the
-        // forbidden list: a single starter system must be able to build
-        // a jump_ship (which requires tritium) without trading.
+      for (const [resId, slotCount] of resourceSlotCounts.entries()) {
+        // Most T3/T4 resources are research-gated; never auto-seed them at
+        // the home system. Starter exceptions are explicit in the orbit plan:
+        // tritium (jump ship), nitrogen (rare gas), and gold (rocky rare).
         const t3t4forbidden = [
           'mercury',
           'magnesium',
@@ -285,19 +282,10 @@ export async function generateHomeSystem(userId: string, tx?: any) {
         ];
         if (t3t4forbidden.includes(resId)) continue;
 
-        // Most resources roll integer richness 1..3. Richness describes
-        // deposits only; passive collection starts later when an extractor
-        // building is completed. Tritium is intentionally rarer so the
-        // starter system can contain it without making it abundant.
-        let resRichness: number;
-        let storedRichness: number;
-        if (resId === 'tritium') {
-          resRichness = random() * 0.5 + 0.3; // 0.3..0.8
-          storedRichness = Math.max(1, Math.round(resRichness));
-        } else {
-          resRichness = random() * 2 + 0.5; // 0.5..2.5
-          storedRichness = Math.max(1, Math.round(resRichness));
-        }
+        // Richness describes deposit slots only; passive collection starts
+        // later when an extractor building is completed. Starter deposits
+        // are fixed instead of random so rebalance changes remain testable.
+        const storedRichness = Math.max(1, Math.min(5, slotCount));
 
         await database.insert(richness).values({
           planetId: planet.id,

@@ -577,7 +577,7 @@ describe('Buildings Service - POST /buildings/build', () => {
     expect(body.message).toContain('metal deposit');
   });
 
-  it('blocks oil pumps on planets without oil deposits', async () => {
+  it('blocks oil pumps on planets without oil or methane deposits', async () => {
     const { app, token, userId } = await createTestUser();
 
     const [neutralSystem] = await db.insert(systems).values({
@@ -633,7 +633,66 @@ describe('Buildings Service - POST /buildings/build', () => {
     expect(response.statusCode).toBe(400);
     const body = response.json();
     expect(body.code).toBe('building_blocked_planet_resource');
-    expect(body.message).toContain('oil deposit');
+    expect(body.message).toContain('oil or methane deposit');
+  });
+
+  it('allows oil pumps to target methane deposits', async () => {
+    const { app, token, userId } = await createTestUser();
+
+    const [neutralSystem] = await db.insert(systems).values({
+      isHome: false,
+      sectorX: 6,
+      sectorY: 6,
+      sectorZ: 0,
+      x: '600.00',
+      y: '600.00',
+      z: '0.00',
+      name: `Methane Pump System ${Math.random()}`,
+      seed: 793,
+    }).returning();
+
+    const [methanePlanet] = await db.insert(planets).values({
+      systemId: neutralSystem.id,
+      biome: 'gas_giant',
+      size: 30,
+      slotCount: 8,
+      name: `Methane Pump ${Math.random()}`,
+    }).returning();
+
+    await db.insert(colonies).values({
+      ownerId: userId,
+      planetId: methanePlanet.id,
+    });
+    await db.insert(buildings).values({
+      planetId: methanePlanet.id,
+      typeId: 'command_center',
+      level: 2,
+      slotIndex: 0,
+    });
+    await db.insert(richness).values([
+      { planetId: methanePlanet.id, resourceId: 'methane', value: 1 },
+    ]);
+    await db.insert(planetResources).values([
+      { planetId: methanePlanet.id, resourceId: 'iron', amount: '99999', regenRate: '0' },
+      { planetId: methanePlanet.id, resourceId: 'silicon', amount: '99999', regenRate: '0' },
+      { planetId: methanePlanet.id, resourceId: 'carbon', amount: '99999', regenRate: '0' },
+      { planetId: methanePlanet.id, resourceId: 'methane', amount: '0', regenRate: '0' },
+    ]);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/buildings/build',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        planetId: methanePlanet.id,
+        typeId: 'oil_pump',
+        slotIndex: 1,
+        selectedResourceId: 'methane',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().success).toBe(true);
   });
 
   it('should allow refinery construction without smelter dependency or oil deposit', async () => {

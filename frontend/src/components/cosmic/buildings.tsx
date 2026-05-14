@@ -341,11 +341,11 @@ const BUILDING_CATEGORY_BY_TYPE: Record<BuildingTypeId, BuildingCategoryKey> = {
 export const BUILDING_BY_TYPE: Record<BuildingTypeId, BuildingDef> = {
   command_center: { Icon: IconCommandCenter, label: 'Command Center', labels: { en: 'Command Center', ru: 'Командный центр' }, cat: 'Special', cats: BUILDING_CATEGORY_LABELS.special },
   mine: { Icon: IconMine, label: 'Metals Mine', labels: { en: 'Metals Mine', ru: 'Шахта' }, cat: 'Extraction', cats: BUILDING_CATEGORY_LABELS.extraction },
-  drill: { Icon: IconDrill, label: 'Fluid Extractor', labels: { en: 'Fluid Extractor', ru: 'Экстрактор' }, cat: 'Extraction', cats: BUILDING_CATEGORY_LABELS.extraction },
+  drill: { Icon: IconDrill, label: 'Gas Extractor', labels: { en: 'Gas Extractor', ru: 'Газовый экстрактор' }, cat: 'Extraction', cats: BUILDING_CATEGORY_LABELS.extraction },
   battery: { Icon: IconBattery, label: 'Battery', labels: { en: 'Battery', ru: 'Аккумулятор' }, cat: 'Energy', cats: BUILDING_CATEGORY_LABELS.energy },
   storage: { Icon: IconStorage, label: 'Storage', labels: { en: 'Storage', ru: 'Склад' }, cat: 'Logistics', cats: BUILDING_CATEGORY_LABELS.logistics },
   oil_pump: { Icon: IconOilPump, label: 'Oil Pump', labels: { en: 'Oil Pump', ru: 'Нефтекачка' }, cat: 'Extraction', cats: BUILDING_CATEGORY_LABELS.extraction },
-  biomass_harvester: { Icon: IconBiomassHarvester, label: 'Biomass Harvester', labels: { en: 'Biomass Harvester', ru: 'Биореактор' }, cat: 'Extraction', cats: BUILDING_CATEGORY_LABELS.extraction },
+  biomass_harvester: { Icon: IconBiomassHarvester, label: 'Bioreactor', labels: { en: 'Bioreactor', ru: 'Биореактор' }, cat: 'Extraction', cats: BUILDING_CATEGORY_LABELS.extraction },
   smelter: { Icon: IconSmelter, label: 'Smelter', labels: { en: 'Smelter', ru: 'Завод' }, cat: 'Processing', cats: BUILDING_CATEGORY_LABELS.processing },
   refinery: { Icon: IconRefinery, label: 'Refinery', labels: { en: 'Refinery', ru: 'НПЗ' }, cat: 'Processing', cats: BUILDING_CATEGORY_LABELS.processing },
   fabrication_bay: { Icon: IconFabricationBay, label: 'Fabrication Bay', labels: { en: 'Fabrication Bay', ru: 'Цех электроники' }, cat: 'Processing', cats: BUILDING_CATEGORY_LABELS.processing },

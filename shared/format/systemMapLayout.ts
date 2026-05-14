@@ -35,7 +35,7 @@ export const SYSTEM_MAP_BIOME_ORBIT_TIER: Record<string, number> = {
   unknown: 99,
 };
 
-export const SYSTEM_MAP_HOME_GUIDE_ORBIT_COUNT = 9;
+export const SYSTEM_MAP_HOME_GUIDE_ORBIT_COUNT = 8;
 const SYSTEM_MAP_HOME_CAPITAL_ORBIT_SLOT = 6;
 
 const SYSTEM_MAP_BIOME_SPRITE_BASE: Record<string, number> = {

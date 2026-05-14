@@ -17,9 +17,9 @@ describe('resolveBuildingType', () => {
     expect(BUILDING_BY_TYPE.fabrication_bay.label).toBe('Fabrication Bay');
   });
 
-  it('resolves the biomass harvester icon entry', () => {
+  it('resolves the bioreactor icon entry', () => {
     expect(resolveBuildingType('biomass_harvester')).toBe(BUILDING_BY_TYPE.biomass_harvester);
-    expect(BUILDING_BY_TYPE.biomass_harvester.label).toBe('Biomass Harvester');
+    expect(BUILDING_BY_TYPE.biomass_harvester.label).toBe('Bioreactor');
   });
 
   it('resolves legacy `electronics_factory` alias to fabrication_bay', () => {

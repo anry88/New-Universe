@@ -14,6 +14,7 @@ All notable changes to New Universe will be documented in this file.
 ### Changed
 - Подготовлены отдельные GitHub-issues и добавлены в Project для последующего исполнения без смешивания с текущими задачами других агентов.
 - `P2.2-014` (issue #322): `POST /buildings/build` и `POST /buildings/upgrade` больше не создают Redis/BullMQ Queue/connection в request lifecycle; optional BullMQ enqueue вынесен в общий producer, а completion остаётся в `tick-buildings`.
+- `P2.2-015` (issue #323): перебалансирована стартовая система игрока до 8 планет с одной ледяной планетой, фиксированными слотами стартовых месторождений, новыми газами/драгметаллами и обновлёнными ролями добывающих зданий.
 
 ### Docs
 - Зафиксированы правила для агентов по ведению `CHANGELOG.md`: когда добавлять записи, как работать с `Unreleased`, как сохранять записи других агентов и какие данные нельзя заносить в журнал.

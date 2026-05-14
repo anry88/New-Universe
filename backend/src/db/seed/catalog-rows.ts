@@ -5,12 +5,31 @@
 import type { buildingTypes } from '../schema/buildings.js';
 import type { resources } from '../schema/resources.js';
 import type { shipTypes } from '../schema/ships.js';
-import { EXTRACTABLE_RESOURCE_RATES_PER_HOUR } from '@shared/config/resourceExtractionRates.js';
-import { MAX_BUILDING_LEVEL } from '@shared/config/buildingUpgradeEconomy.js';
+import * as resourceExtractionRatesModule from '@shared/config/resourceExtractionRates.js';
+import * as buildingUpgradeEconomyModule from '@shared/config/buildingUpgradeEconomy.js';
 
 export type ResourceCatalogRow = typeof resources.$inferInsert;
 export type BuildingCatalogRow = typeof buildingTypes.$inferInsert;
 export type ShipCatalogRow = typeof shipTypes.$inferInsert;
+
+type ResourceExtractionRatesModule = typeof import('@shared/config/resourceExtractionRates.js');
+type BuildingUpgradeEconomyModule = typeof import('@shared/config/buildingUpgradeEconomy.js');
+
+// Local `tsx src/db/seed.ts` can expose @shared TS modules through a CJS
+// default export, while Vitest/tsc see normal ESM named exports.
+const resourceExtractionRatesInterop = resourceExtractionRatesModule as ResourceExtractionRatesModule & {
+  default?: ResourceExtractionRatesModule;
+};
+const buildingUpgradeEconomyInterop = buildingUpgradeEconomyModule as BuildingUpgradeEconomyModule & {
+  default?: BuildingUpgradeEconomyModule;
+};
+
+const EXTRACTABLE_RESOURCE_RATES_PER_HOUR =
+  resourceExtractionRatesInterop.EXTRACTABLE_RESOURCE_RATES_PER_HOUR ??
+  resourceExtractionRatesInterop.default!.EXTRACTABLE_RESOURCE_RATES_PER_HOUR;
+const MAX_BUILDING_LEVEL =
+  buildingUpgradeEconomyInterop.MAX_BUILDING_LEVEL ??
+  buildingUpgradeEconomyInterop.default!.MAX_BUILDING_LEVEL;
 
 export const RESOURCE_CATALOG_ROWS: ResourceCatalogRow[] = [
   { id: 'energy', symbol: 'E', tier: 1, name: { ru: 'Энергия', en: 'Energy' }, baseRegenRate: 0, defaultStorageCap: 0 },
@@ -19,10 +38,13 @@ export const RESOURCE_CATALOG_ROWS: ResourceCatalogRow[] = [
   { id: 'carbon', symbol: 'C', tier: 1, name: { ru: 'Углерод', en: 'Carbon' }, baseRegenRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.carbon, defaultStorageCap: 5000 },
   { id: 'silicon', symbol: 'Si', tier: 1, name: { ru: 'Кремний', en: 'Silicon' }, baseRegenRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.silicon, defaultStorageCap: 5000 },
   { id: 'methane', symbol: 'CH₄', tier: 1, name: { ru: 'Метан', en: 'Methane' }, baseRegenRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.methane, defaultStorageCap: 5000 },
+  { id: 'oxygen', symbol: 'O₂', tier: 1, name: { ru: 'Кислород', en: 'Oxygen' }, baseRegenRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.oxygen, defaultStorageCap: 5000 },
+  { id: 'hydrogen', symbol: 'H₂', tier: 1, name: { ru: 'Водород', en: 'Hydrogen' }, baseRegenRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.hydrogen, defaultStorageCap: 5000 },
   { id: 'fuel', symbol: 'Fuel', tier: 1, name: { ru: 'Топливо', en: 'Fuel' }, baseRegenRate: 0, defaultStorageCap: 1000 },
 
   { id: 'copper', symbol: 'Cu', tier: 2, name: { ru: 'Медь', en: 'Copper' }, baseRegenRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.copper, defaultStorageCap: 2500 },
   { id: 'aluminum', symbol: 'Al', tier: 2, name: { ru: 'Алюминий', en: 'Aluminum' }, baseRegenRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.aluminum, defaultStorageCap: 2500 },
+  { id: 'silver', symbol: 'Ag', tier: 2, name: { ru: 'Серебро', en: 'Silver' }, baseRegenRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.silver, defaultStorageCap: 2500 },
   { id: 'titanium', symbol: 'Ti', tier: 2, name: { ru: 'Титан', en: 'Titanium' }, baseRegenRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.titanium, defaultStorageCap: 2500 },
   { id: 'ice', symbol: 'Ice', tier: 2, name: { ru: 'Лёд', en: 'Ice' }, baseRegenRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.ice, defaultStorageCap: 2500 },
   { id: 'oil', symbol: 'Oil', tier: 2, name: { ru: 'Нефть', en: 'Oil' }, baseRegenRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.oil, defaultStorageCap: 2500 },
@@ -40,6 +62,7 @@ export const RESOURCE_CATALOG_ROWS: ResourceCatalogRow[] = [
   { id: 'mercury', symbol: 'Hg', tier: 3, name: { ru: 'Ртуть', en: 'Mercury' }, baseRegenRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.mercury, defaultStorageCap: 1000 },
   { id: 'magnesium', symbol: 'Mg', tier: 3, name: { ru: 'Магний', en: 'Magnesium' }, baseRegenRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.magnesium, defaultStorageCap: 1000 },
   { id: 'lead', symbol: 'Pb', tier: 3, name: { ru: 'Свинец', en: 'Lead' }, baseRegenRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.lead, defaultStorageCap: 1000 },
+  { id: 'nitrogen', symbol: 'N₂', tier: 3, name: { ru: 'Азот', en: 'Nitrogen' }, baseRegenRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.nitrogen, defaultStorageCap: 1000 },
   { id: 'uranium', symbol: 'U', tier: 3, name: { ru: 'Уран', en: 'Uranium' }, baseRegenRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.uranium, defaultStorageCap: 1000 },
   { id: 'cobalt', symbol: 'Co', tier: 3, name: { ru: 'Кобальт', en: 'Cobalt' }, baseRegenRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.cobalt, defaultStorageCap: 1000 },
   {
@@ -51,6 +74,7 @@ export const RESOURCE_CATALOG_ROWS: ResourceCatalogRow[] = [
     defaultStorageCap: 1000,
   },
   { id: 'tritium', symbol: 'T', tier: 3, name: { ru: 'Тритий', en: 'Tritium' }, baseRegenRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.tritium, defaultStorageCap: 500 },
+  { id: 'gold', symbol: 'Au', tier: 3, name: { ru: 'Золото', en: 'Gold' }, baseRegenRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.gold, defaultStorageCap: 1000 },
   { id: 'jump_fuel', symbol: 'JF', tier: 3, name: { ru: 'Прыжковое топливо', en: 'Jump Fuel' }, baseRegenRate: 0, defaultStorageCap: 500 },
 
   { id: 'antimatter', symbol: 'Am', tier: 4, name: { ru: 'Антиматерия', en: 'Antimatter' }, baseRegenRate: 0, defaultStorageCap: 100 },
@@ -84,7 +108,7 @@ export const BUILDING_TYPE_CATALOG_ROWS: BuildingCatalogRow[] = [
     energyConsumption: 0,
   },
   {
-    // Metals-only surface mine. Pairs with `drill` (fluids/gases) below;
+    // Metals-only surface mine. Pairs with the gases-only `drill` below;
     // the two were previously identical except for output — they are now
     // semantically distinct buildings with different costs, deps and
     // biome affinities.
@@ -104,15 +128,13 @@ export const BUILDING_TYPE_CATALOG_ROWS: BuildingCatalogRow[] = [
     energyConsumption: 10,
   },
   {
-    // Fluids/gases extractor. Previously named "Deep Drill" with the same
-    // cost/deps as `mine` — now reworked into a downstream-feeding fluid
-    // pipeline that produces water (default), methane or oil depending on
-    // the planet biome.
+    // Gases-only extractor. Water and biomass moved to the bioreactor,
+    // while oil/methane hydrocarbon pockets belong to the oil pump.
     id: 'drill',
-    name: { ru: 'Газожидкостной экстрактор', en: 'Fluid Extractor' },
+    name: { ru: 'Газовый экстрактор', en: 'Gas Extractor' },
     description: {
-      ru: 'Добывает жидкости, лёд и газы из выбранного местного источника.',
-      en: 'Extracts fluids, ice, and gases from the selected local source.',
+      ru: 'Добывает газы из выбранного местного источника.',
+      en: 'Extracts gases from the selected local source.',
     },
     category: 'production',
     maxLevel: MAX_BUILDING_LEVEL,
@@ -124,7 +146,7 @@ export const BUILDING_TYPE_CATALOG_ROWS: BuildingCatalogRow[] = [
     ],
     baseCost: { silicon: 100, carbon: 80 },
     baseTimeSec: 360,
-    baseOutput: { resourceId: 'water', baseRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.water },
+    baseOutput: { resourceId: 'methane', baseRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.methane },
     energyConsumption: 14,
   },
   {
@@ -161,8 +183,8 @@ export const BUILDING_TYPE_CATALOG_ROWS: BuildingCatalogRow[] = [
     id: 'oil_pump',
     name: { ru: 'Нефтекачка', en: 'Oil Pump' },
     description: {
-      ru: 'Добывает сырую нефть из выбранного местного пласта.',
-      en: 'Extracts crude oil from the selected local reservoir.',
+      ru: 'Добывает нефть или метан из выбранного местного углеводородного пласта.',
+      en: 'Extracts oil or methane from the selected local hydrocarbon reservoir.',
     },
     category: 'production',
     maxLevel: MAX_BUILDING_LEVEL,
@@ -174,10 +196,10 @@ export const BUILDING_TYPE_CATALOG_ROWS: BuildingCatalogRow[] = [
   },
   {
     id: 'biomass_harvester',
-    name: { ru: 'Биореактор', en: 'Biomass Harvester' },
+    name: { ru: 'Биореактор', en: 'Bioreactor' },
     description: {
-      ru: 'Собирает и культивирует биомассу из местного биологического источника.',
-      en: 'Harvests and cultures biomass from the local biological source.',
+      ru: 'Поддерживает жизнеобеспечение, добывая воду или культивируя биомассу из местного источника.',
+      en: 'Supports life support by extracting water or culturing biomass from the local source.',
     },
     category: 'production',
     maxLevel: MAX_BUILDING_LEVEL,

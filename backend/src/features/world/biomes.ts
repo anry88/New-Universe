@@ -78,8 +78,8 @@ export const BIOMES: Record<BiomeType, Biome> = {
   rocky: {
     id: 'rocky',
     name: { ru: 'Каменистая', en: 'Rocky' },
-    commonResources: ['iron', 'copper', 'silicon', 'aluminum'],
-    rareResources: ['titanium'],
+    commonResources: ['iron', 'copper', 'silicon', 'aluminum', 'silver'],
+    rareResources: ['titanium', 'gold'],
     bonuses: ['cheap_mines'],
     penalties: ['slow_factories'],
     orbitTier: BIOME_ORBIT_TIER.rocky,
@@ -88,7 +88,7 @@ export const BIOMES: Record<BiomeType, Biome> = {
   ocean: {
     id: 'ocean',
     name: { ru: 'Океаническая', en: 'Ocean' },
-    commonResources: ['water', 'biomass'],
+    commonResources: ['water', 'biomass', 'oxygen', 'hydrogen'],
     rareResources: ['oil'],
     bonuses: ['free_cooling'],
     penalties: ['slow_build'],
@@ -98,11 +98,8 @@ export const BIOMES: Record<BiomeType, Biome> = {
   gas_giant: {
     id: 'gas_giant',
     name: { ru: 'Газовый гигант', en: 'Gas Giant' },
-    commonResources: ['methane'],
-    // Tritium (a hydrogen isotope) is realistic on gas giants and gives the
-    // starter system access to a tritium source without forcing distant
-    // exploration first. Without it jump_ship cannot be built locally.
-    rareResources: ['tritium'],
+    commonResources: ['methane', 'oxygen', 'hydrogen'],
+    rareResources: ['nitrogen'],
     bonuses: ['infinite_gas'],
     penalties: ['no_factories'],
     orbitTier: BIOME_ORBIT_TIER.gas_giant,
@@ -112,7 +109,7 @@ export const BIOMES: Record<BiomeType, Biome> = {
     id: 'ice',
     name: { ru: 'Ледяная', en: 'Ice' },
     commonResources: ['ice', 'water'],
-    rareResources: ['tritium'],
+    rareResources: ['oil', 'tritium'],
     bonuses: ['storage_plus_10'],
     penalties: ['low_energy'],
     orbitTier: BIOME_ORBIT_TIER.ice,

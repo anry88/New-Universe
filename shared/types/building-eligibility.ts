@@ -11,33 +11,35 @@ export const METAL_DEPOSIT_RESOURCE_IDS = [
   'silicon',
   'sulfur',
   'titanium',
+  'silver',
   'mercury',
   'magnesium',
   'lead',
+  'gold',
   'uranium',
   'cobalt',
   'silicon_carbide',
   'iridium',
 ] as const;
 
-export const FLUID_DEPOSIT_RESOURCE_IDS = [
-  'water',
+export const GAS_DEPOSIT_RESOURCE_IDS = [
   'methane',
-  'ice',
-  'oil',
+  'oxygen',
+  'hydrogen',
+  'nitrogen',
   'tritium',
 ] as const;
 
 const METAL_DEPOSIT_SET = new Set<string>(METAL_DEPOSIT_RESOURCE_IDS);
-const FLUID_DEPOSIT_SET = new Set<string>(FLUID_DEPOSIT_RESOURCE_IDS);
-const BIOMASS_DEPOSIT_RESOURCE_IDS = ['biomass'] as const;
-const OIL_DEPOSIT_RESOURCE_IDS = ['oil'] as const;
+const GAS_DEPOSIT_SET = new Set<string>(GAS_DEPOSIT_RESOURCE_IDS);
+const BIOREACTOR_DEPOSIT_RESOURCE_IDS = ['water', 'biomass'] as const;
+const OIL_PUMP_DEPOSIT_RESOURCE_IDS = ['oil', 'methane'] as const;
 
 const EXTRACTOR_RESOURCE_IDS_BY_TYPE = {
   mine: METAL_DEPOSIT_RESOURCE_IDS,
-  drill: FLUID_DEPOSIT_RESOURCE_IDS,
-  oil_pump: OIL_DEPOSIT_RESOURCE_IDS,
-  biomass_harvester: BIOMASS_DEPOSIT_RESOURCE_IDS,
+  drill: GAS_DEPOSIT_RESOURCE_IDS,
+  oil_pump: OIL_PUMP_DEPOSIT_RESOURCE_IDS,
+  biomass_harvester: BIOREACTOR_DEPOSIT_RESOURCE_IDS,
 } as const;
 
 type ExtractorTypeId = keyof typeof EXTRACTOR_RESOURCE_IDS_BY_TYPE;
@@ -57,14 +59,20 @@ function resourceLabel(resourceId: string, lang: 'en' | 'ru'): string {
   switch (resourceId) {
     case 'metal':
       return lang === 'ru' ? 'металлов' : 'metal';
-    case 'fluid_or_gas':
-      return lang === 'ru' ? 'воды, метана, льда или нефти' : 'water, methane, ice or oil';
+    case 'gas':
+      return lang === 'ru' ? 'газа' : 'gas';
+    case 'oil_or_methane':
+      return lang === 'ru' ? 'нефти или метана' : 'oil or methane';
+    case 'water_or_biomass':
+      return lang === 'ru' ? 'воды или биомассы' : 'water or biomass';
     case 'iron':
       return lang === 'ru' ? 'железа' : 'iron';
     case 'copper':
       return lang === 'ru' ? 'меди' : 'copper';
     case 'aluminum':
       return lang === 'ru' ? 'алюминия' : 'aluminum';
+    case 'silver':
+      return lang === 'ru' ? 'серебра' : 'silver';
     case 'carbon':
       return lang === 'ru' ? 'углерода' : 'carbon';
     case 'silicon':
@@ -73,10 +81,18 @@ function resourceLabel(resourceId: string, lang: 'en' | 'ru'): string {
       return lang === 'ru' ? 'серы' : 'sulfur';
     case 'titanium':
       return lang === 'ru' ? 'титана' : 'titanium';
+    case 'gold':
+      return lang === 'ru' ? 'золота' : 'gold';
     case 'water':
       return lang === 'ru' ? 'воды' : 'water';
     case 'methane':
       return lang === 'ru' ? 'метана' : 'methane';
+    case 'oxygen':
+      return lang === 'ru' ? 'кислорода' : 'oxygen';
+    case 'hydrogen':
+      return lang === 'ru' ? 'водорода' : 'hydrogen';
+    case 'nitrogen':
+      return lang === 'ru' ? 'азота' : 'nitrogen';
     case 'ice':
       return lang === 'ru' ? 'льда' : 'ice';
     case 'oil':
@@ -202,32 +218,32 @@ export function resolvePlanetResourceBlockedReason(input: {
   }
 
   if (input.typeId === 'drill') {
-    const hasFluidDeposit = [...resourceIds].some((resourceId) => FLUID_DEPOSIT_SET.has(resourceId));
-    if (!hasFluidDeposit) {
+    const hasGasDeposit = [...resourceIds].some((resourceId) => GAS_DEPOSIT_SET.has(resourceId));
+    if (!hasGasDeposit) {
       return {
         code: 'building_blocked_planet_resource',
         details: {
-          resourceId: 'fluid_or_gas',
-          acceptedResourceIds: [...FLUID_DEPOSIT_RESOURCE_IDS],
+          resourceId: 'gas',
+          acceptedResourceIds: [...GAS_DEPOSIT_RESOURCE_IDS],
         },
       };
     }
   }
 
   if (input.typeId === 'oil_pump') {
-    if (!resourceIds.has('oil')) {
+    if (![...OIL_PUMP_DEPOSIT_RESOURCE_IDS].some((resourceId) => resourceIds.has(resourceId))) {
       return {
         code: 'building_blocked_planet_resource',
-        details: { resourceId: 'oil', acceptedResourceIds: ['oil'] },
+        details: { resourceId: 'oil_or_methane', acceptedResourceIds: [...OIL_PUMP_DEPOSIT_RESOURCE_IDS] },
       };
     }
   }
 
   if (input.typeId === 'biomass_harvester') {
-    if (!resourceIds.has('biomass')) {
+    if (![...BIOREACTOR_DEPOSIT_RESOURCE_IDS].some((resourceId) => resourceIds.has(resourceId))) {
       return {
         code: 'building_blocked_planet_resource',
-        details: { resourceId: 'biomass', acceptedResourceIds: ['biomass'] },
+        details: { resourceId: 'water_or_biomass', acceptedResourceIds: [...BIOREACTOR_DEPOSIT_RESOURCE_IDS] },
       };
     }
   }
@@ -318,11 +334,13 @@ export function resolveBuildingProducedResourceIds(input: {
   }
 
   if (input.typeId === 'drill') {
-    return resourceIds.filter((resourceId) => FLUID_DEPOSIT_SET.has(resourceId));
+    return resourceIds.filter((resourceId) => GAS_DEPOSIT_SET.has(resourceId));
   }
 
   if (input.typeId === 'oil_pump') {
-    return resourceSet.has('oil') ? ['oil'] : [];
+    return resourceIds.filter((resourceId) =>
+      (OIL_PUMP_DEPOSIT_RESOURCE_IDS as readonly string[]).includes(resourceId),
+    );
   }
 
   if (input.typeId === 'refinery') {
@@ -334,7 +352,9 @@ export function resolveBuildingProducedResourceIds(input: {
   }
 
   if (input.typeId === 'biomass_harvester') {
-    return resourceSet.has('biomass') ? ['biomass'] : [];
+    return resourceIds.filter((resourceId) =>
+      (BIOREACTOR_DEPOSIT_RESOURCE_IDS as readonly string[]).includes(resourceId),
+    );
   }
 
   const resourceId = input.baseOutput?.resourceId;
@@ -356,14 +376,10 @@ export function resolveBuildingProductionRateForResource(input: {
 
   if (isSelectableExtractorType(input.typeId)) {
     const resourceRate = extractionRateForResource(input.resourceId, baseRate);
-    if (!input.selectedResourceId && (input.typeId === 'mine' || input.typeId === 'drill')) {
+    if (!input.selectedResourceId) {
       return resourceRate / Math.max(1, producedResourceIds.length);
     }
     return resourceRate;
-  }
-
-  if (!input.selectedResourceId && (input.typeId === 'mine' || input.typeId === 'drill')) {
-    return baseRate / Math.max(1, producedResourceIds.length);
   }
 
   return baseRate;

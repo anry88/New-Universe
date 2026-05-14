@@ -18,7 +18,27 @@ describe('catalog seed audit (P2-POL-002)', () => {
     const resourceRates = new Map(RESOURCE_CATALOG_ROWS.map((row) => [row.id, row.baseRegenRate]));
     expect(resourceRates.get('iron')).toBe(EXTRACTABLE_RESOURCE_RATES_PER_HOUR.iron);
     expect(resourceRates.get('silicon')).toBe(EXTRACTABLE_RESOURCE_RATES_PER_HOUR.silicon);
+    expect(resourceRates.get('oxygen')).toBe(EXTRACTABLE_RESOURCE_RATES_PER_HOUR.oxygen);
+    expect(resourceRates.get('hydrogen')).toBe(EXTRACTABLE_RESOURCE_RATES_PER_HOUR.hydrogen);
+    expect(resourceRates.get('nitrogen')).toBe(EXTRACTABLE_RESOURCE_RATES_PER_HOUR.nitrogen);
+    expect(resourceRates.get('silver')).toBe(EXTRACTABLE_RESOURCE_RATES_PER_HOUR.silver);
+    expect(resourceRates.get('gold')).toBe(EXTRACTABLE_RESOURCE_RATES_PER_HOUR.gold);
     expect(resourceRates.get('iron')).toBeGreaterThan(resourceRates.get('silicon') ?? 0);
+  });
+
+  it('keeps P2.2-015 extractor catalog defaults aligned with new deposit roles', () => {
+    const drill = BUILDING_TYPE_CATALOG_ROWS.find((building) => building.id === 'drill');
+    const oilPump = BUILDING_TYPE_CATALOG_ROWS.find((building) => building.id === 'oil_pump');
+    const bioreactor = BUILDING_TYPE_CATALOG_ROWS.find((building) => building.id === 'biomass_harvester');
+
+    expect(drill).toBeDefined();
+    expect(oilPump).toBeDefined();
+    expect(bioreactor).toBeDefined();
+    expect(drill!.name.en).toBe('Gas Extractor');
+    expect(drill!.baseOutput).toMatchObject({ resourceId: 'methane' });
+    expect(oilPump!.description!.en).toContain('oil or methane');
+    expect(bioreactor!.name.en).toBe('Bioreactor');
+    expect(bioreactor!.description!.en).toContain('water');
   });
 
   it('keeps high-tier ship infrastructure costs realistic', () => {
