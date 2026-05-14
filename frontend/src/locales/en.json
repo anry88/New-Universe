@@ -102,6 +102,8 @@
   "expedition.noGateColonizerTargets": "No discovered unsettled planets are available in this destination.",
   "expedition.gatePointRequired": "Tap the target system map to set the scout point.",
   "expedition.gatePointSelected": "Scout point selected [{x}, {y}]",
+  "expedition.gatePlanetRequired": "Tap a discovered planet on the destination map.",
+  "expedition.gatePlanetSelected": "Colonizer target selected: {planet}",
   "expedition.unknownBody": "Unknown body {index}",
   "expedition.ownedColonyTarget": "This body already belongs to your colonies.",
   "expedition.targetSector": "Target Sector",

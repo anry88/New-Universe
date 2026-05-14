@@ -79,9 +79,12 @@ export async function coloniesRoutes(app: FastifyInstance) {
   app.get('/eligibility/:planetId', async (request, reply) => {
     const userId = (request as any).userId;
     const { planetId } = request.params as { planetId: string };
+    const { routeMode } = request.query as { routeMode?: string };
 
     try {
-      const eligibility = await checkColonizationGates(userId, planetId);
+      const eligibility = await checkColonizationGates(userId, planetId, {
+        enforceDistance: routeMode !== 'jump_gate',
+      });
       return reply.send({ 
         eligibility,
         rules: COLONIZATION_RULES

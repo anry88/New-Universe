@@ -202,10 +202,12 @@ export function ExpeditionDialog({
       ? selectedDestinationSystem
       : homeSystem;
   const colonizationEligibility = useQuery({
-    queryKey: ["colonization-eligibility", targetPlanetId],
+    queryKey: ["colonization-eligibility", targetPlanetId, routeMode],
     queryFn: () =>
       apiFetch<ColonizationEligibilityResponse>(
-        `/colonies/eligibility/${targetPlanetId}`,
+        `/colonies/eligibility/${targetPlanetId}${
+          routeMode === "jump_gate" ? "?routeMode=jump_gate" : ""
+        }`,
       ),
     enabled: isColonizer && Boolean(targetPlanetId),
     staleTime: 5_000,
@@ -417,9 +419,6 @@ export function ExpeditionDialog({
 
   const jumpPlanetLabel = (planet: JumpGateDestinationPlanetSummary) =>
     planet.name ?? t("expedition.unknownBody", { index: planet.orbitIndex });
-  const selectableJumpPlanets = isColonizer
-    ? jumpColonizationTargets
-    : [];
 
   const formatLaunchError = (message: string, code?: string, details?: unknown) => {
     if (code) {
@@ -524,6 +523,19 @@ export function ExpeditionDialog({
     [isColonizer, colonizationTargets, homeSystem, routeMode],
   );
 
+  const onPickJumpPlanet = useCallback(
+    (planetId: string) => {
+      if (routeMode !== "jump_gate" || !isColonizer) return;
+      const planet = jumpColonizationTargets.find(
+        (candidate) => candidate.id === planetId,
+      );
+      if (!planet) return;
+      setTargetPlanetId(planet.id);
+      setLaunchError(null);
+    },
+    [isColonizer, jumpColonizationTargets, routeMode],
+  );
+
   const onPickJumpSystemPoint = useCallback(
     (point: SystemMapPoint) => {
       if (routeMode !== "jump_gate" || isColonizer || !selectedDestination) return;
@@ -554,6 +566,7 @@ export function ExpeditionDialog({
           targetPoint: isColonizer ? null : selectedJumpTargetPoint,
           targetPlanetId,
           onPickSectorDelta: () => {},
+          onPickPlanet: isColonizer ? onPickJumpPlanet : undefined,
           onPickSystemPoint: isColonizer ? undefined : onPickJumpSystemPoint,
         };
       }
@@ -574,6 +587,7 @@ export function ExpeditionDialog({
       isColonizer,
       jumpGatePoint,
       onPickJumpSystemPoint,
+      onPickJumpPlanet,
       onPickPlanet,
       onPickSectorDelta,
       routeMode,
@@ -909,42 +923,20 @@ export function ExpeditionDialog({
                   ).toUpperCase()}
                 </div>
                 {isColonizer ? (
-                  selectableJumpPlanets.length > 0 ? (
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                      {selectableJumpPlanets.map((planet) => {
-                        const active = targetPlanetId === planet.id;
-                        const disabled = !planet.isDiscovered || planet.isColonized;
-                        return (
-                          <button
-                            key={planet.id}
-                            type="button"
-                            disabled={disabled}
-                            onClick={() => {
-                              setTargetPlanetId(active ? null : planet.id);
-                              setLaunchError(null);
-                            }}
-                            style={{
-                              borderRadius: 999,
-                              border: active
-                                ? "1px solid var(--accent)"
-                                : "1px solid rgba(148,163,184,0.25)",
-                              background: active
-                                ? "rgba(91,215,255,0.14)"
-                                : "rgba(14,20,36,0.7)",
-                              color: disabled
-                                ? "var(--text-faint)"
-                                : active
-                                  ? "var(--accent)"
-                                  : "var(--text-dim)",
-                              padding: "6px 9px",
-                              fontSize: 11,
-                              cursor: disabled ? "not-allowed" : "pointer",
-                            }}
-                          >
-                            {jumpPlanetLabel(planet)}
-                          </button>
-                        );
-                      })}
+                  jumpColonizationTargets.length > 0 ? (
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: selectedJumpTargetPlanet
+                          ? "var(--accent)"
+                          : "var(--text-dim)",
+                      }}
+                    >
+                      {selectedJumpTargetPlanet
+                        ? t("expedition.gatePlanetSelected", {
+                            planet: jumpPlanetLabel(selectedJumpTargetPlanet),
+                          })
+                        : t("expedition.gatePlanetRequired")}
                     </div>
                   ) : (
                     <div style={{ fontSize: 11, color: "var(--text-dim)" }}>

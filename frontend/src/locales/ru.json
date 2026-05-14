@@ -102,6 +102,8 @@
   "expedition.noGateColonizerTargets": "В этом направлении нет разведанных незаселённых планет.",
   "expedition.gatePointRequired": "Нажмите на карту целевой системы, чтобы задать точку разведки.",
   "expedition.gatePointSelected": "Точка разведки выбрана [{x}, {y}]",
+  "expedition.gatePlanetRequired": "Нажмите на разведанную планету на карте назначения.",
+  "expedition.gatePlanetSelected": "Цель колонизатора выбрана: {planet}",
   "expedition.unknownBody": "Неизвестное тело {index}",
   "expedition.ownedColonyTarget": "Это тело уже принадлежит вашим колониям.",
   "expedition.targetSector": "Целевой сектор",
