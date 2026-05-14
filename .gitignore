@@ -22,6 +22,8 @@ build/
 .env.development.local
 .env.test.local
 .env.production.local
+scripts/deploy-local.*.env
+!scripts/deploy-local.*.env.example
 
 # Docker
 .docker
@@ -44,3 +46,4 @@ Thumbs.db
 
 # Project specific
 .sisyphus/
+.wrangler/
