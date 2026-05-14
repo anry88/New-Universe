@@ -32,6 +32,22 @@ function parseAdminTelegramIds(value?: string): bigint[] {
     });
 }
 
+function parseBooleanEnv(value: string | undefined, fallback: boolean): boolean {
+  if (value === undefined) {
+    return fallback;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on', 'y'].includes(normalized)) {
+    return true;
+  }
+  if (['0', 'false', 'no', 'off', 'n'].includes(normalized)) {
+    return false;
+  }
+
+  throw new Error(`Invalid boolean env value: ${value}`);
+}
+
 dotenv.config();
 
 const envSchema = z.object({
@@ -60,6 +76,11 @@ const envSchema = z.object({
   DIAMOND_RUSH_PER_MINUTE: z.coerce.number().int().min(1).default(1),
   /** Optional cap per rush action; 0 = uncapped. */
   DIAMOND_RUSH_MAX_PER_ACTION: z.coerce.number().int().min(0).default(0),
+  /** Toggle BullMQ-backed delayed jobs for ships. */
+  ENABLE_BULLMQ: z
+    .string()
+    .optional()
+    .transform((value) => parseBooleanEnv(value, true)),
 });
 
 const result = envSchema.safeParse(process.env);

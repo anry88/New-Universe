@@ -1,4 +1,3 @@
-import { Worker } from 'bullmq';
 import { db } from '../db/index.js';
 import { ships, notifications } from '../db/schema.js';
 
@@ -6,6 +5,13 @@ import { and, eq, isNotNull, lte } from 'drizzle-orm';
 
 import { logger } from '../lib/logger.js';
 import { env } from '../lib/env.js';
+import {
+  createIntervalWorker,
+  removeLegacyRepeatableJobs,
+  type WorkerHandle,
+} from './scheduler.js';
+
+const POLL_INTERVAL_MS = 30000;
 
 export async function completeShipBuildJob(
   shipId: string,
@@ -52,35 +58,80 @@ export async function completeShipBuildJob(
   return true;
 }
 
-export async function createShipsWorker(): Promise<Worker> {
-  const Redis = (await import('ioredis')).default as unknown as new (...args: any[]) => any;
-  const connection = new Redis(env.REDIS_URL, {
-    maxRetriesPerRequest: null,
-    lazyConnect: true,
-  });
+export async function processDueShips(): Promise<number> {
+  const now = new Date();
 
-  const worker = new Worker(
-    'ships',
-    async (job) => {
-      const { shipId, planetId } = job.data;
-
-      logger.info({ shipId, planetId, jobId: job.id }, 'Completing ship build');
-
-      await completeShipBuildJob(shipId, planetId ?? null);
-    },
-    { connection },
-  );
-
-  worker.on('completed', (job) => {
-    logger.info({ jobId: job.id, shipId: job.data.shipId }, 'Ships worker: job completed');
-  });
-
-  worker.on('failed', (job, err) => {
-    logger.error(
-      { jobId: job?.id, shipId: job?.data?.shipId, err: err.message },
-      'Ships worker: job failed',
+  const dueShips = await db
+    .select({
+      id: ships.id,
+      planetId: ships.locationPlanetId,
+    })
+    .from(ships)
+    .where(
+      and(
+        eq(ships.status, 'building'),
+        isNotNull(ships.queueCompletesAt),
+        lte(ships.queueCompletesAt, now),
+      ),
     );
-  });
 
-  return worker;
+  let completed = 0;
+  for (const ship of dueShips) {
+    const didComplete = await completeShipBuildJob(ship.id, ship.planetId ?? null, now);
+    if (didComplete) {
+      completed += 1;
+    }
+  }
+
+  return completed;
+}
+
+export async function createShipsWorker(): Promise<WorkerHandle> {
+  if (env.ENABLE_BULLMQ) {
+    await removeLegacyRepeatableJobs('ships', { name: 'complete-build' });
+
+    const { Worker } = await import('bullmq');
+    const Redis = (await import('ioredis')).default as unknown as new (...args: any[]) => any;
+    const connection = new Redis(env.REDIS_URL, {
+      maxRetriesPerRequest: null,
+      lazyConnect: true,
+    });
+
+    const worker = new Worker(
+      'ships',
+      async (job) => {
+        const { shipId, planetId } = job.data;
+
+        logger.info({ shipId, planetId, jobId: job.id }, 'Completing ship build');
+
+        await completeShipBuildJob(shipId, planetId ?? null);
+      },
+      { connection },
+    );
+
+    worker.on('completed', (job) => {
+      logger.info({ jobId: job.id, shipId: job.data.shipId }, 'Ships worker: job completed');
+    });
+
+    worker.on('failed', (job, err) => {
+      logger.error(
+        { jobId: job?.id, shipId: job?.data?.shipId, err: err.message },
+        'Ships worker: job failed',
+      );
+    });
+
+    return worker;
+  }
+
+  return createIntervalWorker(
+    'Ships',
+    POLL_INTERVAL_MS,
+    async () => {
+      const completed = await processDueShips();
+      if (completed > 0) {
+        logger.info({ completed }, 'Ships worker: poll completed rows');
+      }
+    },
+    { runOnStart: true },
+  );
 }

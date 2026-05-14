@@ -21,6 +21,7 @@ Shared infrastructure used across features, middleware, and routes. Anything in 
   - `DIAMOND_STARTING_GRANT` (integer ≥ 0, default `1000`) — diamonds granted when a new `users` row is created at first Telegram login.
   - `DIAMOND_RUSH_PER_MINUTE` (integer ≥ 1, default `1`) — rush pricing curve multiplier: `round((ceil(remainingSeconds / 60)^0.85) × rate)`, optional max via `DIAMOND_RUSH_MAX_PER_ACTION`.
   - `DIAMOND_RUSH_MAX_PER_ACTION` (integer ≥ 0, default `0`) — per-rush cap; `0` means uncapped.
+  - `ENABLE_BULLMQ` (boolean, default `true`) — toggles BullMQ delayed jobs/workers and legacy repeatable-job cleanup. Set to `false` for Postgres polling plus online-sync completion paths without BullMQ enqueue/worker Redis traffic.
   
   On validation failure the module logs the formatted Zod error and calls `process.exit(1)`. In production it also calls `assertProductionSecurityConfig` so weak launch secrets fail at startup. The exported `env` is the only place to read these variables; never read `process.env.X` from feature code.
 - **`i18n.ts`** — backend localization helpers for player-facing API errors. Exports `resolveRequestLocale(request, preferredLocale?)`, `apiErrorPayload(key, locale)`, and `sendLocalizedError(reply, request, statusCode, key, preferredLocale?)`; currently supports `en`/`ru` for auth/session/preference/internal error payloads and falls back to English.

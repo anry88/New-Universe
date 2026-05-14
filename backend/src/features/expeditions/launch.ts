@@ -522,36 +522,38 @@ export async function launchExpedition(
       .where(eq(ships.id, shipRow.shipId))
       .returning();
 
-    try {
-      const { Queue: BullQueue } = await import("bullmq");
-      const Redis = (await import("ioredis")).default as unknown as new (
-        ...args: any[]
-      ) => any;
-      const redis = new Redis(
-        env.REDIS_URL,
-        {
-          maxRetriesPerRequest: null,
-          lazyConnect: true,
-        },
-      );
-      const expeditionQueue = new BullQueue("expeditions", {
-        connection: redis,
-      });
-      await expeditionQueue.add(
-        "arrive",
-        {
-          expeditionId: expedition.id,
-          shipId: shipRow.shipId,
-        },
-        {
-          delay: etaSeconds * 1000,
-        },
-      );
-      await expeditionQueue.close();
-      await redis.quit();
-    } catch (err) {
-      // Redis/BullMQ is optional in tests/local runs; ignore enqueue failures.
-      void err;
+    if (env.ENABLE_BULLMQ) {
+      try {
+        const { Queue: BullQueue } = await import("bullmq");
+        const Redis = (await import("ioredis")).default as unknown as new (
+          ...args: any[]
+        ) => any;
+        const redis = new Redis(
+          env.REDIS_URL,
+          {
+            maxRetriesPerRequest: null,
+            lazyConnect: true,
+          },
+        );
+        const expeditionQueue = new BullQueue("expeditions", {
+          connection: redis,
+        });
+        await expeditionQueue.add(
+          "arrive",
+          {
+            expeditionId: expedition.id,
+            shipId: shipRow.shipId,
+          },
+          {
+            delay: etaSeconds * 1000,
+          },
+        );
+        await expeditionQueue.close();
+        await redis.quit();
+      } catch (err) {
+        // Redis/BullMQ is optional in tests/local runs; ignore enqueue failures.
+        void err;
+      }
     }
 
     return {

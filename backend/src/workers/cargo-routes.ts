@@ -1,10 +1,10 @@
-import { Worker } from 'bullmq';
 import { db } from '../db/index.js';
 import { expeditions } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { logger } from '../lib/logger.js';
 import { env } from '../lib/env.js';
 import { completeCargoTransfer } from '../features/logistics/cargo-transfer.js';
+import type { WorkerHandle } from './scheduler.js';
 
 /**
  * Processes the arrival of a cargo transfer.
@@ -73,7 +73,14 @@ export async function processArriveCargo(job: any): Promise<void> {
 /**
  * Creates and returns the Cargo Routes worker instance.
  */
-export async function createCargoRoutesWorker(): Promise<Worker> {
+export async function createCargoRoutesWorker(): Promise<WorkerHandle> {
+  if (!env.ENABLE_BULLMQ) {
+    return {
+      async close() {},
+    };
+  }
+
+  const { Worker } = await import('bullmq');
   const Redis = (await import('ioredis')).default as unknown as new (...args: any[]) => any;
   const connection = new Redis(env.REDIS_URL, {
     maxRetriesPerRequest: null,
