@@ -6,6 +6,7 @@ import {
   resolveBuildingProductionRateForResource,
   resolveExtractorSelectionBlockedReason,
   resolvePlanetResourceBlockedReason,
+  selectableResourceIdsForExtractor,
 } from '@shared/types/building-eligibility.js';
 import { BUILDING_RESEARCH_GATES, type ResearchUnlockRequirement } from '@shared/config/buildingResearchGates.js';
 
@@ -120,7 +121,7 @@ describe('planet resource construction rules', () => {
       planetResourceIds: ['methane', 'water', 'oxygen'],
     });
     expect(mineReason?.code).toBe('building_blocked_planet_resource');
-    expect(formatBuildBlockedMessage(mineReason!, 'en')).toContain('metal deposit');
+    expect(formatBuildBlockedMessage(mineReason!, 'en')).toContain('solid mineral deposit');
 
     const oilReason = resolvePlanetResourceBlockedReason({
       typeId: 'oil_pump',
@@ -150,6 +151,48 @@ describe('planet resource construction rules', () => {
         planetResourceIds: ['water'],
       }),
     ).toBeNull();
+  });
+
+  it('allows mines to target ice deposits', () => {
+    expect(
+      resolvePlanetResourceBlockedReason({
+        typeId: 'mine',
+        planetResourceIds: ['ice'],
+      }),
+    ).toBeNull();
+
+    expect(
+      selectableResourceIdsForExtractor({
+        typeId: 'mine',
+        planetResourceIds: ['ice', 'tritium'],
+      }),
+    ).toEqual(['ice']);
+
+    expect(
+      resolveExtractorSelectionBlockedReason({
+        typeId: 'mine',
+        selectedResourceId: 'ice',
+        planetResourceIds: ['ice'],
+      }),
+    ).toBeNull();
+
+    expect(
+      resolveBuildingProducedResourceIds({
+        typeId: 'mine',
+        baseOutput: { resourceId: 'iron', baseRate: 50 },
+        planetResourceIds: ['ice', 'tritium'],
+      }),
+    ).toEqual(['ice']);
+
+    expect(
+      resolveBuildingProductionRateForResource({
+        typeId: 'mine',
+        baseOutput: { resourceId: 'iron', baseRate: 50 },
+        planetResourceIds: ['ice'],
+        selectedResourceId: 'ice',
+        resourceId: 'ice',
+      }),
+    ).toBe(30);
   });
 
   it('maps extractor output to local deposits instead of fixed catalog ids', () => {

@@ -274,13 +274,13 @@ export const RESEARCH_CATALOG: ResearchBranchCatalog[] = [
   {
     branch: 'logistics',
     branchName: { ru: 'Логистика', en: 'Logistics' },
-    branchDescription: { ru: 'Повышение вместимости складов.', en: 'Improves storage and handling throughput.' },
+    branchDescription: { ru: 'Повышение вместимости складов и лимита колоний.', en: 'Improves storage, handling throughput, and colony capacity.' },
     levels: [
-      mkLevel('logistics', 1, { ru: 'Логистика I', en: 'Logistics I' }, { ru: '+8% к вместимости', en: '+8% storage capacity' }, { iron: 200, silicon: 180 }, researchTime('logistics', 1), [{ target: 'resourceStorage', multiplier: 1.08 }]),
-      mkLevel('logistics', 2, { ru: 'Логистика II', en: 'Logistics II' }, { ru: '+16% к вместимости', en: '+16% storage capacity' }, { iron: 430, silicon: 380 }, researchTime('logistics', 2), [{ target: 'resourceStorage', multiplier: 1.16 }]),
-      mkLevel('logistics', 3, { ru: 'Логистика III', en: 'Logistics III' }, { ru: '+24% к вместимости', en: '+24% storage capacity' }, { iron: 1012, silicon: 1013 }, researchTime('logistics', 3), [{ target: 'resourceStorage', multiplier: 1.24 }]),
-      mkLevel('logistics', 4, { ru: 'Логистика IV', en: 'Logistics IV' }, { ru: '+32% к вместимости', en: '+32% storage capacity' }, { iron: 2531, silicon: 2531 }, researchTime('logistics', 4), [{ target: 'resourceStorage', multiplier: 1.32 }]),
-      mkLevel('logistics', 5, { ru: 'Логистика V', en: 'Logistics V' }, { ru: '+40% к вместимости', en: '+40% storage capacity' }, { iron: 6327, silicon: 6328 }, researchTime('logistics', 5), [{ target: 'resourceStorage', multiplier: 1.4 }]),
+      mkLevel('logistics', 1, { ru: 'Логистика I', en: 'Logistics I' }, { ru: '+8% к вместимости, +5 к лимиту колоний', en: '+8% storage capacity, +5 colony slots' }, { iron: 200, silicon: 180 }, researchTime('logistics', 1), [{ target: 'resourceStorage', multiplier: 1.08 }]),
+      mkLevel('logistics', 2, { ru: 'Логистика II', en: 'Logistics II' }, { ru: '+16% к вместимости, +5 к лимиту колоний', en: '+16% storage capacity, +5 colony slots' }, { iron: 430, silicon: 380 }, researchTime('logistics', 2), [{ target: 'resourceStorage', multiplier: 1.16 }]),
+      mkLevel('logistics', 3, { ru: 'Логистика III', en: 'Logistics III' }, { ru: '+24% к вместимости, +5 к лимиту колоний', en: '+24% storage capacity, +5 colony slots' }, { iron: 1012, silicon: 1013 }, researchTime('logistics', 3), [{ target: 'resourceStorage', multiplier: 1.24 }]),
+      mkLevel('logistics', 4, { ru: 'Логистика IV', en: 'Logistics IV' }, { ru: '+32% к вместимости, +5 к лимиту колоний', en: '+32% storage capacity, +5 colony slots' }, { iron: 2531, silicon: 2531 }, researchTime('logistics', 4), [{ target: 'resourceStorage', multiplier: 1.32 }]),
+      mkLevel('logistics', 5, { ru: 'Логистика V', en: 'Logistics V' }, { ru: '+40% к вместимости, +5 к лимиту колоний', en: '+40% storage capacity, +5 colony slots' }, { iron: 6327, silicon: 6328 }, researchTime('logistics', 5), [{ target: 'resourceStorage', multiplier: 1.4 }]),
     ],
   },
   {

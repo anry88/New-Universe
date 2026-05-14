@@ -75,12 +75,12 @@ Building construction and queue management. [Detailed documentation](./buildings
   3. Checks that the planet has a free slot (`buildingCount < planet.slotCount`).
   4. Ensures the build queue is not full (max 1 concurrent build without premium).
   5. Verifies all dependency buildings exist at the required level.
-  5a. Applies shared planet-specific gates: mines require metal deposits, drills require gas deposits, oil pumps require oil or methane, and biomass harvesters require water or biomass. Refineries are processors and can use either oil or methane recipes, so they are not tied to an oil deposit.
+  5a. Applies shared planet-specific gates: mines require solid mineral deposits (including ice), drills require gas deposits, oil pumps require oil or methane, and biomass harvesters require water or biomass. Refineries are processors and can use either oil or methane recipes, so they are not tied to an oil deposit.
   6. Deducts resource costs via `spendResources` (from `features/resources/transactions.ts`).
   7. Creates a `buildings` row with `queueAction='build'` and `queueCompletesAt = now + baseTime`.
   8. After the transaction commits, optionally schedules a BullMQ delayed job through the shared `completion-queue.ts` producer when `ENABLE_BULLMQ=true`; otherwise the periodic Postgres worker and active-session sync finalize due rows.
   9. On queue completion, **`finalizeBuildingConstruction`** recomputes **`planet_resources.regenRate`** for resources the completed building can passively produce on that planet by summing producer levels and **inserts** a `planet_resources` row the first time that resource appears. Processors (`smelter`, `refinery`, `fabrication_bay`, `cryo_factory`) do not get passive crafted-resource regen; they use explicit production recipes.
-- **`service.test.ts`** — Vitest integration suite covering the full build flow: successful mine construction, free-slot exhaustion (via direct DB insert), queue limit enforcement, missing auth, unknown building type, and non-existent planet.
+- **`service.test.ts`** — Vitest integration suite covering the full build flow: successful mine construction including ice targeting, free-slot exhaustion (via direct DB insert), queue limit enforcement, missing auth, unknown building type, and non-existent planet.
 
 ## `resources/`
 
@@ -180,7 +180,7 @@ Ship construction and fleet queue helpers.
 
 Player colonies and settled planets.
 
-- **`colonies.ts`** — `ColonyService` singleton. Implements colonization rules: checks for discovery, protects foreign home systems, allows the player's own discovered home bodies to be settled by colonizer, enforces per-player limits (default 5), and inserts into the `colonies` table.
+- **`colonies.ts`** — `ColonyService` singleton. Implements colonization rules: checks for discovery, protects foreign home systems, allows the player's own discovered home bodies to be settled by colonizer, enforces the shared colony cap formula (base 1 + 5 per completed Logistics level), and inserts into the `colonies` table.
 - **`found-colony.ts`** — `foundColony(userId, shipId, planetId)` action module. Performs role validation, consumes the colonizer ship, establishes the colony, and builds the initial Command Center.
 - **`ownership.ts`** — settlement ownership helpers used by buildings/ships/workers to distinguish discovered planets from buildable settlements.
 - **`bootstrap.ts`** — `bootstrapColony(planetId, tx?)` action module. Initializes starting stock and known deposit rows for a new colony with `regenRate = 0` until extractors are built.

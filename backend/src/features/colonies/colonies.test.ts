@@ -1,8 +1,14 @@
 import { describe, expect, it, beforeAll } from 'vitest';
 import { db } from '../../db/index.js';
 import { colonyService } from './colonies.js';
-import { users, planets, systems, discoveredPlanets } from '../../db/schema.js';
-import { eq } from 'drizzle-orm';
+import {
+  users,
+  planets,
+  systems,
+  discoveredPlanets,
+  researchProgress,
+} from '../../db/schema.js';
+import { maxColoniesForLogisticsLevel } from '../../config/colonization-rules.js';
 
 describe('ColonyService', () => {
   let userId: string;
@@ -103,39 +109,64 @@ describe('ColonyService', () => {
     expect(result.reason).toBe('Planet already colonized');
   });
 
-  it('enforces colony limit', async () => {
-    // Find the system ID of the "Other" system
-    const system = await db.query.planets.findFirst({
-        where: eq(planets.id, otherPlanetId),
-        orderBy: (p, { asc }) => asc(p.name),
-    });
-    const systemId = system!.systemId;
+  it('enforces the Logistics-scaled colony limit', async () => {
+    const [limitUser] = await db.insert(users).values({
+      tgId: BigInt(Math.floor(Math.random() * 1000000000)),
+      tgUsername: `ColLimit${Math.random()}`,
+    }).returning();
 
-    // Current count for this user is 1. Limit is 5. Add 4 more.
-    for (let i = 0; i < 4; i++) {
-        const [p] = await db.insert(planets).values({
-            systemId: systemId,
-            biome: 'rocky',
-            size: 10,
-            slotCount: 8,
-            name: `Limit Planet ${i} ${Math.random()}`,
-        }).returning();
-        
-        await db.insert(discoveredPlanets).values({ userId, planetId: p.id });
-        await colonyService.foundColony(userId, p.id);
-    }
+    const [system] = await db.insert(systems).values({
+      isHome: false,
+      sectorX: Math.floor(Math.random() * 100),
+      sectorY: Math.floor(Math.random() * 100),
+      sectorZ: Math.floor(Math.random() * 100),
+      x: '100.00',
+      y: '100.00',
+      z: '100.00',
+      name: `Limit System ${Math.random()}`,
+      seed: 789,
+    }).returning();
 
-    // Try to add 6th
-    const [extraPlanet] = await db.insert(planets).values({
-        systemId: systemId,
+    const createDiscoveredPlanet = async (name: string) => {
+      const [planet] = await db.insert(planets).values({
+        systemId: system.id,
         biome: 'rocky',
         size: 10,
         slotCount: 8,
-        name: `Extra Planet ${Math.random()}`,
-    }).returning();
-    await db.insert(discoveredPlanets).values({ userId, planetId: extraPlanet.id });
+        name: `${name} ${Math.random()}`,
+      }).returning();
+      await db.insert(discoveredPlanets).values({
+        userId: limitUser.id,
+        planetId: planet.id,
+      });
+      return planet;
+    };
 
-    const result = await colonyService.canColonize(userId, extraPlanet.id);
+    const firstPlanet = await createDiscoveredPlanet('Base Limit Planet');
+    await colonyService.foundColony(limitUser.id, firstPlanet.id);
+
+    const secondPlanet = await createDiscoveredPlanet('Second Limit Planet');
+    const blockedAtBase = await colonyService.canColonize(limitUser.id, secondPlanet.id);
+    expect(blockedAtBase.allowed).toBe(false);
+    expect(blockedAtBase.reason).toBe('Colony limit reached');
+
+    await db.insert(researchProgress).values({
+      userId: limitUser.id,
+      branch: 'logistics',
+      level: 1,
+    });
+
+    const allowedWithLogistics = await colonyService.canColonize(limitUser.id, secondPlanet.id);
+    expect(allowedWithLogistics.allowed).toBe(true);
+
+    await colonyService.foundColony(limitUser.id, secondPlanet.id);
+    for (let i = 2; i < maxColoniesForLogisticsLevel(1); i++) {
+      const planet = await createDiscoveredPlanet(`Limit Fill Planet ${i}`);
+      await colonyService.foundColony(limitUser.id, planet.id);
+    }
+
+    const extraPlanet = await createDiscoveredPlanet('Extra Limit Planet');
+    const result = await colonyService.canColonize(limitUser.id, extraPlanet.id);
     expect(result.allowed).toBe(false);
     expect(result.reason).toBe('Colony limit reached');
   });

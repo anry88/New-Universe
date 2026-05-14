@@ -11,6 +11,8 @@ import {
   JUMP_FUEL_RESOURCE_ID,
   type ExpeditionRouteMode,
 } from "@shared/config/expeditionRouting";
+import { useQuery } from "@tanstack/react-query";
+import { apiFetch } from "../lib/api";
 import { useLaunchExpedition } from "../hooks/useExpeditions";
 import { useJumpGateState } from "../hooks/useJumpGateState";
 import { useMe } from "../hooks/useMe";
@@ -44,6 +46,24 @@ interface ExpeditionDialogProps {
   initialRouteMode?: ExpeditionRouteMode;
   initialDestinationSystemId?: string | null;
   onClose: () => void;
+}
+
+interface ColonizationEligibilityResponse {
+  eligibility: {
+    allowed: boolean;
+    reason?: string;
+    details?: {
+      currentColonies: number;
+      maxColonies: number;
+      cooldownRemainingSec: number;
+      requiredResearch: { branch: string; level: number };
+      currentResearch: number;
+      distance?: number;
+    };
+  };
+  rules: {
+    maxColoniesPerLogisticsLevel: number;
+  };
 }
 
 export function ExpeditionDialog({
@@ -133,6 +153,15 @@ export function ExpeditionDialog({
       jumpPlanetTargets.find((planet) => planet.id === targetPlanetId) ?? null,
     [jumpPlanetTargets, targetPlanetId],
   );
+  const colonizationEligibility = useQuery({
+    queryKey: ["colonization-eligibility", targetPlanetId],
+    queryFn: () =>
+      apiFetch<ColonizationEligibilityResponse>(
+        `/colonies/eligibility/${targetPlanetId}`,
+      ),
+    enabled: isColonizer && Boolean(targetPlanetId),
+    staleTime: 5_000,
+  });
   const fuelAvailable = useMemo(() => {
     const row = shipPlanet?.resources?.find((r) => r.resourceId === "fuel");
     return Math.floor(Number(row?.amount ?? 0));
@@ -216,6 +245,58 @@ export function ExpeditionDialog({
   const shortOnFuel = fuelAvailable > 0 && recommendedFuel > fuelAvailable;
   const shortOnJumpFuel =
     routeMode === "jump_gate" && jumpFuelRequired > jumpFuelAvailable;
+  const colonizationDetails =
+    colonizationEligibility.data?.eligibility.details;
+  const colonizationGateBlocked = Boolean(
+    isColonizer &&
+      targetPlanetId &&
+      colonizationEligibility.data &&
+      !colonizationEligibility.data.eligibility.allowed,
+  );
+  const colonizationPreflightPending = Boolean(
+    isColonizer && targetPlanetId && colonizationEligibility.isLoading,
+  );
+  const colonizationPerLogisticsLevel =
+    colonizationEligibility.data?.rules.maxColoniesPerLogisticsLevel ??
+    meData?.colonization?.maxColoniesPerLogisticsLevel ??
+    5;
+  const colonizationPreflightMessage = (() => {
+    if (!isColonizer || !targetPlanetId) return null;
+    if (colonizationPreflightPending) {
+      return t("expedition.checkingColonization");
+    }
+
+    const eligibility = colonizationEligibility.data?.eligibility;
+    if (!eligibility || eligibility.allowed) return null;
+
+    const reason = eligibility.reason?.toLowerCase() ?? "";
+    const cooldownRemainingSec =
+      colonizationDetails?.cooldownRemainingSec ?? 0;
+    if (cooldownRemainingSec > 0 || reason.includes("cooldown")) {
+      return t("expedition.colonizationCooldown", {
+        minutes: Math.max(1, Math.ceil(cooldownRemainingSec / 60)),
+      });
+    }
+
+    if (reason.includes("colony limit")) {
+      return t("expedition.colonyLimitPreflight", {
+        current:
+          colonizationDetails?.currentColonies ??
+          meData?.colonization?.currentColonies ??
+          0,
+        max:
+          colonizationDetails?.maxColonies ??
+          meData?.colonization?.maxColonies ??
+          0,
+        count: colonizationPerLogisticsLevel,
+      });
+    }
+
+    return formatLaunchExpeditionErrorMessage(
+      { code: "expedition_colonization_blocked", reason: eligibility.reason },
+      locale,
+    );
+  })();
   const jumpGateUnavailable = !jumpGateState?.unlocked;
   const jumpGateCalibrating =
     jumpGateState?.calibration.status === "calibrating";
@@ -227,6 +308,8 @@ export function ExpeditionDialog({
     recommendedFuel > fuelAvailable ||
     fuelAvailable <= 0 ||
     shortOnJumpFuel ||
+    colonizationPreflightPending ||
+    colonizationGateBlocked ||
     jumpGateBlocked ||
     (isColonizer && !targetPlanetId);
 
@@ -1026,6 +1109,29 @@ export function ExpeditionDialog({
                   <span>{t("expedition.shortJumpFuel")}</span>
                 </div>
               ) : null}
+              {colonizationPreflightMessage ? (
+                <div
+                  style={{
+                    marginTop: 10,
+                    display: "flex",
+                    gap: 8,
+                    alignItems: "flex-start",
+                    padding: 10,
+                    borderRadius: 12,
+                    background: "rgba(251, 191, 36, 0.08)",
+                    border: "1px solid rgba(251, 191, 36, 0.35)",
+                    color: "#fcd34d",
+                    fontSize: 12,
+                    lineHeight: 1.45,
+                  }}
+                >
+                  <AlertTriangle
+                    size={18}
+                    style={{ flexShrink: 0, marginTop: 2 }}
+                  />
+                  <span>{colonizationPreflightMessage}</span>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
@@ -1062,6 +1168,16 @@ export function ExpeditionDialog({
           ) : isColonizer && !targetPlanetId ? (
             <>
               <Target size={20} /> {t("expedition.selectPlanet").toUpperCase()}
+            </>
+          ) : colonizationPreflightPending ? (
+            <>
+              <Target size={20} />{" "}
+              {t("expedition.checkingColonizationShort").toUpperCase()}
+            </>
+          ) : colonizationGateBlocked ? (
+            <>
+              <Target size={20} />{" "}
+              {t("expedition.colonizationBlockedButton").toUpperCase()}
             </>
           ) : jumpGateBlocked ? (
             <>

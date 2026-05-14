@@ -16,7 +16,7 @@ import {
   productionOrders,
   researchProgress,
 } from "../../db/schema.js";
-import { and, asc, eq, inArray, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, or } from "drizzle-orm";
 import { syncTutorialProgress } from "../tutorial/service.js";
 import { homeSystemShortTag } from "@shared/format/homeSystemNaming.js";
 import { syncDuePlayerState } from "./online-sync.js";
@@ -49,6 +49,10 @@ import {
 } from "../resources/energy.js";
 import { mutationRateLimit } from "../../lib/rate-limit.js";
 import { objectBodySchema, securityRouteConfig } from "../../lib/security.js";
+import {
+  COLONIZATION_RULES,
+  maxColoniesForLogisticsLevel,
+} from "../../config/colonization-rules.js";
 
 type UserRow = typeof users.$inferSelect;
 
@@ -243,8 +247,32 @@ export async function meRoutes(app: FastifyInstance) {
           },
         },
       });
+      const [colonyCountRow] = await db
+        .select({ value: count() })
+        .from(colonies)
+        .where(eq(colonies.ownerId, user.id));
+      const [latestColony] = await db
+        .select({ foundedAt: colonies.foundedAt })
+        .from(colonies)
+        .where(eq(colonies.ownerId, user.id))
+        .orderBy(desc(colonies.foundedAt))
+        .limit(1);
 
       const colonyPlanetIds = new Set(userColonies.map((c) => c.planetId));
+      const logisticsLevel =
+        userResearchRows.find((row) => row.branch === "logistics")?.level ?? 0;
+      const maxColonies = maxColoniesForLogisticsLevel(logisticsLevel);
+      const currentColonies = Number(colonyCountRow?.value ?? 0);
+      const latestColonyFoundedAt = latestColony?.foundedAt
+        ? new Date(latestColony.foundedAt)
+        : null;
+      const cooldownRemainingSec = latestColonyFoundedAt
+        ? Math.max(
+            0,
+            COLONIZATION_RULES.cooldownSec -
+              Math.floor((Date.now() - latestColonyFoundedAt.getTime()) / 1000),
+          )
+        : 0;
       const markPlanetSettlement = (planet: any) => {
         const planetWithTimers = enrichPlanetTimers(planet);
         const hasCommandCenter = (planetWithTimers.buildings ?? []).some(
@@ -433,6 +461,16 @@ export async function meRoutes(app: FastifyInstance) {
         ships: enrichedShips,
         expeditions: activeExpeditions,
         research: userResearch,
+        colonization: {
+          currentColonies,
+          maxColonies,
+          logisticsLevel,
+          maxColoniesBase: COLONIZATION_RULES.maxColoniesBase,
+          maxColoniesPerLogisticsLevel:
+            COLONIZATION_RULES.maxColoniesPerLogisticsLevel,
+          cooldownSec: COLONIZATION_RULES.cooldownSec,
+          cooldownRemainingSec,
+        },
         rushPricing: rushPricingMeta(),
       };
 

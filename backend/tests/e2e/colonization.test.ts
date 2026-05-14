@@ -17,6 +17,7 @@ import { expeditionsRoutes } from '../../src/features/expeditions/routes.js';
 import { researchRoutes } from '../../src/features/research/routes.js';
 import { coloniesRoutes } from '../../src/routes/colonies.js';
 import { cargoRoutes } from '../../src/routes/cargo.js';
+import { maxColoniesForLogisticsLevel } from '../../src/config/colonization-rules.js';
 
 describe('E2E: Colonization Flow', () => {
   let app: any;
@@ -189,11 +190,8 @@ describe('E2E: Colonization Flow', () => {
       .set({ foundedAt: new Date(Date.now() - 3601 * 1000) })
       .where(eq(colonies.id, latestColony.id));
 
-    // Try to found 2nd colony (Logistics L1 allows total 2, including home system?)
-    // Wait, home system doesn't count as a colony in the 'colonies' table.
-    // Base: 1, Logistics L1: +1. Total allowed: 2.
-    // We already have 1. 2nd should pass.
-    // 3rd should fail.
+    // Logistics L1 grants 5 additional colony slots. Home capital does not count
+    // because it is not stored in the colonies table.
     
     // Found 2nd
     const secondFoundRes = await app.inject({
@@ -204,7 +202,23 @@ describe('E2E: Colonization Flow', () => {
     });
     expect(secondFoundRes.statusCode).toBe(200);
 
-    // Try 3rd (fail due to capacity)
+    const currentColonyCount = 2;
+    for (let i = currentColonyCount; i < maxColoniesForLogisticsLevel(1); i++) {
+      const [limitFillPlanet] = await db.insert(planets).values({
+        systemId: secondTargetSystem.id,
+        biome: 'rocky',
+        size: 10,
+        slotCount: 8,
+        name: `Limit Fill Planet ${i}`,
+      }).returning();
+      await db.insert(colonies).values({
+        ownerId: userId,
+        planetId: limitFillPlanet.id,
+        foundedAt: new Date(Date.now() - 3601 * 1000),
+      });
+    }
+
+    // Try one over capacity.
     const [thirdTargetSystem] = await db.insert(systems).values({
       sectorX: 3,
       sectorY: 3,

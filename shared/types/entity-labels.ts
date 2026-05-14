@@ -35,6 +35,7 @@ export const RESOURCE_ENTITY_LABELS: Record<string, EntityLabels> = {
   iridium: { en: 'Iridium', ru: 'Иридий' },
   biomass: { en: 'Biomass', ru: 'Биомасса' },
   metal: { en: 'metal', ru: 'металлы' },
+  solid_mineral: { en: 'solid mineral', ru: 'твёрдых минералов' },
   gas: { en: 'gas', ru: 'газ' },
   oil_or_methane: { en: 'Oil or Methane', ru: 'Нефть или метан' },
   water_or_biomass: { en: 'Water or Biomass', ru: 'Вода или биомасса' },
@@ -42,7 +43,7 @@ export const RESOURCE_ENTITY_LABELS: Record<string, EntityLabels> = {
 
 export const BUILDING_ENTITY_LABELS: Record<string, EntityLabels> = {
   command_center: { en: 'Command Center', ru: 'Командный центр' },
-  mine: { en: 'Metals Mine', ru: 'Шахта' },
+  mine: { en: 'Mine', ru: 'Шахта' },
   drill: { en: 'Gas Extractor', ru: 'Газовый экстрактор' },
   battery: { en: 'Battery', ru: 'Аккумулятор' },
   storage: { en: 'Storage', ru: 'Склад' },

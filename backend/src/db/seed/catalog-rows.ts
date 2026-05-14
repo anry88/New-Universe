@@ -107,12 +107,12 @@ export const BUILDING_TYPE_CATALOG_ROWS: BuildingCatalogRow[] = [
     energyConsumption: 0,
   },
   {
-    // Metals-only surface mine. Pairs with the gases-only `drill` below;
+    // Solid-resource surface mine. Pairs with the gases-only `drill` below;
     // the two were previously identical except for output — they are now
     // semantically distinct buildings with different costs, deps and
     // biome affinities.
     id: 'mine',
-    name: { ru: 'Шахта', en: 'Metals Mine' },
+    name: { ru: 'Шахта', en: 'Mine' },
     description: {
       ru: 'Добывает твёрдые минеральные ресурсы из выбранного местного месторождения.',
       en: 'Extracts solid mineral resources from the selected local deposit.',

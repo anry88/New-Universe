@@ -5,6 +5,16 @@ import type { ResearchProgress } from './research.js';
 import type { RushPricing } from './diamonds.js';
 import type { Locale } from './locale.js';
 
+export interface ColonizationSummary {
+  currentColonies: number;
+  maxColonies: number;
+  logisticsLevel: number;
+  maxColoniesBase: number;
+  maxColoniesPerLogisticsLevel: number;
+  cooldownSec: number;
+  cooldownRemainingSec: number;
+}
+
 export interface User {
   id: string;
   tgId: string;
@@ -23,5 +33,6 @@ export interface User {
   ships?: Ship[];
   expeditions?: Expedition[];
   research?: ResearchProgress[];
+  colonization?: ColonizationSummary;
   rushPricing?: RushPricing;
 }

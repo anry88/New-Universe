@@ -5,7 +5,10 @@ import { buildings } from '../../db/schema/buildings.js';
 import { discoveredPlanets } from '../../db/schema/discovery.js';
 import { researchProgress } from '../../db/schema/research.js';
 import { eq, and, count, desc } from 'drizzle-orm';
-import { COLONIZATION_RULES } from '../../config/colonization-rules.js';
+import {
+  COLONIZATION_RULES,
+  maxColoniesForLogisticsLevel,
+} from '../../config/colonization-rules.js';
 
 /**
  * Validation result for colonization gates.
@@ -119,7 +122,7 @@ export async function checkColonizationGates(userId: string, targetPlanetId: str
     .where(eq(colonies.ownerId, userId));
   
   const currentColonies = Number(result?.value ?? 0);
-  const maxColonies = COLONIZATION_RULES.maxColoniesBase + (logisticsLevel * COLONIZATION_RULES.maxColoniesPerLogisticsLevel);
+  const maxColonies = maxColoniesForLogisticsLevel(logisticsLevel);
 
   details.currentColonies = currentColonies;
   details.maxColonies = maxColonies;

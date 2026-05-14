@@ -14,6 +14,7 @@ This feature handles the retrieval of the current player's state. It is the prim
     - `ships`: list of player's ships with `queueStartedAt` when a build timer is active.
     - `expeditions`: list of active expeditions.
     - `research`: research progress rows with `startedAt` while a tier timer is active.
+    - `colonization`: current server-counted colony total, current Logistics-scaled colony cap, cooldown metadata, and the per-Logistics-level slot increase used by the frontend shipyard and mission preflight warnings.
     - `rushPricing`: account-wide rush pricing metadata for live diamond-cost previews.
   - `PATCH /me/preferences` is mutation-rate-limited, JSON-schema-validated, accepts `{ preferredLocale: 'en' | 'ru' }`, updates `users.preferredLocale`, and returns the persisted locale for frontend refetch/sync.
 - **`me.test.ts`** — Vitest coverage for the `me` feature. It tests both authorized (with token) and unauthorized (missing token) access paths.
