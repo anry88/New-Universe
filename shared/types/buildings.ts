@@ -93,13 +93,25 @@ export interface ChangeExtractorResourceResponse {
   selectedResourceId: string;
 }
 
+export interface BuildingQueueItem {
+  id: string;
+  planetId: string;
+  buildingTypeId: string;
+  level: number;
+  queueAction: 'build' | 'upgrade' | 'destroy';
+  queueCompletesAt: string;
+  /** Backward-compatible alias for older construction callers. */
+  completesAt?: string;
+  queueStartedAt?: string | null;
+  rushCost?: number;
+  selectedResourceId?: string | null;
+  slotIndex?: number | null;
+}
+
 export interface ConstructionStatus {
   success: boolean;
   message?: string;
-  queueItem?: {
-    id: string;
-    completesAt: string;
-  };
+  queueItem?: BuildingQueueItem;
 }
 export interface DemolishRequest {
   buildingId: string;

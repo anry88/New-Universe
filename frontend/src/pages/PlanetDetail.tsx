@@ -18,6 +18,7 @@ import {
   resolveBiome,
 } from '../components/cosmic/atoms';
 import type { Building, Planet } from '@shared/types/world';
+import type { User } from '@shared/types/user';
 import type {
   BuildingType,
   BuildBlockedReason,
@@ -35,12 +36,23 @@ import {
   selectableResourceIdsForExtractor,
 } from '@shared/types/building-eligibility';
 import { BUILDING_RESEARCH_GATES } from '@shared/config/buildingResearchGates';
-import { COMMAND_CENTER_TYPE_ID } from '@shared/config/buildingUpgradeEconomy';
+import { COMMAND_CENTER_TYPE_ID, buildingUpgradeTimeSeconds } from '@shared/config/buildingUpgradeEconomy';
 import { recipesForBuildingType } from '@shared/config/productionRecipes';
 import { ChevronLeft } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatHomeSystemTitleForUser } from '../lib/homeSystemTitle';
 import { useI18n } from '../lib/i18n';
+
+function optimisticQueueWindow(durationSec: number): {
+  queueStartedAt: string;
+  queueCompletesAt: string;
+} {
+  const startedMs = Date.now();
+  return {
+    queueStartedAt: new Date(startedMs).toISOString(),
+    queueCompletesAt: new Date(startedMs + Math.max(0, durationSec) * 1000).toISOString(),
+  };
+}
 
 /**
  * PlanetDetail — Cosmic Atlas (P1.1 redesign).
@@ -343,10 +355,14 @@ export function PlanetDetailPage() {
 
   const handleBuild = async (typeId: string, selectedResourceId?: string | null) => {
     if (selectedSlot === null) return;
+    const slotIndex = selectedSlot;
     setIsProcessing(true);
 
-    const previousMeData = queryClient.getQueryData(['me']);
+    await queryClient.cancelQueries({ queryKey: ['me'] });
+    const previousMeData = queryClient.getQueryData<User>(['me']);
     const typeInfo = buildingTypes.find((t) => t.id === typeId);
+    const tempId = `temp-building-${Date.now()}`;
+    const optimisticTimer = optimisticQueueWindow(typeInfo?.baseTimeSec ?? 0);
 
     if (meData && typeInfo) {
       const optimisticMe = structuredClone(meData);
@@ -354,29 +370,52 @@ export function PlanetDetailPage() {
       if (p) {
         p.buildings = p.buildings || [];
         p.buildings.push({
-          id: 'temp-' + Date.now(),
+          id: tempId,
           planetId: planet.id,
           typeId,
           selectedResourceId: selectedResourceId ?? null,
           level: 1,
-          slotIndex: selectedSlot,
+          slotIndex,
           queueAction: 'build',
+          queueCompletesAt: optimisticTimer.queueCompletesAt,
+          queueStartedAt: optimisticTimer.queueStartedAt,
         });
       }
       queryClient.setQueryData(['me'], optimisticMe);
     }
+    setSelectedSlot(null);
 
     try {
-      await apiFetch<ConstructionStatus>('/buildings/build', {
+      const result = await apiFetch<ConstructionStatus>('/buildings/build', {
         method: 'POST',
         body: JSON.stringify({
           planetId: planet.id,
           typeId,
-          slotIndex: selectedSlot,
+          slotIndex,
           selectedResourceId: selectedResourceId ?? null,
         }),
       });
-      setSelectedSlot(null);
+      if (result.queueItem) {
+        queryClient.setQueryData<User>(['me'], (current) => {
+          if (!current) return current;
+          const next = structuredClone(current);
+          const p = next.planets?.find((pl) => pl.id === planet.id);
+          const building = p?.buildings?.find((b) => b.id === tempId);
+          if (building) {
+            building.id = result.queueItem!.id;
+            building.typeId = result.queueItem!.buildingTypeId;
+            building.level = result.queueItem!.level;
+            building.queueAction = result.queueItem!.queueAction;
+            building.queueCompletesAt = result.queueItem!.queueCompletesAt;
+            building.queueStartedAt = result.queueItem!.queueStartedAt;
+            building.selectedResourceId = result.queueItem!.selectedResourceId ?? null;
+            if (typeof result.queueItem!.slotIndex === 'number') {
+              building.slotIndex = result.queueItem!.slotIndex;
+            }
+          }
+          return next;
+        });
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t('build.failedStart');
       alert(message);
@@ -390,7 +429,8 @@ export function PlanetDetailPage() {
   const handleUpgrade = async (buildingId: string) => {
     setIsProcessing(true);
 
-    const previousMeData = queryClient.getQueryData(['me']);
+    await queryClient.cancelQueries({ queryKey: ['me'] });
+    const previousMeData = queryClient.getQueryData<User>(['me']);
 
     if (meData) {
       const optimisticMe = structuredClone(meData);
@@ -398,18 +438,38 @@ export function PlanetDetailPage() {
       if (p) {
         const b = p.buildings?.find((bld) => bld.id === buildingId);
         if (b) {
+          const typeInfo = buildingTypes.find((t) => t.id === b.typeId);
+          const optimisticTimer = optimisticQueueWindow(
+            typeInfo ? buildingUpgradeTimeSeconds(typeInfo.baseTimeSec, b.level) : 0,
+          );
           b.queueAction = 'upgrade';
+          b.queueCompletesAt = optimisticTimer.queueCompletesAt;
+          b.queueStartedAt = optimisticTimer.queueStartedAt;
         }
       }
       queryClient.setQueryData(['me'], optimisticMe);
     }
+    setSelectedBuilding(null);
 
     try {
-      await apiFetch<ConstructionStatus>('/buildings/upgrade', {
+      const result = await apiFetch<ConstructionStatus>('/buildings/upgrade', {
         method: 'POST',
         body: JSON.stringify({ buildingId }),
       });
-      setSelectedBuilding(null);
+      if (result.queueItem) {
+        queryClient.setQueryData<User>(['me'], (current) => {
+          if (!current) return current;
+          const next = structuredClone(current);
+          const p = next.planets?.find((pl) => pl.id === result.queueItem!.planetId);
+          const building = p?.buildings?.find((b) => b.id === result.queueItem!.id);
+          if (building) {
+            building.queueAction = result.queueItem!.queueAction;
+            building.queueCompletesAt = result.queueItem!.queueCompletesAt;
+            building.queueStartedAt = result.queueItem!.queueStartedAt;
+          }
+          return next;
+        });
+      }
     } catch (err: unknown) {
       const errorData = err instanceof Error ? (err as Error & { data?: unknown }).data : null;
       const blockedReason =

@@ -3607,6 +3607,53 @@
       "prompt": "[TASK P2.2-018] Лимит космодрома и бронирование посадочных мест\n\nОПИСАНИЕ\nПривязать посадочный лимит планеты к уровню `spaceport`, запретить запуск без космодрома и учитывать уже отправленные корабли при валидации.\n\nACCEPTANCE CRITERIA\n  1. При запуске проверяется available slots = spaceport level на целевой планете\n  2. Без космодрома запуск обычных типов невозможен\n  3. Учитываются запущенные/в полете корабли к целевой планете, чтобы избежать коллизий при одновременных отправках\n  4. Колонизатор обрабатывается как исключение и разворачивает `command_center` на месте без проверки космодрома\n  5. Ошибки при нехватке слотов локализованы и корректно объясняют причину"
     },
     {
+      "id": "P2.2-019",
+      "epic": "EPIC-P2.2-BUILDING-ECONOMY",
+      "size": "M",
+      "title": "Единый optimistic UX для очередей исследований, построек и кораблей",
+      "description": "Унифицировать старт долгих действий: исследования, строительство/апгрейды зданий и постройка кораблей должны мгновенно отражаться в UI по паттерну optimistic update из исследований, а серверная синхронизация должна подтверждать или откатывать изменения.",
+      "acceptance": [
+        "Старт исследования, строительства/апгрейда здания и постройки корабля использует единый optimistic mutation паттерн: cache update до ответа сервера, rollback на ошибку, refetch/invalidation после settle",
+        "После клика таймер и возможность ускорить за алмазы появляются сразу, без ожидания ручного refetch, переключения вкладок или 15-секундного polling",
+        "BuildQueue больше не зависит от локального polling-состояния, которое отстает от optimistic `/me`; очередь берется из React Query cache или синхронизируется с ним без визуальной задержки",
+        "Корабль со статусом `building` никогда не считается `idle`, даже если `/ships/queue` еще не догрузился; кнопки миссии/cargo/jump заблокированы до фактического завершения",
+        "Ответы `/buildings/build`, `/buildings/upgrade` и `/ships/build` возвращают достаточно queue metadata для точного client-side таймера и замены временных optimistic id реальными id",
+        "Визуальное поведение rush-контролов для исследований, зданий и кораблей одинаково: активная очередь показывает countdown/progress/rush без смены вкладок",
+        "Ошибки сервера показываются локализованно и откатывают только optimistic изменения текущего действия, не ломая соседние cached данные",
+        "Добавлены focused tests для optimistic helpers/ship building state и регрессии, где строящийся корабль не может быть отправлен на миссию"
+      ],
+      "files": [
+        "shared/types/buildings.ts",
+        "shared/types/ships.ts",
+        "backend/src/features/buildings/service.ts",
+        "backend/src/features/buildings/routes.ts",
+        "backend/src/features/buildings/service.test.ts",
+        "backend/src/features/ships/build.ts",
+        "backend/src/features/ships/build.test.ts",
+        "frontend/src/hooks/useResearch.ts",
+        "frontend/src/hooks/useShips.ts",
+        "frontend/src/pages/PlanetDetail.tsx",
+        "frontend/src/pages/Ships.tsx",
+        "frontend/src/components/BuildQueue.tsx",
+        "frontend/src/components/ResearchQueue.tsx",
+        "frontend/src/components/cosmic/atoms.tsx",
+        "frontend/src/lib/timers.ts",
+        "frontend/src/locales/en.json",
+        "frontend/src/locales/ru.json",
+        "frontend/src/README.md",
+        "backend/src/features/README.md",
+        "tasks/tasks.json"
+      ],
+      "deps": [
+        "P2.2-007",
+        "P2.2-014",
+        "P2.2-016"
+      ],
+      "verify": "Focused frontend unit tests for optimistic queue helpers and ship building UI state; backend build/ship queue response tests; frontend build/type-check when available.",
+      "notes": "Сервер остается authoritative для ресурсов, лимитов очереди и античита. Optimistic слой не должен отправлять fire-and-forget действия без rollback; timeout/unknown state блокирует использование объекта как готового.",
+      "prompt": "[TASK P2.2-019] Единый optimistic UX для очередей исследований, построек и кораблей\n\nОПИСАНИЕ\nУнифицировать старт долгих действий: исследования, строительство/апгрейды зданий и постройка кораблей должны мгновенно отражаться в UI по паттерну optimistic update из исследований. Серверный ответ подтверждает состояние, заменяет временные id/timestamps точными данными или откатывает optimistic изменения на ошибке.\n\nACCEPTANCE CRITERIA\n  1. Research/building/ship starts используют одинаковый optimistic mutation pattern: onMutate cache update, rollback onError, invalidate/refetch onSettled\n  2. После клика countdown/progress/rush появляются сразу без смены вкладок и без ожидания периодического polling\n  3. BuildQueue синхронизирован с `/me`/React Query cache и не отстает от optimistic строительства\n  4. Строящийся корабль не может выглядеть idle и не может отправляться на миссию, даже если `/ships/queue` еще не загрузился\n  5. Backend responses для start/build actions возвращают queue metadata, достаточную для точного client-side countdown и замены temp id\n  6. Rush UX для исследований, построек и кораблей приведен к единому visible pattern\n  7. Серверные ошибки локализованно отображаются и откатывают только текущий optimistic action\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - shared/types/buildings.ts\n  - shared/types/ships.ts\n  - backend/src/features/buildings/service.ts\n  - backend/src/features/buildings/routes.ts\n  - backend/src/features/buildings/service.test.ts\n  - backend/src/features/ships/build.ts\n  - backend/src/features/ships/build.test.ts\n  - frontend/src/hooks/useShips.ts\n  - frontend/src/pages/PlanetDetail.tsx\n  - frontend/src/pages/Ships.tsx\n  - frontend/src/components/BuildQueue.tsx\n  - frontend/src/README.md\n  - backend/src/features/README.md\n\nЗАВИСИМОСТИ\n  P2.2-007, P2.2-014, P2.2-016\n\nКАК ПРОВЕРИТЬ\n  Focused frontend unit tests for optimistic queue helpers and ship building UI state; backend build/ship queue response tests; frontend build/type-check when available.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Сервер остается authoritative для ресурсов, лимитов очереди и античита. Optimistic слой не должен превращаться в fire-and-forget без rollback; timeout/unknown state должен блокировать использование объекта как готового."
+    },
+    {
       "id": "P2.3-500",
       "epic": "EPIC-P2.3-JUMP-GATE",
       "size": "XL",

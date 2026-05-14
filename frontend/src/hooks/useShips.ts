@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../lib/api';
-import { RushShipBuildResponse, Ship, ShipQueueItem, ShipType } from '@shared/types/ships';
+import type { User } from '@shared/types/user';
+import type { BuildShipResponse, RushShipBuildResponse, Ship, ShipQueueItem, ShipType } from '@shared/types/ships';
 
 const MAX_TIMEOUT_MS = 2_147_483_647;
 
@@ -16,13 +17,84 @@ export function useBuildShip() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (body: { planetId: string; typeSlug: string }) =>
-      apiFetch<{ ship: Ship }>('/ships/build', {
+    mutationFn: (body: { planetId: string; typeSlug: string; estimatedDurationSec?: number }) =>
+      apiFetch<BuildShipResponse>('/ships/build', {
         method: 'POST',
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          planetId: body.planetId,
+          typeSlug: body.typeSlug,
+        }),
       }),
-    onSuccess: () => {
+    onMutate: async (vars) => {
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: ['me'] }),
+        queryClient.cancelQueries({ queryKey: ['ship-queue'] }),
+      ]);
+      const previousMe = queryClient.getQueryData<User>(['me']);
+      const previousQueue = queryClient.getQueryData<{ queue: ShipQueueItem[] }>(['ship-queue']);
+      const tempId = `temp-ship-${Date.now()}`;
+      const startedAt = new Date().toISOString();
+      const completesAt = new Date(
+        Date.now() + Math.max(0, vars.estimatedDurationSec ?? 0) * 1000,
+      ).toISOString();
+      const optimisticShip: Ship = {
+        id: tempId,
+        ownerId: previousMe?.id ?? 'optimistic',
+        typeId: vars.typeSlug,
+        locationPlanetId: vars.planetId,
+        status: 'building',
+        queueCompletesAt: completesAt,
+        queueStartedAt: startedAt,
+        cargoJson: {},
+        fuel: '0',
+      };
+      const optimisticQueueItem: ShipQueueItem = {
+        id: tempId,
+        planetId: vars.planetId,
+        typeId: vars.typeSlug,
+        status: 'building',
+        queueCompletesAt: completesAt,
+        queueStartedAt: startedAt,
+      };
+
+      queryClient.setQueryData<User>(['me'], (old) =>
+        old ? { ...old, ships: [...(old.ships ?? []), optimisticShip] } : old,
+      );
+      queryClient.setQueryData<{ queue: ShipQueueItem[] }>(['ship-queue'], (old) => ({
+        queue: [...(old?.queue ?? []), optimisticQueueItem],
+      }));
+
+      return { previousMe, previousQueue, tempId };
+    },
+    onSuccess: (data, _vars, context) => {
+      if (context?.tempId && data.ship) {
+        queryClient.setQueryData<User>(['me'], (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            ships: (old.ships ?? []).map((ship) =>
+              ship.id === context.tempId ? data.ship : ship,
+            ),
+          };
+        });
+      }
+      if (context?.tempId && data.queueItem) {
+        queryClient.setQueryData<{ queue: ShipQueueItem[] }>(['ship-queue'], (old) => ({
+          queue: (old?.queue ?? []).map((item) =>
+            item.id === context.tempId ? data.queueItem! : item,
+          ),
+        }));
+      }
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousMe !== undefined) {
+        queryClient.setQueryData(['me'], context.previousMe);
+      }
+      queryClient.setQueryData(['ship-queue'], context?.previousQueue ?? { queue: [] });
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['me'] });
+      queryClient.invalidateQueries({ queryKey: ['ship-queue'] });
     },
   });
 }

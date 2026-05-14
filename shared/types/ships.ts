@@ -34,6 +34,11 @@ export interface RushShipBuildResponse {
   diamondsRemaining: number;
 }
 
+export interface BuildShipResponse {
+  ship: Ship;
+  queueItem?: ShipQueueItem;
+}
+
 export interface ShipType {
   id: string;
   name: { ru: string; en: string };
