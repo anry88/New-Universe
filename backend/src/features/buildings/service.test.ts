@@ -4,12 +4,22 @@ import { buildingsRoutes } from './routes.js';
 import { authRoutes } from '../auth/routes.js';
 import { meRoutes } from '../me/routes.js';
 import { db } from '../../db/index.js';
-import { colonies, discoveredPlanets, planets, systems, buildings, planetResources, richness } from '../../db/schema.js';
+import {
+  colonies,
+  discoveredPlanets,
+  planets,
+  systems,
+  buildings,
+  planetResources,
+  richness,
+  ships,
+} from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 import { env } from '../../lib/env.js';
 import { seedBuildingTypes } from '../../db/seed/building-types.js';
 import { seedResources } from '../../db/seed/resources.js';
+import { seedShipTypes } from '../../db/seed/ship-types.js';
 
 describe('Buildings Service - POST /buildings/build', () => {
   const botToken = env.TELEGRAM_BOT_TOKEN;
@@ -17,6 +27,7 @@ describe('Buildings Service - POST /buildings/build', () => {
   beforeAll(async () => {
     await seedResources();
     await seedBuildingTypes();
+    await seedShipTypes();
   });
 
   function createValidInitData(user: any): string {
@@ -891,5 +902,52 @@ describe('Buildings Service - POST /buildings/build', () => {
       // Optional: check exact sum if needed
       expect(Math.floor(updatedTotal)).toBe(Math.floor(initialTotal + refundSum));
     }
+  });
+
+  it('blocks spaceport demolition while ships occupy landing slots', async () => {
+    const { app, token, userId } = await createTestUser();
+
+    const userSystem = await db.query.systems.findFirst({
+      where: eq(systems.ownerId, userId),
+    });
+    const userPlanet = await db.query.planets.findFirst({
+      where: eq(planets.systemId, userSystem!.id),
+      orderBy: (p, { asc }) => asc(p.name),
+    });
+    expect(userPlanet).toBeDefined();
+
+    const [spaceport] = await db.insert(buildings).values({
+      planetId: userPlanet!.id,
+      typeId: 'spaceport',
+      slotIndex: 4,
+      level: 1,
+    }).returning();
+
+    await db.insert(ships).values({
+      ownerId: userId,
+      typeId: 'scout',
+      locationPlanetId: userPlanet!.id,
+      status: 'idle',
+      cargoJson: {},
+      fuel: '0',
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/buildings/demolish',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'accept-language': 'ru',
+      },
+      payload: { buildingId: spaceport.id },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().message).toContain('Космопорт');
+
+    const stored = await db.query.buildings.findFirst({
+      where: eq(buildings.id, spaceport.id),
+    });
+    expect(stored).toBeDefined();
   });
 });

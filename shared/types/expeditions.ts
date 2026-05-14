@@ -1,6 +1,10 @@
 import type { JumpGateJumpResponse } from './jump-gate.js';
 import type { Locale } from './locale.js';
-import { formatInsufficientResourceMessage, shipLabel } from './entity-labels.js';
+import {
+  buildingLabel,
+  formatInsufficientResourceMessage,
+  shipLabel,
+} from './entity-labels.js';
 import type { ExpeditionRouteMode } from '../config/expeditionRouting.js';
 
 export interface LaunchExpeditionRequest {
@@ -91,6 +95,8 @@ export type LaunchExpeditionErrorCode =
   | 'expedition_target_home_required'
   | 'expedition_target_already_surveyed'
   | 'expedition_colonization_blocked'
+  | 'expedition_spaceport_required'
+  | 'expedition_landing_slots_full'
   | 'expedition_cargo_unavailable'
   | 'insufficient_resource';
 
@@ -121,6 +127,13 @@ export type LaunchExpeditionErrorDetails =
   | { code: 'expedition_target_home_required' }
   | { code: 'expedition_target_already_surveyed' }
   | { code: 'expedition_colonization_blocked'; reason?: string }
+  | { code: 'expedition_spaceport_required' }
+  | {
+      code: 'expedition_landing_slots_full';
+      capacity?: number;
+      occupied?: number;
+      reserved?: number;
+    }
   | { code: 'expedition_cargo_unavailable' }
   | { code: 'insufficient_resource'; resourceId: string; required?: number; available?: number };
 
@@ -234,6 +247,14 @@ export function formatLaunchExpeditionErrorMessage(
       }
       return locale === 'ru' ? 'Колонизация этой планеты недоступна.' : 'This planet cannot be colonized.';
     }
+    case 'expedition_spaceport_required':
+      return locale === 'ru'
+        ? `Для посадки корабля на целевой планете нужен «${buildingLabel('spaceport', locale)}».`
+        : `Target planet needs a ${buildingLabel('spaceport', locale)} before ships can land.`;
+    case 'expedition_landing_slots_full':
+      return locale === 'ru'
+        ? `Все посадочные места «${buildingLabel('spaceport', locale)}» заняты: доступно ${error.capacity ?? 0}, занято ${error.occupied ?? 0}, зарезервировано ${error.reserved ?? 0}.`
+        : `${buildingLabel('spaceport', locale)} landing capacity is full: capacity ${error.capacity ?? 0}, ${error.occupied ?? 0} occupied, ${error.reserved ?? 0} reserved.`;
     case 'expedition_cargo_unavailable':
       return locale === 'ru'
         ? 'На стартовой планете недостаточно груза для загрузки.'

@@ -98,6 +98,15 @@ describe('Ship Building - POST /ships/build', () => {
     }
   }
 
+  async function ensureSpaceport(planetId: string, level = 1) {
+    await db.insert(buildings).values({
+      planetId,
+      typeId: 'spaceport',
+      slotIndex: 2,
+      level,
+    });
+  }
+
   it('should build a scout ship with shipyard', async () => {
     const { app, token, userId } = await createTestUser();
     const planetId = await getHomePlanetId(userId);
@@ -108,6 +117,7 @@ describe('Ship Building - POST /ships/build', () => {
       slotIndex: 0,
       level: 1,
     });
+    await ensureSpaceport(planetId);
 
     await ensureResource(planetId, 'fuel', 100);
 
@@ -143,6 +153,7 @@ describe('Ship Building - POST /ships/build', () => {
       slotIndex: 1,
       level: 1,
     });
+    await ensureSpaceport(planetId);
 
     await ensureResource(planetId, 'iron', 500);
     await ensureResource(planetId, 'silicon', 300);
@@ -235,6 +246,7 @@ describe('Ship Building - POST /ships/build', () => {
       slotIndex: 0,
       level: 1,
     });
+    await ensureSpaceport(planetId);
 
     await ensureResource(planetId, 'fuel', 100);
 
@@ -260,6 +272,79 @@ describe('Ship Building - POST /ships/build', () => {
     expect(response.statusCode).toBe(400);
     const body = response.json();
     expect(body.error).toContain('Shipyard queue is full');
+  });
+
+  it('should return 400 without a completed spaceport', async () => {
+    const { app, token, userId } = await createTestUser();
+    const planetId = await getHomePlanetId(userId);
+
+    await db.insert(buildings).values({
+      planetId,
+      typeId: 'shipyard',
+      slotIndex: 0,
+      level: 1,
+    });
+    await ensureResource(planetId, 'fuel', 100);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/ships/build',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'accept-language': 'ru',
+      },
+      payload: {
+        planetId,
+        typeSlug: 'scout',
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    const body = response.json();
+    expect(body.code).toBe('ship_build_spaceport_required');
+    expect(body.error).toContain('Космопорт');
+  });
+
+  it('should return 400 when the spaceport landing capacity is full', async () => {
+    const { app, token, userId } = await createTestUser();
+    const planetId = await getHomePlanetId(userId);
+
+    await ensureSpaceport(planetId, 1);
+    await db.insert(buildings).values({
+      planetId,
+      typeId: 'shipyard',
+      slotIndex: 0,
+      level: 1,
+    });
+    await ensureResource(planetId, 'fuel', 100);
+    await db.insert(ships).values({
+      ownerId: userId,
+      typeId: 'scout',
+      locationPlanetId: planetId,
+      status: 'idle',
+      cargoJson: {},
+      fuel: '0',
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/ships/build',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        planetId,
+        typeSlug: 'scout',
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    const body = response.json();
+    expect(body.code).toBe('ship_build_spaceport_capacity_full');
+    expect(body.error).toContain('Spaceport');
+    expect(body.details).toMatchObject({
+      capacity: 1,
+      occupied: 1,
+      reserved: 0,
+    });
   });
 
   it('should return 401 without authorization', async () => {
@@ -288,6 +373,7 @@ describe('Ship Building - POST /ships/build', () => {
       slotIndex: 0,
       level: 1,
     });
+    await ensureSpaceport(planetId);
 
     const response = await app.inject({
       method: 'POST',
@@ -346,6 +432,7 @@ describe('Ship Building - POST /ships/build', () => {
       slotIndex: 0,
       level: 1,
     });
+    await ensureSpaceport(planetId);
 
     // Don't add fuel — scout needs 30 fuel, so spendResources will fail
     const response = await app.inject({

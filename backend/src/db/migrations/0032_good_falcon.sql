@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS "expeditions_target_planet_status_idx" ON "expeditions" USING btree ("target_planet_id","status");

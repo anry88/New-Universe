@@ -129,6 +129,15 @@ describe("Expeditions - POST /expeditions", () => {
     await ensureResource(planetId, JUMP_FUEL_RESOURCE_ID, amount);
   }
 
+  async function ensureSpaceport(planetId: string, level = 1) {
+    await db.insert(buildings).values({
+      planetId,
+      typeId: "spaceport",
+      slotIndex: 2,
+      level,
+    });
+  }
+
   async function createIdleScout(userId: string, planetId: string, fuel = "0") {
     const [ship] = await db
       .insert(ships)
@@ -151,6 +160,41 @@ describe("Expeditions - POST /expeditions", () => {
       .values({
         ownerId: userId,
         typeId: "cargo_light",
+        locationPlanetId: planetId,
+        status: "idle",
+        cargoJson: {},
+        fuel: "0",
+      })
+      .returning();
+
+    return ship;
+  }
+
+  async function createIdleFighter(userId: string, planetId: string) {
+    await db
+      .insert(shipTypes)
+      .values({
+        id: "fighter",
+        name: { ru: "Перехватчик", en: "Fighter" },
+        role: "combat",
+        hp: 80,
+        speed: "2.00",
+        cargo: 0,
+        dps: 10,
+        armor: 3,
+        fuelConsumption: "0.30",
+        buildTimeSec: 10,
+        buildCost: { iron: 100 },
+        requiredBuildings: [],
+        sensorRange: 5,
+      })
+      .onConflictDoNothing();
+
+    const [ship] = await db
+      .insert(ships)
+      .values({
+        ownerId: userId,
+        typeId: "fighter",
         locationPlanetId: planetId,
         status: "idle",
         cargoJson: {},
@@ -499,6 +543,7 @@ describe("Expeditions - POST /expeditions", () => {
     await unlockJumpGate(userId);
     await ensureFuel(planet.id, 100);
     await ensureJumpFuel(planet.id, JUMP_GATE_JUMP_FUEL_COST);
+    await ensureSpaceport(destination.planets[0].id);
     const ship = await createIdleScout(userId, planet.id);
 
     const response = await app.inject({
@@ -710,5 +755,110 @@ describe("Expeditions - POST /expeditions", () => {
 
     expect(response.statusCode).toBe(400);
     expect(response.json().error).toContain("public common system");
+  });
+
+  it("rejects targeted non-colonizer launches when the target has no spaceport", async () => {
+    const { app, token, userId } = await createTestUser();
+    const { system, planet } = await getHomeContext(userId);
+    const targetPlanet = await db.query.planets.findFirst({
+      where: eq(planets.systemId, system.id),
+      orderBy: (p, { desc }) => desc(p.name),
+    });
+    expect(targetPlanet).toBeDefined();
+
+    await ensureFuel(planet.id, 100);
+    const ship = await createIdleFighter(userId, planet.id);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/expeditions",
+      headers: {
+        authorization: `Bearer ${token}`,
+        "accept-language": "ru",
+      },
+      payload: {
+        shipId: ship.id,
+        targetX: system.sectorX,
+        targetY: system.sectorY,
+        targetZ: system.sectorZ,
+        targetPlanetId: targetPlanet!.id,
+        cargoLoaded: 0,
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    const body = response.json();
+    expect(body.code).toBe("expedition_spaceport_required");
+    expect(body.error).toContain("Космопорт");
+  });
+
+  it("reserves target spaceport slots across parallel launches", async () => {
+    const { app, token, userId } = await createTestUser();
+    const { system, planet } = await getHomeContext(userId);
+    const targetPlanet = await db.query.planets.findFirst({
+      where: eq(planets.systemId, system.id),
+      orderBy: (p, { desc }) => desc(p.name),
+    });
+    expect(targetPlanet).toBeDefined();
+
+    await ensureSpaceport(targetPlanet!.id, 1);
+    await ensureFuel(planet.id, 100);
+    const firstShip = await createIdleFighter(userId, planet.id);
+    const secondShip = await createIdleFighter(userId, planet.id);
+
+    const payload = (shipId: string) => ({
+      shipId,
+      targetX: system.sectorX,
+      targetY: system.sectorY,
+      targetZ: system.sectorZ,
+      targetPlanetId: targetPlanet!.id,
+      cargoLoaded: 0,
+    });
+
+    const responses = await Promise.all([
+      app.inject({
+        method: "POST",
+        url: "/expeditions",
+        headers: {
+          authorization: `Bearer ${token}`,
+          "accept-language": "ru",
+        },
+        payload: payload(firstShip.id),
+      }),
+      app.inject({
+        method: "POST",
+        url: "/expeditions",
+        headers: {
+          authorization: `Bearer ${token}`,
+          "accept-language": "ru",
+        },
+        payload: payload(secondShip.id),
+      }),
+    ]);
+
+    const statuses = responses.map((response) => response.statusCode).sort();
+    expect(statuses).toEqual([200, 400]);
+
+    const blocked = responses.find((response) => response.statusCode === 400);
+    expect(blocked).toBeDefined();
+    const blockedBody = blocked!.json();
+    expect(blockedBody.code).toBe("expedition_landing_slots_full");
+    expect(blockedBody.error).toContain("Космопорт");
+    expect(blockedBody.details).toMatchObject({
+      capacity: 1,
+      occupied: 0,
+      reserved: 1,
+    });
+
+    const reservations = await db
+      .select()
+      .from(expeditions)
+      .where(
+        and(
+          eq(expeditions.targetPlanetId, targetPlanet!.id),
+          eq(expeditions.status, "in_flight"),
+        ),
+      );
+    expect(reservations).toHaveLength(1);
   });
 });

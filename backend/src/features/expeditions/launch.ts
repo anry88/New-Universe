@@ -34,6 +34,7 @@ import { colonyService } from "../colonies/colonies.js";
 import { systemMapPlanetDistanceLy } from "@shared/format/systemMapLayout.js";
 import { env } from "../../lib/env.js";
 import { getJumpGateState } from "../jump-gate/service.js";
+import { loadLandingSlotUsage } from "../ships/spaceport-capacity.js";
 
 export interface LaunchExpeditionResult {
   success: boolean;
@@ -83,6 +84,10 @@ function launchFailure(
     code,
     details: rest,
   };
+}
+
+function shipRoleRequiresTargetLandingSlot(role: string): boolean {
+  return role !== "colonization" && role !== "recon" && role !== "exploration";
 }
 
 async function getAvailableCargo(planetId: string, tx: any): Promise<number> {
@@ -264,10 +269,6 @@ export async function launchExpedition(
   let resolvedTargetPlanetId: string | null = null;
   let sameSystemPlanetDistance: number | null = null;
   if (targetPlanetId) {
-    if (shipRow.shipRole !== "recon" && shipRow.shipRole !== "colonization") {
-      return launchFailure(400, { code: "expedition_target_role_required" });
-    }
-
     const targetPlanet = await defaultDb.query.planets.findFirst({
       where: eq(planets.id, targetPlanetId),
       with: { system: true },
@@ -310,7 +311,7 @@ export async function launchExpedition(
       if (already) {
         return launchFailure(400, { code: "expedition_target_already_surveyed" });
       }
-    } else {
+    } else if (shipRow.shipRole === "colonization") {
       const gates = await checkColonizationGates(userId, targetPlanetId);
       if (!gates.allowed) {
         return launchFailure(400, {
@@ -381,6 +382,28 @@ export async function launchExpedition(
   const eta = new Date(Date.now() + etaSeconds * 1000);
 
   return defaultDb.transaction(async (tx) => {
+    if (
+      resolvedTargetPlanetId &&
+      shipRoleRequiresTargetLandingSlot(shipRow.shipRole)
+    ) {
+      const usage = await loadLandingSlotUsage(tx, resolvedTargetPlanetId, {
+        lock: true,
+      });
+
+      if (usage.capacity <= 0) {
+        return launchFailure(400, { code: "expedition_spaceport_required" });
+      }
+
+      if (usage.used >= usage.capacity) {
+        return launchFailure(400, {
+          code: "expedition_landing_slots_full",
+          capacity: usage.capacity,
+          occupied: usage.occupied,
+          reserved: usage.reserved,
+        });
+      }
+    }
+
     const availableCargo = await getAvailableCargo(
       shipRow.shipLocationPlanetId!,
       tx,

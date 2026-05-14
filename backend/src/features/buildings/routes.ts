@@ -64,6 +64,10 @@ function formatGenericBuildingError(message: string | undefined, locale: 'en' | 
       return locale === 'ru'
         ? 'Сейчас нельзя сменить месторождение для этого здания.'
         : 'This building cannot switch deposits right now.';
+    case 'Spaceport has reserved landing slots':
+      return locale === 'ru'
+        ? 'Нельзя демонтировать Космопорт: на планете есть размещённые корабли или зарезервированные посадочные места.'
+        : 'Cannot demolish the Spaceport while ships are stationed or landing slots are reserved.';
     default:
       return message ?? (locale === 'ru' ? 'Некорректный запрос' : 'Bad request');
   }
@@ -238,9 +242,10 @@ export async function buildingsRoutes(app: FastifyInstance) {
       const result = await buildingService.demolish(userId, buildingId);
       return result;
     } catch (err: any) {
+      const locale = resolveRequestLocale(request);
       return reply.status(400).send({
         error: 'Bad Request',
-        message: err.message,
+        message: formatGenericBuildingError(err.message, locale),
       });
     }
   });
