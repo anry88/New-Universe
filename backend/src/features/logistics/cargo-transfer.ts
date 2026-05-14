@@ -365,18 +365,20 @@ export async function launchCargoTransfer(
       })
       .where(eq(ships.id, plan.ship.id));
 
-    try {
-      const { Queue: BullQueue } = await import('bullmq');
-      const Redis = (await import('ioredis')).default as unknown as new (...args: any[]) => any;
-      const redis = new Redis(env.REDIS_URL, {
-        maxRetriesPerRequest: null,
-        lazyConnect: true,
-      });
-      const expeditionQueue = new BullQueue('expeditions', { connection: redis });
-      await expeditionQueue.add('arrive_cargo', { expeditionId: expedition.id, shipId: plan.ship.id }, { delay: plan.preview.etaSeconds * 1000 });
-      await expeditionQueue.close();
-      await redis.quit();
-    } catch (_err) { void _err; }
+    if (env.ENABLE_BULLMQ) {
+      try {
+        const { Queue: BullQueue } = await import('bullmq');
+        const Redis = (await import('ioredis')).default as unknown as new (...args: any[]) => any;
+        const redis = new Redis(env.REDIS_URL, {
+          maxRetriesPerRequest: null,
+          lazyConnect: true,
+        });
+        const expeditionQueue = new BullQueue('expeditions', { connection: redis });
+        await expeditionQueue.add('arrive_cargo', { expeditionId: expedition.id, shipId: plan.ship.id }, { delay: plan.preview.etaSeconds * 1000 });
+        await expeditionQueue.close();
+        await redis.quit();
+      } catch (_err) { void _err; }
+    }
 
     return { success: true, expedition };
   });

@@ -136,23 +136,25 @@ export async function upgradeBuilding(
       .where(eq(buildings.id, buildingId))
       .returning();
 
-    try {
-      const { Queue: BQueue } = await import('bullmq');
-      const Redis = (await import('ioredis')).default as unknown as new (...args: any[]) => any;
-      const redis = new Redis(env.REDIS_URL, {
-        maxRetriesPerRequest: null,
-        lazyConnect: true,
-      });
-      const buildQueue = new BQueue('buildings', { connection: redis });
-      await buildQueue.add(
-        'complete-upgrade',
-        { buildingId, planetId: building.planetId },
-        { delay: upgradeTimeSec * 1000 },
-      );
-      await buildQueue.close();
-      await redis.quit();
-    } catch {
-      // Redis/BullMQ not available — worker handles completion via polling
+    if (env.ENABLE_BULLMQ) {
+      try {
+        const { Queue: BQueue } = await import('bullmq');
+        const Redis = (await import('ioredis')).default as unknown as new (...args: any[]) => any;
+        const redis = new Redis(env.REDIS_URL, {
+          maxRetriesPerRequest: null,
+          lazyConnect: true,
+        });
+        const buildQueue = new BQueue('buildings', { connection: redis });
+        await buildQueue.add(
+          'complete-upgrade',
+          { buildingId, planetId: building.planetId },
+          { delay: upgradeTimeSec * 1000 },
+        );
+        await buildQueue.close();
+        await redis.quit();
+      } catch {
+        // Redis/BullMQ not available — worker handles completion via polling
+      }
     }
 
     return {

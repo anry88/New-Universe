@@ -60,6 +60,10 @@ export async function removeLegacyRepeatableJobs(
   queueName: string,
   options: { name?: string } = {},
 ): Promise<void> {
+  if (!env.ENABLE_BULLMQ) {
+    return;
+  }
+
   const { Queue } = await import('bullmq');
   const Redis = (await import('ioredis')).default as unknown as new (...args: any[]) => any;
   const connection = new Redis(env.REDIS_URL, {

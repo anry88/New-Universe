@@ -49,7 +49,7 @@ The `tools/` folder hosts offline agents (not bundled into Docker images). Today
 
 `backend/src/workers/index.ts` boots the background processing layer:
 
-- **Periodic Scheduler**: Uses lightweight in-process interval workers to "tick" game logic every 30 seconds without spending Redis commands on BullMQ repeatable jobs. With `ENABLE_BULLMQ=false`, ship construction also runs as an interval DB poller; BullMQ can still be used for delayed work such as cargo arrivals when needed.
+- **Periodic Scheduler**: Uses lightweight in-process interval workers to "tick" game logic every 30 seconds without spending Redis commands on BullMQ repeatable jobs. With `ENABLE_BULLMQ=false`, delayed completion work runs through Postgres polling and online sync, and BullMQ enqueue/workers plus legacy repeatable cleanup are skipped.
 - **`tick-buildings`**: Completes construction/upgrades and updates resource regen rates from each extractor building's saved resource target.
 - **`tick-expeditions`**: The most complex worker; it interpolates ship positions on the **sector XY plane** during travel (Z stays at the origin system’s sector Z for fog-of-war), performs real-time visibility checks with planet-size discovery radii, inserts targeted recon discoveries idempotently, and turns one-way colonizer arrivals into settled colonies with a completed Command Center after atomically claiming the target planet without re-running launch-time cooldown/limit gates. The same `processExpeditions({ userId, skipNotifications })` path powers online `/me` sync for due arrivals without Telegram pushes.
 - **`tick-ships`**: Finalizes ship production. Jobs update only still-building due rows and skip notification creation when the ship was already completed by online sync.
