@@ -46,6 +46,7 @@ export interface JumpGateKnownDestinationSummary {
   systemId: string;
   systemName: string;
   sector: { x: number; y: number; z: number };
+  seed: number;
   planetCount: number;
   planets: JumpGateDestinationPlanetSummary[];
   discoveredAt: string;

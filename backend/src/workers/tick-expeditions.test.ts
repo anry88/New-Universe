@@ -24,6 +24,8 @@ import {
 } from "./tick-expeditions.js";
 import {
   buildSystemMapLayouts,
+  systemMapJumpGatePoint,
+  systemMapPointDistanceLy,
   SYSTEM_MAP_WORLD_UNITS_PER_LY,
 } from "@shared/format/systemMapLayout.js";
 import { seedResources } from "../db/seed/resources.js";
@@ -957,5 +959,96 @@ describe("Tick Expeditions Worker", () => {
       where: and(eq(colonies.ownerId, user.id), eq(colonies.planetId, target.id)),
     });
     expect(colony).toBeDefined();
+  });
+
+  it("reveals only public destination planets along a Jump Gate scout point route", async () => {
+    const { user, originSystem, originPlanet, ship } = await createSetup();
+    const [destinationSystem] = await db
+      .insert(systems)
+      .values({
+        name: "Closed Public Destination",
+        sectorX: 6,
+        sectorY: 8,
+        sectorZ: 0,
+        x: "600.00",
+        y: "800.00",
+        z: "0.00",
+        seed: 98765,
+        ownerId: null,
+        isHome: false,
+      })
+      .returning();
+    const destinationPlanets = await db
+      .insert(planets)
+      .values([
+        {
+          systemId: destinationSystem.id,
+          name: "Route Body",
+          biome: "rocky",
+          size: 10,
+          slotCount: 8,
+        },
+        {
+          systemId: destinationSystem.id,
+          name: "Distant Body",
+          biome: "ice",
+          size: 12,
+          slotCount: 8,
+        },
+      ])
+      .returning();
+    await db.insert(discoveredSystems).values({
+      userId: user.id,
+      systemId: destinationSystem.id,
+      source: "random_jump",
+    });
+
+    const gatePoint = systemMapJumpGatePoint();
+    const originLayout = buildSystemMapLayouts([originPlanet], Number(originSystem.seed))[0];
+    const destinationLayouts = buildSystemMapLayouts(
+      destinationPlanets,
+      Number(destinationSystem.seed),
+    );
+    const routeTarget = destinationLayouts.find((layout) => layout.id === destinationPlanets[0].id)!;
+    const distantTarget = destinationLayouts.find((layout) => layout.id === destinationPlanets[1].id)!;
+    expect(systemMapPointDistanceLy(gatePoint, routeTarget)).toBeLessThan(
+      systemMapPointDistanceLy(gatePoint, distantTarget),
+    );
+
+    await db.insert(expeditions).values({
+      shipId: ship.id,
+      type: "scout",
+      originPlanetId: originPlanet.id,
+      targetX: destinationSystem.sectorX.toString(),
+      targetY: destinationSystem.sectorY.toString(),
+      targetZ: destinationSystem.sectorZ.toString(),
+      targetPlanetId: null,
+      status: "in_flight",
+      eta: new Date(Date.now() - 1000),
+      result: {
+        routeMode: "jump_gate",
+        destinationSystemId: destinationSystem.id,
+        distance:
+          systemMapPointDistanceLy(originLayout, gatePoint) +
+          systemMapPointDistanceLy(gatePoint, routeTarget),
+        originGateDistance: systemMapPointDistanceLy(originLayout, gatePoint),
+        targetGateDistance: systemMapPointDistanceLy(gatePoint, routeTarget),
+        targetSystemPoint: { x: routeTarget.x, y: routeTarget.y },
+        speed: 10,
+        engineFactor: 1,
+        returnTrip: true,
+      },
+    });
+
+    await processExpeditions({ userId: user.id, skipNotifications: true });
+
+    const routeDiscovery = await db.query.discoveredPlanets.findFirst({
+      where: and(eq(discoveredPlanets.userId, user.id), eq(discoveredPlanets.planetId, destinationPlanets[0].id)),
+    });
+    const distantDiscovery = await db.query.discoveredPlanets.findFirst({
+      where: and(eq(discoveredPlanets.userId, user.id), eq(discoveredPlanets.planetId, destinationPlanets[1].id)),
+    });
+    expect(routeDiscovery).toBeDefined();
+    expect(distantDiscovery).toBeUndefined();
   });
 });

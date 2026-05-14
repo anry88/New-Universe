@@ -31,7 +31,12 @@ import {
 } from "../research/effects.js";
 import { checkColonizationGates } from "../colonies/colonization-rules.js";
 import { colonyService } from "../colonies/colonies.js";
-import { systemMapPlanetDistanceLy } from "@shared/format/systemMapLayout.js";
+import {
+  buildSystemMapLayouts,
+  systemMapJumpGatePoint,
+  systemMapPlanetDistanceLy,
+  systemMapPointDistanceLy,
+} from "@shared/format/systemMapLayout.js";
 import { env } from "../../lib/env.js";
 import { getJumpGateState } from "../jump-gate/service.js";
 import {
@@ -101,6 +106,22 @@ async function getAvailableCargo(planetId: string, tx: any): Promise<number> {
   return Number(rows[0]?.total ?? 0);
 }
 
+async function distanceBetweenSystemGateAndPlanet(
+  systemId: string,
+  systemSeed: number,
+  planetId: string,
+): Promise<number | null> {
+  const systemPlanets = await defaultDb.query.planets.findMany({
+    where: eq(planets.systemId, systemId),
+  });
+  const planetLayout = buildSystemMapLayouts(systemPlanets, Number(systemSeed)).find(
+    (layout) => layout.id === planetId,
+  );
+  if (!planetLayout) return null;
+
+  return systemMapPointDistanceLy(systemMapJumpGatePoint(), planetLayout);
+}
+
 export async function launchExpedition(
   userId: string,
   request: LaunchExpeditionRequest,
@@ -114,6 +135,8 @@ export async function launchExpedition(
     cargoLoaded,
     targetPlanetId,
     destinationSystemId,
+    targetSystemX,
+    targetSystemY,
   } = request;
   const routeMode: ExpeditionRouteMode = request.routeMode ?? "local";
 
@@ -130,8 +153,13 @@ export async function launchExpedition(
     (!isFiniteNumber(targetX) ||
       !isFiniteNumber(targetY) ||
       !isFiniteNumber(targetZ));
+  const jumpRouteTargetPointInvalid =
+    routeMode === "jump_gate" &&
+    ((targetSystemX !== undefined && !isFiniteNumber(targetSystemX)) ||
+      (targetSystemY !== undefined && !isFiniteNumber(targetSystemY)));
   if (
     localRouteTargetInvalid ||
+    jumpRouteTargetPointInvalid ||
     (fuelLoaded !== undefined && !isFiniteNumber(fuelLoaded)) ||
     !isFiniteNumber(cargoLoaded)
   ) {
@@ -212,6 +240,7 @@ export async function launchExpedition(
   let resolvedDestinationSystemId: string | null = null;
   let jumpFuelRequired = 0;
   let destinationSystem: typeof systems.$inferSelect | null = null;
+  let targetSystemPoint: { x: number; y: number } | null = null;
 
   if (routeMode === "jump_gate") {
     const gateState = await getJumpGateState(userId);
@@ -251,6 +280,9 @@ export async function launchExpedition(
     }
 
     jumpFuelRequired = JUMP_GATE_JUMP_FUEL_COST;
+    if (isFiniteNumber(targetSystemX) && isFiniteNumber(targetSystemY)) {
+      targetSystemPoint = { x: targetSystemX, y: targetSystemY };
+    }
 
     resolvedDestinationSystemId = destinationSystem.id;
     resolvedTargetX = destinationSystem.sectorX;
@@ -260,6 +292,15 @@ export async function launchExpedition(
 
   if (shipRow.shipRole === "colonization" && !targetPlanetId) {
     return launchFailure(400, { code: "expedition_colonizer_target_required" });
+  }
+
+  if (
+    routeMode === "jump_gate" &&
+    shipRow.shipRole === "recon" &&
+    !targetPlanetId &&
+    !targetSystemPoint
+  ) {
+    return launchFailure(400, { code: "expedition_gate_target_point_required" });
   }
 
   if (cargoLoaded > shipRow.shipCargoCapacity) {
@@ -349,12 +390,27 @@ export async function launchExpedition(
   // discovery logic (which never used Z in layout space).
   const ox = Number(shipRow.originX);
   const oy = Number(shipRow.originY);
+  const originGateDistance =
+    routeMode === "jump_gate"
+      ? await distanceBetweenSystemGateAndPlanet(
+          shipRow.originSystemId,
+          Number(shipRow.originSystemSeed),
+          shipRow.originPlanetId,
+        )
+      : null;
+  const targetGateDistance =
+    routeMode === "jump_gate" && resolvedTargetPlanetId && destinationSystem
+        ? await distanceBetweenSystemGateAndPlanet(
+            destinationSystem.id,
+            Number(destinationSystem.seed),
+            resolvedTargetPlanetId,
+          )
+        : routeMode === "jump_gate" && targetSystemPoint
+          ? systemMapPointDistanceLy(systemMapJumpGatePoint(), targetSystemPoint)
+        : null;
   const distance =
     routeMode === "jump_gate"
-      ? calculateSectorRouteDistance(
-          { x: ox, y: oy },
-          { x: resolvedTargetX, y: resolvedTargetY },
-        )
+      ? (originGateDistance ?? 0) + (targetGateDistance ?? 0)
       : sameSystemPlanetDistance ??
         calculateSectorRouteDistance(
           { x: ox, y: oy },
@@ -458,6 +514,9 @@ export async function launchExpedition(
           cargoLoaded,
           distance: travelDistance,
           requestedDistance: distance,
+          originGateDistance: originGateDistance ?? undefined,
+          targetGateDistance: targetGateDistance ?? undefined,
+          targetSystemPoint,
           speed,
           engineFactor,
           returnTrip,

@@ -11,6 +11,7 @@ export interface ExpeditionPreviewInput {
   originSector: { x: number; y: number };
   targetSector: { x: number; y: number };
   sameSystemPlanetDistance?: number | null;
+  jumpGateRouteDistance?: number | null;
   hasTargetPlanet: boolean;
   isColonizer: boolean;
   fuelConsumption: number;
@@ -34,7 +35,7 @@ export function buildExpeditionPreview(
   );
   const requestedDistance =
     input.routeMode === "jump_gate"
-      ? sectorDistance
+      ? input.jumpGateRouteDistance ?? sectorDistance
       : input.sameSystemPlanetDistance ?? sectorDistance;
   const distance =
     input.routeMode === "jump_gate" || input.hasTargetPlanet

@@ -8,15 +8,16 @@ describe("expedition route preview", () => {
       routeMode: "jump_gate",
       originSector: { x: 0, y: 0 },
       targetSector: { x: 6, y: 8 },
+      jumpGateRouteDistance: 12,
       hasTargetPlanet: false,
       isColonizer: false,
       fuelConsumption: 0.3,
       speed: 2,
     });
 
-    expect(preview.distance).toBe(10);
-    expect(preview.etaSeconds).toBe(300);
-    expect(preview.fuelRequired).toBe(6);
+    expect(preview.distance).toBe(12);
+    expect(preview.etaSeconds).toBe(360);
+    expect(preview.fuelRequired).toBe(8);
     expect(preview.jumpFuelRequired).toBe(50);
     expect(preview.returnTrip).toBe(true);
   });

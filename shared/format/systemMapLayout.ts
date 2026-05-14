@@ -1,6 +1,8 @@
 export const SYSTEM_MAP_ORBIT_BASE = 90;
 export const SYSTEM_MAP_ORBIT_STEP = 70;
 export const SYSTEM_MAP_WORLD_UNITS_PER_LY = 40;
+export const SYSTEM_MAP_JUMP_GATE_ORBIT_SLOT = 10;
+export const SYSTEM_MAP_JUMP_GATE_ANGLE_RAD = -0.68;
 
 export interface SystemMapPlanetInput {
   id: string;
@@ -71,6 +73,23 @@ export function systemMapPlanetOrbitRadius(planet: SystemMapPlanetInput): number
 
 export function systemMapOrbitRadiusForSlot(slot: number): number {
   return SYSTEM_MAP_ORBIT_BASE + (Math.max(1, slot) - 1) * SYSTEM_MAP_ORBIT_STEP;
+}
+
+export function systemMapJumpGatePoint(): SystemMapPoint {
+  const orbitRadius = systemMapOrbitRadiusForSlot(SYSTEM_MAP_JUMP_GATE_ORBIT_SLOT);
+  return {
+    x: Math.cos(SYSTEM_MAP_JUMP_GATE_ANGLE_RAD) * orbitRadius,
+    y: Math.sin(SYSTEM_MAP_JUMP_GATE_ANGLE_RAD) * orbitRadius,
+  };
+}
+
+export function systemMapPointDistanceLy(
+  a: SystemMapPoint,
+  b: SystemMapPoint,
+  worldUnitsPerLy = SYSTEM_MAP_WORLD_UNITS_PER_LY,
+): number {
+  if (worldUnitsPerLy <= 0) return 0;
+  return Math.hypot(b.x - a.x, b.y - a.y) / worldUnitsPerLy;
 }
 
 export function systemMapPlanetOrbitSlot(
