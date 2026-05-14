@@ -10,6 +10,9 @@ import {
   applyStorageCap,
   buildResearchEffectModifiers,
   computeResearchEffects,
+  createResearchEffectsRequestCache,
+  getResearchEffectsForUser,
+  invalidateResearchEffectsCache,
 } from './effects.js';
 
 describe('research effects engine', () => {
@@ -72,5 +75,34 @@ describe('research effects engine', () => {
     ]);
     expect(modifiers).toHaveLength(1);
     expect(modifiers[0].target).toBe('resourceProduction');
+  });
+
+  it('memoizes research effects within one request cache and invalidates on demand', async () => {
+    let queryCount = 0;
+    let rows = [{ branch: 'mining', level: 1 }];
+    const database = {
+      query: {
+        researchProgress: {
+          findMany: async () => {
+            queryCount += 1;
+            return rows;
+          },
+        },
+      },
+    };
+    const cache = createResearchEffectsRequestCache();
+
+    const first = await getResearchEffectsForUser('user-cache', database, cache);
+    const second = await getResearchEffectsForUser('user-cache', database, cache);
+
+    expect(second).toEqual(first);
+    expect(queryCount).toBe(1);
+
+    rows = [{ branch: 'mining', level: 2 }];
+    invalidateResearchEffectsCache('user-cache', cache);
+    const afterInvalidation = await getResearchEffectsForUser('user-cache', database, cache);
+
+    expect(queryCount).toBe(2);
+    expect(afterInvalidation.resourceProductionMultiplier).toBeGreaterThan(first.resourceProductionMultiplier);
   });
 });

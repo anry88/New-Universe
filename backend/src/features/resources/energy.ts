@@ -16,7 +16,7 @@ export const BATTERY_BUILDING_TYPE_ID = 'battery';
 export const PASSIVE_ENERGY_PRODUCER_TYPES = new Set(['solar_plant', 'wind_turbine']);
 export const PROCESS_ENERGY_CONSUMER_TYPES = new Set(['smelter', 'refinery', 'fabrication_bay', 'cryo_factory']);
 
-type BuildingRow = {
+export type PlanetEnergyBuildingRow = {
   id: string;
   typeId: string;
   level: number;
@@ -28,7 +28,7 @@ type BuildingRow = {
   } | null;
 };
 
-type PlanetEnergyInput = {
+export type PlanetEnergyInput = {
   id: string;
   name: string;
   biome: string;
@@ -36,11 +36,11 @@ type PlanetEnergyInput = {
   system?: {
     ownerId: string | null;
   } | null;
-  buildings?: BuildingRow[];
+  buildings?: PlanetEnergyBuildingRow[];
   activeProductionOrders?: { buildingId: string | null; status: string }[];
 };
 
-type EnergyResourceRow = {
+export type EnergyResourceRow = {
   amount: string;
   lastUpdateAt: Date;
 } | null;
@@ -48,6 +48,10 @@ type EnergyResourceRow = {
 export interface ResolvedPlanetEnergyState extends PlanetEnergyStatus {
   netRate: number;
   buildingStates: Record<string, BuildingEnergyState>;
+}
+
+export interface PlanetEnergyRequestCache {
+  statesByPlanetId: Map<string, Promise<ResolvedPlanetEnergyState>>;
 }
 
 const NO_RESEARCH_EFFECTS: ResearchEffects = {
@@ -78,11 +82,11 @@ export function windEnergyMultiplier(planet: Pick<PlanetEnergyInput, 'size'>): n
   return roundEnergy(clamp(0.55 + planet.size / 24, 0.65, 1.6));
 }
 
-function isOperational(building: BuildingRow): boolean {
+function isOperational(building: PlanetEnergyBuildingRow): boolean {
   return building.queueAction !== 'build' && building.level > 0;
 }
 
-function energyCapacityForBuilding(building: BuildingRow, effects: ResearchEffects): number {
+function energyCapacityForBuilding(building: PlanetEnergyBuildingRow, effects: ResearchEffects): number {
   if (building.typeId !== BATTERY_BUILDING_TYPE_ID || !isOperational(building)) return 0;
   const output = building.type?.baseOutput ?? {};
   const cap = typeof output.energyCap === 'number' ? output.energyCap : 0;
@@ -91,7 +95,7 @@ function energyCapacityForBuilding(building: BuildingRow, effects: ResearchEffec
 
 function energyProductionForBuilding(
   planet: PlanetEnergyInput,
-  building: BuildingRow,
+  building: PlanetEnergyBuildingRow,
   effects: ResearchEffects,
 ): number {
   if (!isOperational(building)) return 0;
@@ -110,14 +114,14 @@ function energyProductionForBuilding(
   return applyEnergyGeneration(baseEnergy * building.level, effects);
 }
 
-function energyConsumptionForBuilding(building: BuildingRow, effects: ResearchEffects): number {
+function energyConsumptionForBuilding(building: PlanetEnergyBuildingRow, effects: ResearchEffects): number {
   if (!isOperational(building)) return 0;
   if (PROCESS_ENERGY_CONSUMER_TYPES.has(building.typeId)) return 0;
   return applyEnergyRequirement(Math.max(0, Number(building.type?.energyConsumption ?? 0)) * building.level, effects);
 }
 
 function processEnergyConsumptionForBuilding(
-  building: BuildingRow,
+  building: PlanetEnergyBuildingRow,
   activeProcessCount: number,
   effects: ResearchEffects,
 ): number {
@@ -203,10 +207,66 @@ function resolveEnergyStateFromRows(
   };
 }
 
+function emptyEnergyState(): ResolvedPlanetEnergyState {
+  return {
+    stored: 0,
+    capacity: 0,
+    produced: 0,
+    consumed: 0,
+    net: 0,
+    shortage: false,
+    netRate: 0,
+    buildingStates: {},
+  };
+}
+
+export function createPlanetEnergyRequestCache(): PlanetEnergyRequestCache {
+  return { statesByPlanetId: new Map() };
+}
+
+export function invalidatePlanetEnergyStateCache(
+  planetId: string,
+  cache?: PlanetEnergyRequestCache,
+): void {
+  cache?.statesByPlanetId.delete(planetId);
+}
+
+export function resolvePlanetEnergyStateFromSnapshot(
+  planet: PlanetEnergyInput | null | undefined,
+  energyRow: EnergyResourceRow,
+  options: {
+    now?: Date;
+    effects?: ResearchEffects | null;
+    activeProductionOrders?: { buildingId: string | null; status: string }[];
+  } = {},
+): ResolvedPlanetEnergyState {
+  if (!planet) return emptyEnergyState();
+
+  return resolveEnergyStateFromRows(
+    {
+      ...planet,
+      activeProductionOrders: options.activeProductionOrders ?? planet.activeProductionOrders,
+    },
+    energyRow,
+    options.now ?? new Date(),
+    options.effects ?? NO_RESEARCH_EFFECTS,
+  );
+}
+
 export async function resolvePlanetEnergyState(
   planetId: string,
   database: any = defaultDb,
+  cache?: PlanetEnergyRequestCache,
 ): Promise<ResolvedPlanetEnergyState> {
+  if (cache) {
+    let cached = cache.statesByPlanetId.get(planetId);
+    if (!cached) {
+      cached = resolvePlanetEnergyState(planetId, database);
+      cache.statesByPlanetId.set(planetId, cached);
+    }
+    return cached;
+  }
+
   const planet = await database.query.planets.findFirst({
     where: eq(planets.id, planetId),
     with: {
@@ -224,16 +284,7 @@ export async function resolvePlanetEnergyState(
   });
 
   if (!planet) {
-    return {
-      stored: 0,
-      capacity: 0,
-      produced: 0,
-      consumed: 0,
-      net: 0,
-      shortage: false,
-      netRate: 0,
-      buildingStates: {},
-    };
+    return emptyEnergyState();
   }
 
   const energyRow = await database.query.planetResources.findFirst({
@@ -261,18 +312,19 @@ export async function resolvePlanetEnergyState(
     });
   }
 
-  return resolveEnergyStateFromRows(
-    { ...planet, activeProductionOrders },
+  return resolvePlanetEnergyStateFromSnapshot(
+    planet,
     energyRow ?? null,
-    new Date(),
-    effects,
+    { activeProductionOrders, effects },
   );
 }
 
 export async function syncEnergyResourceRow(
   planetId: string,
   database: any = defaultDb,
+  cache?: PlanetEnergyRequestCache,
 ): Promise<ResolvedPlanetEnergyState> {
+  invalidatePlanetEnergyStateCache(planetId, cache);
   const state = await resolvePlanetEnergyState(planetId, database);
   const existing = await database.query.planetResources.findFirst({
     where: and(
@@ -307,6 +359,7 @@ export async function syncEnergyResourceRow(
     });
   }
 
+  invalidatePlanetEnergyStateCache(planetId, cache);
   return state;
 }
 

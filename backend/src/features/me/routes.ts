@@ -6,8 +6,11 @@ import {
   users,
   systems,
   discoveredPlanets,
+  colonies,
   planets,
+  planetResources,
   richness,
+  resources as resourceDefinitions,
   ships,
   expeditions,
   productionOrders,
@@ -17,7 +20,14 @@ import { and, asc, eq, inArray, or } from "drizzle-orm";
 import { syncTutorialProgress } from "../tutorial/service.js";
 import { homeSystemShortTag } from "@shared/format/homeSystemNaming.js";
 import { syncDuePlayerState } from "./online-sync.js";
-import { getResearchEffectsForUser } from "../research/effects.js";
+import {
+  createResearchEffectsRequestCache,
+  getResearchEffectsForUser,
+} from "../research/effects.js";
+import {
+  computeCurrentResourcesFromSnapshot,
+  type PlanetResourceRecord,
+} from "../resources/accrual.js";
 import {
   deriveBuildingQueueStartedAt,
   deriveResearchStartedAt,
@@ -31,7 +41,12 @@ import {
   type UpdatePreferredLocaleRequest,
   type UpdatePreferredLocaleResponse,
 } from "@shared/types/locale.js";
-import { resolvePlanetEnergyState } from "../resources/energy.js";
+import {
+  ENERGY_RESOURCE_ID,
+  resolvePlanetEnergyStateFromSnapshot,
+  type EnergyResourceRow,
+  type PlanetEnergyInput,
+} from "../resources/energy.js";
 import { mutationRateLimit } from "../../lib/rate-limit.js";
 import { objectBodySchema, securityRouteConfig } from "../../lib/security.js";
 
@@ -81,10 +96,11 @@ export async function meRoutes(app: FastifyInstance) {
     try {
       await syncDuePlayerState(user.id);
 
+      const researchEffectsCache = createResearchEffectsRequestCache();
       const [buildingTypeRows, shipTypeRows, researchEffects] = await Promise.all([
         db.query.buildingTypes.findMany(),
         db.query.shipTypes.findMany(),
-        getResearchEffectsForUser(user.id, db),
+        getResearchEffectsForUser(user.id, db, researchEffectsCache),
       ]);
       const buildingTypeMap = new Map(buildingTypeRows.map((row) => [row.id, row]));
       const shipTypeMap = new Map(shipTypeRows.map((row) => [row.id, row]));
@@ -217,10 +233,6 @@ export async function meRoutes(app: FastifyInstance) {
 
       const tutorialProgress = await syncTutorialProgress(user.id);
 
-      const { computeCurrentResources } =
-        await import("../resources/accrual.js");
-      const { colonies } = await import("../../db/schema.js");
-
       const userColonies = await db.query.colonies.findMany({
         where: and(eq(colonies.ownerId, user.id), eq(colonies.status, "active")),
         with: {
@@ -259,16 +271,39 @@ export async function meRoutes(app: FastifyInstance) {
       const allPlanetIds = allPlanets
         .filter((planet: any) => planet.isDiscovered !== false)
         .map((planet: any) => planet.id);
-      const activeProductionRows = allPlanetIds.length
-        ? await db.query.productionOrders.findMany({
-            where: and(
-              inArray(productionOrders.planetId, allPlanetIds),
-              inArray(productionOrders.status, ["queued", "paused"]),
-            ),
-          })
-        : [];
+      const snapshotNow = new Date();
+      const [activeProductionRows, resourceRows, richnessRows] = allPlanetIds.length
+        ? await Promise.all([
+            db.query.productionOrders.findMany({
+              where: and(
+                inArray(productionOrders.planetId, allPlanetIds),
+                inArray(productionOrders.status, ["queued", "paused"]),
+              ),
+            }),
+            db
+              .select({
+                planetId: planetResources.planetId,
+                resourceId: planetResources.resourceId,
+                amount: planetResources.amount,
+                regenRate: planetResources.regenRate,
+                lastUpdateAt: planetResources.lastUpdateAt,
+                storageCap: resourceDefinitions.defaultStorageCap,
+              })
+              .from(planetResources)
+              .innerJoin(resourceDefinitions, eq(resourceDefinitions.id, planetResources.resourceId))
+              .where(inArray(planetResources.planetId, allPlanetIds)),
+            db.query.richness.findMany({
+              where: inArray(richness.planetId, allPlanetIds),
+            }),
+          ])
+        : [[], [], []] as [any[], PlanetResourceRecord[], any[]];
       const activeProductionByBuildingId = new Map<string, any[]>();
+      const activeProductionByPlanetId = new Map<string, { buildingId: string | null; status: string }[]>();
       for (const order of activeProductionRows) {
+        const planetOrders = activeProductionByPlanetId.get(order.planetId) ?? [];
+        planetOrders.push({ buildingId: order.buildingId, status: order.status });
+        activeProductionByPlanetId.set(order.planetId, planetOrders);
+
         if (!order.buildingId) continue;
         const mappedOrder = {
           id: order.id,
@@ -290,50 +325,95 @@ export async function meRoutes(app: FastifyInstance) {
         activeProductionByBuildingId.set(order.buildingId, orders);
       }
 
-      const enrichedPlanets = await Promise.all(
-        allPlanets.map(async (planet: any) => {
-          if (planet.isDiscovered === false) {
-            return planet;
-          }
-          const [res, richnessRows] = await Promise.all([
-            computeCurrentResources(planet.id),
-            db.query.richness.findMany({
-              where: eq(richness.planetId, planet.id),
-            }),
-          ]);
-          const energyState = await resolvePlanetEnergyState(planet.id, db);
-          const richnessByResourceId = new Map(
-            richnessRows.map((row) => [row.resourceId, row.value]),
-          );
+      const resourceRowsByPlanetId = new Map<string, PlanetResourceRecord[]>();
+      const energyRowsByPlanetId = new Map<string, EnergyResourceRow>();
+      for (const row of resourceRows) {
+        const rows = resourceRowsByPlanetId.get(row.planetId!) ?? [];
+        rows.push(row);
+        resourceRowsByPlanetId.set(row.planetId!, rows);
+        if (row.resourceId === ENERGY_RESOURCE_ID) {
+          energyRowsByPlanetId.set(row.planetId!, row as EnergyResourceRow);
+        }
+      }
+
+      const richnessByPlanetId = new Map<string, Map<string, number>>();
+      for (const row of richnessRows) {
+        const planetRichness = richnessByPlanetId.get(row.planetId) ?? new Map<string, number>();
+        planetRichness.set(row.resourceId, row.value);
+        richnessByPlanetId.set(row.planetId, planetRichness);
+      }
+
+      const toEnergySnapshotPlanet = (planet: any): PlanetEnergyInput => ({
+        id: planet.id,
+        name: planet.name,
+        biome: planet.biome,
+        size: planet.size,
+        system: planet.system ?? null,
+        buildings: (planet.buildings ?? []).map((building: any) => {
+          const typeInfo = building.type ?? buildingTypeMap.get(building.typeId) ?? null;
           return {
-            ...planet,
-            isDiscovered: true,
-            energy: {
-              stored: energyState.stored,
-              capacity: energyState.capacity,
-              produced: energyState.produced,
-              consumed: energyState.consumed,
-              net: energyState.net,
-              shortage: energyState.shortage,
-            },
-            buildings: (planet.buildings ?? []).map((building: any) => ({
-              ...building,
-              energy: energyState.buildingStates[building.id],
-              production: activeProductionByBuildingId.has(building.id)
-                ? { activeOrders: activeProductionByBuildingId.get(building.id) ?? [] }
-                : undefined,
-            })),
-            resources: res.map((r) => ({
-              ...r,
-              amount: r.amount.toString(),
-              regenRate: r.regenRate.toString(),
-              richness: richnessByResourceId.get(r.resourceId) ?? 0,
-              storageCap: r.storageCap.toString(),
-              lastUpdateAt: r.lastUpdateAt.toISOString(),
-            })),
+            ...building,
+            type: typeInfo
+              ? {
+                  id: typeInfo.id,
+                  baseOutput: (typeInfo.baseOutput ?? {}) as Record<string, unknown>,
+                  energyConsumption: Number(typeInfo.energyConsumption ?? 0),
+                }
+              : null,
           };
         }),
-      );
+      });
+
+      const enrichedPlanets = allPlanets.map((planet: any) => {
+        if (planet.isDiscovered === false) {
+          return planet;
+        }
+        const energyPlanet = toEnergySnapshotPlanet(planet);
+        const energyState = resolvePlanetEnergyStateFromSnapshot(
+          energyPlanet,
+          energyRowsByPlanetId.get(planet.id) ?? null,
+          {
+            now: snapshotNow,
+            effects: researchEffects,
+            activeProductionOrders: activeProductionByPlanetId.get(planet.id) ?? [],
+          },
+        );
+        const res = computeCurrentResourcesFromSnapshot({
+          planet: energyPlanet,
+          resourceRows: resourceRowsByPlanetId.get(planet.id) ?? [],
+          energyState,
+          researchEffects,
+          now: snapshotNow,
+        });
+        const richnessByResourceId = richnessByPlanetId.get(planet.id) ?? new Map<string, number>();
+        return {
+          ...planet,
+          isDiscovered: true,
+          energy: {
+            stored: energyState.stored,
+            capacity: energyState.capacity,
+            produced: energyState.produced,
+            consumed: energyState.consumed,
+            net: energyState.net,
+            shortage: energyState.shortage,
+          },
+          buildings: (planet.buildings ?? []).map((building: any) => ({
+            ...building,
+            energy: energyState.buildingStates[building.id],
+            production: activeProductionByBuildingId.has(building.id)
+              ? { activeOrders: activeProductionByBuildingId.get(building.id) ?? [] }
+              : undefined,
+          })),
+          resources: res.map((r) => ({
+            ...r,
+            amount: r.amount.toString(),
+            regenRate: r.regenRate.toString(),
+            richness: richnessByResourceId.get(r.resourceId) ?? 0,
+            storageCap: r.storageCap.toString(),
+            lastUpdateAt: r.lastUpdateAt.toISOString(),
+          })),
+        };
+      });
 
       const userObj = {
         ...user,

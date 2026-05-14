@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { computeCurrentResources } from './accrual.js';
+import { computeCurrentResources, computeCurrentResourcesFromSnapshot } from './accrual.js';
 import { db } from '../../db/index.js';
 import { planetResources, resources, planets, systems, ships, richness, buildings, discoveredPlanets, discoveredSystems, colonies } from '../../db/schema.js';
 
@@ -168,5 +168,59 @@ describe('computeCurrentResources', () => {
 
     expect(copper?.amount).toBeCloseTo(14, 0);
     expect(silicon?.amount).toBeCloseTo(30, 0);
+  });
+
+  it('computes resources from a single supplied energy and resource snapshot', () => {
+    const now = new Date('2026-01-01T01:00:00Z');
+    const lastUpdateAt = new Date('2026-01-01T00:00:00Z');
+
+    const result = computeCurrentResourcesFromSnapshot({
+      now,
+      researchEffects: null,
+      planet: {
+        id: 'planet-snapshot',
+        name: 'home-1',
+        biome: 'green',
+        size: 10,
+        buildings: [],
+      },
+      energyState: {
+        stored: 25,
+        capacity: 100,
+        produced: 0,
+        consumed: 10,
+        net: -10,
+        shortage: true,
+        netRate: -10,
+        buildingStates: {},
+      },
+      resourceRows: [
+        {
+          planetId: 'planet-snapshot',
+          resourceId: 'iron',
+          amount: '10.0000',
+          regenRate: '5.0000',
+          lastUpdateAt,
+          storageCap: 1000,
+        },
+        {
+          planetId: 'planet-snapshot',
+          resourceId: 'energy',
+          amount: '40.0000',
+          regenRate: '0.0000',
+          lastUpdateAt,
+          storageCap: 0,
+        },
+      ],
+    });
+
+    const iron = result.find((row) => row.resourceId === 'iron');
+    const energy = result.find((row) => row.resourceId === 'energy');
+
+    expect(iron?.amount).toBe(10);
+    expect(iron?.regenRate).toBe(0);
+    expect(energy?.amount).toBe(25);
+    expect(energy?.regenRate).toBe(-10);
+    expect(energy?.storageCap).toBe(100);
   });
 });

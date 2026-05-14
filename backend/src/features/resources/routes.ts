@@ -2,7 +2,11 @@ import { FastifyInstance, type FastifyRequest } from 'fastify';
 import jwt from 'jsonwebtoken';
 import { env } from '../../lib/env.js';
 import { convertResources, buyResourceWithDiamonds, quoteResourceWithDiamonds } from './convert.js';
-import { computeCurrentResources } from './accrual.js';
+import {
+  computeCurrentResourcesFromSnapshot,
+  loadPlanetResourceSnapshot,
+} from './accrual.js';
+import { createResearchEffectsRequestCache } from '../research/effects.js';
 import { productionService, ProductionOperationError } from './production.js';
 import type { ProductionPreviewRequest, ProductionStartRequest } from '@shared/types/production.js';
 import { mutationRateLimit } from '../../lib/rate-limit.js';
@@ -318,7 +322,10 @@ export async function resourcesRoutes(app: FastifyInstance) {
   app.get('/planets/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
     try {
-      const resources = await computeCurrentResources(id);
+      const snapshot = await loadPlanetResourceSnapshot(id, undefined, {
+        researchEffectsCache: createResearchEffectsRequestCache(),
+      });
+      const resources = computeCurrentResourcesFromSnapshot(snapshot);
       return reply.send({ resources });
     } catch (err) {
       request.log.error(err, 'Error fetching planet resources');

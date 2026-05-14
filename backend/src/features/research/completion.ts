@@ -1,6 +1,9 @@
 import { and, eq, isNotNull, lte, sql } from 'drizzle-orm';
 import { researchProgress, notifications } from '../../db/schema.js';
-import { invalidateResearchEffectsCache } from './effects.js';
+import {
+  invalidateResearchEffectsCache,
+  type ResearchEffectsRequestCache,
+} from './effects.js';
 
 /**
  * Applies completed research tiers: increments `level`, clears `completes_at`, optionally notifies.
@@ -8,7 +11,12 @@ import { invalidateResearchEffectsCache } from './effects.js';
  */
 export async function processCompletedResearch(
   database: typeof import('../../db/index.js').db,
-  options: { userId?: string; skipNotification?: boolean; now?: Date } = {},
+  options: {
+    userId?: string;
+    skipNotification?: boolean;
+    now?: Date;
+    effectsCache?: ResearchEffectsRequestCache;
+  } = {},
 ): Promise<void> {
   const now = options.now ?? new Date();
   const dueConditions = [
@@ -52,7 +60,7 @@ export async function processCompletedResearch(
 
       if (!updated) return;
 
-      invalidateResearchEffectsCache(updated.userId);
+      invalidateResearchEffectsCache(updated.userId, options.effectsCache);
 
       if (!options.skipNotification) {
         await tx.insert(notifications).values({

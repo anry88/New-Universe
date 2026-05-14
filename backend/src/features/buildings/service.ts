@@ -35,7 +35,10 @@ import { BuildingOperationError } from './building-operation-error.js';
 import { countUserBuildingsOfType } from './count-user-buildings.js';
 import { BUILDING_TYPE_CATALOG_ROWS } from '../../db/seed/catalog-rows.js';
 import { getPlanetSettlementOwnerId, getPlayerPlanetSettlement } from '../colonies/ownership.js';
-import { syncEnergyResourceRow } from '../resources/energy.js';
+import {
+  syncEnergyResourceRow,
+  type PlanetEnergyRequestCache,
+} from '../resources/energy.js';
 import { env } from '../../lib/env.js';
 
 type BuildingOutput = {
@@ -728,7 +731,11 @@ export class BuildingService {
     });
   }
 
-  async finalizeBuildingConstruction(tx: any, buildingId: string, options: { skipNotification?: boolean } = {}): Promise<void> {
+  async finalizeBuildingConstruction(
+    tx: any,
+    buildingId: string,
+    options: { skipNotification?: boolean; energyCache?: PlanetEnergyRequestCache } = {},
+  ): Promise<void> {
     const building = await tx.query.buildings.findFirst({
       where: eq(buildings.id, buildingId),
     });
@@ -754,7 +761,7 @@ export class BuildingService {
     if (bType?.baseOutput) {
       await recalculateProductionRegenForBuildingType(tx, building.planetId, bType);
     }
-    await syncEnergyResourceRow(building.planetId, tx);
+    await syncEnergyResourceRow(building.planetId, tx, options.energyCache);
 
     if (options.skipNotification) return;
 
