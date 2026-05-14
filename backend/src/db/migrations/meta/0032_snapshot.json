@@ -534,6 +534,27 @@
           "method": "btree",
           "with": {}
         },
+        "expeditions_origin_planet_status_idx": {
+          "name": "expeditions_origin_planet_status_idx",
+          "columns": [
+            {
+              "expression": "origin_planet_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "expeditions_target_planet_status_idx": {
           "name": "expeditions_target_planet_status_idx",
           "columns": [

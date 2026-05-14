@@ -34,7 +34,11 @@ import { colonyService } from "../colonies/colonies.js";
 import { systemMapPlanetDistanceLy } from "@shared/format/systemMapLayout.js";
 import { env } from "../../lib/env.js";
 import { getJumpGateState } from "../jump-gate/service.js";
-import { loadLandingSlotUsage } from "../ships/spaceport-capacity.js";
+import {
+  buildExpeditionSpaceportReservation,
+  loadLandingSlotUsage,
+  shipRoleRequiresTargetLandingSlot,
+} from "../ships/spaceport-capacity.js";
 
 export interface LaunchExpeditionResult {
   success: boolean;
@@ -84,10 +88,6 @@ function launchFailure(
     code,
     details: rest,
   };
-}
-
-function shipRoleRequiresTargetLandingSlot(role: string): boolean {
-  return role !== "colonization" && role !== "recon" && role !== "exploration";
 }
 
 async function getAvailableCargo(planetId: string, tx: any): Promise<number> {
@@ -366,10 +366,19 @@ export async function launchExpedition(
       : distance;
   const isOneWayColonization =
     shipRow.shipRole === "colonization" && resolvedTargetPlanetId !== null;
+  const returnTrip = !isOneWayColonization;
+  const spaceportReservation = buildExpeditionSpaceportReservation({
+    originPlanetId: shipRow.originPlanetId,
+    targetPlanetId: resolvedTargetPlanetId,
+    returnTrip,
+    targetLandingSlotRequired:
+      resolvedTargetPlanetId !== null &&
+      shipRoleRequiresTargetLandingSlot(shipRow.shipRole),
+  });
   const fuelRequired = calculateExpeditionRequiredFuel(
     travelDistance,
     Number(shipRow.shipFuelConsumption),
-    !isOneWayColonization,
+    returnTrip,
   );
   const researchEffects = await getResearchEffectsForUser(userId, defaultDb);
   const speed = applyShipSpeed(Number(shipRow.shipSpeed), researchEffects);
@@ -383,10 +392,9 @@ export async function launchExpedition(
 
   return defaultDb.transaction(async (tx) => {
     if (
-      resolvedTargetPlanetId &&
-      shipRoleRequiresTargetLandingSlot(shipRow.shipRole)
+      spaceportReservation?.targetPlanetId
     ) {
-      const usage = await loadLandingSlotUsage(tx, resolvedTargetPlanetId, {
+      const usage = await loadLandingSlotUsage(tx, spaceportReservation.targetPlanetId, {
         lock: true,
       });
 
@@ -452,7 +460,8 @@ export async function launchExpedition(
           requestedDistance: distance,
           speed,
           engineFactor,
-          returnTrip: !isOneWayColonization,
+          returnTrip,
+          ...(spaceportReservation ? { spaceportReservation } : {}),
         },
       })
       .returning();

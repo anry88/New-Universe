@@ -13,6 +13,7 @@ import {
   planetResources,
   richness,
   ships,
+  expeditions,
 } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
@@ -930,6 +931,68 @@ describe('Buildings Service - POST /buildings/build', () => {
       status: 'idle',
       cargoJson: {},
       fuel: '0',
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/buildings/demolish',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'accept-language': 'ru',
+      },
+      payload: { buildingId: spaceport.id },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().message).toContain('Космопорт');
+
+    const stored = await db.query.buildings.findFirst({
+      where: eq(buildings.id, spaceport.id),
+    });
+    expect(stored).toBeDefined();
+  });
+
+  it('blocks spaceport demolition while return trips reserve landing slots', async () => {
+    const { app, token, userId } = await createTestUser();
+
+    const userSystem = await db.query.systems.findFirst({
+      where: eq(systems.ownerId, userId),
+    });
+    const userPlanet = await db.query.planets.findFirst({
+      where: eq(planets.systemId, userSystem!.id),
+      orderBy: (p, { asc }) => asc(p.name),
+    });
+    expect(userPlanet).toBeDefined();
+
+    const [spaceport] = await db.insert(buildings).values({
+      planetId: userPlanet!.id,
+      typeId: 'spaceport',
+      slotIndex: 4,
+      level: 1,
+    }).returning();
+
+    const [ship] = await db.insert(ships).values({
+      ownerId: userId,
+      typeId: 'scout',
+      locationPlanetId: userPlanet!.id,
+      status: 'moving',
+      cargoJson: {},
+      fuel: '0',
+    }).returning();
+
+    await db.insert(expeditions).values({
+      shipId: ship.id,
+      type: 'scout',
+      originPlanetId: userPlanet!.id,
+      targetX: '0',
+      targetY: '0',
+      targetZ: '0',
+      status: 'in_flight',
+      eta: new Date(Date.now() + 60_000),
+      result: {
+        returnTrip: true,
+        spaceportReservation: { originPlanetId: userPlanet!.id },
+      },
     });
 
     const response = await app.inject({

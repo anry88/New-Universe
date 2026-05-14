@@ -353,6 +353,11 @@ describe("Expeditions - POST /expeditions", () => {
     expect(stored!.status).toBe("in_flight");
     expect(stored!.shipId).toBe(ship.id);
     expect(stored!.result.fuelRequired).toBe(6);
+    expect(stored!.result.returnTrip).toBe(true);
+    expect(stored!.result.spaceportReservation).toMatchObject({
+      originPlanetId: planet.id,
+    });
+    expect(stored!.result.spaceportReservation.targetPlanetId).toBeUndefined();
 
     const fuel = await db.query.planetResources.findFirst({
       where: and(
@@ -518,6 +523,7 @@ describe("Expeditions - POST /expeditions", () => {
     const body = response.json();
     expect(body.expedition.targetPlanetId).toBe(targetPlanet!.id);
     expect(body.expedition.result.returnTrip).toBe(false);
+    expect(body.expedition.result.spaceportReservation).toBeUndefined();
     const systemPlanets = await db.query.planets.findMany({
       where: eq(planets.systemId, system.id),
     });
@@ -573,6 +579,10 @@ describe("Expeditions - POST /expeditions", () => {
     expect(body.expedition.result.jumpFuelRequired).toBe(50);
     expect(body.expedition.result.distance).toBe(10);
     expect(body.expedition.result.fuelRequired).toBe(6);
+    expect(body.expedition.result.spaceportReservation).toMatchObject({
+      originPlanetId: planet.id,
+    });
+    expect(body.expedition.result.spaceportReservation.targetPlanetId).toBeUndefined();
     const jumpFuel = await db.query.planetResources.findFirst({
       where: and(
         eq(planetResources.planetId, planet.id),
@@ -618,6 +628,7 @@ describe("Expeditions - POST /expeditions", () => {
     expect(response.statusCode).toBe(200);
     const body = response.json();
     expect(body.expedition.result.returnTrip).toBe(false);
+    expect(body.expedition.result.spaceportReservation).toBeUndefined();
     expect(body.expedition.result.fuelRequired).toBe(15);
 
     await db

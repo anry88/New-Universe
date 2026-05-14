@@ -1,16 +1,48 @@
-import { and, eq, inArray, isNull, ne, notInArray, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 import { buildings, expeditions, planets, ships } from '../../db/schema.js';
 
-const RESERVED_EXPEDITION_STATUSES = ['queued', 'in_flight'] as const;
-const SLOTLESS_EXPEDITION_TYPES = ['colonizer', 'scout', 'recon_probe'] as const;
+const TARGET_RESERVATION_STATUSES = ['queued', 'in_flight'] as const;
+const ORIGIN_RETURN_RESERVATION_STATUSES = ['queued', 'in_flight', 'returning'] as const;
 const SLOT_SHIP_STATUSES = ['idle', 'building'] as const;
 
 export interface LandingSlotUsage {
   capacity: number;
   occupied: number;
+  reservedArrivals: number;
+  reservedReturns: number;
   reserved: number;
   used: number;
   available: number;
+}
+
+export interface ExpeditionSpaceportReservation {
+  originPlanetId?: string;
+  targetPlanetId?: string;
+}
+
+export function shipRoleRequiresTargetLandingSlot(role: string): boolean {
+  return role !== 'colonization' && role !== 'recon' && role !== 'exploration';
+}
+
+export function buildExpeditionSpaceportReservation(params: {
+  originPlanetId: string;
+  targetPlanetId: string | null;
+  returnTrip: boolean;
+  targetLandingSlotRequired: boolean;
+}): ExpeditionSpaceportReservation | undefined {
+  const reservation: ExpeditionSpaceportReservation = {};
+
+  if (params.returnTrip) {
+    reservation.originPlanetId = params.originPlanetId;
+  }
+
+  if (params.targetLandingSlotRequired && params.targetPlanetId) {
+    reservation.targetPlanetId = params.targetPlanetId;
+  }
+
+  return reservation.originPlanetId || reservation.targetPlanetId
+    ? reservation
+    : undefined;
 }
 
 async function lockPlanet(tx: any, planetId: string): Promise<void> {
@@ -52,15 +84,30 @@ async function countOccupiedSlots(tx: any, planetId: string): Promise<number> {
   return Number(rows[0]?.count ?? 0);
 }
 
-async function countReservedSlots(tx: any, planetId: string): Promise<number> {
+async function countReservedArrivalSlots(tx: any, planetId: string): Promise<number> {
   const rows = await tx
     .select({ count: sql<number>`COUNT(*)` })
     .from(expeditions)
     .where(
       and(
         eq(expeditions.targetPlanetId, planetId),
-        inArray(expeditions.status, [...RESERVED_EXPEDITION_STATUSES]),
-        notInArray(expeditions.type, [...SLOTLESS_EXPEDITION_TYPES]),
+        inArray(expeditions.status, [...TARGET_RESERVATION_STATUSES]),
+        sql`${expeditions.result} #>> '{spaceportReservation,targetPlanetId}' = ${planetId}`,
+      ),
+    );
+
+  return Number(rows[0]?.count ?? 0);
+}
+
+async function countReservedReturnSlots(tx: any, planetId: string): Promise<number> {
+  const rows = await tx
+    .select({ count: sql<number>`COUNT(*)` })
+    .from(expeditions)
+    .where(
+      and(
+        eq(expeditions.originPlanetId, planetId),
+        inArray(expeditions.status, [...ORIGIN_RETURN_RESERVATION_STATUSES]),
+        sql`${expeditions.result} ->> 'returnTrip' = 'true'`,
       ),
     );
 
@@ -78,12 +125,16 @@ export async function loadLandingSlotUsage(
 
   const capacity = await loadSpaceportCapacity(tx, planetId);
   const occupied = await countOccupiedSlots(tx, planetId);
-  const reserved = await countReservedSlots(tx, planetId);
+  const reservedArrivals = await countReservedArrivalSlots(tx, planetId);
+  const reservedReturns = await countReservedReturnSlots(tx, planetId);
+  const reserved = reservedArrivals + reservedReturns;
   const used = occupied + reserved;
 
   return {
     capacity,
     occupied,
+    reservedArrivals,
+    reservedReturns,
     reserved,
     used,
     available: Math.max(0, capacity - used),
