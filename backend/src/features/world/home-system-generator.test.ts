@@ -85,6 +85,11 @@ describe('Home System Generator', () => {
     expect(resIds).toContain('silicon');
     expect(resIds).toContain('methane');
     expect(resIds).toContain('oil');
+    expect(Object.fromEntries(firstPlanetRichness.map((row) => [row.resourceId, row.value]))).toMatchObject({
+      iron: 2,
+      carbon: 1,
+      silicon: 1,
+    });
 
     let tritiumFound = false;
     for (const planet of systemPlanets) {
@@ -194,7 +199,7 @@ describe('Home System Generator', () => {
     });
 
     // Planets are named `<tag>-1, <tag>-2, ...` in insertion order:
-    // `-1` is the capital (always green), and `-2..-9` are the eight
+    // `-1` is the capital (always green), and `-2..-8` are the seven
     // remaining planets sorted by biome orbit tier (volcanic → ice).
     const byIndex = systemPlanets
       .map((p) => {
@@ -213,7 +218,6 @@ describe('Home System Generator', () => {
       'ocean',
       'gas_giant',
       'ice',
-      'ice',
     ]);
 
     let prevTier = 0;
@@ -229,7 +233,7 @@ describe('Home System Generator', () => {
     expect(nonCapital[nonCapital.length - 1]!.planet.biome).toBe('ice');
   });
 
-  it('keeps extreme starter biomes bounded and removes frozen biomass deposits', async () => {
+  it('keeps extreme starter biomes bounded and applies the ice-world layer profile', async () => {
     const [user] = await db.insert(users).values({
       tgId: BigInt(Math.floor(Math.random() * 1000000000)),
       tgUsername: 'testuser_biome_balance',
@@ -242,7 +246,7 @@ describe('Home System Generator', () => {
 
     expect(systemPlanets).toHaveLength(HOME_PLANET_COUNT);
     expect(systemPlanets.filter((p) => p.biome === 'volcanic')).toHaveLength(2);
-    expect(systemPlanets.filter((p) => p.biome === 'ice')).toHaveLength(2);
+    expect(systemPlanets.filter((p) => p.biome === 'ice')).toHaveLength(1);
     expect(systemPlanets.filter((p) => p.biome === 'rocky')).toHaveLength(2);
 
     const icePlanets = systemPlanets.filter((p) => p.biome === 'ice');
@@ -250,8 +254,60 @@ describe('Home System Generator', () => {
       const iceRichness = await db.query.richness.findMany({
         where: eq(richness.planetId, icePlanet.id),
       });
-      expect(iceRichness.map((row) => row.resourceId)).not.toContain('biomass');
+      const richnessByResource = Object.fromEntries(
+        iceRichness.map((row) => [row.resourceId, row.value]),
+      );
+      expect(Object.keys(richnessByResource)).not.toContain('biomass');
+      expect(richnessByResource.ice).toBeGreaterThan(richnessByResource.water ?? 0);
+      expect(richnessByResource.oil).toBe(1);
+      expect(richnessByResource.tritium).toBe(1);
+      expect(richnessByResource.aluminum ?? 0).toBe(0);
     }
+  });
+
+  it('places the rebalance resource slots on ocean, rocky, and gas worlds', async () => {
+    const [user] = await db.insert(users).values({
+      tgId: BigInt(Math.floor(Math.random() * 1000000000)),
+      tgUsername: 'testuser_resource_rebalance',
+    }).returning();
+
+    const systemId = await generateHomeSystem(user.id);
+    const systemPlanets = await db.query.planets.findMany({
+      where: eq(planets.systemId, systemId),
+    });
+
+    async function richnessMap(planetId: string) {
+      const rows = await db.query.richness.findMany({
+        where: eq(richness.planetId, planetId),
+      });
+      return Object.fromEntries(rows.map((row) => [row.resourceId, row.value]));
+    }
+
+    const ocean = systemPlanets.find((planet) => planet.biome === 'ocean');
+    expect(ocean).toBeDefined();
+    const oceanRichness = await richnessMap(ocean!.id);
+    expect(oceanRichness.water).toBe(3);
+    expect(oceanRichness.oxygen).toBe(1);
+    expect(oceanRichness.hydrogen).toBe(1);
+
+    const gas = systemPlanets.find((planet) => planet.biome === 'gas_giant');
+    expect(gas).toBeDefined();
+    const gasRichness = await richnessMap(gas!.id);
+    expect(gasRichness).toMatchObject({
+      methane: 1,
+      oxygen: 1,
+      hydrogen: 1,
+      nitrogen: 1,
+    });
+    expect(gasRichness.tritium ?? 0).toBe(0);
+
+    const rockyRichness = await Promise.all(
+      systemPlanets
+        .filter((planet) => planet.biome === 'rocky')
+        .map((planet) => richnessMap(planet.id)),
+    );
+    expect(rockyRichness.some((row) => row.silver === 1)).toBe(true);
+    expect(rockyRichness.some((row) => row.gold === 1)).toBe(true);
   });
 
   it('covers local exit resources across the starter system', async () => {
@@ -281,9 +337,14 @@ describe('Home System Generator', () => {
       'methane',
       'oil',
       'biomass',
+      'oxygen',
+      'hydrogen',
       'copper',
       'aluminum',
+      'silver',
       'titanium',
+      'gold',
+      'nitrogen',
       'sulfur',
       'ice',
       'tritium',
@@ -303,18 +364,23 @@ describe('Home System Generator', () => {
       where: eq(planets.systemId, systemId),
     });
 
-    // Tritium lives on the gas giant (orbit tier 5) — outer-orbit rares
-    // are always seeded by the new generator, so it must be present.
+    // Tritium lives on the single ice world — outer-orbit rares are always
+    // seeded by the generator, so it must be present.
     let totalTritiumRichness = 0;
+    let iceTritiumRichness = 0;
     for (const planet of systemPlanets) {
       const rows = await db.query.richness.findMany({
         where: eq(richness.planetId, planet.id),
       });
       for (const r of rows) {
         if (r.resourceId === 'tritium') totalTritiumRichness += r.value;
+        if (planet.biome === 'ice' && r.resourceId === 'tritium') {
+          iceTritiumRichness += r.value;
+        }
       }
     }
     expect(totalTritiumRichness).toBeGreaterThanOrEqual(1);
+    expect(iceTritiumRichness).toBe(totalTritiumRichness);
   });
 
   it('planet sizes vary visibly across biomes', async () => {
@@ -347,8 +413,7 @@ describe('Home System Generator', () => {
 
   it('lays out discovered planets visually from hot inner worlds to cold outer worlds', async () => {
     const planetsForLayout = [
-      { id: 'ice-a', name: 'x-8', biome: 'ice', size: 26 },
-      { id: 'ice-b', name: 'x-9', biome: 'ice', size: 28 },
+      { id: 'ice', name: 'x-8', biome: 'ice', size: 26 },
       { id: 'capital', name: 'x-1', biome: 'green', size: 22 },
       { id: 'volcanic-a', name: 'x-2', biome: 'volcanic', size: 12 },
       { id: 'volcanic-b', name: 'x-3', biome: 'volcanic', size: 14 },
@@ -367,8 +432,7 @@ describe('Home System Generator', () => {
       'ocean',
       'capital',
       'gas',
-      'ice-a',
-      'ice-b',
+      'ice',
     ]);
     expect(layouts.find((layout) => layout.id === 'capital')!.orbitRadius).toBe(
       SYSTEM_MAP_ORBIT_BASE + 5 * SYSTEM_MAP_ORBIT_STEP,

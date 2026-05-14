@@ -15,15 +15,15 @@ describe('system map layout helpers', () => {
       { id: 'hidden-3', name: 'Unknown Planet', biome: 'unknown', size: 0 },
     ]);
 
-    expect(radii).toHaveLength(9);
-    expect(radii.at(-1)).toBe(SYSTEM_MAP_ORBIT_BASE + 8 * SYSTEM_MAP_ORBIT_STEP);
+    expect(radii).toHaveLength(8);
+    expect(radii.at(-1)).toBe(SYSTEM_MAP_ORBIT_BASE + 7 * SYSTEM_MAP_ORBIT_STEP);
   });
 
   it('computes real same-system planet distance instead of a constant fallback', () => {
     const distance = systemMapPlanetDistanceLy(
       [
         { id: 'capital', name: 'abcd-1', biome: 'green', size: 22 },
-        { id: 'outer', name: 'abcd-9', biome: 'ice', size: 24 },
+        { id: 'outer', name: 'abcd-8', biome: 'ice', size: 24 },
       ],
       123,
       'capital',

@@ -20,8 +20,11 @@ export const EXTRACTABLE_RESOURCE_RATES_PER_HOUR = {
   carbon: 58,
   silicon: 34,
   methane: 46,
+  oxygen: 54,
+  hydrogen: 50,
   copper: 28,
   aluminum: 22,
+  silver: 18,
   titanium: 14,
   ice: 30,
   oil: 24,
@@ -29,10 +32,12 @@ export const EXTRACTABLE_RESOURCE_RATES_PER_HOUR = {
   mercury: 8,
   magnesium: 8,
   lead: 7,
+  nitrogen: 6,
   uranium: 3,
   cobalt: 5,
   silicon_carbide: 6,
   tritium: 2,
+  gold: 5,
   iridium: 2,
   biomass: 4,
 } as const;
@@ -114,8 +119,8 @@ export const HOME_SYSTEM_BASE_BIOME_IDS = [
 ] as const;
 
 /** Mirrors fixed home genesis planet count (`generateHomeSystem`). */
-export const HOME_SYSTEM_PLANET_COUNT_MIN = 9;
-export const HOME_SYSTEM_PLANET_COUNT_MAX = 9;
+export const HOME_SYSTEM_PLANET_COUNT_MIN = 8;
+export const HOME_SYSTEM_PLANET_COUNT_MAX = 8;
 
 /** Mirrors `shared/config/expeditionRouting.ts`. */
 export const JUMP_FUEL_RESOURCE_ID = 'jump_fuel';
@@ -157,7 +162,7 @@ export const BUILDINGS = {
     baseTimeSec: 360,
     category: 'production',
     maxLevel: MAX_BUILDING_LEVEL,
-    output: { resourceId: 'water', baseRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.water },
+    output: { resourceId: 'methane', baseRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.methane },
   },
   battery: {
     deps: [{ typeId: 'command_center', level: 1 }],
@@ -366,9 +371,12 @@ export const RESOURCE_TIER: Record<string, number> = {
   carbon: 1,
   silicon: 1,
   methane: 1,
+  oxygen: 1,
+  hydrogen: 1,
   fuel: 1,
   copper: 2,
   aluminum: 2,
+  silver: 2,
   titanium: 2,
   ice: 2,
   oil: 2,
@@ -378,10 +386,12 @@ export const RESOURCE_TIER: Record<string, number> = {
   mercury: 3,
   magnesium: 3,
   lead: 3,
+  nitrogen: 3,
   uranium: 3,
   cobalt: 3,
   silicon_carbide: 3,
   tritium: 3,
+  gold: 3,
   jump_fuel: 3,
   antimatter: 4,
   dark_matter: 4,

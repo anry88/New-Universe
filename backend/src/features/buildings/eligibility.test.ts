@@ -114,7 +114,7 @@ describe('planet resource construction rules', () => {
   it('blocks extractors when the planet has no matching deposit class', () => {
     const mineReason = resolvePlanetResourceBlockedReason({
       typeId: 'mine',
-      planetResourceIds: ['methane', 'water'],
+      planetResourceIds: ['methane', 'water', 'oxygen'],
     });
     expect(mineReason?.code).toBe('building_blocked_planet_resource');
     expect(formatBuildBlockedMessage(mineReason!, 'en')).toContain('metal deposit');
@@ -124,14 +124,29 @@ describe('planet resource construction rules', () => {
       planetResourceIds: ['water', 'iron'],
     });
     expect(oilReason?.code).toBe('building_blocked_planet_resource');
-    expect(formatBuildBlockedMessage(oilReason!, 'en')).toContain('oil deposit');
+    expect(formatBuildBlockedMessage(oilReason!, 'en')).toContain('oil or methane deposit');
 
     const biomassReason = resolvePlanetResourceBlockedReason({
       typeId: 'biomass_harvester',
-      planetResourceIds: ['water', 'iron'],
+      planetResourceIds: ['iron'],
     });
     expect(biomassReason?.code).toBe('building_blocked_planet_resource');
-    expect(formatBuildBlockedMessage(biomassReason!, 'en')).toContain('biomass deposit');
+    expect(formatBuildBlockedMessage(biomassReason!, 'en')).toContain('water or biomass deposit');
+  });
+
+  it('allows oil pumps on methane and bioreactors on water', () => {
+    expect(
+      resolvePlanetResourceBlockedReason({
+        typeId: 'oil_pump',
+        planetResourceIds: ['methane'],
+      }),
+    ).toBeNull();
+    expect(
+      resolvePlanetResourceBlockedReason({
+        typeId: 'biomass_harvester',
+        planetResourceIds: ['water'],
+      }),
+    ).toBeNull();
   });
 
   it('maps extractor output to local deposits instead of fixed catalog ids', () => {
@@ -203,7 +218,23 @@ describe('planet resource construction rules', () => {
         baseOutput: { resourceId: 'biomass', baseRate: 4 },
         planetResourceIds: ['biomass', 'water'],
       }),
-    ).toEqual(['biomass']);
+    ).toEqual(['biomass', 'water']);
+
+    expect(
+      resolveBuildingProducedResourceIds({
+        typeId: 'drill',
+        baseOutput: { resourceId: 'methane', baseRate: 46 },
+        planetResourceIds: ['methane', 'oxygen', 'hydrogen', 'water', 'oil'],
+      }),
+    ).toEqual(['methane', 'oxygen', 'hydrogen']);
+
+    expect(
+      resolveBuildingProducedResourceIds({
+        typeId: 'oil_pump',
+        baseOutput: { resourceId: 'oil', baseRate: 24 },
+        planetResourceIds: ['oil', 'methane', 'oxygen'],
+      }),
+    ).toEqual(['oil', 'methane']);
 
     expect(
       resolveBuildingProducedResourceIds({

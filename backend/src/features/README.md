@@ -75,7 +75,7 @@ Building construction and queue management. [Detailed documentation](./buildings
   3. Checks that the planet has a free slot (`buildingCount < planet.slotCount`).
   4. Ensures the build queue is not full (max 1 concurrent build without premium).
   5. Verifies all dependency buildings exist at the required level.
-  5a. Applies shared planet-specific gates: mines require metal deposits, drills require fluid/gas/ice deposits, oil pumps require oil, and biomass harvesters require biomass. Refineries are processors and can use either oil or methane recipes, so they are not tied to an oil deposit.
+  5a. Applies shared planet-specific gates: mines require metal deposits, drills require gas deposits, oil pumps require oil or methane, and biomass harvesters require water or biomass. Refineries are processors and can use either oil or methane recipes, so they are not tied to an oil deposit.
   6. Deducts resource costs via `spendResources` (from `features/resources/transactions.ts`).
   7. Creates a `buildings` row with `queueAction='build'` and `queueCompletesAt = now + baseTime`.
   8. After the transaction commits, optionally schedules a BullMQ delayed job through the shared `completion-queue.ts` producer when `ENABLE_BULLMQ=true`; otherwise the periodic Postgres worker and active-session sync finalize due rows.
@@ -133,16 +133,16 @@ Procedural world generation primitives and visibility checks. Contains the home-
   - Uses `tx` from auth or opens `db.transaction`; idempotent when a home `systems` row already exists.
   - Derives deterministic seeds from `userId` plus validated `env.SERVER_SECRET` so production home-system RNG is controlled by secret storage instead of a feature-level `process.env` fallback.
   - Seeds sector coords `[-500,500]`, system `seed`, `name = "Home System <userId-prefix>"`.
-  - Generates **9** planets from the fixed `HOME_PLANET_ORBIT_PLAN`: two volcanic inner worlds, two rocky resource worlds, ocean world, green capital in a deeper habitable orbit, gas giant, and two outer ice worlds.
+  - Generates **8** planets from the fixed `HOME_PLANET_ORBIT_PLAN`: two volcanic inner worlds, two rocky resource worlds, ocean world, green capital in a deeper habitable orbit, gas giant, and one outer ice world.
   - Capital (planet index 0): biome **`green`**, larger size, **`slotCount ≥ MIN_HOME_CAPITAL_SLOT_COUNT`** for early tutorial + shipyard chain.
-  - Other planets: sizes follow biome size classes; non-capital resources are hand-authored per orbit so titanium/tritium/ice/sulfur/copper/aluminum exist locally while rare/extreme biomes stay rare.
-  - Filters forbidden tier-3/tier-4 richness ids; seeds `richness` + starter `planet_resources` stockpiles with `regenRate = 0` until extractor buildings complete; planet 0 gets `command_center` + **only planet 0** in `discovered_planets` (other home bodies stay locked until a recon expedition route passes through their system-map visibility corridor — see `visibility.ts` / `workers/tick-expeditions.ts`).
+  - Other planets: sizes follow biome size classes; non-capital resources are hand-authored per orbit so titanium/tritium/ice/sulfur/copper/aluminum/silver/gold and starter gases exist locally while rare/extreme biomes stay rare.
+  - Filters forbidden tier-3/tier-4 richness ids while allowing explicit starter exceptions (`gold`, `nitrogen`, `tritium`); repeated resource ids in the starter plan become fixed deposit slots; seeds `richness` + starter `planet_resources` stockpiles with `regenRate = 0` until extractor buildings complete; planet 0 gets `command_center` + **only planet 0** in `discovered_planets` (other home bodies stay locked until a recon expedition route passes through their system-map visibility corridor — see `visibility.ts` / `workers/tick-expeditions.ts`).
   - Returns the new `systems.id`.
 - **`sectors.ts`** — exports `getOrCreateSector(x, y, z)` which returns an existing sector or creates a new one with a deterministic seed. Used by jump and exploration features to lazily initialize world regions. The seed is computed via `hashString` of the coordinate triple, ensuring determinism across server restarts.
 - **`sector-generator.ts`** — exports `generateSystemsInSector(sector, targetCount?)` which lazily generates missing systems within a sector. Uses the sector's seed for deterministic generation, respects the 12-system maximum per sector, ensures minimum 50-unit distance between systems, and distributes planet biomes by GDD weights (`getBiomeByWeight`, `generateSystemPosition`). Systems in the common pool have `ownerId=null` and `isHome=false`.
 - **`visibility.ts`** — exports `checkVisibility(shipId, tx?, overrideCoords?)` which resolves the ship's sensor-augmented range, finds candidate systems in an **XY bounding square**, applies **planar** sector distance (Z ignored), skips **foreign** home systems, and inserts new `discovered_systems` / `discovered_planets` rows. **Does not auto-insert undiscovered planets that belong to the player's own home system**; home bodies unlock from the flat route-corridor scan in `workers/tick-expeditions.ts`.
 - **`visibility.test.ts`** — Vitest coverage for range, deduping, foreign-home suppression, discovery batches, 3D distance, and **locked home bodies staying hidden from passive sensors**.
-- **`home-system-generator.test.ts`** — Vitest coverage for determinism, starter resource coverage, zero passive regen before extractors, **full home biome set + capital slots**, fixed 9-planet starter composition, visual orbit sorting, size spread, and tier restrictions.
+- **`home-system-generator.test.ts`** — Vitest coverage for determinism, starter resource coverage, zero passive regen before extractors, **full home biome set + capital slots**, fixed 8-planet starter composition, visual orbit sorting, size spread, and tier restrictions.
 
 ## `research/`
 
