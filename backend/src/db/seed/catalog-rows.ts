@@ -77,8 +77,7 @@ export const RESOURCE_CATALOG_ROWS: ResourceCatalogRow[] = [
   { id: 'gold', symbol: 'Au', tier: 3, name: { ru: 'Золото', en: 'Gold' }, baseRegenRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.gold, defaultStorageCap: 1000 },
   { id: 'jump_fuel', symbol: 'JF', tier: 3, name: { ru: 'Прыжковое топливо', en: 'Jump Fuel' }, baseRegenRate: 0, defaultStorageCap: 500 },
 
-  { id: 'antimatter', symbol: 'Am', tier: 4, name: { ru: 'Антиматерия', en: 'Antimatter' }, baseRegenRate: 0, defaultStorageCap: 100 },
-  { id: 'dark_matter', symbol: 'Dm', tier: 4, name: { ru: 'Тёмная материя', en: 'Dark Matter' }, baseRegenRate: 0, defaultStorageCap: 100 },
+  { id: 'antimatter', symbol: 'Am', tier: 4, name: { ru: 'Антиматерия', en: 'Antimatter' }, baseRegenRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.antimatter, defaultStorageCap: 100 },
   { id: 'iridium', symbol: 'Ir', tier: 4, name: { ru: 'Иридий', en: 'Iridium' }, baseRegenRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.iridium, defaultStorageCap: 100 },
   { id: 'biomass', symbol: 'Bio', tier: 4, name: { ru: 'Биомасса', en: 'Biomass' }, baseRegenRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.biomass, defaultStorageCap: 1000 },
 ];

@@ -32,7 +32,6 @@ export const RESOURCE_ENTITY_LABELS: Record<string, EntityLabels> = {
   tritium: { en: 'Tritium', ru: 'Тритий' },
   gold: { en: 'Gold', ru: 'Золото' },
   antimatter: { en: 'Antimatter', ru: 'Антиматерия' },
-  dark_matter: { en: 'Dark Matter', ru: 'Тёмная материя' },
   iridium: { en: 'Iridium', ru: 'Иридий' },
   biomass: { en: 'Biomass', ru: 'Биомасса' },
   metal: { en: 'metal', ru: 'металлы' },

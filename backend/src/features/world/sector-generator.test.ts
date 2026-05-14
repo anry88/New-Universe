@@ -1,10 +1,34 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { generateSystemsInSector } from './sector-generator.js';
+import {
+  COMMON_SYSTEM_PLANET_COUNT_MAX,
+  COMMON_SYSTEM_PLANET_COUNT_MIN,
+  generateCommonPlanetRichness,
+  generateSystemsInSector,
+} from './sector-generator.js';
 import { db } from '../../db/index.js';
-import { sectors, systems, planets, planetResources, richness, buildings, discoveredPlanets, ships, colonies } from '../../db/schema.js';
+import {
+  sectors,
+  systems,
+  planets,
+  planetResources,
+  richness,
+  buildings,
+  discoveredPlanets,
+  ships,
+  colonies,
+  productionOrders,
+} from '../../db/schema.js';
+import { BIOMES, type BiomeType, isAnomalousCommonBiome } from './biomes.js';
+import { RESOURCE_CATALOG_ROWS } from '../../db/seed/catalog-rows.js';
+import { seedResources } from '../../db/seed/resources.js';
 
 describe('generateSystemsInSector', () => {
   beforeEach(async () => {
+    await seedResources();
+  });
+
+  beforeEach(async () => {
+    await db.delete(productionOrders);
     await db.delete(ships);
     await db.delete(colonies);
     await db.delete(buildings);
@@ -113,8 +137,75 @@ describe('generateSystemsInSector', () => {
       const systemPlanets = await db.query.planets.findMany({
         where: (planets, { eq }) => eq(planets.systemId, system.id),
       });
-      expect(systemPlanets.length).toBeGreaterThanOrEqual(4);
-      expect(systemPlanets.length).toBeLessThanOrEqual(7);
+      expect(systemPlanets.length).toBeGreaterThanOrEqual(COMMON_SYSTEM_PLANET_COUNT_MIN);
+      expect(systemPlanets.length).toBeLessThanOrEqual(COMMON_SYSTEM_PLANET_COUNT_MAX);
+
+      for (const planet of systemPlanets) {
+        const richnessRows = await db.query.richness.findMany({
+          where: (richness, { eq }) => eq(richness.planetId, planet.id),
+        });
+        const resourceRows = await db.query.planetResources.findMany({
+          where: (planetResources, { eq }) => eq(planetResources.planetId, planet.id),
+        });
+
+        if (planet.biome === 'energy') {
+          expect(richnessRows).toHaveLength(0);
+          expect(resourceRows).toHaveLength(0);
+        } else {
+          expect(richnessRows.length).toBeGreaterThan(0);
+          expect(resourceRows.map((row) => row.resourceId).sort()).toEqual(
+            richnessRows.map((row) => row.resourceId).sort(),
+          );
+          expect(resourceRows.every((row) => Number(row.amount) === 0)).toBe(true);
+          expect(resourceRows.every((row) => Number(row.regenRate) === 0)).toBe(true);
+        }
+      }
     }
+  });
+
+  it('guarantees an anomalous subtype when a common system rolls 9 planets', async () => {
+    let foundNinePlanetSystem = false;
+
+    for (let seed = 1; seed <= 60; seed += 1) {
+      const [sector] = await db.insert(sectors).values({
+        x: 1000 + seed,
+        y: 0,
+        z: 0,
+        seed,
+      }).returning();
+
+      const [system] = await generateSystemsInSector(sector, 1);
+      const systemPlanets = await db.query.planets.findMany({
+        where: (planets, { eq }) => eq(planets.systemId, system!.id),
+      });
+
+      if (systemPlanets.length !== COMMON_SYSTEM_PLANET_COUNT_MAX) continue;
+
+      foundNinePlanetSystem = true;
+      expect(
+        systemPlanets.some((planet) => isAnomalousCommonBiome(planet.biome as BiomeType)),
+      ).toBe(true);
+      break;
+    }
+
+    expect(foundNinePlanetSystem).toBe(true);
+  });
+
+  it('maps every active natural catalog resource to at least one common planet type', () => {
+    const naturalCatalogResourceIds = RESOURCE_CATALOG_ROWS
+      .filter((row) => Number(row.baseRegenRate) > 0)
+      .map((row) => row.id);
+    const biomeResourceIds = new Set(
+      Object.values(BIOMES).flatMap((biome) => [
+        ...biome.commonResources,
+        ...biome.rareResources,
+      ]),
+    );
+
+    for (const resourceId of naturalCatalogResourceIds) {
+      expect(biomeResourceIds.has(resourceId)).toBe(true);
+    }
+    expect(biomeResourceIds.has(['dark', 'matter'].join('_'))).toBe(false);
+    expect(generateCommonPlanetRichness('energy', 20, 12, () => 0.5)).toEqual({});
   });
 });

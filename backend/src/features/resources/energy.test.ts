@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createPlanetEnergyRequestCache,
   invalidatePlanetEnergyStateCache,
+  resolvePlanetEnergyStateFromSnapshot,
   resolvePlanetEnergyState,
   solarEnergyMultiplier,
   windEnergyMultiplier,
@@ -75,6 +76,50 @@ describe('planet energy formulas', () => {
     expect(state.produced).toBeCloseTo(50 * solarEnergyMultiplier({ id: planetId, name: 'home-1', biome: 'volcanic' }) * 1.18, 4);
     expect(state.consumed).toBeCloseTo(9.2, 4);
     expect(state.buildingStates['battery-1'].capacity).toBeCloseTo(625, 4);
+  });
+
+  it('waives building and active-process energy demand on energy anomaly planets', () => {
+    const now = new Date();
+    const state = resolvePlanetEnergyStateFromSnapshot(
+      {
+        id: 'energy-anomaly',
+        name: 'System X - 9',
+        biome: 'energy',
+        size: 20,
+        buildings: [
+          {
+            id: 'battery-energy-free',
+            typeId: 'battery',
+            level: 1,
+            queueAction: null,
+            type: { id: 'battery', baseOutput: { energyCap: 100 }, energyConsumption: 0 },
+          },
+          {
+            id: 'mine-energy-free',
+            typeId: 'mine',
+            level: 2,
+            queueAction: null,
+            type: { id: 'mine', baseOutput: {}, energyConsumption: 10 },
+          },
+          {
+            id: 'smelter-energy-free',
+            typeId: 'smelter',
+            level: 1,
+            queueAction: null,
+            type: { id: 'smelter', baseOutput: {}, energyConsumption: 25 },
+          },
+        ],
+        activeProductionOrders: [{ buildingId: 'smelter-energy-free', status: 'queued' }],
+      },
+      { amount: '0', lastUpdateAt: now },
+      { now },
+    );
+
+    expect(state.consumed).toBe(0);
+    expect(state.shortage).toBe(false);
+    expect(state.buildingStates['battery-energy-free'].capacity).toBe(100);
+    expect(state.buildingStates['mine-energy-free']).toBeUndefined();
+    expect(state.buildingStates['smelter-energy-free']).toBeUndefined();
   });
 
   it('invalidates request-scoped energy snapshots after building state changes', async () => {

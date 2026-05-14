@@ -107,6 +107,5 @@ export type ResourceId =
   | 'gold'
   | 'jump_fuel'
   | 'antimatter'
-  | 'dark_matter'
   | 'iridium'
   | 'biomass';

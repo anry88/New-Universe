@@ -87,8 +87,9 @@ describe('Home System Generator', () => {
     expect(resIds).toContain('oil');
     expect(Object.fromEntries(firstPlanetRichness.map((row) => [row.resourceId, row.value]))).toMatchObject({
       iron: 2,
-      carbon: 1,
-      silicon: 1,
+      carbon: 2,
+      silicon: 2,
+      water: 2,
     });
 
     let tritiumFound = false;
@@ -104,7 +105,7 @@ describe('Home System Generator', () => {
     }
     expect(tritiumFound).toBe(true);
 
-    const forbidden = ['uranium', 'antimatter', 'dark_matter'];
+    const forbidden = ['uranium', 'antimatter'];
     for (const planet of systemPlanets) {
       const pRich = await db.query.richness.findMany({
         where: eq(richness.planetId, planet.id),
@@ -286,17 +287,17 @@ describe('Home System Generator', () => {
     const ocean = systemPlanets.find((planet) => planet.biome === 'ocean');
     expect(ocean).toBeDefined();
     const oceanRichness = await richnessMap(ocean!.id);
-    expect(oceanRichness.water).toBe(3);
-    expect(oceanRichness.oxygen).toBe(1);
+    expect(oceanRichness.water).toBe(4);
+    expect(oceanRichness.oxygen).toBe(2);
     expect(oceanRichness.hydrogen).toBe(1);
 
     const gas = systemPlanets.find((planet) => planet.biome === 'gas_giant');
     expect(gas).toBeDefined();
     const gasRichness = await richnessMap(gas!.id);
     expect(gasRichness).toMatchObject({
-      methane: 1,
-      oxygen: 1,
-      hydrogen: 1,
+      methane: 2,
+      oxygen: 2,
+      hydrogen: 2,
       nitrogen: 1,
     });
     expect(gasRichness.tritium ?? 0).toBe(0);
@@ -306,6 +307,8 @@ describe('Home System Generator', () => {
         .filter((planet) => planet.biome === 'rocky')
         .map((planet) => richnessMap(planet.id)),
     );
+    expect(rockyRichness.some((row) => row.iron === 2)).toBe(true);
+    expect(rockyRichness.some((row) => row.carbon === 2)).toBe(true);
     expect(rockyRichness.some((row) => row.silver === 1)).toBe(true);
     expect(rockyRichness.some((row) => row.gold === 1)).toBe(true);
   });

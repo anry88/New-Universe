@@ -1,4 +1,14 @@
-export type BiomeType = 'rocky' | 'ocean' | 'gas_giant' | 'ice' | 'volcanic' | 'green' | 'anomaly';
+export type BiomeType =
+  | 'rocky'
+  | 'ocean'
+  | 'gas_giant'
+  | 'ice'
+  | 'volcanic'
+  | 'green'
+  | 'anomaly'
+  | 'toxic'
+  | 'metallic'
+  | 'energy';
 
 /**
  * Biomes that must each appear at least once in a freshly generated home system.
@@ -46,6 +56,9 @@ export const BIOME_ORBIT_TIER: Record<BiomeType, number> = {
   gas_giant: 5,
   ice: 6,
   anomaly: 7,
+  toxic: 7,
+  metallic: 7,
+  energy: 7,
 };
 
 /**
@@ -59,7 +72,23 @@ export const BIOME_SIZE_CLASS: Record<BiomeType, PlanetSizeClass> = {
   gas_giant: 'giant',
   ice: 'large',
   anomaly: 'medium',
+  toxic: 'medium',
+  metallic: 'large',
+  energy: 'medium',
 };
+
+export const ANOMALOUS_COMMON_BIOMES = [
+  'anomaly',
+  'toxic',
+  'metallic',
+  'energy',
+] as const satisfies readonly BiomeType[];
+
+const ANOMALOUS_COMMON_BIOME_SET = new Set<BiomeType>(ANOMALOUS_COMMON_BIOMES);
+
+export function isAnomalousCommonBiome(biome: BiomeType): boolean {
+  return ANOMALOUS_COMMON_BIOME_SET.has(biome);
+}
 
 export interface Biome {
   id: BiomeType;
@@ -78,8 +107,8 @@ export const BIOMES: Record<BiomeType, Biome> = {
   rocky: {
     id: 'rocky',
     name: { ru: 'Каменистая', en: 'Rocky' },
-    commonResources: ['iron', 'copper', 'silicon', 'aluminum', 'silver'],
-    rareResources: ['titanium', 'gold'],
+    commonResources: ['iron', 'copper', 'silicon', 'carbon', 'aluminum', 'silver'],
+    rareResources: ['titanium', 'gold', 'magnesium'],
     bonuses: ['cheap_mines'],
     penalties: ['slow_factories'],
     orbitTier: BIOME_ORBIT_TIER.rocky,
@@ -98,8 +127,8 @@ export const BIOMES: Record<BiomeType, Biome> = {
   gas_giant: {
     id: 'gas_giant',
     name: { ru: 'Газовый гигант', en: 'Gas Giant' },
-    commonResources: ['methane', 'oxygen', 'hydrogen'],
-    rareResources: ['nitrogen'],
+    commonResources: ['methane', 'oxygen', 'hydrogen', 'nitrogen'],
+    rareResources: ['tritium'],
     bonuses: ['infinite_gas'],
     penalties: ['no_factories'],
     orbitTier: BIOME_ORBIT_TIER.gas_giant,
@@ -118,8 +147,8 @@ export const BIOMES: Record<BiomeType, Biome> = {
   volcanic: {
     id: 'volcanic',
     name: { ru: 'Вулканическая', en: 'Volcanic' },
-    commonResources: ['sulfur', 'iron', 'copper'],
-    rareResources: ['titanium'],
+    commonResources: ['sulfur', 'iron', 'copper', 'magnesium'],
+    rareResources: ['titanium', 'cobalt', 'uranium'],
     bonuses: ['rare_alloys_chance'],
     penalties: ['eruptions'],
     orbitTier: BIOME_ORBIT_TIER.volcanic,
@@ -138,12 +167,42 @@ export const BIOMES: Record<BiomeType, Biome> = {
   anomaly: {
     id: 'anomaly',
     name: { ru: 'Аномалия', en: 'Anomaly' },
-    commonResources: ['antimatter', 'dark_matter'],
-    rareResources: [],
-    bonuses: ['unique_resources'],
+    commonResources: ['antimatter'],
+    rareResources: ['iridium', 'gold', 'uranium', 'cobalt'],
+    bonuses: ['antimatter', 'rare_metals'],
     penalties: ['no_colonization'],
     orbitTier: BIOME_ORBIT_TIER.anomaly,
     sizeClass: BIOME_SIZE_CLASS.anomaly,
+  },
+  toxic: {
+    id: 'toxic',
+    name: { ru: 'Токсичная', en: 'Toxic' },
+    commonResources: ['mercury', 'lead', 'sulfur'],
+    rareResources: ['uranium', 'cobalt'],
+    bonuses: ['heavy_metals'],
+    penalties: ['hazardous_environment'],
+    orbitTier: BIOME_ORBIT_TIER.toxic,
+    sizeClass: BIOME_SIZE_CLASS.toxic,
+  },
+  metallic: {
+    id: 'metallic',
+    name: { ru: 'Металлическая', en: 'Metallic' },
+    commonResources: ['iron', 'copper', 'aluminum', 'silver', 'titanium', 'magnesium'],
+    rareResources: ['gold', 'cobalt', 'silicon_carbide', 'iridium', 'uranium'],
+    bonuses: ['dense_ore_fields'],
+    penalties: ['low_volatiles'],
+    orbitTier: BIOME_ORBIT_TIER.metallic,
+    sizeClass: BIOME_SIZE_CLASS.metallic,
+  },
+  energy: {
+    id: 'energy',
+    name: { ru: 'Энергетическая', en: 'Energetic' },
+    commonResources: [],
+    rareResources: [],
+    bonuses: ['energy_free_operations'],
+    penalties: ['no_extraction'],
+    orbitTier: BIOME_ORBIT_TIER.energy,
+    sizeClass: BIOME_SIZE_CLASS.energy,
   },
 };
 
@@ -153,6 +212,6 @@ export const BIOMES: Record<BiomeType, Biome> = {
  */
 export function biomesByOrbit(): BiomeType[] {
   return (Object.keys(BIOMES) as BiomeType[])
-    .filter((b) => b !== 'anomaly')
+    .filter((b) => !isAnomalousCommonBiome(b))
     .sort((a, b) => BIOMES[a].orbitTier - BIOMES[b].orbitTier || a.localeCompare(b));
 }

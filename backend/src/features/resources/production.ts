@@ -20,6 +20,7 @@ import { getPlayerPlanetSettlement } from '../colonies/ownership.js';
 import { spendResources, gainResources } from './transactions.js';
 import {
   ENERGY_RESOURCE_ID,
+  isEnergyFreePlanet,
   PROCESS_ENERGY_CONSUMER_TYPES,
   resolveEnergyOutputCapacity,
   resolvePlanetEnergyState,
@@ -197,13 +198,15 @@ export class ProductionService {
     const buildingType = await database.query.buildingTypes.findFirst({
       where: eq(buildingTypes.id, building.typeId),
     });
-    const energyPerHour = productionEnergyPerHour({
-      recipeOutputResourceId: recipe.output.resourceId,
-      buildingTypeId: building.typeId,
-      buildingLevel: building.level,
-      energyConsumption: Number(buildingType?.energyConsumption ?? 0),
-      effects,
-    });
+    const energyPerHour = isEnergyFreePlanet(settlement.planet)
+      ? 0
+      : productionEnergyPerHour({
+          recipeOutputResourceId: recipe.output.resourceId,
+          buildingTypeId: building.typeId,
+          buildingLevel: building.level,
+          energyConsumption: Number(buildingType?.energyConsumption ?? 0),
+          effects,
+        });
     const inputs = recipeInputs;
 
     const currentRows = await database

@@ -311,6 +311,7 @@ export function PlanetDetailPage() {
         net: planet.energy.net,
       };
     }
+    if (planet.biome === 'energy') return { produced: 0, consumed: 0 };
     const byId = new Map(buildingTypes.map((t) => [t.id, t]));
     let produced = 0;
     let consumed = 0;
@@ -672,6 +673,7 @@ export function PlanetDetailPage() {
         accent={accent}
         planetLabel={`${planet.name} · ${getBiomeLabel(biome, locale)}`}
         currentEnergy={currentEnergy}
+        energyFree={planet.biome === 'energy'}
       />
 
       <UpgradeDialog
@@ -700,6 +702,7 @@ export function PlanetDetailPage() {
         onChangeResource={handleChangeExtractorResource}
         isProcessing={isProcessing}
         accent={accent}
+        energyFree={planet.biome === 'energy'}
       />
 
       <ProductionDialog
