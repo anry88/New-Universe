@@ -109,6 +109,12 @@ describe('Tick Ships Worker', () => {
       slotIndex: 0,
       level: 1,
     });
+    await db.insert(buildings).values({
+      planetId,
+      typeId: 'spaceport',
+      slotIndex: 2,
+      level: 1,
+    });
 
     await ensureFuel(planetId, 100);
 

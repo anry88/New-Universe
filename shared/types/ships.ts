@@ -59,6 +59,8 @@ export type ShipBuildErrorCode =
   | 'ship_build_planet_not_found'
   | 'ship_build_planet_not_owned'
   | 'ship_build_shipyard_required'
+  | 'ship_build_spaceport_required'
+  | 'ship_build_spaceport_capacity_full'
   | 'ship_build_unknown_type'
   | 'ship_build_missing_building'
   | 'ship_build_missing_research'
@@ -69,6 +71,13 @@ export type ShipBuildErrorDetails =
   | { code: 'ship_build_planet_not_found' }
   | { code: 'ship_build_planet_not_owned' }
   | { code: 'ship_build_shipyard_required' }
+  | { code: 'ship_build_spaceport_required' }
+  | {
+      code: 'ship_build_spaceport_capacity_full';
+      capacity?: number;
+      occupied?: number;
+      reserved?: number;
+    }
   | { code: 'ship_build_unknown_type'; typeId?: string }
   | { code: 'ship_build_missing_building'; typeId: string; requiredLevel: number }
   | { code: 'ship_build_missing_research'; branch: string; requiredLevel: number; currentLevel: number }
@@ -87,6 +96,14 @@ export function formatShipBuildErrorMessage(error: ShipBuildErrorDetails, locale
       return locale === 'ru'
         ? `Для строительства кораблей нужна «${buildingLabel('shipyard', locale)}».`
         : `${buildingLabel('shipyard', locale)} is required to build ships.`;
+    case 'ship_build_spaceport_required':
+      return locale === 'ru'
+        ? `Для размещения кораблей на планете нужен «${buildingLabel('spaceport', locale)}».`
+        : `${buildingLabel('spaceport', locale)} is required before ships can be stationed on this planet.`;
+    case 'ship_build_spaceport_capacity_full':
+      return locale === 'ru'
+        ? `Все посадочные места «${buildingLabel('spaceport', locale)}» заняты: доступно ${error.capacity ?? 0}, занято ${error.occupied ?? 0}, зарезервировано ${error.reserved ?? 0}.`
+        : `${buildingLabel('spaceport', locale)} landing capacity is full: capacity ${error.capacity ?? 0}, ${error.occupied ?? 0} occupied, ${error.reserved ?? 0} reserved.`;
     case 'ship_build_unknown_type':
       return locale === 'ru' ? 'Такой тип корабля не найден.' : 'Ship type not found.';
     case 'ship_build_missing_building':

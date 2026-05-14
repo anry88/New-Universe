@@ -17,4 +17,6 @@ export const expeditions = pgTable('expeditions', {
   result: jsonb('result').$type<Record<string, any>>().notNull().default({}),
 }, (table) => ({
   etaStatusIdx: index('expeditions_eta_status_idx').on(table.eta, table.status),
+  originPlanetStatusIdx: index('expeditions_origin_planet_status_idx').on(table.originPlanetId, table.status),
+  targetPlanetStatusIdx: index('expeditions_target_planet_status_idx').on(table.targetPlanetId, table.status),
 }));

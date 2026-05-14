@@ -43,6 +43,7 @@ import {
   scheduleBuildingCompletionJob,
   type BuildingCompletionJob,
 } from './completion-queue.js';
+import { loadLandingSlotUsage } from '../ships/spaceport-capacity.js';
 
 type BuildingOutput = {
   resourceId?: string;
@@ -990,6 +991,15 @@ export class BuildingService {
     }
 
     await db.transaction(async (tx) => {
+      if (building.typeId === 'spaceport') {
+        const usage = await loadLandingSlotUsage(tx, building.planetId, {
+          lock: true,
+        });
+        if (usage.used > 0) {
+          throw new Error('Spaceport has reserved landing slots');
+        }
+      }
+
       // 1. Give resources back
       if (refundChanges.length > 0) {
         const result = await gainResources(building.planetId, refundChanges, tx);

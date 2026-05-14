@@ -7,6 +7,7 @@ import { loadUserResearchLevels, meetsResearchRequirement } from '../research/ga
 import { rushDiamondCost, rushRemainingSeconds } from '../../lib/diamonds.js';
 import { getPlayerPlanetSettlement } from '../colonies/ownership.js';
 import { env } from '../../lib/env.js';
+import { loadLandingSlotUsage } from './spaceport-capacity.js';
 import {
   formatShipBuildErrorMessage,
   type Ship,
@@ -109,24 +110,39 @@ export async function buildShip(
     }
   }
 
-  const queuedShips = await db
-    .select({ count: sql<number>`COUNT(*)` })
-    .from(ships)
-    .where(
-      and(
-        eq(ships.locationPlanetId, planetId),
-        eq(ships.status, 'building'),
-      ),
-    );
-  const queueCount = Number(queuedShips[0]?.count || 0);
-  if (queueCount >= MAX_QUEUED_SHIPS) {
-    return shipBuildFailure(400, { code: 'ship_build_queue_full', maxQueuedShips: MAX_QUEUED_SHIPS });
-  }
-
   const costs = type.buildCost as Record<string, number>;
   const costEntries = Object.entries(costs);
 
   const result = await db.transaction(async (tx) => {
+    const usage = await loadLandingSlotUsage(tx, planetId, { lock: true });
+
+    const queuedShips = await tx
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(ships)
+      .where(
+        and(
+          eq(ships.locationPlanetId, planetId),
+          eq(ships.status, 'building'),
+        ),
+      );
+    const queueCount = Number(queuedShips[0]?.count || 0);
+    if (queueCount >= MAX_QUEUED_SHIPS) {
+      return shipBuildFailure(400, { code: 'ship_build_queue_full', maxQueuedShips: MAX_QUEUED_SHIPS });
+    }
+
+    if (usage.capacity <= 0) {
+      return shipBuildFailure(400, { code: 'ship_build_spaceport_required' });
+    }
+
+    if (usage.used >= usage.capacity) {
+      return shipBuildFailure(400, {
+        code: 'ship_build_spaceport_capacity_full',
+        capacity: usage.capacity,
+        occupied: usage.occupied,
+        reserved: usage.reserved,
+      });
+    }
+
     if (costEntries.length > 0) {
       const resourceCosts = costEntries.map(([resourceId, amount]) => ({
         resourceId,
