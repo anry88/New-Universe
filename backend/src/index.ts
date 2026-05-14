@@ -17,6 +17,7 @@ import { coloniesRoutes } from './routes/colonies.js';
 import { cargoRoutes } from './routes/cargo.js';
 import { multiplayerRoutes } from './routes/multiplayer.js';
 import { jumpGateRoutes } from './features/jump-gate/routes.js';
+import { closeBuildingCompletionQueueProducer, warmBuildingCompletionQueueProducer } from './features/buildings/completion-queue.js';
 import { registerRateLimit } from './lib/rate-limit.js';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
@@ -32,6 +33,10 @@ fastify.addHook('preHandler', async (request) => {
   if (request.user) {
     request.log = request.log.child({ userId: request.user.id });
   }
+});
+
+fastify.addHook('onClose', async () => {
+  await closeBuildingCompletionQueueProducer();
 });
 
 await fastify.register(cors);
@@ -52,6 +57,8 @@ await fastify.register(coloniesRoutes, { prefix: '/colonies' });
 await fastify.register(cargoRoutes, { prefix: '/cargo' });
 await fastify.register(multiplayerRoutes, { prefix: '/multiplayer' });
 await fastify.register(jumpGateRoutes, { prefix: '/jump-gate' });
+
+warmBuildingCompletionQueueProducer();
 
 const start = async () => {
   try {

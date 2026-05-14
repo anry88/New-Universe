@@ -7,7 +7,10 @@ import {
   buildingUpgradeTimeSeconds,
   COMMAND_CENTER_TYPE_ID,
 } from '@shared/config/buildingUpgradeEconomy.js';
-import { env } from '../../lib/env.js';
+import {
+  scheduleBuildingCompletionJob,
+  type BuildingCompletionJob,
+} from './completion-queue.js';
 
 export interface UpgradeResult {
   success: boolean;
@@ -119,11 +122,14 @@ export async function upgradeBuilding(
   const upgradeTimeSec = buildingUpgradeTimeSeconds(type.baseTimeSec, building.level);
   const queueCompletesAt = new Date(Date.now() + upgradeTimeSec * 1000);
 
-  const result = await db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx): Promise<{
+    response: UpgradeResult;
+    completionJob?: BuildingCompletionJob;
+  }> => {
     if (scaledCosts.length > 0) {
       const spendResult = await spendResources(building.planetId, scaledCosts, tx);
       if (!spendResult.success) {
-        return { success: false, status: 400, error: spendResult.error } as UpgradeResult;
+        return { response: { success: false, status: 400, error: spendResult.error } as UpgradeResult };
       }
     }
 
@@ -136,33 +142,24 @@ export async function upgradeBuilding(
       .where(eq(buildings.id, buildingId))
       .returning();
 
-    if (env.ENABLE_BULLMQ) {
-      try {
-        const { Queue: BQueue } = await import('bullmq');
-        const Redis = (await import('ioredis')).default as unknown as new (...args: any[]) => any;
-        const redis = new Redis(env.REDIS_URL, {
-          maxRetriesPerRequest: null,
-          lazyConnect: true,
-        });
-        const buildQueue = new BQueue('buildings', { connection: redis });
-        await buildQueue.add(
-          'complete-upgrade',
-          { buildingId, planetId: building.planetId },
-          { delay: upgradeTimeSec * 1000 },
-        );
-        await buildQueue.close();
-        await redis.quit();
-      } catch {
-        // Redis/BullMQ not available — worker handles completion via polling
-      }
-    }
-
     return {
-      success: true,
-      status: 200,
-      building: updated,
-    } satisfies UpgradeResult;
+      response: {
+        success: true,
+        status: 200,
+        building: updated,
+      } satisfies UpgradeResult,
+      completionJob: {
+        name: 'complete-upgrade',
+        buildingId,
+        planetId: building.planetId,
+        delayMs: upgradeTimeSec * 1000,
+      },
+    };
   });
 
-  return result;
+  if (result.completionJob) {
+    scheduleBuildingCompletionJob(result.completionJob);
+  }
+
+  return result.response;
 }

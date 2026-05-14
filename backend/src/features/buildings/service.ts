@@ -39,7 +39,10 @@ import {
   syncEnergyResourceRow,
   type PlanetEnergyRequestCache,
 } from '../resources/energy.js';
-import { env } from '../../lib/env.js';
+import {
+  scheduleBuildingCompletionJob,
+  type BuildingCompletionJob,
+} from './completion-queue.js';
 
 type BuildingOutput = {
   resourceId?: string;
@@ -428,7 +431,10 @@ export class BuildingService {
 
     const researchEffects = await getResearchEffectsForUser(userId, db);
 
-    return db.transaction(async (tx) => {
+    const result = await db.transaction(async (tx): Promise<{
+      response: ConstructionStatus;
+      completionJob: BuildingCompletionJob;
+    }> => {
       if (isSelectableExtractorType(typeId)) {
         await assertExtractorSelectionAvailable({
           tx,
@@ -457,36 +463,25 @@ export class BuildingService {
         queueCompletesAt: completesAt,
       }).returning();
 
-      if (env.ENABLE_BULLMQ) {
-        try {
-          const { Queue: BQueue } = await import('bullmq');
-          const Redis = (await import('ioredis')).default as unknown as new (...args: any[]) => any;
-          const redis = new Redis(env.REDIS_URL, {
-            maxRetriesPerRequest: null,
-            lazyConnect: true,
-          });
-          const buildQueue = new BQueue('buildings', { connection: redis });
-          await buildQueue.add(
-            'complete-build',
-            { buildingId: newBuilding.id, planetId },
-            { delay: buildTimeSec * 1000 },
-          );
-          await buildQueue.close();
-          await redis.quit();
-        } catch (err) {
-          // Redis/BullMQ is optional in tests/local runs; ignore enqueue failures.
-          void err;
-        }
-      }
-
       return {
-        success: true,
-        queueItem: {
-          id: newBuilding.id,
-          completesAt: completesAt.toISOString(),
-        }
+        response: {
+          success: true,
+          queueItem: {
+            id: newBuilding.id,
+            completesAt: completesAt.toISOString(),
+          },
+        },
+        completionJob: {
+          name: 'complete-build',
+          buildingId: newBuilding.id,
+          planetId,
+          delayMs: buildTimeSec * 1000,
+        },
       };
     });
+
+    scheduleBuildingCompletionJob(result.completionJob);
+    return result.response;
   }
 
   async changeExtractorResource(
@@ -663,7 +658,10 @@ export class BuildingService {
 
     const researchEffects = await getResearchEffectsForUser(userId, db);
 
-    return db.transaction(async (tx) => {
+    const result = await db.transaction(async (tx): Promise<{
+      response: ConstructionStatus;
+      completionJob: BuildingCompletionJob;
+    }> => {
       if (isSelectableExtractorType(building.typeId)) {
         await assertExtractorSelectionAvailable({
           tx,
@@ -699,36 +697,25 @@ export class BuildingService {
         })
         .where(eq(buildings.id, buildingId));
 
-      if (env.ENABLE_BULLMQ) {
-        try {
-          const { Queue: BQueue } = await import('bullmq');
-          const Redis = (await import('ioredis')).default as unknown as new (...args: any[]) => any;
-          const redis = new Redis(env.REDIS_URL, {
-            maxRetriesPerRequest: null,
-            lazyConnect: true,
-          });
-          const buildQueue = new BQueue('buildings', { connection: redis });
-          await buildQueue.add(
-            'complete-upgrade',
-            { buildingId, planetId: building.planetId },
-            { delay: buildTime * 1000 },
-          );
-          await buildQueue.close();
-          await redis.quit();
-        } catch (err) {
-          // Redis/BullMQ is optional in tests/local runs; ignore enqueue failures.
-          void err;
-        }
-      }
-
       return {
-        success: true,
-        queueItem: {
-          id: buildingId,
-          completesAt: completesAt.toISOString(),
-        }
+        response: {
+          success: true,
+          queueItem: {
+            id: buildingId,
+            completesAt: completesAt.toISOString(),
+          },
+        },
+        completionJob: {
+          name: 'complete-upgrade',
+          buildingId,
+          planetId: building.planetId,
+          delayMs: buildTime * 1000,
+        },
       };
     });
+
+    scheduleBuildingCompletionJob(result.completionJob);
+    return result.response;
   }
 
   async finalizeBuildingConstruction(
