@@ -73,6 +73,31 @@ The deploy job mirrors the runtime values above into both Fly apps with `flyctl 
 
 The workflow copies `shared/` into `backend/shared` inside the runner before Fly builds. It also writes generated Fly config files into `backend/` and runs `flyctl deploy .` from that directory so Fly reads the generated app name and resolves `dockerfile = "Dockerfile"` relative to `backend/Dockerfile`. The production Dockerfile normalizes TypeScript output back to `dist/index.js` / `dist/workers/index.js` and installs runtime `@shared/*` aliases from the compiled shared files. This keeps the current backend Dockerfile working with the `@shared/*` TypeScript path without committing generated build context files.
 
+## Local fallback
+
+If GitHub Actions is unavailable, use [`scripts/deploy-local.sh`](../../scripts/deploy-local.sh) from a trusted operator machine. The script mirrors the deploy order without creating GitHub tags or releases: stage selected Fly secrets, stop the worker, run Drizzle migrate/seed in Docker Node 20, deploy the API, deploy the worker, upload Cloudflare Pages when requested, and smoke-test `/health`.
+
+GitHub Environment **variables** can be inspected with `gh variable`, but GitHub Environment **secrets cannot be read back** through the API after they are created. A local fallback deploy therefore cannot use GitHub as a readable secret source. Either run the normal workflow so GitHub injects secrets into Actions, or pass only the secrets being rotated to the local script and leave the rest of the provider-side secrets unchanged.
+
+For a full local staging deploy, copy the template once, fill the local-only secret values, and run the fallback with `--full`:
+
+```bash
+cp scripts/deploy-local.staging.env.example scripts/deploy-local.staging.env
+# edit scripts/deploy-local.staging.env
+
+scripts/deploy-local.sh --env-file scripts/deploy-local.staging.env --full
+```
+
+For staging database replacement without touching frontend, the narrow local path is:
+
+```bash
+DATABASE_URL_FILE=/path/to/new-staging-db-url \
+SENTRY_DSN=<backend-sentry-dsn-if-rotating> \
+scripts/deploy-local.sh --skip-frontend --skip-migrate
+```
+
+Do not point the fallback script at a normal local-development `.env` unless every value in that file is meant for the target deployment. The script refuses local `DATABASE_URL` values by default and refuses local tunnel frontend API URLs by default, but it cannot know whether other values such as `PUBLIC_FRONTEND_URL` or `REDIS_URL` are production-safe unless they are deliberately selected through `SYNC_SECRET_NAMES`.
+
 ## Production gate
 
 Production deploys add three hard checks:
