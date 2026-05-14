@@ -26,7 +26,12 @@ import { seedResources } from "../../db/seed/resources.js";
 import { seedShipTypes } from "../../db/seed/ship-types.js";
 import { seedBuildingTypes } from "../../db/seed/building-types.js";
 import { seedResearchCatalog } from "../../db/seed/research.js";
-import { systemMapPlanetDistanceLy } from "@shared/format/systemMapLayout.js";
+import {
+  buildSystemMapLayouts,
+  systemMapJumpGatePoint,
+  systemMapPlanetDistanceLy,
+  systemMapPointDistanceLy,
+} from "@shared/format/systemMapLayout.js";
 import { processExpeditions } from "../../workers/tick-expeditions.js";
 import {
   JUMP_FUEL_RESOURCE_ID,
@@ -318,6 +323,15 @@ describe("Expeditions - POST /expeditions", () => {
     return { system, planets: insertedPlanets };
   }
 
+  async function distanceFromGateToPlanet(systemId: string, seed: number, planetId: string) {
+    const systemPlanets = await db.query.planets.findMany({
+      where: eq(planets.systemId, systemId),
+    });
+    const layout = buildSystemMapLayouts(systemPlanets, seed).find((entry) => entry.id === planetId);
+    expect(layout).toBeDefined();
+    return systemMapPointDistanceLy(systemMapJumpGatePoint(), layout!);
+  }
+
   it("should create an expedition and schedule eta", async () => {
     const { app, token, userId } = await createTestUser();
     const { system, planet } = await getHomeContext(userId);
@@ -551,6 +565,18 @@ describe("Expeditions - POST /expeditions", () => {
     await ensureJumpFuel(planet.id, JUMP_GATE_JUMP_FUEL_COST);
     await ensureSpaceport(destination.planets[0].id);
     const ship = await createIdleScout(userId, planet.id);
+    const targetSystemPoint = {
+      x: systemMapJumpGatePoint().x + 160,
+      y: systemMapJumpGatePoint().y,
+    };
+    const originSystem = await db.query.systems.findFirst({
+      where: eq(systems.id, planet.systemId),
+    });
+    expect(originSystem).toBeDefined();
+    const expectedDistance =
+      (await distanceFromGateToPlanet(planet.systemId, Number(originSystem!.seed), planet.id)) +
+      systemMapPointDistanceLy(systemMapJumpGatePoint(), targetSystemPoint);
+    const expectedFuel = Math.ceil(expectedDistance * 2 * 0.3);
 
     const response = await app.inject({
       method: "POST",
@@ -563,7 +589,8 @@ describe("Expeditions - POST /expeditions", () => {
         targetX: 999,
         targetY: 999,
         targetZ: 999,
-        targetPlanetId: destination.planets[0].id,
+        targetSystemX: targetSystemPoint.x,
+        targetSystemY: targetSystemPoint.y,
         cargoLoaded: 0,
       },
     });
@@ -573,12 +600,13 @@ describe("Expeditions - POST /expeditions", () => {
     expect(Number(body.expedition.targetX)).toBe(destination.system.sectorX);
     expect(Number(body.expedition.targetY)).toBe(destination.system.sectorY);
     expect(Number(body.expedition.targetZ)).toBe(destination.system.sectorZ);
-    expect(body.expedition.targetPlanetId).toBe(destination.planets[0].id);
+    expect(body.expedition.targetPlanetId).toBeNull();
     expect(body.expedition.result.routeMode).toBe("jump_gate");
     expect(body.expedition.result.destinationSystemId).toBe(destination.system.id);
     expect(body.expedition.result.jumpFuelRequired).toBe(50);
-    expect(body.expedition.result.distance).toBe(10);
-    expect(body.expedition.result.fuelRequired).toBe(6);
+    expect(body.expedition.result.distance).toBeCloseTo(expectedDistance, 5);
+    expect(body.expedition.result.fuelRequired).toBe(expectedFuel);
+    expect(body.expedition.result.targetSystemPoint).toEqual(targetSystemPoint);
     expect(body.expedition.result.spaceportReservation).toMatchObject({
       originPlanetId: planet.id,
     });
@@ -590,6 +618,32 @@ describe("Expeditions - POST /expeditions", () => {
       ),
     });
     expect(Number(jumpFuel!.amount)).toBe(0);
+  });
+
+  it("requires a target-system point for Jump Gate scout routes", async () => {
+    const { app, token, userId } = await createTestUser();
+    const { planet } = await getHomeContext(userId);
+    const destination = await createKnownPublicDestination(userId);
+
+    await unlockJumpGate(userId);
+    await ensureFuel(planet.id, 100);
+    await ensureJumpFuel(planet.id, JUMP_GATE_JUMP_FUEL_COST);
+    const ship = await createIdleScout(userId, planet.id);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/expeditions",
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        shipId: ship.id,
+        routeMode: "jump_gate",
+        destinationSystemId: destination.system.id,
+        cargoLoaded: 0,
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().code).toBe("expedition_gate_target_point_required");
   });
 
   it("launches a colonizer through the Jump Gate and lets the worker found the target colony", async () => {
@@ -611,6 +665,14 @@ describe("Expeditions - POST /expeditions", () => {
     await ensureFuel(planet.id, 100);
     await ensureJumpFuel(planet.id, JUMP_GATE_JUMP_FUEL_COST);
     const ship = await createIdleColonizer(userId, planet.id);
+    const originSystem = await db.query.systems.findFirst({
+      where: eq(systems.id, planet.systemId),
+    });
+    expect(originSystem).toBeDefined();
+    const expectedDistance =
+      (await distanceFromGateToPlanet(planet.systemId, Number(originSystem!.seed), planet.id)) +
+      (await distanceFromGateToPlanet(destination.system.id, Number(destination.system.seed), targetPlanet.id));
+    const expectedFuel = Math.ceil(expectedDistance * 1.5);
 
     const response = await app.inject({
       method: "POST",
@@ -629,7 +691,8 @@ describe("Expeditions - POST /expeditions", () => {
     const body = response.json();
     expect(body.expedition.result.returnTrip).toBe(false);
     expect(body.expedition.result.spaceportReservation).toBeUndefined();
-    expect(body.expedition.result.fuelRequired).toBe(15);
+    expect(body.expedition.result.distance).toBeCloseTo(expectedDistance, 5);
+    expect(body.expedition.result.fuelRequired).toBe(expectedFuel);
 
     await db
       .update(expeditions)
@@ -680,6 +743,8 @@ describe("Expeditions - POST /expeditions", () => {
         shipId: ship.id,
         routeMode: "jump_gate",
         destinationSystemId: destination.system.id,
+        targetSystemX: systemMapJumpGatePoint().x + 120,
+        targetSystemY: systemMapJumpGatePoint().y,
         cargoLoaded: 0,
       },
     });

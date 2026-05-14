@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMe } from '../hooks/useMe';
 import { CosmicSystemRenderer } from '../components/cosmic/SystemMap';
 import { CosmicBottomNav } from '../components/cosmic/atoms';
@@ -14,6 +14,7 @@ import {
   RadioTower,
   Rocket,
   Send,
+  X,
 } from 'lucide-react';
 import { formatHomeSystemTitleForUser } from '../lib/homeSystemTitle';
 import { useI18n } from '../lib/i18n';
@@ -28,6 +29,8 @@ import type {
   JumpGateStateResponse,
 } from '@shared/types/jump-gate';
 import type { Ship, ShipType } from '@shared/types/ships';
+import type { HomeSystem, Planet } from '@shared/types/world';
+import { systemMapJumpGatePoint } from '@shared/format/systemMapLayout';
 
 type TFunction = (key: string, params?: Record<string, string | number>) => string;
 
@@ -99,6 +102,33 @@ function destinationOwnedColony(destination: JumpGateKnownDestinationSummary) {
   return destination.planets.find((planet) => planet.isOwnedColony) ?? null;
 }
 
+function destinationToSystem(destination: JumpGateKnownDestinationSummary): HomeSystem {
+  const planets: Planet[] = destination.planets
+    .filter((planet) => planet.isDiscovered)
+    .map((planet) => ({
+      id: planet.id,
+      systemId: planet.systemId,
+      biome: planet.biome ?? 'unknown',
+      size: planet.size ?? 10,
+      slotCount: 0,
+      name: planet.name ?? `#${planet.orbitIndex}`,
+      isDiscovered: true,
+      isColonized: planet.isColonized,
+    }));
+
+  return {
+    id: destination.systemId,
+    ownerId: '',
+    isHome: false,
+    sectorX: destination.sector.x,
+    sectorY: destination.sector.y,
+    sectorZ: destination.sector.z,
+    name: destination.systemName,
+    seed: destination.seed,
+    planets,
+  };
+}
+
 /**
  * Galaxy / system map — Cosmic Atlas chrome around the existing PixiJS
  * renderer. The renderer keeps owning the pan/zoom and orbit visuals; this
@@ -111,13 +141,28 @@ export function SystemMapPage() {
   const { data: shipTypes } = useShipTypes();
   const randomJump = useRandomJump();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { locale, t } = useI18n();
   const [isGatePanelOpen, setIsGatePanelOpen] = useState(false);
+  const [isSystemSelectorOpen, setIsSystemSelectorOpen] = useState(false);
   const [randomJumpShipId, setRandomJumpShipId] = useState('');
   const [gateError, setGateError] = useState<string | null>(null);
   const [gateNotice, setGateNotice] = useState<string | null>(null);
 
   const home = meData?.homeSystem ?? null;
+  const knownDestinations = jumpGateState?.knownDestinations ?? [];
+  const selectedSystemId = searchParams.get('systemId');
+  const selectedDestination = useMemo(
+    () =>
+      knownDestinations.find((destination) => destination.systemId === selectedSystemId) ??
+      null,
+    [knownDestinations, selectedSystemId],
+  );
+  const renderedSystem = useMemo<HomeSystem | null>(() => {
+    if (selectedDestination) return destinationToSystem(selectedDestination);
+    return home;
+  }, [home, selectedDestination]);
+  const canSelectSector = knownDestinations.length > 0;
   const ownedPlanetIds = useMemo(() => {
     return new Set(
       meData?.planets
@@ -200,6 +245,12 @@ export function SystemMapPage() {
     }
   }, [reconProbeOptions, randomJumpShipId]);
 
+  useEffect(() => {
+    if (selectedSystemId && jumpGateState && !selectedDestination) {
+      setSearchParams({});
+    }
+  }, [jumpGateState, selectedDestination, selectedSystemId, setSearchParams]);
+
   const handleRandomJump = async () => {
     setGateError(null);
     setGateNotice(null);
@@ -229,9 +280,8 @@ export function SystemMapPage() {
   };
 
   const openDestinationSector = (destination: JumpGateKnownDestinationSummary) => {
-    navigate(
-      `/sector-map?sx=${destination.sector.x}&sy=${destination.sector.y}&sz=${destination.sector.z}`,
-    );
+    setSearchParams({ systemId: destination.systemId });
+    setIsGatePanelOpen(false);
   };
 
   if (isLoading) {
@@ -262,7 +312,8 @@ export function SystemMapPage() {
     );
   }
 
-  const renderedHome = meData.homeSystem;
+  const activeSystem = renderedSystem ?? meData.homeSystem;
+  const isViewingDestination = Boolean(selectedDestination);
 
   return (
     <div className="cosmic-screen" style={{ '--accent': '#5BD7FF', position: 'relative' } as React.CSSProperties}>
@@ -284,7 +335,13 @@ export function SystemMapPage() {
         <button
           type="button"
           aria-label={t('common.back')}
-          onClick={() => navigate('/')}
+          onClick={() => {
+            if (isViewingDestination) {
+              setSearchParams({});
+              return;
+            }
+            navigate('/');
+          }}
           style={{
             padding: 8,
             borderRadius: 999,
@@ -310,7 +367,7 @@ export function SystemMapPage() {
           }}
         >
           <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 13, color: 'var(--text)' }}>
-            {formatHomeSystemTitleForUser(meData)}
+            {selectedDestination ? selectedDestination.systemName : formatHomeSystemTitleForUser(meData)}
           </div>
           <div
             style={{
@@ -321,27 +378,29 @@ export function SystemMapPage() {
               marginTop: 2,
             }}
           >
-            {t('map.sector').toUpperCase()} {renderedHome.sectorX}:{renderedHome.sectorY}:{renderedHome.sectorZ}
+            {t('map.sector').toUpperCase()} {activeSystem.sectorX}:{activeSystem.sectorY}:{activeSystem.sectorZ}
           </div>
         </div>
 
         <button
           type="button"
-          onClick={() =>
-            navigate(
-              `/sector-map?sx=${renderedHome.sectorX}&sy=${renderedHome.sectorY}&sz=${renderedHome.sectorZ}`,
-            )
-          }
+          disabled={!canSelectSector}
+          title={!canSelectSector ? t('map.sectorLocked') : undefined}
+          onClick={() => {
+            if (!canSelectSector) return;
+            setIsSystemSelectorOpen(true);
+          }}
           style={{
             pointerEvents: 'auto',
             borderRadius: 10,
             border: '1px solid var(--line)',
-            background: 'rgba(14,20,36,0.85)',
-            color: 'var(--accent)',
+            background: canSelectSector ? 'rgba(14,20,36,0.85)' : 'rgba(30,41,59,0.72)',
+            color: canSelectSector ? 'var(--accent)' : 'var(--text-faint)',
             fontSize: 11,
             fontFamily: 'var(--font-mono)',
             padding: '8px 10px',
             backdropFilter: 'blur(8px)',
+            cursor: canSelectSector ? 'pointer' : 'not-allowed',
           }}
         >
           {t('map.sector')}
@@ -364,17 +423,22 @@ export function SystemMapPage() {
         }}
       >
         <CosmicSystemRenderer
-          system={renderedHome}
-          ships={meData.ships || []}
-          expeditions={meData.expeditions || []}
+          system={activeSystem}
+          ships={selectedDestination ? [] : (meData.ships || [])}
+          expeditions={selectedDestination ? [] : (meData.expeditions || [])}
           onPlanetClick={(planet) => navigate(`/planet/${planet.id}`)}
           onColonizeClick={() => navigate('/ships')}
           ownedPlanetIds={ownedPlanetIds}
           jumpGate={{
-            unlocked: Boolean(jumpGateState?.unlocked),
-            statusLabel: jumpGateStatusLabel(jumpGateState, jumpGateLoading, t),
+            unlocked: selectedDestination ? true : Boolean(jumpGateState?.unlocked),
+            statusLabel: selectedDestination
+              ? t('jumpGate.destination.portal')
+              : jumpGateStatusLabel(jumpGateState, jumpGateLoading, t),
             onClick: () => setIsGatePanelOpen(true),
+            position: selectedDestination ? systemMapJumpGatePoint() : undefined,
           }}
+          showOrbitRings={!selectedDestination || (activeSystem.planets?.length ?? 0) > 0}
+          emptyStateLabel={selectedDestination ? null : undefined}
         />
       </div>
 
@@ -399,7 +463,137 @@ export function SystemMapPage() {
         />
       ) : null}
 
+      {isSystemSelectorOpen ? (
+        <SystemSelectorPanel
+          destinations={knownDestinations}
+          selectedSystemId={selectedDestination?.systemId ?? null}
+          locale={locale}
+          t={t}
+          onSelect={(destination) => {
+            setSearchParams({ systemId: destination.systemId });
+            setIsSystemSelectorOpen(false);
+          }}
+          onClose={() => setIsSystemSelectorOpen(false)}
+        />
+      ) : null}
+
       <CosmicBottomNav />
+    </div>
+  );
+}
+
+interface SystemSelectorPanelProps {
+  destinations: JumpGateKnownDestinationSummary[];
+  selectedSystemId: string | null;
+  locale: string;
+  t: TFunction;
+  onSelect: (destination: JumpGateKnownDestinationSummary) => void;
+  onClose: () => void;
+}
+
+function SystemSelectorPanel({
+  destinations,
+  selectedSystemId,
+  locale,
+  t,
+  onSelect,
+  onClose,
+}: SystemSelectorPanelProps) {
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: 12,
+        right: 12,
+        top: 78,
+        zIndex: 35,
+        maxHeight: 'min(58dvh, 520px)',
+        overflowY: 'auto',
+        border: '1px solid rgba(91,215,255,0.28)',
+        borderRadius: 12,
+        background: 'linear-gradient(180deg, rgba(8,12,22,0.97), rgba(10,18,32,0.95))',
+        boxShadow: '0 22px 70px rgba(0,0,0,0.42)',
+        backdropFilter: 'blur(14px)',
+        padding: 12,
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
+        <div style={{ minWidth: 0 }}>
+          <div
+            style={{
+              fontFamily: 'var(--font-mono)',
+              color: 'var(--accent)',
+              fontSize: 10,
+              letterSpacing: '0.14em',
+              fontWeight: 800,
+            }}
+          >
+            {t('map.systemSelector.tag').toUpperCase()}
+          </div>
+          <div style={{ color: 'var(--text)', fontWeight: 900, fontSize: 15 }}>
+            {t('map.systemSelector.title')}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={t('common.close')}
+          style={{
+            border: '1px solid var(--line)',
+            borderRadius: 999,
+            background: 'rgba(14,20,36,0.86)',
+            color: 'var(--text-dim)',
+            padding: 8,
+          }}
+        >
+          <X size={16} />
+        </button>
+      </div>
+
+      <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
+        {destinations.map((destination) => {
+          const counts = destinationCounts(destination);
+          const active = selectedSystemId === destination.systemId;
+          return (
+            <button
+              key={destination.systemId}
+              type="button"
+              onClick={() => onSelect(destination)}
+              style={{
+                textAlign: 'left',
+                borderRadius: 10,
+                border: active ? '1px solid var(--accent)' : '1px solid rgba(148,163,184,0.22)',
+                background: active ? 'rgba(91,215,255,0.14)' : 'rgba(5,8,17,0.74)',
+                color: 'var(--text)',
+                padding: '10px 11px',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                <span style={{ fontWeight: 900, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {destination.systemName}
+                </span>
+                <span style={{ color: 'var(--text-faint)', fontFamily: 'var(--font-mono)', fontSize: 10 }}>
+                  [{destination.sector.x}, {destination.sector.y}, {destination.sector.z}]
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                <GateBadge icon={<Compass size={12} />} text={t('jumpGate.destination.badgeDiscovered', { count: counts.discovered })} />
+                <GateBadge icon={<Package size={12} />} text={t('jumpGate.destination.badgeColony', { count: counts.colonies })} />
+                <GateBadge
+                  icon={<Send size={12} />}
+                  text={
+                    destination.lastVisitedAt
+                      ? t('jumpGate.destination.badgeLastVisited', {
+                          time: formatDateTime(destination.lastVisitedAt, locale),
+                        })
+                      : t('jumpGate.destination.badgeNeverVisited')
+                  }
+                />
+              </div>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

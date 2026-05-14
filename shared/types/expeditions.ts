@@ -13,6 +13,9 @@ export interface LaunchExpeditionRequest {
   targetX?: number;
   targetY?: number;
   targetZ?: number;
+  /** Flat system-map target point used after a Jump Gate transfer. */
+  targetSystemX?: number;
+  targetSystemY?: number;
   /** Known public destination system used when `routeMode` is `jump_gate`. */
   destinationSystemId?: string | null;
   /** Deprecated client hint. Fuel is calculated server-side from distance and ship consumption. */
@@ -30,6 +33,9 @@ export interface ExpeditionResult {
   cargoLoaded?: number;
   distance?: number;
   requestedDistance?: number;
+  originGateDistance?: number;
+  targetGateDistance?: number;
+  targetSystemPoint?: { x: number; y: number } | null;
   speed?: number;
   engineFactor?: number;
   routeMode?: ExpeditionRouteMode;
@@ -85,6 +91,7 @@ export type LaunchExpeditionErrorCode =
   | 'expedition_jump_gate_calibrating'
   | 'expedition_known_destination_not_found'
   | 'expedition_known_destination_not_public'
+  | 'expedition_gate_target_point_required'
   | 'expedition_colonizer_target_required'
   | 'expedition_cargo_capacity'
   | 'expedition_target_not_found'
@@ -117,6 +124,7 @@ export type LaunchExpeditionErrorDetails =
   | { code: 'expedition_jump_gate_calibrating' }
   | { code: 'expedition_known_destination_not_found' }
   | { code: 'expedition_known_destination_not_public' }
+  | { code: 'expedition_gate_target_point_required' }
   | { code: 'expedition_colonizer_target_required' }
   | { code: 'expedition_cargo_capacity' }
   | { code: 'expedition_target_not_found' }
@@ -190,6 +198,10 @@ export function formatLaunchExpeditionErrorMessage(
       return locale === 'ru'
         ? 'Направление Прыжковых врат должно вести в открытую общую систему.'
         : 'Jump Gate destination must be a public common system.';
+    case 'expedition_gate_target_point_required':
+      return locale === 'ru'
+        ? 'Выберите точку разведки в открытой системе.'
+        : 'Pick a scout target point in the opened system.';
     case 'expedition_colonizer_target_required':
       return locale === 'ru' ? 'Выберите планету для колонизации.' : 'Select a colonization target planet.';
     case 'expedition_cargo_capacity':

@@ -171,6 +171,7 @@ function serializeDestination(
       y: system.sectorY,
       z: system.sectorZ,
     },
+    seed: system.seed,
     planetCount,
     planets: [],
     discoveredAt: row.discoveredAt.toISOString(),

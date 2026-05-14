@@ -36,7 +36,9 @@ import {
   buildSystemMapLayouts,
   buildSystemMapOrbitGuideRadii,
   sectorDeltaToSystemMapPoint,
+  systemMapJumpGatePoint,
   SYSTEM_MAP_WORLD_UNITS_PER_LY,
+  type SystemMapPoint,
 } from "@shared/format/systemMapLayout";
 import { BIOME_META, PlanetSvg, getBiomeTag, resolveBiome } from "./planets";
 import { SunSvg } from "./sun";
@@ -51,12 +53,17 @@ export interface ExpeditionPickConfig {
   sectorDx: number;
   sectorDy: number;
   /** Trail starts at this planet (launch site). */
-  launchPlanetId: string;
+  launchPlanetId?: string;
+  /** Alternative trail start for routes that begin at a system object such as a Jump Gate. */
+  routeStartPoint?: SystemMapPoint;
+  /** Absolute target point in the currently rendered system map. */
+  targetPoint?: SystemMapPoint | null;
   /** Set when targeting a specific local body (e.g. for Survey or Colonize). */
   targetPlanetId?: string | null;
   /** World-map pixels per sector light-year along the aim ray (tuning for comfortable reach). */
   worldUnitsPerLy?: number;
   onPickSectorDelta: (dx: number, dy: number) => void;
+  onPickSystemPoint?: (point: SystemMapPoint) => void;
   onPickPlanet?: (planetId: string) => void;
 }
 
@@ -69,6 +76,9 @@ interface CosmicSystemRendererProps {
   ownedPlanetIds: Set<string>;
   expeditionPick?: ExpeditionPickConfig;
   jumpGate?: JumpGateMarkerConfig | null;
+  minimumOrbitCount?: number;
+  emptyStateLabel?: string | null;
+  showOrbitRings?: boolean;
 }
 
 interface PlanetLayout {
@@ -85,6 +95,7 @@ interface JumpGateMarkerConfig {
   unlocked: boolean;
   statusLabel: string;
   onClick: () => void;
+  position?: SystemMapPoint;
 }
 
 const MIN_SCALE = 0.1;
@@ -204,8 +215,11 @@ function buildExpeditionTrailSegments(
     const targetPlanet = exp.targetPlanetId
       ? layoutByPlanetId.get(exp.targetPlanetId)
       : null;
+    const result = exp.result as Record<string, unknown> | null | undefined;
     const endpoint = targetPlanet
       ? { x: targetPlanet.x, y: targetPlanet.y }
+      : result?.routeMode === "jump_gate"
+        ? systemMapJumpGatePoint()
       : sectorDeltaToSystemMapPoint(
           { x: origin.x, y: origin.y },
           Number(exp.targetX) - system.sectorX,
@@ -435,11 +449,16 @@ const ShipMarkers = React.memo(function ShipMarkers({
               const targetPlanet = exp.targetPlanetId
                 ? layoutByPlanetId.get(exp.targetPlanetId)
                 : null;
+              const resultRouteMode = (exp.result as Record<string, unknown> | null | undefined)?.routeMode;
               let endX: number;
               let endY: number;
               if (targetPlanet) {
                 endX = targetPlanet.x;
                 endY = targetPlanet.y;
+              } else if (resultRouteMode === "jump_gate") {
+                const gatePoint = systemMapJumpGatePoint();
+                endX = gatePoint.x;
+                endY = gatePoint.y;
               } else {
                 const endpoint = sectorDeltaToSystemMapPoint(
                   { x: layout.x, y: layout.y },
@@ -506,8 +525,8 @@ const DraftExpeditionTrail = React.memo(function DraftExpeditionTrail({
   launch,
   target,
 }: {
-  launch: PlanetLayout;
-  target: { x: number; y: number };
+  launch: SystemMapPoint;
+  target: SystemMapPoint;
 }) {
   return (
     <>
@@ -562,6 +581,9 @@ export function CosmicSystemRenderer({
   ownedPlanetIds,
   expeditionPick,
   jumpGate,
+  minimumOrbitCount,
+  emptyStateLabel,
+  showOrbitRings = true,
 }: CosmicSystemRendererProps) {
   const { locale, t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -579,6 +601,8 @@ export function CosmicSystemRenderer({
   const pickEmitFrameRef = useRef<number | null>(null);
   const pendingPickDeltaRef = useRef<{ dx: number; dy: number } | null>(null);
   const lastPickDeltaRef = useRef<{ dx: number; dy: number } | null>(null);
+  const pendingPickPointRef = useRef<SystemMapPoint | null>(null);
+  const lastPickPointRef = useRef<SystemMapPoint | null>(null);
 
   // ----- Layout ----------------------------------------------------------
 
@@ -631,8 +655,8 @@ export function CosmicSystemRenderer({
   }, [selected, locale]);
 
   const orbitRadii = useMemo(() => {
-    return buildSystemMapOrbitGuideRadii(system?.planets ?? []);
-  }, [system?.planets]);
+    return buildSystemMapOrbitGuideRadii(system?.planets ?? [], minimumOrbitCount);
+  }, [minimumOrbitCount, system?.planets]);
 
   const planetOuterRadius = useMemo(
     () =>
@@ -644,15 +668,19 @@ export function CosmicSystemRenderer({
     [layouts, orbitRadii],
   );
   const jumpGateOrbitRadius = planetOuterRadius + 84;
-  const jumpGatePosition = useMemo(() => {
-    const angle = -0.68;
+  const defaultJumpGatePosition = useMemo(() => {
+    const fixedGate = systemMapJumpGatePoint();
+    const fixedRadius = Math.hypot(fixedGate.x, fixedGate.y);
+    if (jumpGateOrbitRadius <= fixedRadius) return fixedGate;
+    const angle = Math.atan2(fixedGate.y, fixedGate.x);
     return {
       x: Math.cos(angle) * jumpGateOrbitRadius,
       y: Math.sin(angle) * jumpGateOrbitRadius,
     };
   }, [jumpGateOrbitRadius]);
+  const jumpGatePosition = jumpGate?.position ?? defaultJumpGatePosition;
   const visibleOuterRadius = jumpGate
-    ? jumpGateOrbitRadius + 64
+    ? Math.max(planetOuterRadius, Math.hypot(jumpGatePosition.x, jumpGatePosition.y) + 64)
     : planetOuterRadius;
   const isPicking = Boolean(expeditionPick);
   const canPickPlanet = Boolean(expeditionPick?.onPickPlanet);
@@ -709,15 +737,94 @@ export function CosmicSystemRenderer({
     [onPickSectorDelta],
   );
 
+  const emitPickSystemPoint = useCallback(
+    (point: SystemMapPoint, immediate = false) => {
+      const onPickSystemPoint = expeditionPick?.onPickSystemPoint;
+      if (!onPickSystemPoint) return;
+
+      const last = lastPickPointRef.current;
+      if (last && Math.hypot(point.x - last.x, point.y - last.y) < 1) {
+        return;
+      }
+
+      if (immediate) {
+        if (pickEmitFrameRef.current !== null) {
+          window.cancelAnimationFrame(pickEmitFrameRef.current);
+          pickEmitFrameRef.current = null;
+        }
+        pendingPickPointRef.current = null;
+        lastPickPointRef.current = point;
+        onPickSystemPoint(point);
+        return;
+      }
+
+      pendingPickPointRef.current = point;
+      if (pickEmitFrameRef.current !== null) return;
+
+      pickEmitFrameRef.current = window.requestAnimationFrame(() => {
+        pickEmitFrameRef.current = null;
+        const pending = pendingPickPointRef.current;
+        pendingPickPointRef.current = null;
+        if (!pending) return;
+
+        const currentLast = lastPickPointRef.current;
+        if (currentLast && Math.hypot(pending.x - currentLast.x, pending.y - currentLast.y) < 1) {
+          return;
+        }
+
+        lastPickPointRef.current = pending;
+        onPickSystemPoint(pending);
+      });
+    },
+    [expeditionPick],
+  );
+
+  const emitPickFromClientPoint = useCallback(
+    (clientX: number, clientY: number, immediate = false) => {
+      const pickCfg = expeditionPick;
+      const el = containerRef.current;
+      if (!pickCfg || !el) return;
+
+      const { wx, wy } = clientToWorldCoords(el, transform, clientX, clientY);
+      if (pickCfg.onPickSystemPoint) {
+        emitPickSystemPoint({ x: wx, y: wy }, immediate);
+        return;
+      }
+
+      const wPerLy = pickCfg.worldUnitsPerLy ?? SYSTEM_MAP_WORLD_UNITS_PER_LY;
+      const launch = pickCfg.launchPlanetId
+        ? layoutByPlanetId.get(pickCfg.launchPlanetId)
+        : null;
+      const routeStart = pickCfg.routeStartPoint ?? launch ?? { x: 0, y: 0 };
+      const { dx, dy } = worldRayToSectorDelta(
+        wx,
+        wy,
+        routeStart.x,
+        routeStart.y,
+        wPerLy,
+      );
+      emitPickSectorDelta(dx, dy, immediate);
+    },
+    [
+      emitPickSectorDelta,
+      emitPickSystemPoint,
+      expeditionPick,
+      layoutByPlanetId,
+      transform,
+    ],
+  );
+
   useEffect(() => {
-    if (onPickSectorDelta) return;
+    if (onPickSectorDelta || expeditionPick?.onPickSystemPoint) return;
     if (pickEmitFrameRef.current !== null) {
       window.cancelAnimationFrame(pickEmitFrameRef.current);
       pickEmitFrameRef.current = null;
     }
     pendingPickDeltaRef.current = null;
     lastPickDeltaRef.current = null;
-  }, [onPickSectorDelta]);
+    pendingPickPointRef.current = null;
+    lastPickPointRef.current = null;
+  }, [expeditionPick?.onPickSystemPoint, onPickSectorDelta]);
 
   useEffect(
     () => () => {
@@ -814,24 +921,8 @@ export function CosmicSystemRenderer({
             e.clientY - arm.startY,
           );
 
-          // Real-time aiming update
-          const wPerLy =
-            expeditionPick.worldUnitsPerLy ?? SYSTEM_MAP_WORLD_UNITS_PER_LY;
-          const { wx, wy } = clientToWorldCoords(
-            containerRef.current!,
-            transform,
-            e.clientX,
-            e.clientY,
-          );
-          const launch = layoutByPlanetId.get(expeditionPick.launchPlanetId);
-          const { dx, dy } = worldRayToSectorDelta(
-            wx,
-            wy,
-            launch?.x ?? 0,
-            launch?.y ?? 0,
-            wPerLy,
-          );
-          emitPickSectorDelta(dx, dy);
+          // Real-time aiming update.
+          emitPickFromClientPoint(e.clientX, e.clientY);
 
           if (moved < EXPEDITION_TAP_THRESHOLD_PX) {
             return;
@@ -846,9 +937,13 @@ export function CosmicSystemRenderer({
             arm.startX,
             arm.startY,
           );
+          const launch = expeditionPick.launchPlanetId
+            ? layoutByPlanetId.get(expeditionPick.launchPlanetId)
+            : null;
+          const routeStart = expeditionPick.routeStartPoint ?? launch ?? { x: 0, y: 0 };
           const distFromLaunch = Math.hypot(
-            swx - (launch?.x ?? 0),
-            swy - (launch?.y ?? 0),
+            swx - routeStart.x,
+            swy - routeStart.y,
           );
 
           if (distFromLaunch < 100) {
@@ -872,7 +967,7 @@ export function CosmicSystemRenderer({
         }));
       }
     },
-    [emitPickSectorDelta, expeditionPick, layoutByPlanetId, transform],
+    [emitPickFromClientPoint, expeditionPick, layoutByPlanetId, transform],
   );
 
   const onPointerUp = useCallback(
@@ -905,22 +1000,7 @@ export function CosmicSystemRenderer({
       }
 
       if (wasAimTap && pickCfg) {
-        const wPerLy = pickCfg.worldUnitsPerLy ?? SYSTEM_MAP_WORLD_UNITS_PER_LY;
-        const { wx, wy } = clientToWorldCoords(
-          el,
-          transform,
-          e.clientX,
-          e.clientY,
-        );
-        const launch = layoutByPlanetId.get(pickCfg.launchPlanetId);
-        const { dx, dy } = worldRayToSectorDelta(
-          wx,
-          wy,
-          launch?.x ?? 0,
-          launch?.y ?? 0,
-          wPerLy,
-        );
-        emitPickSectorDelta(dx, dy, true);
+        emitPickFromClientPoint(e.clientX, e.clientY, true);
       }
       if (
         !pickCfg &&
@@ -938,11 +1018,9 @@ export function CosmicSystemRenderer({
       expeditionPanArmRef.current = null;
     },
     [
-      emitPickSectorDelta,
+      emitPickFromClientPoint,
       expeditionPick,
-      layoutByPlanetId,
       selectedId,
-      transform,
     ],
   );
 
@@ -1043,7 +1121,7 @@ export function CosmicSystemRenderer({
           }}
         >
           {/* Orbit rings */}
-          <OrbitRings orbitRadii={orbitRadii} isPicking={isPicking} />
+          {showOrbitRings ? <OrbitRings orbitRadii={orbitRadii} isPicking={isPicking} /> : null}
 
           {/* Sun */}
           <div
@@ -1152,9 +1230,10 @@ export function CosmicSystemRenderer({
           {/* Draft course for expedition launcher (vector from home star, shown from launch planet). */}
           {expeditionPick &&
             (() => {
-              const launch = layoutByPlanetId.get(
-                expeditionPick.launchPlanetId,
-              );
+              const launch = expeditionPick.routeStartPoint ??
+                (expeditionPick.launchPlanetId
+                  ? layoutByPlanetId.get(expeditionPick.launchPlanetId)
+                  : null);
               const targetPlanet = expeditionPick.targetPlanetId
                 ? layoutByPlanetId.get(expeditionPick.targetPlanetId)
                 : null;
@@ -1166,7 +1245,10 @@ export function CosmicSystemRenderer({
               let endX: number;
               let endY: number;
 
-              if (targetPlanet) {
+              if (expeditionPick.targetPoint) {
+                endX = expeditionPick.targetPoint.x;
+                endY = expeditionPick.targetPoint.y;
+              } else if (targetPlanet) {
                 endX = targetPlanet.x;
                 endY = targetPlanet.y;
               } else {
@@ -1198,7 +1280,7 @@ export function CosmicSystemRenderer({
       </div>
 
       {/* Empty-state hint when the system has no planets at all. */}
-      {layouts.length === 0 && (
+      {layouts.length === 0 && emptyStateLabel !== null && (
         <div
           style={{
             position: "absolute",
@@ -1212,7 +1294,7 @@ export function CosmicSystemRenderer({
             pointerEvents: "none",
           }}
         >
-          {t("map.noPlanets").toUpperCase()}
+          {(emptyStateLabel ?? t("map.noPlanets")).toUpperCase()}
         </div>
       )}
 
