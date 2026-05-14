@@ -109,6 +109,13 @@ describe('Buildings Service - POST /buildings/build', () => {
     expect(body.queueItem).toBeDefined();
     expect(body.queueItem.id).toBeDefined();
     expect(body.queueItem.completesAt).toBeDefined();
+    expect(body.queueItem.queueCompletesAt).toBeDefined();
+    expect(body.queueItem.queueStartedAt).toBeDefined();
+    expect(body.queueItem.planetId).toBe(userPlanet!.id);
+    expect(body.queueItem.buildingTypeId).toBe('mine');
+    expect(body.queueItem.queueAction).toBe('build');
+    expect(body.queueItem.selectedResourceId).toBe('iron');
+    expect(body.queueItem.slotIndex).toBe(1);
 
     const building = await db.query.buildings.findFirst({
       where: eq(buildings.id, body.queueItem.id),

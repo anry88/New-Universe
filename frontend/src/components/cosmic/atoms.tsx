@@ -296,17 +296,20 @@ export interface QueueStripProps {
   /** Current diamond balance (for disabling rush). */
   diamondBalance?: number;
   rushBusy?: boolean;
+  rushDisabled?: boolean;
   rushLabel?: string;
   rushTitle?: string;
+  rushDisabledTitle?: string;
   notEnoughRushTitle?: string;
   onRush?: () => void;
 }
 
-export const QueueStrip: React.FC<QueueStripProps> = ({ title, subtitle, etaSec, progressPct, hidden, rushCost, diamondBalance, rushBusy, rushLabel, rushTitle, notEnoughRushTitle, onRush }) => {
+export const QueueStrip: React.FC<QueueStripProps> = ({ title, subtitle, etaSec, progressPct, hidden, rushCost, diamondBalance, rushBusy, rushDisabled, rushLabel, rushTitle, rushDisabledTitle, notEnoughRushTitle, onRush }) => {
   const { t } = useI18n();
   if (hidden) return null;
   const showRush = typeof rushCost === 'number' && rushCost > 0 && typeof diamondBalance === 'number' && typeof onRush === 'function';
   const cantAfford = showRush && diamondBalance < rushCost;
+  const disabled = Boolean(cantAfford || rushBusy || rushDisabled);
 
   return (
     <div className="qstrip" data-testid="queue-strip">
@@ -330,9 +333,15 @@ export const QueueStrip: React.FC<QueueStripProps> = ({ title, subtitle, etaSec,
             type="button"
             className="qstrip-rush"
             data-testid="queue-rush-button"
-            disabled={cantAfford || rushBusy}
+            disabled={disabled}
             onClick={onRush}
-            title={cantAfford ? (notEnoughRushTitle ?? t('build.notEnoughDiamonds')) : (rushTitle ?? t('build.rushTitle', { cost: rushCost }))}
+            title={
+              rushDisabled
+                ? (rushDisabledTitle ?? rushTitle ?? t('build.rushTitle', { cost: rushCost }))
+                : cantAfford
+                  ? (notEnoughRushTitle ?? t('build.notEnoughDiamonds'))
+                  : (rushTitle ?? t('build.rushTitle', { cost: rushCost }))
+            }
           >
             {rushBusy ? '…' : `◆ ${rushCost} ${rushLabel ?? t('build.rush')}`}
           </button>

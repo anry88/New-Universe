@@ -1,5 +1,5 @@
 import Fastify from 'fastify';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { shipsRoutes } from './routes.js';
 import { syncReadyShips } from './build.js';
 import { authRoutes } from '../auth/routes.js';
@@ -10,9 +10,15 @@ import { eq, and, sql } from 'drizzle-orm';
 import crypto from 'crypto';
 import { env } from '../../lib/env.js';
 import { seedShipTypes } from '../../db/seed/ship-types.js';
+import { seedResearchCatalog } from '../../db/seed/research.js';
 
 describe('Ship Building - POST /ships/build', () => {
   const botToken = env.TELEGRAM_BOT_TOKEN;
+
+  beforeAll(async () => {
+    await seedShipTypes();
+    await seedResearchCatalog();
+  });
 
   function createValidInitData(user: any): string {
     const authDate = Math.floor(Date.now() / 1000);
@@ -137,8 +143,17 @@ describe('Ship Building - POST /ships/build', () => {
     expect(body.ship.typeId).toBe('scout');
     expect(body.ship.status).toBe('building');
     expect(body.ship.queueCompletesAt).toBeTruthy();
+    expect(body.ship.queueStartedAt).toBeTruthy();
     expect(body.ship.ownerId).toBe(userId);
     expect(body.ship.locationPlanetId).toBe(planetId);
+    expect(body.queueItem).toMatchObject({
+      id: body.ship.id,
+      planetId,
+      typeId: 'scout',
+      status: 'building',
+    });
+    expect(body.queueItem.queueCompletesAt).toBeTruthy();
+    expect(body.queueItem.queueStartedAt).toBeTruthy();
   });
 
   it('blocks cargo_light until shipyard L2 and Logistics L1, then builds from capital resources', async () => {

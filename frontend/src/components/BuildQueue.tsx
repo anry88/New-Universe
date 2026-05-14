@@ -1,25 +1,13 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { apiFetch } from '../lib/api';
 import { getBuildingLabel } from './cosmic/buildings';
 import { QueueStrip } from './cosmic/atoms';
 import { useQueryClient } from '@tanstack/react-query';
 import { useMe } from '../hooks/useMe';
-import type { RushBuildResponse } from '@shared/types/buildings';
+import type { BuildingQueueItem, RushBuildResponse } from '@shared/types/buildings';
 import { estimateRushDiamondCost } from '@shared/types/diamonds';
 import { timerSnapshot } from '../lib/timers';
 import { useI18n } from '../lib/i18n';
-
-interface BuildQueueItem {
-  id: string;
-  planetId: string;
-  buildingTypeId: string;
-  level: number;
-  queueAction: 'build' | 'upgrade' | 'destroy';
-  queueCompletesAt: string;
-  queueStartedAt?: string | null;
-  /** Server snapshot; live price uses `estimateRushDiamondCost` + `rushPricing` from the same response. */
-  rushCost?: number;
-}
 
 interface BuildQueueProps {
   planetId?: string;
@@ -28,7 +16,8 @@ interface BuildQueueProps {
 /**
  * Bottom strip showing the next item in the build queue. The strip auto-hides
  * when the queue is empty so the bottom navigation can sit flush against the
- * scroll area.
+ * scroll area. It derives rows from `/me` so optimistic construction updates
+ * appear immediately, then server sync replaces exact ids/timestamps.
  *
  * Stylistically it matches the Cosmic Atlas QueueStrip: a single rounded card
  * with a clock icon, title, progress bar and live ETA. Multiple queue items
@@ -36,11 +25,6 @@ interface BuildQueueProps {
  * intent (one focal task at a time).
  */
 export function BuildQueue({ planetId }: BuildQueueProps) {
-  const [queue, setQueue] = useState<BuildQueueItem[]>([]);
-  const [rushPricing, setRushPricing] = useState<{
-    diamondsPerMinute: number;
-    maxPerAction: number | null;
-  } | null>(null);
   const [now, setNow] = useState(Date.now());
   const [rushBusy, setRushBusy] = useState(false);
   const queryClient = useQueryClient();
@@ -48,24 +32,35 @@ export function BuildQueue({ planetId }: BuildQueueProps) {
   const { data: meData } = useMe();
   const { locale, t } = useI18n();
 
-  const fetchQueue = async () => {
-    try {
-      const data = await apiFetch<{
-        queue: BuildQueueItem[];
-        rushPricing?: { diamondsPerMinute: number; maxPerAction: number | null };
-      }>('/buildings/queue');
-      setQueue(data.queue || []);
-      setRushPricing(data.rushPricing ?? null);
-    } catch {
-      setQueue([]);
-      setRushPricing(null);
+  const queue = useMemo<BuildingQueueItem[]>(() => {
+    const rows: BuildingQueueItem[] = [];
+    for (const planet of meData?.planets ?? []) {
+      for (const building of planet.buildings ?? []) {
+        if (!building.queueAction || !building.queueCompletesAt) continue;
+        rows.push({
+          id: building.id,
+          planetId: planet.id,
+          buildingTypeId: building.typeId,
+          level: building.level,
+          queueAction: building.queueAction,
+          queueCompletesAt: building.queueCompletesAt,
+          queueStartedAt: building.queueStartedAt ?? null,
+          selectedResourceId: building.selectedResourceId ?? null,
+          slotIndex: building.slotIndex,
+        });
+      }
     }
-  };
+    return rows.sort(
+      (a, b) =>
+        new Date(a.queueCompletesAt).getTime() -
+        new Date(b.queueCompletesAt).getTime(),
+    );
+  }, [meData?.planets]);
 
   const onRush = useCallback(async () => {
     const filtered = planetId ? queue.filter((item) => item.planetId === planetId) : queue;
     const head = filtered[0];
-    if (!head || rushBusy) return;
+    if (!head || rushBusy || head.id.startsWith('temp-')) return;
     setRushBusy(true);
     try {
       await apiFetch<RushBuildResponse>('/buildings/rush', {
@@ -74,19 +69,12 @@ export function BuildQueue({ planetId }: BuildQueueProps) {
         body: JSON.stringify({ buildingId: head.id }),
       });
       queryClient.invalidateQueries({ queryKey: ['me'] });
-      await fetchQueue();
     } catch {
       /* surface via disabled state / cost refresh */
     } finally {
       setRushBusy(false);
     }
   }, [planetId, queue, queryClient, rushBusy]);
-
-  useEffect(() => {
-    fetchQueue();
-    const interval = setInterval(fetchQueue, 15000);
-    return () => clearInterval(interval);
-  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -102,7 +90,6 @@ export function BuildQueue({ planetId }: BuildQueueProps) {
           apiFetch(`/buildings/sync/${head.planetId}`, { method: 'POST' })
             .then(() => {
               queryClient.invalidateQueries({ queryKey: ['me'] });
-              return fetchQueue();
             })
             .finally(() => {
               syncingRef.current = null;
@@ -125,6 +112,7 @@ export function BuildQueue({ planetId }: BuildQueueProps) {
 
   const verb = head.queueAction === 'build' ? t('build.queueBuilding') : t('build.queueUpgrading');
   const title = `${getBuildingLabel(head.buildingTypeId, locale)} · ${verb} L${head.level}`;
+  const rushPricing = meData?.rushPricing ?? null;
 
   const rushCost =
     rushPricing != null
@@ -135,6 +123,7 @@ export function BuildQueue({ planetId }: BuildQueueProps) {
         )
       : head.rushCost ?? 0;
   const diamondBalance = meData?.diamonds ?? 0;
+  const waitingForServerId = head.id.startsWith('temp-');
 
   return (
     <QueueStrip
@@ -144,6 +133,7 @@ export function BuildQueue({ planetId }: BuildQueueProps) {
       rushCost={rushCost}
       diamondBalance={diamondBalance}
       rushBusy={rushBusy}
+      rushDisabled={waitingForServerId}
       onRush={onRush}
     />
   );

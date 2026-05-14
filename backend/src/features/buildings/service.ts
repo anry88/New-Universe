@@ -458,6 +458,7 @@ export class BuildingService {
 
       const buildTimeSec = applyBuildTimeSeconds(typeInfo.baseTimeSec, researchEffects);
       const completesAt = new Date(Date.now() + buildTimeSec * 1000);
+      const queueStartedAt = new Date(completesAt.getTime() - buildTimeSec * 1000).toISOString();
       const [newBuilding] = await tx.insert(buildings).values({
         planetId,
         typeId,
@@ -473,7 +474,16 @@ export class BuildingService {
           success: true,
           queueItem: {
             id: newBuilding.id,
+            planetId,
+            buildingTypeId: typeId,
+            level: newBuilding.level,
+            queueAction: 'build',
+            queueCompletesAt: completesAt.toISOString(),
             completesAt: completesAt.toISOString(),
+            queueStartedAt,
+            rushCost: rushDiamondCost(rushRemainingSeconds(completesAt)),
+            selectedResourceId: newBuilding.selectedResourceId,
+            slotIndex: newBuilding.slotIndex,
           },
         },
         completionJob: {
@@ -698,6 +708,7 @@ export class BuildingService {
       const baseUpgradeTime = buildingUpgradeTimeSeconds(typeInfo.baseTimeSec, building.level);
       const buildTime = applyBuildTimeSeconds(baseUpgradeTime, researchEffects);
       const completesAt = new Date(Date.now() + buildTime * 1000);
+      const queueStartedAt = new Date(completesAt.getTime() - buildTime * 1000).toISOString();
 
       await tx.update(buildings)
         .set({
@@ -711,7 +722,16 @@ export class BuildingService {
           success: true,
           queueItem: {
             id: buildingId,
+            planetId: building.planetId,
+            buildingTypeId: building.typeId,
+            level: building.level,
+            queueAction: 'upgrade',
+            queueCompletesAt: completesAt.toISOString(),
             completesAt: completesAt.toISOString(),
+            queueStartedAt,
+            rushCost: rushDiamondCost(rushRemainingSeconds(completesAt)),
+            selectedResourceId: building.selectedResourceId,
+            slotIndex: building.slotIndex,
           },
         },
         completionJob: {

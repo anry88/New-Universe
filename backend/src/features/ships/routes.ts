@@ -79,7 +79,7 @@ export async function shipsRoutes(app: FastifyInstance) {
       });
     }
 
-    return reply.send({ ship: result.ship });
+    return reply.send({ ship: result.ship, queueItem: result.queueItem });
   });
 
   app.get('/queue', async (request, reply) => {
