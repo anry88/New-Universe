@@ -13,7 +13,7 @@ This document is a checkpoint for future planning reviews. It separates implemen
 | P2.1 | 19 | 19 | Gameplay fixes, i18n, realtime completion, and UX polish (see `ROADMAP_P2_1_GAMEPLAY.md`) |
 | P2.2 | 12 | 12 | Building economy, planetary rules, energy, production, and cargo/colonizer regressions |
 | P2.3 | 9 | 9 | Jump Gate, random jump, known Common Pool destinations, and gate-routed missions (see `ROADMAP_P2_3_JUMP_GATE.md`) |
-| P3 | 9 | 6 | Multiplayer/social/economy foundations |
+| P3 | 20 | 20 | Multiplayer/social/economy foundations plus combat/weapons rollout |
 | P4 | 9 | 9 | Production launch readiness |
 | P5 | 5 | 5 | Live operations after launch |
 
@@ -25,7 +25,7 @@ This document is a checkpoint for future planning reviews. It separates implemen
 | Phase 2 complete | Colonization E2E passes, research levels 1-3 work, cargo transfer flow passes, balance simulator and P2 regression suite pass |
 | Phase 2.1 complete | `P2.1-400` roll-up evidence is recorded in [`ROADMAP_P2_1_GAMEPLAY.md`](ROADMAP_P2_1_GAMEPLAY.md), all child issues `P2.1-401…418` are closed, default CI passes, and the closing PR runs the `run-e2e` browser smoke gate |
 | Phase 2.3 complete | `P2.3-500` roll-up evidence is recorded in [`ROADMAP_P2_3_JUMP_GATE.md`](ROADMAP_P2_3_JUMP_GATE.md), the Jump Gate regression suite is documented in [`docs/testing/jump-gate-regression.md`](../docs/testing/jump-gate-regression.md), all child issues `P2.3-501…508` are closed or explicitly replaced, default CI passes, and the closing PR runs the `run-e2e` browser smoke gate |
-| Phase 3 ready | Two-player visibility model is proven and alliance membership works |
+| Phase 3 ready | Two-player visibility model is proven, alliance membership works, and combat child tasks `P3-COM-001…013` have evidence for server-authoritative battle, bombing, shields, refuel support, advanced resources, atomic power, UI, and regression coverage |
 | Launch ready | Staging deploy/rollback succeeds, backups restore, monitoring alerts fire, security checklist passes |
 | Live ops ready | Event framework works, content validation exists, balance review loop and support runbook are usable |
 
@@ -59,11 +59,24 @@ Roll-up issue: `P2.3-500`. Evidence for the final Jump Gate path lives in [`ROAD
 | Foreign Home Systems stay out of common/sector payloads | [`backend/tests/e2e/jump-gate-regression.test.ts`](../backend/tests/e2e/jump-gate-regression.test.ts) | `cd backend && npx vitest run tests/e2e/jump-gate-regression.test.ts` |
 | Mobile Telegram Mini App smoke is documented for the roll-up PR | [`docs/testing/jump-gate-regression.md`](../docs/testing/jump-gate-regression.md) | Manual smoke with mobile viewport; closing PR must carry `run-e2e` |
 
+## Phase 3 combat rollup gate (P3-EPIC-COMBAT)
+
+Roll-up issue: [`P3-EPIC-COMBAT`](https://github.com/anry88/New-Universe/issues/342). The combat roadmap is split into child tasks `P3-COM-001…013` so schema/content, starter military resources, advanced Common Pool resources, atomic power, fuel/refuel, ship combat, bombing, shields, nuclear payload rules, UI, and regression evidence can ship through narrower PRs.
+
+| Acceptance area | Child task(s) | Required evidence |
+|-----------------|---------------|-------------------|
+| Combat model and starter military economy | `P3-COM-001`, `P3-COM-002`, `P3-COM-003` | HP/combat catalog tests, starter resource/production audit, Weapons/Military Shipyard gate tests |
+| Fleet fuel and first combat hulls | `P3-COM-004`, `P3-COM-005` | Fuel preview/refuel transfer tests, light fighter/bomber/laser build tests, localized UI smoke |
+| Server-authoritative combat | `P3-COM-006`, `P3-COM-007` | Idempotent ship combat ticks, bombing ticks, building destruction order, colonization block tests |
+| Advanced resources and atomic power | `P3-COM-013` | Common Pool resource generation, advanced material recipe, atomic reactor energy, content audit and balance-sim tests |
+| Advanced combat lines | `P3-COM-008`, `P3-COM-009`, `P3-COM-010` | Medium/heavy hull audits, rocket-carrier tests, shield coverage/recharge tests, nuclear payload gate/restriction tests |
+| Player-facing and regression gate | `P3-COM-011`, `P3-COM-012` | Mobile UI smoke, balance/regression report, `./scripts/ci-verify.sh`, and rollup PR `run-e2e` evidence |
+
 ## Known Gaps After This Expansion
 
 - P3 is still intentionally lighter than P2 and should be broken down again after Phase 2 regression is stable.
 - Monetization is kept as readiness/design until analytics and security gates are in place.
 - Admin UI is not fully specified yet; P5 support tasks define the runbook first.
-- Deep PvP combat is not covered; current roadmap covers multiplayer presence and alliances before combat.
+- Deep PvP combat is now planned under `P3-EPIC-COMBAT`, but implementation remains sequenced after Jump Gate/Common Pool routing and multiplayer visibility foundations.
 - Full localization pipeline is represented through content-pack validation, but not yet through translator workflow tasks.
 - Jump Gate / Common Pool routing is represented as Phase 2.3 in `tasks/tasks.json` and GitHub Project #3; keep the Project cards synchronized through the idempotent import/status scripts when the roadmap changes.

@@ -2,7 +2,7 @@
   "meta": {
     "project": "New Universe",
     "version": "1.0",
-    "date": "2026-05-06"
+    "date": "2026-05-14"
   },
   "epics": [
     {
@@ -118,6 +118,12 @@
       "id": "EPIC-P3-ALL",
       "phase": 3,
       "title": "Phase 3 — Alliances"
+    },
+    {
+      "id": "EPIC-P3-COMBAT",
+      "phase": 3,
+      "title": "Phase 3 — Combat, weapons and fleet support progression",
+      "description": "Combat-эпик для использования ветки Вооружение: военная верфь, стартовые home-available боевые цепочки, advanced Common Pool ресурсы и материалы, атомная энергетика на радиоактивных ресурсах, линейки боевых кораблей, ракетоносцы, ядерное оружие как игровая абстракция, защитные корабли со щитами, топливные баки, заправщик и серверная симуляция боя/бомбардировок."
     },
     {
       "id": "EPIC-P4-DEPLOY",
@@ -1808,6 +1814,495 @@
       "verify": "API tests cover deposit/withdraw permission paths",
       "notes": "No automated alliance trading in this task.",
       "prompt": "[TASK P3-ALL-002] Alliance bank and permissions\n\nОПИСАНИЕ\nAdd a shared alliance bank with deposit/withdraw permissions and basic transaction logs.\n\nACCEPTANCE CRITERIA\n  1. Members can deposit allowed resources\n  2. Only permitted roles can withdraw\n  3. All transactions are logged\n  4. Bank actions cannot bypass storage/resource transaction safety\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/alliances/bank.ts\n  - frontend/src/pages/AllianceBank.tsx\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P3-ALL-001\n  - P1-151\n\nКАК ПРОВЕРИТЬ\n  API tests cover deposit/withdraw permission paths\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  No automated alliance trading in this task."
+    },
+    {
+      "id": "P3-EPIC-COMBAT",
+      "epic": "EPIC-P3-COMBAT",
+      "size": "XL",
+      "title": "[Эпик] Ветка вооружения, боевые корабли и флотская поддержка",
+      "description": "Rollup-gate для combat-системы Phase 3: ветка Вооружение должна открыть военную верфь, первые боевые корабли на home-available ресурсах, advanced боевые цепочки на Common Pool ресурсах, атомную энергетику на радиоактивных ресурсах, боевые корабли light/medium/heavy классов, ракетоносцы, ядерное оружие как игровую абстракцию, защитные корабли со щитами, топливные баки, заправщик, серверный бой и бомбардировки. Эпик закрывается только после завершения или явной замены child tasks P3-COM-001…P3-COM-013.",
+      "acceptance": [
+        "Все child tasks P3-COM-001…P3-COM-013 выполнены или явно заменены в GitHub issue/PR notes.",
+        "Combat-система использует существующие research gates, resource/catalog seeders, ship/building services, visibility/sensor model, expeditions/routing and colonization rules без параллельных обходных моделей.",
+        "Игроку доступны RU/EN локализованные требования, состояния HP/fuel/shield/refuel/combat и игровые названия без raw slug/id, task-id или агентских мета-комментариев.",
+        "Ни одна задача не добавляет startup-time cleanup/maintenance, который удаляет или пересобирает persisted data; destructive operations допустимы только как отдельные one-shot tasks с явным approval.",
+        "Rollup PR содержит evidence по backend, frontend, balance/regression и manual smoke; closing PR получает label `run-e2e` или прикладывает результат `RUN_PLAYWRIGHT_E2E=1 ./scripts/ci-verify.sh`."
+      ],
+      "files": [
+        "tasks/tasks.json",
+        "tasks/ROADMAP_COVERAGE_MATRIX.md",
+        "DOCUMENTATION.md",
+        "CHANGELOG.md"
+      ],
+      "deps": [
+        "P3-COM-012"
+      ],
+      "verify": "Child-task checklist; `./scripts/ci-verify.sh`; closing rollup PR must run the `run-e2e` browser gate or `RUN_PLAYWRIGHT_E2E=1 ./scripts/ci-verify.sh`.",
+      "notes": "Этот task не должен становиться implementation PR на весь combat scope. Реализацию вести через дочерние задачи с узкими PR и отдельной верификацией.",
+      "prompt": "[TASK P3-EPIC-COMBAT] [Эпик] Ветка вооружения, боевые корабли и флотская поддержка\n\nОПИСАНИЕ\nRollup-gate для combat-системы Phase 3: ветка Вооружение должна открыть военную верфь, первые боевые корабли на home-available ресурсах, advanced боевые цепочки на Common Pool ресурсах, атомную энергетику на радиоактивных ресурсах, боевые корабли light/medium/heavy классов, ракетоносцы, ядерное оружие как игровую абстракцию, защитные корабли со щитами, топливные баки, заправщик, серверный бой и бомбардировки. Эпик закрывается только после завершения или явной замены child tasks P3-COM-001…P3-COM-013.\n\nACCEPTANCE CRITERIA\n  1. Все child tasks P3-COM-001…P3-COM-013 выполнены или явно заменены в GitHub issue/PR notes.\n  2. Combat-система использует существующие research gates, resource/catalog seeders, ship/building services, visibility/sensor model, expeditions/routing and colonization rules без параллельных обходных моделей.\n  3. Игроку доступны RU/EN локализованные требования, состояния HP/fuel/shield/refuel/combat и игровые названия без raw slug/id, task-id или агентских мета-комментариев.\n  4. Ни одна задача не добавляет startup-time cleanup/maintenance, который удаляет или пересобирает persisted data; destructive operations допустимы только как отдельные one-shot tasks с явным approval.\n  5. Rollup PR содержит evidence по backend, frontend, balance/regression и manual smoke; closing PR получает label `run-e2e` или прикладывает результат `RUN_PLAYWRIGHT_E2E=1 ./scripts/ci-verify.sh`.\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - tasks/tasks.json\n  - tasks/ROADMAP_COVERAGE_MATRIX.md\n  - DOCUMENTATION.md\n  - CHANGELOG.md\n\nЗАВИСИМОСТИ\nP3-COM-012\n\nКАК ПРОВЕРИТЬ\nChild-task checklist; `./scripts/ci-verify.sh`; closing rollup PR must run the `run-e2e` browser gate or `RUN_PLAYWRIGHT_E2E=1 ./scripts/ci-verify.sh`.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\nЭтот task не должен становиться implementation PR на весь combat scope. Реализацию вести через дочерние задачи с узкими PR и отдельной верификацией."
+    },
+    {
+      "id": "P3-COM-001",
+      "epic": "EPIC-P3-COMBAT",
+      "size": "L",
+      "title": "Combat foundation data model and durability baseline",
+      "description": "Добавить базовую серверную модель боя: типизированные combat stats, HP/maxHP для ship/building instances and catalogs, damage profiles, target classes, durability defaults and shared contracts used by later combat tasks.",
+      "acceptance": [
+        "Ship types and ship instances store real HP/maxHP and typed combat stat payloads or normalized equivalents used by backend logic.",
+        "Building types and building instances store HP/maxHP with Command Center identified as the last-destruction priority target.",
+        "Shared combat contracts define damage target classes, damage profiles, engagement range, shield hooks and destruction states without frontend-only assumptions.",
+        "Civilian hulls receive low durability defaults; military hull placeholders define stronger light/medium/heavy durability bands for later tasks.",
+        "Existing `/me`, ship build, building build/upgrade and seed flows remain backward compatible with default HP values for old rows.",
+        "Focused tests cover default HP derivation, catalog validation and migration/seed compatibility."
+      ],
+      "files": [
+        "backend/src/db/schema/ships.ts",
+        "backend/src/db/schema/buildings.ts",
+        "backend/src/db/seed/ship-types.ts",
+        "backend/src/db/seed/building-types.ts",
+        "backend/src/features/combat/",
+        "shared/types/combat.ts",
+        "shared/types/ships.ts",
+        "shared/types/buildings.ts",
+        "backend/src/README.md",
+        "backend/src/db/README.md",
+        "backend/src/features/README.md",
+        "shared/README.md"
+      ],
+      "deps": [
+        "P2-RES-003",
+        "P2.2-012",
+        "P2.3-500",
+        "P3-MAP-001"
+      ],
+      "verify": "Backend schema/seed tests for HP defaults and catalog compatibility; backend build/typecheck.",
+      "notes": "Keep this as the thin foundation. Do not implement full combat ticks, bombing, shields or refuel transfer here.",
+      "prompt": "[TASK P3-COM-001] Combat foundation data model and durability baseline\n\nОПИСАНИЕ\nДобавить базовую серверную модель боя: типизированные combat stats, HP/maxHP для ship/building instances and catalogs, damage profiles, target classes, durability defaults and shared contracts used by later combat tasks.\n\nACCEPTANCE CRITERIA\n  1. Ship types and ship instances store real HP/maxHP and typed combat stat payloads or normalized equivalents used by backend logic.\n  2. Building types and building instances store HP/maxHP with Command Center identified as the last-destruction priority target.\n  3. Shared combat contracts define damage target classes, damage profiles, engagement range, shield hooks and destruction states without frontend-only assumptions.\n  4. Civilian hulls receive low durability defaults; military hull placeholders define stronger light/medium/heavy durability bands for later tasks.\n  5. Existing `/me`, ship build, building build/upgrade and seed flows remain backward compatible with default HP values for old rows.\n  6. Focused tests cover default HP derivation, catalog validation and migration/seed compatibility.\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/schema/ships.ts\n  - backend/src/db/schema/buildings.ts\n  - backend/src/db/seed/ship-types.ts\n  - backend/src/db/seed/building-types.ts\n  - backend/src/features/combat/\n  - shared/types/combat.ts\n  - shared/types/ships.ts\n  - shared/types/buildings.ts\n  - backend/src/README.md\n  - backend/src/db/README.md\n  - backend/src/features/README.md\n  - shared/README.md\n\nЗАВИСИМОСТИ\nP2-RES-003, P2.2-012, P2.3-500, P3-MAP-001\n\nКАК ПРОВЕРИТЬ\nBackend schema/seed tests for HP defaults and catalog compatibility; backend build/typecheck.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\nKeep this as the thin foundation. Do not implement full combat ticks, bombing, shields or refuel transfer here."
+    },
+    {
+      "id": "P3-COM-002",
+      "epic": "EPIC-P3-COMBAT",
+      "size": "L",
+      "title": "Starter military resources and production chains",
+      "description": "Добавить стартовую ресурсную основу для первых боевых кораблей: home-available gases/metals, starter military alloys/composites and liquid nitrogen recipe in Cryo Factory. Этот task покрывает первые light hulls; advanced/Common Pool resources выносятся в P3-COM-013.",
+      "acceptance": [
+        "Resource catalog includes starter home-available resources for first combat hulls, such as gold, silver, oxygen, hydrogen and nitrogen or explicitly chosen equivalents with RU/EN labels.",
+        "Home System generation and extraction-rate configs make the starter military base resources reachable without breaking existing starter progression.",
+        "Starter production recipes add early military alloys/composites for light hulls and light weapons only; medium/heavy/rocket/shield/nuclear materials are out of scope for this task.",
+        "Cryo Factory can produce liquid nitrogen from nitrogen + ice; light laser ship recipes reserve liquid nitrogen as cooling/component input.",
+        "Economy simulator and seed/content audit know about all starter military resources and recipes.",
+        "Frontend resource labels/icons and backend entity labels stay synchronized in RU/EN."
+      ],
+      "files": [
+        "backend/src/db/seed/catalog-rows.ts",
+        "backend/src/features/resources/production.ts",
+        "backend/src/features/world/home-system-generator.ts",
+        "shared/config/resourceExtractionRates.ts",
+        "shared/types/entity-labels.ts",
+        "shared/types/resources.ts",
+        "frontend/src/components/cosmic/resources.ts",
+        "frontend/src/locales/en.json",
+        "frontend/src/locales/ru.json",
+        "tools/balance-sim/src/catalog.ts",
+        "backend/src/features/resources/README.md",
+        "shared/README.md"
+      ],
+      "deps": [
+        "P3-COM-001",
+        "P2.3-509"
+      ],
+      "verify": "Resource seed/content audit, home-system generator tests, starter production recipe tests and balance-sim catalog verification for first combat hulls.",
+      "notes": "Keep this task focused on first combat ships that can be reached from the Home System economy. Common Pool rare resources, radioactive resources, atomic reactor and late-tier materials belong to P3-COM-013.",
+      "prompt": "[TASK P3-COM-002] Starter military resources and production chains\n\nОПИСАНИЕ\nДобавить стартовую ресурсную основу для первых боевых кораблей: home-available gases/metals, starter military alloys/composites and liquid nitrogen recipe in Cryo Factory. Этот task покрывает первые light hulls; advanced/Common Pool resources выносятся в P3-COM-013.\n\nACCEPTANCE CRITERIA\n  1. Resource catalog includes starter home-available resources for first combat hulls, such as gold, silver, oxygen, hydrogen and nitrogen or explicitly chosen equivalents with RU/EN labels.\n  2. Home System generation and extraction-rate configs make the starter military base resources reachable without breaking existing starter progression.\n  3. Starter production recipes add early military alloys/composites for light hulls and light weapons only; medium/heavy/rocket/shield/nuclear materials are out of scope for this task.\n  4. Cryo Factory can produce liquid nitrogen from nitrogen + ice; light laser ship recipes reserve liquid nitrogen as cooling/component input.\n  5. Economy simulator and seed/content audit know about all starter military resources and recipes.\n  6. Frontend resource labels/icons and backend entity labels stay synchronized in RU/EN.\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/seed/catalog-rows.ts\n  - backend/src/features/resources/production.ts\n  - backend/src/features/world/home-system-generator.ts\n  - shared/config/resourceExtractionRates.ts\n  - shared/types/entity-labels.ts\n  - shared/types/resources.ts\n  - frontend/src/components/cosmic/resources.ts\n  - frontend/src/locales/en.json\n  - frontend/src/locales/ru.json\n  - tools/balance-sim/src/catalog.ts\n  - backend/src/features/resources/README.md\n  - shared/README.md\n\nЗАВИСИМОСТИ\nP3-COM-001, P2.3-509\n\nКАК ПРОВЕРИТЬ\nResource seed/content audit, home-system generator tests, starter production recipe tests and balance-sim catalog verification for first combat hulls.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\nKeep this task focused on first combat ships that can be reached from the Home System economy. Common Pool rare resources, radioactive resources, atomic reactor and late-tier materials belong to P3-COM-013."
+    },
+    {
+      "id": "P3-COM-013",
+      "epic": "EPIC-P3-COMBAT",
+      "size": "L",
+      "title": "Advanced Common Pool resources and atomic power",
+      "description": "Расширить combat economy за пределы домашней системы: добавить Common Pool ресурсы, редкие и радиоактивные материалы, advanced alloys/components для medium/heavy кораблей, ракетоносцев, shields и late-tier payloads, а также атомный реактор как энергетическое здание/процесс на радиоактивных ресурсах.",
+      "acceptance": [
+        "Common Pool planet generation and resource catalog include advanced military resources that are not guaranteed in the Home System, including radioactive resources or safe fictional equivalents for atomic power gameplay.",
+        "Advanced resource tiers are discoverable/colonizable through existing Jump Gate/Common Pool and colony/cargo logistics; backend does not make medium/heavy combat economy depend only on Home System resources.",
+        "Production recipes add advanced alloys/components for medium/heavy fighters, bombers, laser ships, rocket carriers, shield ships and late-tier payload costs.",
+        "Atomic reactor building or production process converts radioactive resources into energy through an abstract game mechanic with RU/EN labels, costs, output, limits and energy-system integration.",
+        "Radioactive/atomic content stays gameplay-abstract: no realistic nuclear fuel processing, enrichment, weapon construction or operational instructions appear in code comments, UI, docs or tests.",
+        "Frontend resource/building labels, entity labels, resource icons and build/production requirement UI cover the advanced/Common Pool resources and atomic reactor states.",
+        "Balance simulator/content audit verifies advanced resource coverage, recipe reachability, energy output bounds and no starter-progression breakage."
+      ],
+      "files": [
+        "backend/src/db/seed/catalog-rows.ts",
+        "backend/src/db/seed/building-types.ts",
+        "backend/src/features/world/sector-generator.ts",
+        "backend/src/features/resources/production.ts",
+        "backend/src/features/resources/energy.ts",
+        "shared/config/resourceExtractionRates.ts",
+        "shared/types/entity-labels.ts",
+        "shared/types/resources.ts",
+        "shared/types/buildings.ts",
+        "frontend/src/components/cosmic/resources.ts",
+        "frontend/src/components/BuildDialog.tsx",
+        "frontend/src/locales/en.json",
+        "frontend/src/locales/ru.json",
+        "tools/balance-sim/src/catalog.ts",
+        "backend/src/features/resources/README.md",
+        "frontend/src/README.md",
+        "shared/README.md"
+      ],
+      "deps": [
+        "P3-COM-002",
+        "P2.3-509",
+        "P2.2-004",
+        "P2.2-005"
+      ],
+      "verify": "Common Pool resource generation tests, advanced recipe tests, atomic reactor energy tests, content audit and balance-sim verification.",
+      "notes": "Atomic power is an abstract energy mechanic. Use safe fictional or high-level resource names where practical, and do not document real nuclear processing or weaponization details.",
+      "prompt": "[TASK P3-COM-013] Advanced Common Pool resources and atomic power\n\nОПИСАНИЕ\nРасширить combat economy за пределы домашней системы: добавить Common Pool ресурсы, редкие и радиоактивные материалы, advanced alloys/components для medium/heavy кораблей, ракетоносцев, shields и late-tier payloads, а также атомный реактор как энергетическое здание/процесс на радиоактивных ресурсах.\n\nACCEPTANCE CRITERIA\n  1. Common Pool planet generation and resource catalog include advanced military resources that are not guaranteed in the Home System, including radioactive resources or safe fictional equivalents for atomic power gameplay.\n  2. Advanced resource tiers are discoverable/colonizable through existing Jump Gate/Common Pool and colony/cargo logistics; backend does not make medium/heavy combat economy depend only on Home System resources.\n  3. Production recipes add advanced alloys/components for medium/heavy fighters, bombers, laser ships, rocket carriers, shield ships and late-tier payload costs.\n  4. Atomic reactor building or production process converts radioactive resources into energy through an abstract game mechanic with RU/EN labels, costs, output, limits and energy-system integration.\n  5. Radioactive/atomic content stays gameplay-abstract: no realistic nuclear fuel processing, enrichment, weapon construction or operational instructions appear in code comments, UI, docs or tests.\n  6. Frontend resource/building labels, entity labels, resource icons and build/production requirement UI cover the advanced/Common Pool resources and atomic reactor states.\n  7. Balance simulator/content audit verifies advanced resource coverage, recipe reachability, energy output bounds and no starter-progression breakage.\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/seed/catalog-rows.ts\n  - backend/src/db/seed/building-types.ts\n  - backend/src/features/world/sector-generator.ts\n  - backend/src/features/resources/production.ts\n  - backend/src/features/resources/energy.ts\n  - shared/config/resourceExtractionRates.ts\n  - shared/types/entity-labels.ts\n  - shared/types/resources.ts\n  - shared/types/buildings.ts\n  - frontend/src/components/cosmic/resources.ts\n  - frontend/src/components/BuildDialog.tsx\n  - frontend/src/locales/en.json\n  - frontend/src/locales/ru.json\n  - tools/balance-sim/src/catalog.ts\n  - backend/src/features/resources/README.md\n  - frontend/src/README.md\n  - shared/README.md\n\nЗАВИСИМОСТИ\nP3-COM-002, P2.3-509, P2.2-004, P2.2-005\n\nКАК ПРОВЕРИТЬ\nCommon Pool resource generation tests, advanced recipe tests, atomic reactor energy tests, content audit and balance-sim verification.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\nAtomic power is an abstract energy mechanic. Use safe fictional or high-level resource names where practical, and do not document real nuclear processing or weaponization details."
+    },
+    {
+      "id": "P3-COM-003",
+      "epic": "EPIC-P3-COMBAT",
+      "size": "M",
+      "title": "Military Shipyard and Weapons unlock gates",
+      "description": "Добавить `military_shipyard` and Weapons research/building gates so combat hulls unlock through the progression system and are displayed correctly in backend/frontend eligibility checks.",
+      "acceptance": [
+        "`military_shipyard` exists in building catalog with HP, RU/EN name/description, Cosmic Atlas asset hook, build/upgrade costs and prerequisite gates.",
+        "Weapons I unlocks Military Shipyard and starter light combat production; Weapons II+ gates are available for later laser/medium/heavy/missile/nuclear content.",
+        "Backend build eligibility rejects locked military buildings and ship hulls with typed reasons.",
+        "Frontend requirement UI shows localized missing building/research/resource reasons without raw slugs.",
+        "Tests cover blocked and allowed building/ship build paths for Weapons I/II and Military Shipyard levels."
+      ],
+      "files": [
+        "backend/src/db/seed/building-types.ts",
+        "backend/src/config/research-unlocks.ts",
+        "backend/src/features/research/gates.ts",
+        "backend/src/features/buildings/",
+        "backend/src/features/ships/",
+        "shared/config/researchCatalog.ts",
+        "shared/types/building-eligibility.ts",
+        "shared/types/entity-labels.ts",
+        "frontend/src/components/BuildDialog.tsx",
+        "frontend/src/locales/en.json",
+        "frontend/src/locales/ru.json",
+        "frontend/src/README.md"
+      ],
+      "deps": [
+        "P3-COM-001",
+        "P3-COM-002"
+      ],
+      "verify": "Backend gate tests for Military Shipyard and locked combat hulls; frontend requirement UI tests/smoke.",
+      "notes": "Use the existing research gate framework. Do not introduce a second unlock system.",
+      "prompt": "[TASK P3-COM-003] Military Shipyard and Weapons unlock gates\n\nОПИСАНИЕ\nДобавить `military_shipyard` and Weapons research/building gates so combat hulls unlock through the progression system and are displayed correctly in backend/frontend eligibility checks.\n\nACCEPTANCE CRITERIA\n  1. `military_shipyard` exists in building catalog with HP, RU/EN name/description, Cosmic Atlas asset hook, build/upgrade costs and prerequisite gates.\n  2. Weapons I unlocks Military Shipyard and starter light combat production; Weapons II+ gates are available for later laser/medium/heavy/missile/nuclear content.\n  3. Backend build eligibility rejects locked military buildings and ship hulls with typed reasons.\n  4. Frontend requirement UI shows localized missing building/research/resource reasons without raw slugs.\n  5. Tests cover blocked and allowed building/ship build paths for Weapons I/II and Military Shipyard levels.\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/seed/building-types.ts\n  - backend/src/config/research-unlocks.ts\n  - backend/src/features/research/gates.ts\n  - backend/src/features/buildings/\n  - backend/src/features/ships/\n  - shared/config/researchCatalog.ts\n  - shared/types/building-eligibility.ts\n  - shared/types/entity-labels.ts\n  - frontend/src/components/BuildDialog.tsx\n  - frontend/src/locales/en.json\n  - frontend/src/locales/ru.json\n  - frontend/src/README.md\n\nЗАВИСИМОСТИ\nP3-COM-001, P3-COM-002\n\nКАК ПРОВЕРИТЬ\nBackend gate tests for Military Shipyard and locked combat hulls; frontend requirement UI tests/smoke.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\nUse the existing research gate framework. Do not introduce a second unlock system."
+    },
+    {
+      "id": "P3-COM-004",
+      "epic": "EPIC-P3-COMBAT",
+      "size": "L",
+      "title": "Fuel tanks and refueler support ship",
+      "description": "Добавить ordinary fuel and jump fuel tanks for all ships plus a civilian refueler built in the ordinary shipyard, with menu-driven military ship refuel transfer when in range.",
+      "acceptance": [
+        "Every ship type has ordinary fuel capacity and jump fuel capacity; civilian hulls default to about 50-100 ordinary fuel and 3-4 jumps, military bands reserve larger capacities and 6-10 jumps.",
+        "Launch preview computes minimum required ordinary/jump fuel for route and lets the client request a larger loaded amount up to tank capacity.",
+        "Arrival keeps fuel in the ship tank; no automatic unloading to a planet occurs.",
+        "Civilian `refueler` ship is buildable from the ordinary shipyard with large fuel storage, RU/EN labels and asset hook.",
+        "Military ship menu can refuel ordinary fuel and jump fuel from an owned refueler in valid range; backend validates ownership, distance, tank capacity and refueler supply atomically.",
+        "Existing cargo/colonizer/recon routes remain compatible and tests cover old launch payloads."
+      ],
+      "files": [
+        "backend/src/db/schema/ships.ts",
+        "backend/src/db/schema/expeditions.ts",
+        "backend/src/db/seed/ship-types.ts",
+        "backend/src/features/ships/build.ts",
+        "backend/src/features/ships/refuel.ts",
+        "backend/src/features/expeditions/",
+        "shared/types/ships.ts",
+        "shared/types/refuel.ts",
+        "frontend/src/components/ExpeditionDialog.tsx",
+        "frontend/src/components/RefuelDialog.tsx",
+        "frontend/src/components/CombatShipMenu.tsx",
+        "frontend/src/locales/en.json",
+        "frontend/src/locales/ru.json"
+      ],
+      "deps": [
+        "P3-COM-001",
+        "P2.3-506",
+        "P2.2-008"
+      ],
+      "verify": "Backend tests for fuel preview/loading, arrival fuel persistence and refuel transfer; frontend smoke for launch/refuel controls.",
+      "notes": "Refueler is support/logistics, not combat. Do not allow it to bypass ownership or sensor/range rules.",
+      "prompt": "[TASK P3-COM-004] Fuel tanks and refueler support ship\n\nОПИСАНИЕ\nДобавить ordinary fuel and jump fuel tanks for all ships plus a civilian refueler built in the ordinary shipyard, with menu-driven military ship refuel transfer when in range.\n\nACCEPTANCE CRITERIA\n  1. Every ship type has ordinary fuel capacity and jump fuel capacity; civilian hulls default to about 50-100 ordinary fuel and 3-4 jumps, military bands reserve larger capacities and 6-10 jumps.\n  2. Launch preview computes minimum required ordinary/jump fuel for route and lets the client request a larger loaded amount up to tank capacity.\n  3. Arrival keeps fuel in the ship tank; no automatic unloading to a planet occurs.\n  4. Civilian `refueler` ship is buildable from the ordinary shipyard with large fuel storage, RU/EN labels and asset hook.\n  5. Military ship menu can refuel ordinary fuel and jump fuel from an owned refueler in valid range; backend validates ownership, distance, tank capacity and refueler supply atomically.\n  6. Existing cargo/colonizer/recon routes remain compatible and tests cover old launch payloads.\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/schema/ships.ts\n  - backend/src/db/schema/expeditions.ts\n  - backend/src/db/seed/ship-types.ts\n  - backend/src/features/ships/build.ts\n  - backend/src/features/ships/refuel.ts\n  - backend/src/features/expeditions/\n  - shared/types/ships.ts\n  - shared/types/refuel.ts\n  - frontend/src/components/ExpeditionDialog.tsx\n  - frontend/src/components/RefuelDialog.tsx\n  - frontend/src/components/CombatShipMenu.tsx\n  - frontend/src/locales/en.json\n  - frontend/src/locales/ru.json\n\nЗАВИСИМОСТИ\nP3-COM-001, P2.3-506, P2.2-008\n\nКАК ПРОВЕРИТЬ\nBackend tests for fuel preview/loading, arrival fuel persistence and refuel transfer; frontend smoke for launch/refuel controls.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\nRefueler is support/logistics, not combat. Do not allow it to bypass ownership or sensor/range rules."
+    },
+    {
+      "id": "P3-COM-005",
+      "epic": "EPIC-P3-COMBAT",
+      "size": "L",
+      "title": "Light combat hulls MVP",
+      "description": "Добавить первые light combat ships: light fighter, light bomber and light laser ship with build costs, gates, HP, fuel tanks, assets and backend/frontend catalog support.",
+      "acceptance": [
+        "Light fighter is built from Military Shipyard L1, uses kinetic/small-arms style game payload, and targets enemy ships in range.",
+        "Light bomber is built from Military Shipyard L2 and is configured for planet-building bombing only.",
+        "Light laser ship is built from Military Shipyard L2 + Weapons II and uses liquid nitrogen/cooling component in its cost.",
+        "All light hulls define HP, speed, combat role, damage profile, engagement/sensor range, ordinary fuel capacity, jump fuel capacity, build cost and build time.",
+        "Ship build endpoint, queue, `/me` payload and frontend shipyard/fleet UI can display/build these hulls with RU/EN labels and assets.",
+        "Tests cover allowed/blocked build paths and catalog consistency for the three light hulls."
+      ],
+      "files": [
+        "backend/src/db/seed/ship-types.ts",
+        "backend/src/features/ships/",
+        "shared/types/ships.ts",
+        "shared/types/entity-labels.ts",
+        "frontend/src/pages/Ships.tsx",
+        "frontend/src/components/cosmic/ships.tsx",
+        "frontend/src/locales/en.json",
+        "frontend/src/locales/ru.json",
+        "tools/balance-sim/src/catalog.ts"
+      ],
+      "deps": [
+        "P3-COM-002",
+        "P3-COM-003",
+        "P3-COM-004"
+      ],
+      "verify": "Ship catalog audit plus backend build tests for light fighter/bomber/laser; frontend shipyard smoke.",
+      "notes": "This task adds content and buildability. Full live combat resolution belongs to P3-COM-006/P3-COM-007.",
+      "prompt": "[TASK P3-COM-005] Light combat hulls MVP\n\nОПИСАНИЕ\nДобавить первые light combat ships: light fighter, light bomber and light laser ship with build costs, gates, HP, fuel tanks, assets and backend/frontend catalog support.\n\nACCEPTANCE CRITERIA\n  1. Light fighter is built from Military Shipyard L1, uses kinetic/small-arms style game payload, and targets enemy ships in range.\n  2. Light bomber is built from Military Shipyard L2 and is configured for planet-building bombing only.\n  3. Light laser ship is built from Military Shipyard L2 + Weapons II and uses liquid nitrogen/cooling component in its cost.\n  4. All light hulls define HP, speed, combat role, damage profile, engagement/sensor range, ordinary fuel capacity, jump fuel capacity, build cost and build time.\n  5. Ship build endpoint, queue, `/me` payload and frontend shipyard/fleet UI can display/build these hulls with RU/EN labels and assets.\n  6. Tests cover allowed/blocked build paths and catalog consistency for the three light hulls.\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/seed/ship-types.ts\n  - backend/src/features/ships/\n  - shared/types/ships.ts\n  - shared/types/entity-labels.ts\n  - frontend/src/pages/Ships.tsx\n  - frontend/src/components/cosmic/ships.tsx\n  - frontend/src/locales/en.json\n  - frontend/src/locales/ru.json\n  - tools/balance-sim/src/catalog.ts\n\nЗАВИСИМОСТИ\nP3-COM-002, P3-COM-003, P3-COM-004\n\nКАК ПРОВЕРИТЬ\nShip catalog audit plus backend build tests for light fighter/bomber/laser; frontend shipyard smoke.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\nThis task adds content and buildability. Full live combat resolution belongs to P3-COM-006/P3-COM-007."
+    },
+    {
+      "id": "P3-COM-006",
+      "epic": "EPIC-P3-COMBAT",
+      "size": "XL",
+      "title": "Ship-vs-ship combat tick engine",
+      "description": "Implement server-authoritative idempotent combat ticks for ship-vs-ship fights using visibility/sensor range, engagement range, damage profiles, HP and destruction semantics.",
+      "acceptance": [
+        "Combat tick service computes elapsed-time damage exactly once per interval and is idempotent under repeated worker/online sync calls.",
+        "Fighters and laser ships attack enemy ships in valid visibility/engagement range using their configured damage profile.",
+        "Civilian ships are destroyed within seconds under military fire, while military light hulls survive materially longer according to tested tuning ranges.",
+        "Destroyed ships leave a consistent status/audit trail and cannot keep moving, fighting or refueling.",
+        "The service reuses existing sector/system visibility and does not reveal protected Home System data.",
+        "Worker/online sync integration updates combat state without blocking existing expedition completion."
+      ],
+      "files": [
+        "backend/src/features/combat/",
+        "backend/src/features/expeditions/",
+        "backend/src/features/world/visibility.ts",
+        "backend/src/db/schema/ships.ts",
+        "shared/types/combat.ts",
+        "DOCUMENTATION.md",
+        "backend/src/features/README.md"
+      ],
+      "deps": [
+        "P3-COM-005",
+        "P3-MAP-001"
+      ],
+      "verify": "Unit tests for elapsed-time idempotency, target selection, range/visibility checks, civilian durability and destroyed-ship state.",
+      "notes": "Keep deterministic logic testable without running a real-time process. Worker scheduling can be minimal if online sync covers due combat ticks.",
+      "prompt": "[TASK P3-COM-006] Ship-vs-ship combat tick engine\n\nОПИСАНИЕ\nImplement server-authoritative idempotent combat ticks for ship-vs-ship fights using visibility/sensor range, engagement range, damage profiles, HP and destruction semantics.\n\nACCEPTANCE CRITERIA\n  1. Combat tick service computes elapsed-time damage exactly once per interval and is idempotent under repeated worker/online sync calls.\n  2. Fighters and laser ships attack enemy ships in valid visibility/engagement range using their configured damage profile.\n  3. Civilian ships are destroyed within seconds under military fire, while military light hulls survive materially longer according to tested tuning ranges.\n  4. Destroyed ships leave a consistent status/audit trail and cannot keep moving, fighting or refueling.\n  5. The service reuses existing sector/system visibility and does not reveal protected Home System data.\n  6. Worker/online sync integration updates combat state without blocking existing expedition completion.\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/combat/\n  - backend/src/features/expeditions/\n  - backend/src/features/world/visibility.ts\n  - backend/src/db/schema/ships.ts\n  - shared/types/combat.ts\n  - DOCUMENTATION.md\n  - backend/src/features/README.md\n\nЗАВИСИМОСТИ\nP3-COM-005, P3-MAP-001\n\nКАК ПРОВЕРИТЬ\nUnit tests for elapsed-time idempotency, target selection, range/visibility checks, civilian durability and destroyed-ship state.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\nKeep deterministic logic testable without running a real-time process. Worker scheduling can be minimal if online sync covers due combat ticks."
+    },
+    {
+      "id": "P3-COM-007",
+      "epic": "EPIC-P3-COMBAT",
+      "size": "L",
+      "title": "Bombing, building damage and colonization block",
+      "description": "Implement building HP damage, bomber planet targeting, ordered destruction with Command Center last and colonization blocking while hostile buildings remain.",
+      "acceptance": [
+        "Buildings have current/max HP and take gradual damage from bomber combat ticks.",
+        "Light bomber starts bombing only when a planet is in valid range/visibility and has enemy buildings.",
+        "Bombers do not attack ships and cannot bomb empty, owned or neutral planets without hostile buildings.",
+        "Non-Command-Center buildings are destroyed before Command Center; Command Center is always last among valid targets.",
+        "Planets with hostile buildings cannot be colonized; colonization checks return localized/typed block reasons.",
+        "Tests cover bombing idempotency, destruction order, no-target cases and colonization blocking/unblocking."
+      ],
+      "files": [
+        "backend/src/db/schema/buildings.ts",
+        "backend/src/features/combat/",
+        "backend/src/features/colonies/",
+        "backend/src/features/expeditions/",
+        "shared/types/combat.ts",
+        "shared/types/buildings.ts",
+        "frontend/src/pages/PlanetDetail.tsx",
+        "frontend/src/locales/en.json",
+        "frontend/src/locales/ru.json"
+      ],
+      "deps": [
+        "P3-COM-006",
+        "P2-COL-008"
+      ],
+      "verify": "Backend tests for bomber targeting, building damage/destruction order and colonization blocked by hostile buildings.",
+      "notes": "Balance target: light bomber takes a few minutes per ordinary building; exact values can be tuned but must be deterministic in tests.",
+      "prompt": "[TASK P3-COM-007] Bombing, building damage and colonization block\n\nОПИСАНИЕ\nImplement building HP damage, bomber planet targeting, ordered destruction with Command Center last and colonization blocking while hostile buildings remain.\n\nACCEPTANCE CRITERIA\n  1. Buildings have current/max HP and take gradual damage from bomber combat ticks.\n  2. Light bomber starts bombing only when a planet is in valid range/visibility and has enemy buildings.\n  3. Bombers do not attack ships and cannot bomb empty, owned or neutral planets without hostile buildings.\n  4. Non-Command-Center buildings are destroyed before Command Center; Command Center is always last among valid targets.\n  5. Planets with hostile buildings cannot be colonized; colonization checks return localized/typed block reasons.\n  6. Tests cover bombing idempotency, destruction order, no-target cases and colonization blocking/unblocking.\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/schema/buildings.ts\n  - backend/src/features/combat/\n  - backend/src/features/colonies/\n  - backend/src/features/expeditions/\n  - shared/types/combat.ts\n  - shared/types/buildings.ts\n  - frontend/src/pages/PlanetDetail.tsx\n  - frontend/src/locales/en.json\n  - frontend/src/locales/ru.json\n\nЗАВИСИМОСТИ\nP3-COM-006, P2-COL-008\n\nКАК ПРОВЕРИТЬ\nBackend tests for bomber targeting, building damage/destruction order and colonization blocked by hostile buildings.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\nBalance target: light bomber takes a few minutes per ordinary building; exact values can be tuned but must be deterministic in tests."
+    },
+    {
+      "id": "P3-COM-008",
+      "epic": "EPIC-P3-COMBAT",
+      "size": "L",
+      "title": "Medium and heavy combat lines plus rocket carriers",
+      "description": "Extend combat content beyond light hulls with medium/heavy fighters, bombers and laser ships plus rocket carriers using missile payload gameplay.",
+      "acceptance": [
+        "Medium and heavy fighter/bomber/laser hulls are defined with escalating research, Military Shipyard level and advanced Common Pool resource requirements.",
+        "Medium/heavy durability, damage, speed, range, fuel capacity, build time and advanced material costs scale coherently from light hulls.",
+        "Rocket carriers are a distinct military line with long-range/alpha-strike missile payload gameplay, advanced materials, and explicit counters/limitations.",
+        "Missile payload rules are abstract gameplay values and do not include real-world weapon construction details.",
+        "Frontend shipyard/fleet UI can show all new hulls, requirements and localized descriptions.",
+        "Catalog/audit tests prove no missing labels, assets, combat stats or fuel capacities."
+      ],
+      "files": [
+        "backend/src/db/seed/ship-types.ts",
+        "backend/src/features/combat/missiles.ts",
+        "backend/src/features/ships/",
+        "shared/types/ships.ts",
+        "shared/types/combat.ts",
+        "shared/types/entity-labels.ts",
+        "frontend/src/pages/Ships.tsx",
+        "frontend/src/locales/en.json",
+        "frontend/src/locales/ru.json",
+        "tools/balance-sim/src/catalog.ts"
+      ],
+      "deps": [
+        "P3-COM-006",
+        "P3-COM-007",
+        "P3-COM-013"
+      ],
+      "verify": "Catalog audit and combat tests for medium/heavy hull scaling, advanced material gates and rocket-carrier target/damage rules.",
+      "notes": "Do not let rocket carriers obsolete every other line. Tests should encode at least one limitation or counterbalance.",
+      "prompt": "[TASK P3-COM-008] Medium and heavy combat lines plus rocket carriers\n\nОПИСАНИЕ\nExtend combat content beyond light hulls with medium/heavy fighters, bombers and laser ships plus rocket carriers using missile payload gameplay.\n\nACCEPTANCE CRITERIA\n  1. Medium and heavy fighter/bomber/laser hulls are defined with escalating research, Military Shipyard level and advanced Common Pool resource requirements.\n  2. Medium/heavy durability, damage, speed, range, fuel capacity, build time and advanced material costs scale coherently from light hulls.\n  3. Rocket carriers are a distinct military line with long-range/alpha-strike missile payload gameplay, advanced materials, and explicit counters/limitations.\n  4. Missile payload rules are abstract gameplay values and do not include real-world weapon construction details.\n  5. Frontend shipyard/fleet UI can show all new hulls, requirements and localized descriptions.\n  6. Catalog/audit tests prove no missing labels, assets, combat stats or fuel capacities.\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/seed/ship-types.ts\n  - backend/src/features/combat/missiles.ts\n  - backend/src/features/ships/\n  - shared/types/ships.ts\n  - shared/types/combat.ts\n  - shared/types/entity-labels.ts\n  - frontend/src/pages/Ships.tsx\n  - frontend/src/locales/en.json\n  - frontend/src/locales/ru.json\n  - tools/balance-sim/src/catalog.ts\n\nЗАВИСИМОСТИ\nP3-COM-006, P3-COM-007, P3-COM-013\n\nКАК ПРОВЕРИТЬ\nCatalog audit and combat tests for medium/heavy hull scaling, advanced material gates and rocket-carrier target/damage rules.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\nDo not let rocket carriers obsolete every other line. Tests should encode at least one limitation or counterbalance."
+    },
+    {
+      "id": "P3-COM-009",
+      "epic": "EPIC-P3-COMBAT",
+      "size": "XL",
+      "title": "Shield ships and shield coverage mechanics",
+      "description": "Add small/medium/large defensive ships that project shield areas protecting allied ships inside while shield HP remains above zero, including shield damage, downtime and recharge.",
+      "acceptance": [
+        "Small, medium and large shield ships exist with RU/EN labels, assets, build requirements, HP, advanced shield materials, shield HP, radius, recharge delay/rate and downtime values.",
+        "Allied ships inside an active shield area cannot be attacked directly until the shield is depleted according to server-side targeting rules.",
+        "Shield damage, break state, downtime and recharge are idempotent across repeated ticks.",
+        "Overlapping shield behavior is explicitly defined and test-covered, including which shield absorbs damage first.",
+        "Visibility/ownership rules prevent shield projection from leaking hidden enemy data or protecting enemy ships.",
+        "Frontend can display shield coverage/status hooks without requiring final visual polish in this task."
+      ],
+      "files": [
+        "backend/src/db/seed/ship-types.ts",
+        "backend/src/features/combat/shields.ts",
+        "backend/src/features/combat/",
+        "shared/types/combat.ts",
+        "shared/types/ships.ts",
+        "frontend/src/components/ShieldStatus.tsx",
+        "frontend/src/locales/en.json",
+        "frontend/src/locales/ru.json"
+      ],
+      "deps": [
+        "P3-COM-006",
+        "P3-COM-008",
+        "P3-COM-013"
+      ],
+      "verify": "Backend tests for shield coverage, absorption priority, break/recharge timing, overlap behavior and protected target selection.",
+      "notes": "A shield is a gameplay protection area, not an invulnerability toggle. It must have HP and recoverable downtime.",
+      "prompt": "[TASK P3-COM-009] Shield ships and shield coverage mechanics\n\nОПИСАНИЕ\nAdd small/medium/large defensive ships that project shield areas protecting allied ships inside while shield HP remains above zero, including shield damage, downtime and recharge.\n\nACCEPTANCE CRITERIA\n  1. Small, medium and large shield ships exist with RU/EN labels, assets, build requirements, HP, advanced shield materials, shield HP, radius, recharge delay/rate and downtime values.\n  2. Allied ships inside an active shield area cannot be attacked directly until the shield is depleted according to server-side targeting rules.\n  3. Shield damage, break state, downtime and recharge are idempotent across repeated ticks.\n  4. Overlapping shield behavior is explicitly defined and test-covered, including which shield absorbs damage first.\n  5. Visibility/ownership rules prevent shield projection from leaking hidden enemy data or protecting enemy ships.\n  6. Frontend can display shield coverage/status hooks without requiring final visual polish in this task.\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/seed/ship-types.ts\n  - backend/src/features/combat/shields.ts\n  - backend/src/features/combat/\n  - shared/types/combat.ts\n  - shared/types/ships.ts\n  - frontend/src/components/ShieldStatus.tsx\n  - frontend/src/locales/en.json\n  - frontend/src/locales/ru.json\n\nЗАВИСИМОСТИ\nP3-COM-006, P3-COM-008, P3-COM-013\n\nКАК ПРОВЕРИТЬ\nBackend tests for shield coverage, absorption priority, break/recharge timing, overlap behavior and protected target selection.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\nA shield is a gameplay protection area, not an invulnerability toggle. It must have HP and recoverable downtime."
+    },
+    {
+      "id": "P3-COM-010",
+      "epic": "EPIC-P3-COMBAT",
+      "size": "L",
+      "title": "Weapons V nuclear payload rules",
+      "description": "Add late-tier nuclear weapon gameplay as an abstract damage payload gated by Weapons V, with high cost, explicit restrictions and tests that it respects shields, visibility and ownership rules.",
+      "acceptance": [
+        "Weapons V unlocks nuclear payload gameplay through typed research gates, advanced radioactive/atomic resource costs and localized UI warnings.",
+        "Nuclear payloads are represented only by abstract game stats, costs, cooldowns and target restrictions; no real-world production instructions or actionable details appear in code comments, UI or docs.",
+        "Payload use respects ownership, visibility, shield and colonization/combat target rules.",
+        "Costs, rare/Common Pool materials and cooldowns make nuclear payloads late-tier actions rather than default combat openers.",
+        "Backend tests cover blocked usage, allowed usage, shield interaction and no bypass of protected/neutral targets.",
+        "Frontend displays localized warnings/requirements without sensational or technical real-world details."
+      ],
+      "files": [
+        "backend/src/features/combat/nuclear.ts",
+        "backend/src/config/research-unlocks.ts",
+        "shared/types/combat.ts",
+        "frontend/src/components/CombatShipMenu.tsx",
+        "frontend/src/locales/en.json",
+        "frontend/src/locales/ru.json",
+        "DOCUMENTATION.md"
+      ],
+      "deps": [
+        "P3-COM-008",
+        "P3-COM-009",
+        "P3-COM-013"
+      ],
+      "verify": "Backend tests for nuclear payload gates/restrictions/shield interaction; content audit for no real-world nuclear instructions in player-facing text.",
+      "notes": "Keep nuclear weapons as a game abstraction. Do not add realistic enrichment, assembly, yield, deployment or evasion instructions.",
+      "prompt": "[TASK P3-COM-010] Weapons V nuclear payload rules\n\nОПИСАНИЕ\nAdd late-tier nuclear weapon gameplay as an abstract damage payload gated by Weapons V, with high cost, explicit restrictions and tests that it respects shields, visibility and ownership rules.\n\nACCEPTANCE CRITERIA\n  1. Weapons V unlocks nuclear payload gameplay through typed research gates, advanced radioactive/atomic resource costs and localized UI warnings.\n  2. Nuclear payloads are represented only by abstract game stats, costs, cooldowns and target restrictions; no real-world production instructions or actionable details appear in code comments, UI or docs.\n  3. Payload use respects ownership, visibility, shield and colonization/combat target rules.\n  4. Costs, rare/Common Pool materials and cooldowns make nuclear payloads late-tier actions rather than default combat openers.\n  5. Backend tests cover blocked usage, allowed usage, shield interaction and no bypass of protected/neutral targets.\n  6. Frontend displays localized warnings/requirements without sensational or technical real-world details.\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/features/combat/nuclear.ts\n  - backend/src/config/research-unlocks.ts\n  - shared/types/combat.ts\n  - frontend/src/components/CombatShipMenu.tsx\n  - frontend/src/locales/en.json\n  - frontend/src/locales/ru.json\n  - DOCUMENTATION.md\n\nЗАВИСИМОСТИ\nP3-COM-008, P3-COM-009, P3-COM-013\n\nКАК ПРОВЕРИТЬ\nBackend tests for nuclear payload gates/restrictions/shield interaction; content audit for no real-world nuclear instructions in player-facing text.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\nKeep nuclear weapons as a game abstraction. Do not add realistic enrichment, assembly, yield, deployment or evasion instructions."
+    },
+    {
+      "id": "P3-COM-011",
+      "epic": "EPIC-P3-COMBAT",
+      "size": "XL",
+      "title": "Combat UI, assets and localized fleet controls",
+      "description": "Build the player-facing combat surfaces: military shipyard browsing, combat ship stats, HP/fuel/shield state, refuel menus, attack/bombing status and map/fleet affordances.",
+      "acceptance": [
+        "Military Shipyard UI shows all unlocked/locked combat hulls with localized requirements, costs, build time and assets.",
+        "Fleet UI shows HP, ordinary fuel, jump fuel, combat role, attack/bombing state, shield state and destroyed/damaged states.",
+        "Combat ship menu exposes refuel action when a valid owned refueler is in range and shows server validation errors clearly.",
+        "Map/fleet surfaces show shield coverage and active combat/bombing status without overlapping mobile layout or raw ids.",
+        "All new strings are localized EN/RU and long labels fit mobile viewport.",
+        "Frontend tests or smoke coverage verifies locked states, refuel dialog, shield status and HP/fuel rendering."
+      ],
+      "files": [
+        "frontend/src/pages/Ships.tsx",
+        "frontend/src/pages/SystemMap.tsx",
+        "frontend/src/pages/PlanetDetail.tsx",
+        "frontend/src/components/BuildDialog.tsx",
+        "frontend/src/components/ExpeditionDialog.tsx",
+        "frontend/src/components/RefuelDialog.tsx",
+        "frontend/src/components/ShieldStatus.tsx",
+        "frontend/src/components/CombatShipMenu.tsx",
+        "frontend/src/components/cosmic/resources.ts",
+        "frontend/src/locales/en.json",
+        "frontend/src/locales/ru.json",
+        "frontend/src/README.md"
+      ],
+      "deps": [
+        "P3-COM-003",
+        "P3-COM-004",
+        "P3-COM-005",
+        "P3-COM-009",
+        "P3-COM-010"
+      ],
+      "verify": "Frontend unit tests/build plus manual mobile smoke for military shipyard, HP/fuel, refuel and shield states.",
+      "notes": "Follow Cosmic Atlas visual language and add real assets/icons when entities need visible game representation.",
+      "prompt": "[TASK P3-COM-011] Combat UI, assets and localized fleet controls\n\nОПИСАНИЕ\nBuild the player-facing combat surfaces: military shipyard browsing, combat ship stats, HP/fuel/shield state, refuel menus, attack/bombing status and map/fleet affordances.\n\nACCEPTANCE CRITERIA\n  1. Military Shipyard UI shows all unlocked/locked combat hulls with localized requirements, costs, build time and assets.\n  2. Fleet UI shows HP, ordinary fuel, jump fuel, combat role, attack/bombing state, shield state and destroyed/damaged states.\n  3. Combat ship menu exposes refuel action when a valid owned refueler is in range and shows server validation errors clearly.\n  4. Map/fleet surfaces show shield coverage and active combat/bombing status without overlapping mobile layout or raw ids.\n  5. All new strings are localized EN/RU and long labels fit mobile viewport.\n  6. Frontend tests or smoke coverage verifies locked states, refuel dialog, shield status and HP/fuel rendering.\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - frontend/src/pages/Ships.tsx\n  - frontend/src/pages/SystemMap.tsx\n  - frontend/src/pages/PlanetDetail.tsx\n  - frontend/src/components/BuildDialog.tsx\n  - frontend/src/components/ExpeditionDialog.tsx\n  - frontend/src/components/RefuelDialog.tsx\n  - frontend/src/components/ShieldStatus.tsx\n  - frontend/src/components/CombatShipMenu.tsx\n  - frontend/src/components/cosmic/resources.ts\n  - frontend/src/locales/en.json\n  - frontend/src/locales/ru.json\n  - frontend/src/README.md\n\nЗАВИСИМОСТИ\nP3-COM-003, P3-COM-004, P3-COM-005, P3-COM-009, P3-COM-010\n\nКАК ПРОВЕРИТЬ\nFrontend unit tests/build plus manual mobile smoke for military shipyard, HP/fuel, refuel and shield states.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\nFollow Cosmic Atlas visual language and add real assets/icons when entities need visible game representation."
+    },
+    {
+      "id": "P3-COM-012",
+      "epic": "EPIC-P3-COMBAT",
+      "size": "L",
+      "title": "Combat regression, balance and rollup evidence",
+      "description": "Add regression and balance coverage for the complete combat loop and collect the evidence needed to close P3-EPIC-COMBAT.",
+      "acceptance": [
+        "Regression scenario covers building Military Shipyard, producing light combat ships, fueling/refueling, ship combat, bombing hostile buildings and blocked/unblocked colonization.",
+        "Shield and missile/nuclear interactions have focused backend tests and at least one documented manual smoke path.",
+        "Balance simulator or equivalent deterministic report covers civilian vs military durability, bomber time-to-destroy, fuel/refuel ranges, Common Pool advanced resource reachability and atomic reactor energy bounds.",
+        "Documentation records known tuning risks and operational limits before rollup closure.",
+        "`./scripts/ci-verify.sh` passes locally or the blocker is documented with CI as authoritative fallback.",
+        "Closing rollup PR/issue evidence includes `run-e2e` or `RUN_PLAYWRIGHT_E2E=1 ./scripts/ci-verify.sh` result."
+      ],
+      "files": [
+        "backend/tests/e2e/",
+        "frontend/tests/e2e/",
+        "docs/testing/",
+        "tools/balance-sim/",
+        "tasks/ROADMAP_COVERAGE_MATRIX.md",
+        "scripts/ci-verify.sh",
+        "CHANGELOG.md"
+      ],
+      "deps": [
+        "P3-COM-007",
+        "P3-COM-008",
+        "P3-COM-009",
+        "P3-COM-010",
+        "P3-COM-011",
+        "P3-COM-013"
+      ],
+      "verify": "Focused backend regression; optional Playwright/mobile smoke; `./scripts/ci-verify.sh`; combat balance simulation/report.",
+      "notes": "This is the evidence gate. Do not add new gameplay scope here unless it is required to verify already accepted combat behavior.",
+      "prompt": "[TASK P3-COM-012] Combat regression, balance and rollup evidence\n\nОПИСАНИЕ\nAdd regression and balance coverage for the complete combat loop and collect the evidence needed to close P3-EPIC-COMBAT.\n\nACCEPTANCE CRITERIA\n  1. Regression scenario covers building Military Shipyard, producing light combat ships, fueling/refueling, ship combat, bombing hostile buildings and blocked/unblocked colonization.\n  2. Shield and missile/nuclear interactions have focused backend tests and at least one documented manual smoke path.\n  3. Balance simulator or equivalent deterministic report covers civilian vs military durability, bomber time-to-destroy, fuel/refuel ranges, Common Pool advanced resource reachability and atomic reactor energy bounds.\n  4. Documentation records known tuning risks and operational limits before rollup closure.\n  5. `./scripts/ci-verify.sh` passes locally or the blocker is documented with CI as authoritative fallback.\n  6. Closing rollup PR/issue evidence includes `run-e2e` or `RUN_PLAYWRIGHT_E2E=1 ./scripts/ci-verify.sh` result.\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/tests/e2e/\n  - frontend/tests/e2e/\n  - docs/testing/\n  - tools/balance-sim/\n  - tasks/ROADMAP_COVERAGE_MATRIX.md\n  - scripts/ci-verify.sh\n  - CHANGELOG.md\n\nЗАВИСИМОСТИ\nP3-COM-007, P3-COM-008, P3-COM-009, P3-COM-010, P3-COM-011, P3-COM-013\n\nКАК ПРОВЕРИТЬ\nFocused backend regression; optional Playwright/mobile smoke; `./scripts/ci-verify.sh`; combat balance simulation/report.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\nThis is the evidence gate. Do not add new gameplay scope here unless it is required to verify already accepted combat behavior."
     },
     {
       "id": "P4-DEP-001",
