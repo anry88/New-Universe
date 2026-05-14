@@ -538,7 +538,67 @@ describe('Buildings Service - POST /buildings/build', () => {
     expect(body.message).toContain('active settlement');
   });
 
-  it('blocks mines on planets without metal deposits', async () => {
+  it('allows mines to extract ice deposits', async () => {
+    const { app, token, userId } = await createTestUser();
+
+    const [neutralSystem] = await db.insert(systems).values({
+      isHome: false,
+      sectorX: 6,
+      sectorY: 6,
+      sectorZ: 0,
+      x: '600.00',
+      y: '600.00',
+      z: '0.00',
+      name: `Ice Mine System ${Math.random()}`,
+      seed: 793,
+    }).returning();
+
+    const [icePlanet] = await db.insert(planets).values({
+      systemId: neutralSystem.id,
+      biome: 'ice',
+      size: 14,
+      slotCount: 8,
+      name: `Ice Mine Colony ${Math.random()}`,
+    }).returning();
+
+    await db.insert(colonies).values({
+      ownerId: userId,
+      planetId: icePlanet.id,
+    });
+    await db.insert(buildings).values({
+      planetId: icePlanet.id,
+      typeId: 'command_center',
+      level: 1,
+      slotIndex: 0,
+    });
+    await db.insert(richness).values([
+      { planetId: icePlanet.id, resourceId: 'ice', value: 2 },
+    ]);
+    await db.insert(planetResources).values([
+      { planetId: icePlanet.id, resourceId: 'ice', amount: '0', regenRate: '0' },
+      { planetId: icePlanet.id, resourceId: 'iron', amount: '1000', regenRate: '0' },
+      { planetId: icePlanet.id, resourceId: 'carbon', amount: '1000', regenRate: '0' },
+    ]);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/buildings/build',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        planetId: icePlanet.id,
+        typeId: 'mine',
+        slotIndex: 1,
+        selectedResourceId: 'ice',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.success).toBe(true);
+    expect(body.queueItem.selectedResourceId).toBe('ice');
+  });
+
+  it('blocks mines on planets without solid mineral deposits', async () => {
     const { app, token, userId } = await createTestUser();
 
     const [neutralSystem] = await db.insert(systems).values({
@@ -549,7 +609,7 @@ describe('Buildings Service - POST /buildings/build', () => {
       x: '200.00',
       y: '200.00',
       z: '0.00',
-      name: `Gas No Metals ${Math.random()}`,
+      name: `Gas No Solids ${Math.random()}`,
       seed: 789,
     }).returning();
 
@@ -593,7 +653,7 @@ describe('Buildings Service - POST /buildings/build', () => {
     expect(response.statusCode).toBe(400);
     const body = response.json();
     expect(body.code).toBe('building_blocked_planet_resource');
-    expect(body.message).toContain('metal deposit');
+    expect(body.message).toContain('solid mineral deposit');
   });
 
   it('blocks oil pumps on planets without oil or methane deposits', async () => {

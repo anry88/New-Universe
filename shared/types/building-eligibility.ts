@@ -11,6 +11,7 @@ export const METAL_DEPOSIT_RESOURCE_IDS = [
   'carbon',
   'silicon',
   'sulfur',
+  'ice',
   'titanium',
   'silver',
   'mercury',
@@ -156,12 +157,12 @@ export function resolvePlanetResourceBlockedReason(input: {
   const resourceIds = new Set(uniqueKnownResourceIds(input.planetResourceIds));
 
   if (input.typeId === 'mine') {
-    const hasMetalDeposit = [...resourceIds].some((resourceId) => METAL_DEPOSIT_SET.has(resourceId));
-    if (!hasMetalDeposit) {
+    const hasMineableDeposit = [...resourceIds].some((resourceId) => METAL_DEPOSIT_SET.has(resourceId));
+    if (!hasMineableDeposit) {
       return {
         code: 'building_blocked_planet_resource',
         details: {
-          resourceId: 'metal',
+          resourceId: 'solid_mineral',
           acceptedResourceIds: [...METAL_DEPOSIT_RESOURCE_IDS],
         },
       };
@@ -363,6 +364,11 @@ export function formatBuildBlockedMessage(reason: BuildBlockedReason, lang: 'en'
         : `Requires ${branchLabel} research level ${reason.details.level}.`;
     }
     case 'building_blocked_planet_resource': {
+      if (reason.details.resourceId === 'solid_mineral') {
+        return lang === 'ru'
+          ? 'На этой планете нет месторождения твёрдых минералов.'
+          : 'This planet has no suitable solid mineral deposit.';
+      }
       const label = resourceLabel(reason.details.resourceId, lang);
       return lang === 'ru'
         ? `На этой планете нет подходящего месторождения: ${label}.`

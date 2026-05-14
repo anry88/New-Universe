@@ -341,7 +341,7 @@ const BUILDING_CATEGORY_BY_TYPE: Record<BuildingTypeId, BuildingCategoryKey> = {
 
 export const BUILDING_BY_TYPE: Record<BuildingTypeId, BuildingDef> = {
   command_center: { Icon: IconCommandCenter, label: 'Command Center', labels: { en: 'Command Center', ru: 'Командный центр' }, cat: 'Special', cats: BUILDING_CATEGORY_LABELS.special },
-  mine: { Icon: IconMine, label: 'Metals Mine', labels: { en: 'Metals Mine', ru: 'Шахта' }, cat: 'Extraction', cats: BUILDING_CATEGORY_LABELS.extraction },
+  mine: { Icon: IconMine, label: 'Mine', labels: { en: 'Mine', ru: 'Шахта' }, cat: 'Extraction', cats: BUILDING_CATEGORY_LABELS.extraction },
   drill: { Icon: IconDrill, label: 'Gas Extractor', labels: { en: 'Gas Extractor', ru: 'Газовый экстрактор' }, cat: 'Extraction', cats: BUILDING_CATEGORY_LABELS.extraction },
   battery: { Icon: IconBattery, label: 'Battery', labels: { en: 'Battery', ru: 'Аккумулятор' }, cat: 'Energy', cats: BUILDING_CATEGORY_LABELS.energy },
   storage: { Icon: IconStorage, label: 'Storage', labels: { en: 'Storage', ru: 'Склад' }, cat: 'Logistics', cats: BUILDING_CATEGORY_LABELS.logistics },

@@ -21,7 +21,7 @@ export interface ColonizationRules {
 
 export const COLONIZATION_RULES: ColonizationRules = {
   maxColoniesBase: 1,
-  maxColoniesPerLogisticsLevel: 1, // Total limit = 1 + logistics_level
+  maxColoniesPerLogisticsLevel: 5, // Total limit = 1 + logistics_level * 5
   foundingCost: {
     iron: 10000,
     water: 5000,
@@ -35,3 +35,11 @@ export const COLONIZATION_RULES: ColonizationRules = {
     level: 2,
   },
 };
+
+export function maxColoniesForLogisticsLevel(logisticsLevel: number): number {
+  const safeLevel = Math.max(0, Math.floor(logisticsLevel));
+  return (
+    COLONIZATION_RULES.maxColoniesBase +
+    safeLevel * COLONIZATION_RULES.maxColoniesPerLogisticsLevel
+  );
+}

@@ -59,6 +59,15 @@ test('colonization flow: eligibility and founding', async ({ page }) => {
       { branch: 'engineering', level: 5 },
       { branch: 'logistics', level: 1 },
     ],
+    colonization: {
+      currentColonies: 1,
+      maxColonies: 6,
+      logisticsLevel: 1,
+      maxColoniesBase: 1,
+      maxColoniesPerLogisticsLevel: 5,
+      cooldownSec: 1800,
+      cooldownRemainingSec: 0,
+    },
     planets: [
       {
         id: homePlanetId,
@@ -98,14 +107,15 @@ test('colonization flow: eligibility and founding', async ({ page }) => {
           allowed: true,
           details: {
             currentColonies: 1,
-            maxColonies: 2,
+            maxColonies: 6,
             cooldownRemainingSec: 0,
             requiredResearch: { branch: 'engineering', level: 2 },
             currentResearch: 5,
           }
         },
         rules: {
-          foundingCost: { iron: 5000, silicon: 2000 }
+          foundingCost: { iron: 5000, silicon: 2000 },
+          maxColoniesPerLogisticsLevel: 5,
         }
       }),
     });

@@ -149,6 +149,7 @@ export function ShipsPage() {
   const getShipType = (typeId: string) =>
     shipTypes?.find((t) => t.id === typeId);
   const planets = meData?.planets ?? [];
+  const colonizationSummary = meData?.colonization;
   const buildableShipTypes = useMemo(
     () => (shipTypes ?? []).filter((type) => isShipTypeVisibleInShipyard(type.id)),
     [shipTypes],
@@ -360,6 +361,8 @@ export function ShipsPage() {
                 </div>
 
                 {buildableShipTypes.map((type) => {
+                  const isColonizerHull =
+                    type.role === "colonization" || type.id === "colonizer";
                   const requirements = type.requiredBuildings
                     .map((req) =>
                       formatRequirement(selectedPlanet, req.typeId, req.level),
@@ -372,6 +375,12 @@ export function ShipsPage() {
                   const blockedText = blockedReason
                     ? formatBuildBlock(blockedReason)
                     : null;
+                  const colonizerAtCurrentLimit = Boolean(
+                    isColonizerHull &&
+                      colonizationSummary &&
+                      colonizationSummary.currentColonies >=
+                        colonizationSummary.maxColonies,
+                  );
 
                   return (
                     <div key={type.id} className="ship-row">
@@ -407,6 +416,28 @@ export function ShipsPage() {
                         {blockedText ? (
                           <div className="ship-loc" style={{ color: "#fca5a5" }}>
                             {blockedText}
+                          </div>
+                        ) : null}
+                        {isColonizerHull && colonizationSummary ? (
+                          <div
+                            className="ship-loc"
+                            style={{
+                              color: colonizerAtCurrentLimit
+                                ? "#fcd34d"
+                                : "var(--text-dim)",
+                            }}
+                          >
+                            {colonizerAtCurrentLimit
+                              ? t("ships.colonizerLimitWarning", {
+                                  current: colonizationSummary.currentColonies,
+                                  max: colonizationSummary.maxColonies,
+                                  count:
+                                    colonizationSummary.maxColoniesPerLogisticsLevel,
+                                })
+                              : t("colonize.logisticsLimitHint", {
+                                  count:
+                                    colonizationSummary.maxColoniesPerLogisticsLevel,
+                                })}
                           </div>
                         ) : null}
                         <button

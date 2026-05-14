@@ -77,6 +77,13 @@ describe("Me Routes", () => {
     expect(Array.isArray(body.user.ships)).toBe(true);
     expect(body.user.expeditions).toBeDefined();
     expect(Array.isArray(body.user.expeditions)).toBe(true);
+    expect(body.user.colonization).toMatchObject({
+      currentColonies: 0,
+      maxColonies: 1,
+      logisticsLevel: 0,
+      maxColoniesPerLogisticsLevel: 5,
+      cooldownRemainingSec: 0,
+    });
   });
 
   it("should return 401 when unauthorized", async () => {

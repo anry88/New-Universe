@@ -3,7 +3,9 @@ import { colonies } from '../../db/schema/colonies.js';
 import { planets, systems } from '../../db/schema/world.js';
 import { discoveredPlanets } from '../../db/schema/discovery.js';
 import { buildings } from '../../db/schema/buildings.js';
+import { researchProgress } from '../../db/schema/research.js';
 import { eq, and, count } from 'drizzle-orm';
+import { maxColoniesForLogisticsLevel } from '../../config/colonization-rules.js';
 
 export class ColonyService {
   /**
@@ -13,7 +15,7 @@ export class ColonyService {
    * 2. Planet must be discovered by the player.
    * 3. Planet must not be in a home system (protected).
    * 4. Planet must not already be colonized by anyone.
-   * 5. Player must not have reached their colony limit.
+   * 5. Player must not have reached their Logistics-scaled colony limit.
    */
   async canColonize(userId: string, planetId: string): Promise<{ allowed: boolean; reason?: string }> {
     // 1. Check if planet exists and get its system info
@@ -87,8 +89,12 @@ export class ColonyService {
       .from(colonies)
       .where(eq(colonies.ownerId, userId));
     
-    const colonyCount = result?.value ?? 0;
-    const limit = 5; // TODO: make dynamic based on research or premium
+    const colonyCount = Number(result?.value ?? 0);
+    const researchRows = await db.query.researchProgress.findMany({
+      where: eq(researchProgress.userId, userId),
+    });
+    const logisticsLevel = researchRows.find((row) => row.branch === 'logistics')?.level ?? 0;
+    const limit = maxColoniesForLogisticsLevel(logisticsLevel);
     
     if (colonyCount >= limit) {
       return { allowed: false, reason: 'Colony limit reached' };

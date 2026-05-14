@@ -24,6 +24,7 @@ interface ColonizationRequirementsProps {
     };
   };
   costs: Record<string, number>;
+  maxColoniesPerLogisticsLevel?: number;
 }
 
 /**
@@ -33,6 +34,7 @@ interface ColonizationRequirementsProps {
 export const ColonizationRequirements: React.FC<ColonizationRequirementsProps> = ({
   eligibility,
   costs,
+  maxColoniesPerLogisticsLevel,
 }) => {
   const { t } = useI18n();
   const { details } = eligibility;
@@ -90,6 +92,13 @@ export const ColonizationRequirements: React.FC<ColonizationRequirementsProps> =
           </div>
         ))}
       </div>
+      {maxColoniesPerLogisticsLevel ? (
+        <div className="text-[11px] text-slate-400 leading-relaxed">
+          {t('colonize.logisticsLimitHint', {
+            count: maxColoniesPerLogisticsLevel,
+          })}
+        </div>
+      ) : null}
 
       <div className="pt-4 border-t border-slate-800">
         <div className="flex items-center gap-2 mb-3">

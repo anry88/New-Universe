@@ -27,6 +27,7 @@ interface EligibilityResponse {
   };
   rules: {
     foundingCost: Record<string, number>;
+    maxColoniesPerLogisticsLevel: number;
   };
 }
 
@@ -125,6 +126,7 @@ export const FoundColonyDialog: React.FC<FoundColonyDialogProps> = ({
               <ColonizationRequirements 
                 eligibility={data.eligibility}
                 costs={data.rules.foundingCost}
+                maxColoniesPerLogisticsLevel={data.rules.maxColoniesPerLogisticsLevel}
               />
 
               {error && (
