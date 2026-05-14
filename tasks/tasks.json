@@ -3380,6 +3380,124 @@
       "prompt": "[TASK P2.2-012] Баланс добычи и лимиты уровней построек\n\nОПИСАНИЕ\nНастроить добычу выбранных ресурсов так, чтобы скорость зависела от редкости и потребности ресурса, а не только от типа добывающего здания. Ограничить все building_types десятым уровнем, запретить апгрейд обычных построек выше уровня Command Center на этой планете и добавить реалистичные дополнительные материалы для апгрейдов на L6+ только из ресурсов, доступных в домашней системе или производимых из них.\n\nACCEPTANCE CRITERIA\n  1. Скорость добычи выбранного ресурса определяется по resourceId: iron добывается быстрее silicon в одной и той же mine\n  2. Backend пересчитывает regenRate с учетом resource-specific extraction rates\n  3. Frontend build/upgrade dialogs показывают тот же yield, что использует backend\n  4. Все building_types имеют maxLevel = 10\n  5. Нельзя апгрейдить обычную постройку выше уровня Command Center на этой планете\n  6. Command Center можно апгрейдить до L10 без блокировки собственным уровнем\n  7. Апгрейды на L6+ получают дополнительные реалистичные материалы из домашней экономики, без неподходящих ресурсов вроде biomass для spaceport/shipyard\n  8. Balance simulator mirrors changed caps, costs, and extraction rates\n  9. Обновлены task record, shared config/types, tests and adjacent README/DOCUMENTATION\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - tasks/tasks.json\n  - shared/config/\n  - shared/types/building-eligibility.ts\n  - backend/src/db/seed/catalog-rows.ts\n  - backend/src/db/seed/audit.ts\n  - backend/src/features/buildings/\n  - frontend/src/components/BuildDialog.tsx\n  - frontend/src/components/UpgradeDialog.tsx\n  - frontend/src/pages/PlanetDetail.tsx\n  - tools/balance-sim/src/catalog.ts\n  - tools/balance-sim/src/simulate.ts\n  - DOCUMENTATION.md\n  - backend/src/db/README.md\n  - backend/src/features/buildings/README.md\n  - frontend/src/README.md\n  - shared/README.md\n  - tools/balance-sim/README.md\n\nЗАВИСИМОСТИ\n  P2.2-001, P2.2-009, P2.2-010\n\nКАК ПРОВЕРИТЬ\n  Backend focused tests: catalog audit, building eligibility/resource rates, building upgrade caps/high-tier costs. Frontend build or focused component/unit tests for build/upgrade yield preview.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Keep the rate/cost constants shared so backend, frontend, and balance-sim do not drift. Extra L6+ upgrade resources must stay within home-system availability or home-system production chains."
     },
     {
+      "id": "P2.2-013",
+      "epic": "EPIC-P2.2-BUILDING-ECONOMY",
+      "size": "M",
+      "title": "Оптимизация /resources/planets/:id и /me по энергии и эффектам",
+      "description": "Сделать сквозной проход по энергии и эффектам в /resources/planets/:id и /me: убрать дублирование resolvePlanetEnergyState и переиспользовать снимки research/building внутри одного запроса.",
+      "acceptance": [
+        "/resources/planets/:id выполняет единый pass по ресурсам и энергии без повторных проходов",
+        "/me использует единый request-scoped energy snapshot и не делает отдельный resolvePlanetEnergyState на каждую планету",
+        "Research effects и building snapshots читаются и кешируются один раз на request",
+        "Ответы /me и /resources/planets/:id не меняют публичный shape",
+        "Добавлены unit/integration тесты на invalidate кэша после research completion и building completion",
+        "Снижение числа DB запросов и p95 latency для /me в perf/benchmark",
+        "README по me/resources/research обновлены"
+      ],
+      "files": [
+        "backend/src/features/me/routes.ts",
+        "backend/src/features/resources/routes.ts",
+        "backend/src/features/resources/accrual.ts",
+        "backend/src/features/resources/energy.ts",
+        "backend/src/features/research/effects.ts",
+        "backend/src/features/research/completion.ts",
+        "backend/src/features/buildings/service.ts",
+        "backend/src/features/me/me.test.ts",
+        "backend/src/features/resources/accrual.test.ts",
+        "backend/src/features/resources/energy.test.ts",
+        "backend/src/features/research/effects.test.ts",
+        "backend/src/features/README.md",
+        "backend/src/features/resources/README.md"
+      ],
+      "deps": [
+        "P2.2-012",
+        "P1-122",
+        "P2-RES-004",
+        "P1-160"
+      ],
+      "verify": "Запустить интеграционные и perf-check для /me и /resources/planets/:id: меньше duplicate resolves, тот же response format, корректная инвалидация после completion.",
+      "notes": "Кэш должен быть request-scoped и invalidated на любых изменения research/building состояния; stale-снимки недопустимы.",
+      "prompt": "[TASK P2.2-013] Оптимизация /resources/planets/:id и /me по энергии и эффектам. Убрать повторные вызовы computeCurrentResources/resolvePlanetEnergyState в hot path, переиспользовать общий energy + research effects snapshot, объединить reads по ресурсам/постройкам/исследованиям в /me и /resources/planets/:id. Acceptance criteria: 1) /resources/planets/:id делает единый проход; 2) /me без дублирующих resolve per planet; 3) форматы ответов неизменны; 4) perf улучшен."
+    },
+    {
+      "id": "P2.2-014",
+      "epic": "EPIC-P2.2-BUILDING-ECONOMY",
+      "size": "M",
+      "title": "POST /buildings/build и /buildings/upgrade: убрать Redis/BullMQ из hot path",
+      "description": "Не создавать новый Redis/BullMQ connection в каждом request /buildings/build и /buildings/upgrade; enqueue completion должен выполняться через общий producer или hot-path-friendly путь без потери worker-овской логики.",
+      "acceptance": [
+        "/buildings/build и /buildings/upgrade больше не создают отдельное Redis/BullMQ соединение для каждого запроса",
+        "Валидация, списание ресурсов и установка queueAction остаются корректными",
+        "Завершение строений/апгрейдов выполняется через существующий worker и остается idempotent",
+        "Время ответа не блокируется connect/close очереди",
+        "Нет регресии по лимиту очереди и уведомлениям",
+        "Деградация при недоступном Redis соответствует текущему fallback плану",
+        "Документация отражает новый путь enqueue"
+      ],
+      "files": [
+        "backend/src/features/buildings/service.ts",
+        "backend/src/features/buildings/upgrade.ts",
+        "backend/src/features/buildings/routes.ts",
+        "backend/src/features/buildings/service.test.ts",
+        "backend/src/features/buildings/upgrade.test.ts",
+        "backend/src/workers/tick-buildings.ts",
+        "backend/src/workers/tick-buildings.test.ts",
+        "backend/src/features/buildings/README.md",
+        "backend/src/features/README.md"
+      ],
+      "deps": [
+        "P1-160",
+        "P1-161",
+        "P1-162",
+        "P2.2-013"
+      ],
+      "verify": "Unit/integration для build/upgrade и smoke по /buildings/build,/buildings/upgrade; проверка tick-buildings completion и latency на hot path",
+      "notes": "Сохранять fallback поведение worker-path: завершение не должно зависеть от request-time queue publishing.",
+      "prompt": "[TASK P2.2-014] POST /buildings/build и /buildings/upgrade: убрать Redis/BullMQ из hot path. Вынести создание очереди из request lifecycle. Проверить, что completion остаётся в tick-buildings и поведение fallback сохраняется."
+    },
+    {
+      "id": "P2.2-015",
+      "epic": "EPIC-P2.2-BUILDING-ECONOMY",
+      "size": "M",
+      "title": "Ребаланс стартовой и ледяной планет и состава месторождений",
+      "description": "Скорректировать начальную экономику и распределение ресурсов/потоков так, чтобы стартовый мир был сбалансированнее и не содержал перекоса по базовым металлам и газам.",
+      "acceptance": [
+        "В системе остаётся ровно одна ледяная планета с тритием, на неё добавлен алюминий",
+        "Нефтекачка/производство нефти теперь даёт и нефть, и метан",
+        "Биореактор добывает только жизненно важные ресурсы: воду и биомассу",
+        "Газовая добывающая ветка добывает только газы и обязательно поддерживает метан",
+        "Добавлен ресурсный слот серебра (уровень 2) на каменной планете",
+        "Добавлен ресурсный слот золота (уровень 3) на каменной планете",
+        "Добавлен газ азот как редкий ресурс (уровень 3) на газовом гиганте",
+        "Добавлены кислород и водород как газы первого уровня на газовом гиганте",
+        "Кислород и водород добавлены и на водной планете, где также появляется 3 клетки воды",
+        "Планета 1: минералогический профиль пересобран с акцентом на железо, минимум 2 слота железа и по 1 слоту кремния и углерода",
+        "Семплы и/или скрипты спавна стартовых планет отражают новые слоты без нарушения миграций и seed-детерминизма"
+      ],
+      "files": [
+        "backend/src/db/seed/catalog-rows.ts",
+        "backend/src/db/seed/resources.ts",
+        "backend/src/db/seed.ts",
+        "backend/src/db/seed/audit.ts",
+        "backend/src/features/world/home-system-generator.ts",
+        "backend/src/features/colonies/bootstrap.ts",
+        "backend/src/features/resources/accrual.ts",
+        "backend/src/features/resources/routes.ts",
+        "backend/src/workers/tick-buildings.ts",
+        "tasks/tasks.json",
+        "DOCUMENTATION.md",
+        "backend/src/db/README.md",
+        "backend/src/features/README.md",
+        "backend/src/features/resources/README.md"
+      ],
+      "deps": [
+        "P2.2-014"
+      ],
+      "verify": "Запустить seed/bootstrap и проверку карты на детерминизм: правильные типы и уровни слотов на ледяной/водной/газовой/первой планете, корректность добычи (нефть+метан, биореактор вода+биомасса, газовые структуры только газы), прогон smoke по /resources/planets/:id и /me.",
+      "notes": "Точный баланс должен соблюдаться и для новых сателлитов/переинициализаций при bootstrap. Не вводить изменения, которые изменяют общую редкость ресурсов без обновления seed-аудита и имён локализации.",
+      "prompt": "[TASK P2.2-015] Ребаланс стартовой и ледяной планет и состава месторождений\n\nОПИСАНИЕ\nОставить ровно одну ледяную планету с тритием и добавить в неё алюминий. Нефтяные производства должны отдавать нефть и метан. Биореактор должен добывать воду и биомассу (жизнеобеспечение). Жидкостно-газовая добыча должна выдавать только газы (включая метан). Добавить серебро (уровень 2) и золото (уровень 3) на каменных планетах. Добавить газы: азот (редкий, 3 уровень), кислород и водород (первый уровень) на газовом гиганте. Добавить кислород и водород и на водную планету; у неё 3 клетки воды. Перебалансировать первую планету: вместо двух кремниевых и двух углеродных слотов сделать смещение в сторону железа (рекомендуемо 2 железа, по одному кремнию и углероду)."
+    },
+    {
       "id": "P2.3-500",
       "epic": "EPIC-P2.3-JUMP-GATE",
       "size": "XL",
