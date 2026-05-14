@@ -9,6 +9,7 @@ This document exists for future verification. It records why the roadmap was exp
 - P2 expands the current MVP into a broader solo game: colonies, cargo, research levels 1-3, and balance/regression tooling.
 - P2.3 adds the missing navigation bridge from the protected Home System into Common Pool: Jump Gate unlock, random jump, known destinations, and gate-routed scout/colonizer/cargo missions.
 - P3 introduces multiplayer surfaces: shared sector presence and alliances.
+- P3 combat extends the multiplayer roadmap with Weapons progression, military production, fuel/refuel support, server-authoritative combat, bombing, shields, and regression gates.
 - P4 prepares production launch: deployment, observability, backups, security, analytics, and monetization readiness.
 - P5 defines post-launch live operations: events, content packs, balance loop, and support/admin runbooks.
 
@@ -22,6 +23,7 @@ This document exists for future verification. It records why the roadmap was exp
 | `EPIC-P2.3-JUMP-GATE` | P2.3 | Phase 2.3 — Jump Gate and Common Pool routing | 9 |
 | `EPIC-P3-MAP` | P3 | Phase 3 — Multiplayer common map | 2 |
 | `EPIC-P3-ALL` | P3 | Phase 3 — Alliances | 2 |
+| `EPIC-P3-COMBAT` | P3 | Phase 3 — Combat, weapons and fleet support progression | 14 |
 | `EPIC-P4-DEPLOY` | P4 | Phase 4 — Production deployment | 3 |
 | `EPIC-P4-OPS` | P4 | Phase 4 — Operations and observability | 2 |
 | `EPIC-P4-SEC` | P4 | Phase 4 — Security and abuse prevention | 2 |
