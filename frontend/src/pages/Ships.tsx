@@ -8,13 +8,20 @@ import {
 } from "../hooks/useShips";
 import { ExpeditionDialog } from "../components/ExpeditionDialog";
 import { ResourceBar } from "../components/ResourceBar";
-import { CosmicBackground, CosmicBottomNav } from "../components/cosmic/atoms";
+import { CosmicBackground, CosmicBottomNav, QueueStrip } from "../components/cosmic/atoms";
 import { ChevronLeft } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
-import type { Ship } from "@shared/types/ships";
+import type { Ship, ShipQueueItem, ShipType } from "@shared/types/ships";
+import type { RushPricing } from "@shared/types/diamonds";
+import { estimateRushDiamondCost } from "@shared/types/diamonds";
 import type { Building, Planet } from "@shared/types/world";
 import { getResourceLabel, getResourceSymbol } from "../components/cosmic/resources";
 import { timerSnapshot } from "../lib/timers";
+import {
+  isShipReadyForOrders,
+  mergeShipBuildQueue,
+  queueItemFromBuildingShip,
+} from "../lib/ship-queue";
 import { useI18n } from "../lib/i18n";
 import {
   resolveShipBuildBlockedReason,
@@ -37,6 +44,66 @@ function formatDuration(totalSeconds: number): string {
   const seconds = Math.max(0, Math.ceil(totalSeconds));
   const minutes = Math.floor(seconds / 60);
   return `${minutes}m ${String(seconds % 60).padStart(2, "0")}s`;
+}
+
+function ShipBuildQueue({
+  queue,
+  ships,
+  shipTypes,
+  now,
+  diamondBalance,
+  rushPricing,
+  rushShip,
+}: {
+  queue: ShipQueueItem[];
+  ships: Ship[];
+  shipTypes: ShipType[];
+  now: number;
+  diamondBalance: number;
+  rushPricing: RushPricing | null;
+  rushShip: ReturnType<typeof useRushShip>;
+}) {
+  const { locale, t } = useI18n();
+  const mergedQueue = useMemo(
+    () => mergeShipBuildQueue(queue, ships),
+    [queue, ships],
+  );
+
+  const head = mergedQueue[0];
+  if (!head) return null;
+
+  const snapshot = timerSnapshot({
+    completesAt: head.queueCompletesAt,
+    startedAt: head.queueStartedAt,
+    nowMs: now,
+  });
+  const type = shipTypes.find((candidate) => candidate.id === head.typeId);
+  const rushCost =
+    rushPricing != null
+      ? estimateRushDiamondCost(
+          snapshot.remainingSec,
+          rushPricing.diamondsPerMinute,
+          rushPricing.maxPerAction,
+        )
+      : head.rushCost ?? 0;
+  const title = `${type?.name?.[locale] ?? getShipLabel(head.typeId, locale)} · ${t("ships.building")}`;
+  const waitingForServerId = head.id.startsWith("temp-");
+
+  return (
+    <QueueStrip
+      title={title}
+      etaSec={snapshot.remainingSec}
+      progressPct={snapshot.progressPct}
+      rushCost={rushCost}
+      diamondBalance={diamondBalance}
+      rushBusy={rushShip.isPending}
+      rushDisabled={waitingForServerId}
+      rushLabel={t("ships.rushBuild")}
+      onRush={() => {
+        if (!waitingForServerId) rushShip.mutate(head.id);
+      }}
+    />
+  );
 }
 
 /**
@@ -145,11 +212,14 @@ export function ShipsPage() {
     });
   };
 
-  const handleBuildShip = async (typeSlug: string) => {
+  const handleBuildShip = async (typeSlug: string, estimatedDurationSec: number) => {
     if (!selectedPlanet) return;
     try {
-      await buildShip.mutateAsync({ planetId: selectedPlanet.id, typeSlug });
-      alert(t("ships.queueAdded"));
+      await buildShip.mutateAsync({
+        planetId: selectedPlanet.id,
+        typeSlug,
+        estimatedDurationSec,
+      });
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : t("ships.queueFailed");
@@ -344,7 +414,7 @@ export function ShipsPage() {
                           disabled={
                             !selectedPlanet || !canBuild || buildShip.isPending
                           }
-                          onClick={() => handleBuildShip(type.id)}
+                          onClick={() => handleBuildShip(type.id, type.buildTimeSec)}
                           className="cosmic-cta"
                           style={{
                             marginTop: 6,
@@ -410,10 +480,9 @@ export function ShipsPage() {
               const type = getShipType(ship.typeId);
               const isCargoShip = isCargoTransferShip(ship, shipTypes);
               const isDiscoveryProbe = ship.typeId === "recon_probe";
-              const queueItem = queueByShipId.get(ship.id);
-              const effectiveStatus =
-                ship.status === "building" && !queueItem ? "idle" : ship.status;
-              const isIdle = effectiveStatus === "idle";
+              const queueItem = queueByShipId.get(ship.id) ?? queueItemFromBuildingShip(ship);
+              const effectiveStatus = ship.status;
+              const isIdle = isShipReadyForOrders(ship);
               const isBuilding = effectiveStatus === "building";
               const activeExpedition = activeExpeditionByShipId.get(ship.id);
               const buildTimer = queueItem
@@ -514,36 +583,17 @@ export function ShipsPage() {
                             ? `ETA ${formatDuration(expeditionEtaSec)}`
                             : t("ships.inTransit").toUpperCase()}
                     </button>
-                    {isBuilding && queueItem ? (
-                      <>
-                        {buildTimer ? (
-                          <div className="qstrip-bar" style={{ marginTop: 8 }}>
-                            <div
-                              className="qstrip-fill"
-                              style={{
-                                width: `${buildTimer.progressPct}%`,
-                                background: "#5BD7FF",
-                                boxShadow: "0 0 6px #5BD7FF",
-                              }}
-                            />
-                          </div>
-                        ) : null}
-                        <button
-                          type="button"
-                          className="cosmic-cta"
-                          onClick={() => rushShip.mutate(ship.id)}
-                          disabled={rushShip.isPending}
+                    {isBuilding && buildTimer ? (
+                      <div className="qstrip-bar" style={{ marginTop: 8 }}>
+                        <div
+                          className="qstrip-fill"
                           style={{
-                            marginTop: 6,
-                            padding: "6px 12px",
-                            fontSize: 11,
+                            width: `${buildTimer.progressPct}%`,
+                            background: "#5BD7FF",
+                            boxShadow: "0 0 6px #5BD7FF",
                           }}
-                        >
-                          {rushShip.isPending
-                            ? t("ships.rushing").toUpperCase()
-                            : `◆ ${queueItem.rushCost ?? 0} ${t("ships.rushBuild").toUpperCase()}`}
-                        </button>
-                      </>
+                        />
+                      </div>
                     ) : null}
                   </div>
                   <div className="ship-stats">
@@ -563,7 +613,18 @@ export function ShipsPage() {
         )}
       </div>
 
-      <CosmicBottomNav />
+      <div className="fixed-bottom-ui">
+        <ShipBuildQueue
+          queue={shipQueueData?.queue ?? []}
+          ships={visibleShips}
+          shipTypes={shipTypes ?? []}
+          now={now}
+          diamondBalance={meData?.diamonds ?? 0}
+          rushPricing={meData?.rushPricing ?? null}
+          rushShip={rushShip}
+        />
+        <CosmicBottomNav />
+      </div>
 
       {selectedShip &&
         selectedShipType &&

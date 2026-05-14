@@ -138,6 +138,12 @@ describe('Building Upgrade - POST /buildings/upgrade', () => {
     expect(body.queueItem).toBeDefined();
     expect(body.queueItem.id).toBe(building.id);
     expect(body.queueItem.completesAt).toBeDefined();
+    expect(body.queueItem.queueCompletesAt).toBeDefined();
+    expect(body.queueItem.queueStartedAt).toBeDefined();
+    expect(body.queueItem.planetId).toBe(planetId);
+    expect(body.queueItem.buildingTypeId).toBe('mine');
+    expect(body.queueItem.queueAction).toBe('upgrade');
+    expect(body.queueItem.level).toBe(1);
   });
 
   it('should return 404 for non-existent building', async () => {

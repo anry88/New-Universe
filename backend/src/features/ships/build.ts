@@ -9,8 +9,10 @@ import { getPlayerPlanetSettlement } from '../colonies/ownership.js';
 import { env } from '../../lib/env.js';
 import {
   formatShipBuildErrorMessage,
+  type Ship,
   type ShipBuildErrorCode,
   type ShipBuildErrorDetails,
+  type ShipQueueItem,
 } from '@shared/types/ships.js';
 
 export interface BuildShipRequest {
@@ -21,7 +23,8 @@ export interface BuildShipRequest {
 export interface BuildShipResult {
   success: boolean;
   status: number;
-  ship?: typeof ships.$inferSelect;
+  ship?: Ship;
+  queueItem?: ShipQueueItem;
   error?: string;
   code?: ShipBuildErrorCode;
   details?: Omit<ShipBuildErrorDetails, 'code'>;
@@ -140,6 +143,11 @@ export async function buildShip(
       }
     }
 
+    const queueCompletesAt = new Date(Date.now() + type.buildTimeSec * 1000);
+    const queueStartedAt = new Date(
+      queueCompletesAt.getTime() - type.buildTimeSec * 1000,
+    ).toISOString();
+
     const [newShip] = await tx
       .insert(ships)
       .values({
@@ -147,7 +155,7 @@ export async function buildShip(
         typeId: typeSlug,
         locationPlanetId: planetId,
         status: 'building',
-        queueCompletesAt: new Date(Date.now() + type.buildTimeSec * 1000),
+        queueCompletesAt,
         cargoJson: {},
         fuel: '0',
       })
@@ -177,7 +185,21 @@ export async function buildShip(
     return {
       success: true,
       status: 200,
-      ship: newShip,
+      ship: {
+        ...newShip,
+        queueCompletesAt: queueCompletesAt.toISOString(),
+        queueStartedAt,
+        cargoJson: newShip.cargoJson as Record<string, number>,
+      },
+      queueItem: {
+        id: newShip.id,
+        planetId,
+        typeId: typeSlug,
+        status: 'building',
+        queueCompletesAt: queueCompletesAt.toISOString(),
+        queueStartedAt,
+        rushCost: rushDiamondCost(rushRemainingSeconds(queueCompletesAt)),
+      },
     } satisfies BuildShipResult;
   });
 

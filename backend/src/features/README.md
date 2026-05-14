@@ -68,7 +68,7 @@ Player state retrieval.
 
 Building construction and queue management. [Detailed documentation](./buildings/README.md).
 
-- **`routes.ts`** — `buildingsRoutes(app)` registers mutation-rate-limited, JSON-schema-validated building endpoints including `POST /buildings/build`, `POST /buildings/resource`, `POST /buildings/upgrade`, `POST /buildings/demolish`, `POST /buildings/sync/:planetId`, and `POST /buildings/rush`. Requires a valid JWT in the `Authorization: Bearer <token>` header. Build accepts `{ planetId, typeId, slotIndex, selectedResourceId? }`; retargeting accepts `{ buildingId, selectedResourceId }`.
+- **`routes.ts`** — `buildingsRoutes(app)` registers mutation-rate-limited, JSON-schema-validated building endpoints including `POST /buildings/build`, `POST /buildings/resource`, `POST /buildings/upgrade`, `POST /buildings/demolish`, `POST /buildings/sync/:planetId`, and `POST /buildings/rush`. Requires a valid JWT in the `Authorization: Bearer <token>` header. Build accepts `{ planetId, typeId, slotIndex, selectedResourceId? }`; build/upgrade responses include full queue metadata (`planetId`, `buildingTypeId`, `queueStartedAt`, `queueCompletesAt`, `rushCost`) for optimistic UI replacement; retargeting accepts `{ buildingId, selectedResourceId }`.
 - **`service.ts`** — `BuildingService.build(userId, { planetId, typeSlug })` performs the full build flow:
   1. Validates the planet exists and has an active settlement for the requesting user.
   2. Looks up the building type from the catalog.
@@ -165,7 +165,7 @@ Tech tree definitions and starting research on a planet.
 
 Ship construction and fleet queue helpers.
 
-- **`build.ts`** — `buildShip`, `getShipQueue`, `rushShipBuild`, and `syncReadyShips(userId?, options?)`. Queue payloads include server-derived `queueStartedAt`; `syncReadyShips` can be scoped to the active user and suppress stale pending `ship_done` notifications. Ship build blockers return structured codes/details formatted through shared localized entity labels before reaching the client. Ship build completion is always persisted in Postgres (`status='building'` + `queueCompletesAt`), then:
+- **`build.ts`** — `buildShip`, `getShipQueue`, `rushShipBuild`, and `syncReadyShips(userId?, options?)`. Build responses and queue payloads include server-derived `queueStartedAt`; `POST /ships/build` returns both the created `ship` and matching `queueItem` so the client can replace optimistic temporary ids without waiting for `/ships/queue`. `syncReadyShips` can be scoped to the active user and suppress stale pending `ship_done` notifications. Ship build blockers return structured codes/details formatted through shared localized entity labels before reaching the client. Ship build completion is always persisted in Postgres (`status='building'` + `queueCompletesAt`), then:
   - `ENABLE_BULLMQ=true` keeps the historical BullMQ delayed-job enqueue path.
   - `ENABLE_BULLMQ=false` relies on periodic database polling in the worker and active-session `/me` sync.
 - **`routes.ts`** — registers `GET /types`, JSON-schema-validated `POST /build`, `GET /queue`, and JSON-schema-validated `POST /rush`; ship mutations declare rate-limit/security metadata. Queue reads run user-scoped `syncReadyShips(..., { skipNotifications: true })` before returning the current queue.
