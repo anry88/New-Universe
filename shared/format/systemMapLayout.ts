@@ -32,6 +32,9 @@ export const SYSTEM_MAP_BIOME_ORBIT_TIER: Record<string, number> = {
   gas_giant: 5,
   ice: 6,
   anomaly: 7,
+  toxic: 7,
+  metallic: 7,
+  energy: 7,
   unknown: 99,
 };
 
@@ -46,6 +49,9 @@ const SYSTEM_MAP_BIOME_SPRITE_BASE: Record<string, number> = {
   gas_giant: 82,
   ice: 64,
   anomaly: 60,
+  toxic: 58,
+  metallic: 68,
+  energy: 62,
   unknown: 46,
 };
 

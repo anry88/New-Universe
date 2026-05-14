@@ -12,6 +12,7 @@ import {
 } from '../research/effects.js';
 
 export const ENERGY_RESOURCE_ID = 'energy';
+export const ENERGY_FREE_BIOME_ID = 'energy';
 export const BATTERY_BUILDING_TYPE_ID = 'battery';
 export const PASSIVE_ENERGY_PRODUCER_TYPES = new Set(['solar_plant', 'wind_turbine']);
 export const PROCESS_ENERGY_CONSUMER_TYPES = new Set(['smelter', 'refinery', 'fabrication_bay', 'cryo_factory']);
@@ -86,6 +87,10 @@ function isOperational(building: PlanetEnergyBuildingRow): boolean {
   return building.queueAction !== 'build' && building.level > 0;
 }
 
+export function isEnergyFreePlanet(planet: Pick<PlanetEnergyInput, 'biome'> | null | undefined): boolean {
+  return planet?.biome === ENERGY_FREE_BIOME_ID;
+}
+
 function energyCapacityForBuilding(building: PlanetEnergyBuildingRow, effects: ResearchEffects): number {
   if (building.typeId !== BATTERY_BUILDING_TYPE_ID || !isOperational(building)) return 0;
   const output = building.type?.baseOutput ?? {};
@@ -139,6 +144,7 @@ function resolveEnergyStateFromRows(
   now = new Date(),
   effects: ResearchEffects = NO_RESEARCH_EFFECTS,
 ): ResolvedPlanetEnergyState {
+  const energyFree = isEnergyFreePlanet(planet);
   const operationalBuildings = planet.buildings?.filter(isOperational) ?? [];
   const activeProcessCountByBuildingId = new Map<string, number>();
   for (const order of planet.activeProductionOrders ?? []) {
@@ -150,17 +156,19 @@ function resolveEnergyStateFromRows(
   }
   const capacity = operationalBuildings.reduce((sum, building) => sum + energyCapacityForBuilding(building, effects), 0);
   const produced = operationalBuildings.reduce((sum, building) => sum + energyProductionForBuilding(planet, building, effects), 0);
-  const consumed = operationalBuildings.reduce(
-    (sum, building) =>
-      sum +
-      energyConsumptionForBuilding(building, effects) +
-      processEnergyConsumptionForBuilding(
-        building,
-        activeProcessCountByBuildingId.get(building.id) ?? 0,
-        effects,
-      ),
-    0,
-  );
+  const consumed = energyFree
+    ? 0
+    : operationalBuildings.reduce(
+        (sum, building) =>
+          sum +
+          energyConsumptionForBuilding(building, effects) +
+          processEnergyConsumptionForBuilding(
+            building,
+            activeProcessCountByBuildingId.get(building.id) ?? 0,
+            effects,
+          ),
+        0,
+      );
   const netRate = produced - consumed;
 
   const startingAmount = Math.max(0, Number(energyRow?.amount ?? 0));
@@ -174,13 +182,14 @@ function resolveEnergyStateFromRows(
   const buildingStates: Record<string, BuildingEnergyState> = {};
   for (const building of planet.buildings ?? []) {
     const production = energyProductionForBuilding(planet, building, effects);
-    const consumption =
-      energyConsumptionForBuilding(building, effects) +
-      processEnergyConsumptionForBuilding(
-        building,
-        activeProcessCountByBuildingId.get(building.id) ?? 0,
-        effects,
-      );
+    const consumption = energyFree
+      ? 0
+      : energyConsumptionForBuilding(building, effects) +
+        processEnergyConsumptionForBuilding(
+          building,
+          activeProcessCountByBuildingId.get(building.id) ?? 0,
+          effects,
+        );
     const capacityForBuilding = energyCapacityForBuilding(building, effects);
     if (production <= 0 && consumption <= 0 && capacityForBuilding <= 0) continue;
 

@@ -28,6 +28,7 @@ export const EXTRACTABLE_RESOURCE_RATES_PER_HOUR = {
   silicon_carbide: 6,
   tritium: 2,
   gold: 5,
+  antimatter: 1,
   iridium: 2,
   biomass: 4,
 } as const satisfies Record<string, number>;

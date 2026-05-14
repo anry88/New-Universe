@@ -3943,6 +3943,62 @@
       "verify": "Focused backend e2e scenario; optional RUN_PLAYWRIGHT_E2E=1 ./scripts/ci-verify.sh for closing rollup.",
       "notes": "Default CI не должен получить обязательный Playwright шаг; browser E2E остаётся через label `run-e2e` для epic PR.",
       "prompt": "[TASK P2.3-508] Jump Gate end-to-end regression scenario\n\nОПИСАНИЕ\nДобавить regression сценарий для всего контура: завершить Jump Drive I, открыть Jump Gate, выполнить random jump, сохранить known destination, разведать/колонизировать common planet и доставить cargo через врата без утечек Home System.\n\nACCEPTANCE CRITERIA\n  1. Automated scenario проходит через unlock → random jump → known destination → discovery/colonization → cargo delivery\n  2. Сценарий проверяет, что foreign Home System не появляется в sector/common payloads\n  3. Повторный запуск worker/online sync не дублирует cargo, colony или discovery rows\n  4. Regression doc описывает manual smoke для Telegram Mini App на mobile viewport\n  5. Rollup `P2.3-500` получает evidence commands и known residual risks before closure\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/tests/e2e/\n  - frontend/tests/e2e/\n  - docs/testing/\n  - tasks/ROADMAP_P2_3_JUMP_GATE.md\n  - tasks/ROADMAP_COVERAGE_MATRIX.md\n  - scripts/ci-verify.sh\n\nЗАВИСИМОСТИ\n  P2.3-507, P2.3-506\n\nКАК ПРОВЕРИТЬ\n  Focused backend e2e scenario; optional RUN_PLAYWRIGHT_E2E=1 ./scripts/ci-verify.sh for closing rollup.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Default CI не должен получить обязательный Playwright шаг; browser E2E остаётся через label `run-e2e` для epic PR."
+    },
+    {
+      "id": "P2.3-509",
+      "epic": "EPIC-P2.3-JUMP-GATE",
+      "size": "M",
+      "title": "Common planet resource rebalance",
+      "description": "Перебалансировать генерацию общих планет и ресурсов: убрать dark_matter из активного каталога, добавить richness для common planets по биомам и новым типам аномальных миров, расширить количество планет в common-системах и слегка усилить залежи домашней системы.",
+      "acceptance": [
+        "Каталог ресурсов больше не содержит dark_matter; anomaly использует antimatter как единственный уникальный аномальный ресурс",
+        "Common-system generation создаёт 6-9 планет; при 9 планетах минимум одна имеет аномальный подтип",
+        "Common planets получают deterministic richness + zero-regen planet_resources при генерации без startup/data-cleanup миграций",
+        "Все добываемые ресурсы активного каталога имеют хотя бы один common planet type, где они могут заспавниться",
+        "Аномальные common planets имеют подтипы: anomaly, toxic, metallic, energy; energy variant не даёт добываемых залежей, но фиксирует energy-free production/building hook для будущих правил",
+        "Home-system starter plan получает дополнительные слоты для распространённых ресурсов без добавления tier-4/dark matter и без ломания текущих progression guarantees",
+        "Unit tests покрывают количество common planets, guaranteed anomaly при 9, resource coverage, отсутствие dark_matter и усиленные home deposits"
+      ],
+      "files": [
+        "backend/src/db/seed/catalog-rows.ts",
+        "backend/src/features/world/biomes.ts",
+        "backend/src/features/world/sector-generator.ts",
+        "backend/src/features/world/sector-generator.test.ts",
+        "backend/src/features/world/home-system-generator.ts",
+        "backend/src/features/world/home-system-generator.test.ts",
+        "backend/src/features/resources/energy.ts",
+        "backend/src/features/resources/energy.test.ts",
+        "backend/src/features/resources/production.ts",
+        "backend/src/features/resources/production.test.ts",
+        "shared/types/research.ts",
+        "shared/types/entity-labels.ts",
+        "shared/types/building-eligibility.ts",
+        "shared/config/resourceExtractionRates.ts",
+        "shared/format/systemMapLayout.ts",
+        "frontend/src/components/cosmic/planets.tsx",
+        "frontend/src/components/cosmic/resources.ts",
+        "frontend/src/components/pixi/SystemRenderer.tsx",
+        "frontend/src/components/BuildDialog.tsx",
+        "frontend/src/components/UpgradeDialog.tsx",
+        "frontend/src/pages/PlanetDetail.tsx",
+        "frontend/src/README.md",
+        "tools/balance-sim/src/catalog.ts",
+        "docs/Stellar_Forge_Diagrams.html",
+        "backend/src/README.md",
+        "backend/src/db/README.md",
+        "backend/src/features/README.md",
+        "backend/src/features/resources/README.md",
+        "shared/README.md",
+        "DOCUMENTATION.md",
+        "CHANGELOG.md"
+      ],
+      "deps": [
+        "P2.3-503",
+        "P2.3-506"
+      ],
+      "verify": "Focused backend world tests and catalog audit; backend typecheck/build if available. No destructive data migration: local planning databases can be recreated.",
+      "notes": "Не добавлять миграцию удаления/пересоздания данных: на этапе проектирования dev-базу можно пересоздать. Energy anomaly отключает операционные энергозатраты построек и активных production orders на уровне server-side energy accounting.",
+      "prompt": "[TASK P2.3-509] Common planet resource rebalance\n\nОПИСАНИЕ\nПеребалансировать генерацию общих планет и ресурсов: убрать dark_matter из активного каталога, добавить richness для common planets по биомам и новым типам аномальных миров, расширить количество планет в common-системах и слегка усилить залежи домашней системы.\n\nACCEPTANCE CRITERIA\n  1. Каталог ресурсов больше не содержит dark_matter; anomaly использует antimatter как единственный уникальный аномальный ресурс\n  2. Common-system generation создаёт 6-9 планет; при 9 планетах минимум одна имеет аномальный подтип\n  3. Common planets получают deterministic richness + zero-regen planet_resources при генерации без startup/data-cleanup миграций\n  4. Все добываемые ресурсы активного каталога имеют хотя бы один common planet type, где они могут заспавниться\n  5. Аномальные common planets имеют подтипы: anomaly, toxic, metallic, energy; energy variant не даёт добываемых залежей, но отключает операционные энергозатраты построек и production orders\n  6. Home-system starter plan получает дополнительные слоты для распространённых ресурсов без добавления tier-4/dark matter и без ломания текущих progression guarantees\n  7. Unit tests покрывают количество common planets, guaranteed anomaly при 9, resource coverage, отсутствие dark_matter и усиленные home deposits\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - backend/src/db/seed/catalog-rows.ts\n  - backend/src/features/world/biomes.ts\n  - backend/src/features/world/sector-generator.ts\n  - backend/src/features/world/sector-generator.test.ts\n  - backend/src/features/world/home-system-generator.ts\n  - backend/src/features/world/home-system-generator.test.ts\n  - backend/src/features/resources/energy.ts\n  - backend/src/features/resources/energy.test.ts\n  - backend/src/features/resources/production.ts\n  - backend/src/features/resources/production.test.ts\n  - shared/types/research.ts\n  - shared/types/entity-labels.ts\n  - shared/types/building-eligibility.ts\n  - shared/config/resourceExtractionRates.ts\n  - shared/format/systemMapLayout.ts\n  - frontend/src/components/cosmic/planets.tsx\n  - frontend/src/components/cosmic/resources.ts\n  - frontend/src/components/pixi/SystemRenderer.tsx\n  - frontend/src/components/BuildDialog.tsx\n  - frontend/src/components/UpgradeDialog.tsx\n  - frontend/src/pages/PlanetDetail.tsx\n  - frontend/src/README.md\n  - tools/balance-sim/src/catalog.ts\n  - docs/Stellar_Forge_Diagrams.html\n  - backend/src/README.md\n  - backend/src/db/README.md\n  - backend/src/features/README.md\n  - backend/src/features/resources/README.md\n  - shared/README.md\n  - DOCUMENTATION.md\n  - CHANGELOG.md\n\nЗАВИСИМОСТИ\n  P2.3-503, P2.3-506\n\nКАК ПРОВЕРИТЬ\n  Focused backend world tests and catalog audit; backend typecheck/build if available. No destructive data migration: local planning databases can be recreated.\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Не добавлять миграцию удаления/пересоздания данных: на этапе проектирования dev-базу можно пересоздать. Energy anomaly отключает операционные энергозатраты построек и активных production orders на уровне server-side energy accounting."
     }
   ]
 }

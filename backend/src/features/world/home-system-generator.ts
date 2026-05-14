@@ -61,36 +61,36 @@ interface HomePlanetOrbitPlanEntry {
 export const HOME_PLANET_ORBIT_PLAN: readonly HomePlanetOrbitPlanEntry[] = [
   {
     biome: 'volcanic',
-    resources: ['sulfur', 'iron', 'copper'],
+    resources: ['sulfur', 'sulfur', 'iron', 'iron', 'copper'],
   },
   {
     biome: 'volcanic',
-    resources: ['sulfur', 'copper', 'titanium'],
+    resources: ['sulfur', 'sulfur', 'copper', 'copper', 'titanium'],
   },
   {
     biome: 'rocky',
-    resources: ['iron', 'copper', 'aluminum', 'silver'],
+    resources: ['iron', 'iron', 'copper', 'copper', 'aluminum', 'silver'],
   },
   {
     biome: 'rocky',
-    resources: ['silicon', 'carbon', 'titanium', 'gold'],
+    resources: ['silicon', 'silicon', 'carbon', 'carbon', 'titanium', 'gold'],
   },
   {
     biome: 'ocean',
-    resources: ['water', 'water', 'water', 'biomass', 'oil', 'oxygen', 'hydrogen'],
+    resources: ['water', 'water', 'water', 'water', 'biomass', 'oil', 'oxygen', 'oxygen', 'hydrogen'],
   },
   {
     biome: 'green',
-    resources: ['water', 'iron', 'iron', 'carbon', 'silicon', 'oil', 'methane', 'biomass'],
+    resources: ['water', 'water', 'iron', 'iron', 'carbon', 'carbon', 'silicon', 'silicon', 'oil', 'methane', 'biomass'],
     isCapital: true,
   },
   {
     biome: 'gas_giant',
-    resources: ['methane', 'oxygen', 'hydrogen', 'nitrogen'],
+    resources: ['methane', 'methane', 'oxygen', 'oxygen', 'hydrogen', 'hydrogen', 'nitrogen'],
   },
   {
     biome: 'ice',
-    resources: ['ice', 'ice', 'water', 'oil', 'tritium'],
+    resources: ['ice', 'ice', 'ice', 'water', 'water', 'oil', 'tritium'],
   },
 ] as const;
 
@@ -258,7 +258,7 @@ export async function generateHomeSystem(userId: string, tx?: any) {
       // Resource slots per planet are hand-authored for the starter system.
       // Repeating a resource id in the plan means multiple local deposit
       // cells (`richness.value`), e.g. the capital has 2 iron slots and the
-      // ocean world has 3 water slots.
+      // ocean world has 4 water slots.
       const planetResourcesList = [...planetPlan.resources];
       const resourceSlotCounts = new Map<string, number>();
       for (const resId of planetResourcesList) {
@@ -277,7 +277,6 @@ export async function generateHomeSystem(userId: string, tx?: any) {
           'cobalt',
           'silicon_carbide',
           'antimatter',
-          'dark_matter',
           'iridium',
         ];
         if (t3t4forbidden.includes(resId)) continue;

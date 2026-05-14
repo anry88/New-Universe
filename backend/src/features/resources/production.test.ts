@@ -22,7 +22,11 @@ describe('production orders', () => {
     await seedResearchCatalog();
   });
 
-  async function createProductionPlanet(buildingTypeId = 'smelter', buildingLevel = 1) {
+  async function createProductionPlanet(
+    buildingTypeId = 'smelter',
+    buildingLevel = 1,
+    biome = 'green',
+  ) {
     const [user] = await db.insert(users).values({
       tgId: BigInt(Math.floor(Math.random() * 1_000_000_000)),
       tgUsername: `production_${Math.random()}`,
@@ -44,7 +48,7 @@ describe('production orders', () => {
 
     const [planet] = await db.insert(planets).values({
       systemId: system.id,
-      biome: 'green',
+      biome,
       size: 12,
       slotCount: 8,
       name: `Production Planet ${Math.random()}`,
@@ -284,6 +288,25 @@ describe('production orders', () => {
     expect(fuelPreview.canStart).toBe(true);
     expect(fuelPreview.output.amount).toBeCloseTo(90 * 1.18, 4);
     expect(fuelPreview.output.amount).toBeGreaterThan(methanePreview.output.amount);
+  });
+
+  it('does not require production energy on energy anomaly planets', async () => {
+    const { user, planet, building } = await createProductionPlanet('smelter', 1, 'energy');
+    await db
+      .update(planetResources)
+      .set({ amount: '0', regenRate: '0' })
+      .where(and(eq(planetResources.planetId, planet.id), eq(planetResources.resourceId, 'energy')));
+
+    const preview = await productionService.preview(user.id, {
+      planetId: planet.id,
+      buildingId: building.id,
+      recipeId: 'steel_from_iron_water',
+      quantity: 10,
+    });
+
+    expect(preview.canStart).toBe(true);
+    expect(preview.energyPerHour).toBe(0);
+    expect(preview.blockedReason).toBeUndefined();
   });
 
   it('pauses queued production when energy runs out and resumes after charge returns', async () => {

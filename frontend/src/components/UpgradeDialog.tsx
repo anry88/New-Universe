@@ -31,6 +31,8 @@ interface UpgradeDialogProps {
   isProcessing: boolean;
   /** Biome accent override; defaults to Atlas cyan. */
   accent?: string;
+  /** Energy anomaly worlds waive operational energy demand. */
+  energyFree?: boolean;
 }
 
 /**
@@ -53,6 +55,7 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
   onChangeResource,
   isProcessing,
   accent = '#5BD7FF',
+  energyFree = false,
 }) => {
   const [explainedReason, setExplainedReason] = React.useState<BuildBlockedReason | null>(null);
   const { locale, t } = useI18n();
@@ -172,7 +175,9 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
                       })
                     : 0;
                   const consumesEnergyOnlyDuringProcess = recipesForBuildingType(typeInfo.id).length > 0;
-                  const idleEnergyConsumption = consumesEnergyOnlyDuringProcess ? 0 : typeInfo.energyConsumption;
+                  const idleEnergyConsumption = energyFree || consumesEnergyOnlyDuringProcess
+                    ? 0
+                    : typeInfo.energyConsumption;
                   
                   return (
                     <>

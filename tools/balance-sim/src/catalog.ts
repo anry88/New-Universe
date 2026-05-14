@@ -38,6 +38,7 @@ export const EXTRACTABLE_RESOURCE_RATES_PER_HOUR = {
   silicon_carbide: 6,
   tritium: 2,
   gold: 5,
+  antimatter: 1,
   iridium: 2,
   biomass: 4,
 } as const;
@@ -394,7 +395,6 @@ export const RESOURCE_TIER: Record<string, number> = {
   gold: 3,
   jump_fuel: 3,
   antimatter: 4,
-  dark_matter: 4,
   iridium: 4,
   biomass: 4,
 };

@@ -45,6 +45,8 @@ interface BuildDialogProps {
     capacity?: number;
     net?: number;
   };
+  /** Energy anomaly worlds waive operational energy demand. */
+  energyFree?: boolean;
 }
 
 /**
@@ -67,6 +69,7 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
   accent = '#5BD7FF',
   planetLabel,
   currentEnergy,
+  energyFree = false,
 }) => {
   const [explainedReason, setExplainedReason] = useState<BuildBlockedReason | null>(null);
   const [selectedResourceByType, setSelectedResourceByType] = useState<Record<string, string>>({});
@@ -165,7 +168,9 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
                   const locked = Boolean(blocked);
                   const output = type.baseOutput;
                   const consumesEnergyOnlyDuringProcess = recipesForBuildingType(type.id).length > 0;
-                  const idleEnergyConsumption = consumesEnergyOnlyDuringProcess ? 0 : Math.max(0, type.energyConsumption ?? 0);
+                  const idleEnergyConsumption = energyFree || consumesEnergyOnlyDuringProcess
+                    ? 0
+                    : Math.max(0, type.energyConsumption ?? 0);
                   const outputResourceId = selectedResourceId ?? output.resourceId;
                   const outputRate = outputResourceId && output.baseRate
                     ? resolveBuildingProductionRateForResource({

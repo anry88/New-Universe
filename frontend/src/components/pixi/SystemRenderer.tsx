@@ -27,6 +27,9 @@ const BIOME_PALETTE: Record<
   gas_giant: { fill: 0xf4b84a, glow: 0xffd58a, orbit: 0x6a4a1c },
   ice: { fill: 0xb6e0ff, glow: 0xe2f1ff, orbit: 0x2a3e58 },
   anomaly: { fill: 0xb866ff, glow: 0xe2b6ff, orbit: 0x4a2a6a },
+  toxic: { fill: 0x8bc34a, glow: 0xd8ff8a, orbit: 0x35551d },
+  metallic: { fill: 0xaab7c8, glow: 0xffffff, orbit: 0x3a4658 },
+  energy: { fill: 0x2db7ff, glow: 0x7df9ff, orbit: 0x173a6a },
   unknown: { fill: 0x3b82f6, glow: 0x7da6ff, orbit: 0x334155 },
 };
 
@@ -43,6 +46,9 @@ const BIOME_ORBIT_TIER: Record<string, number> = {
   gas_giant: 5,
   ice: 6,
   anomaly: 7,
+  toxic: 7,
+  metallic: 7,
+  energy: 7,
 };
 
 /**
@@ -59,6 +65,9 @@ const BIOME_BASE_RADIUS: Record<string, number> = {
   gas_giant: 26,
   ice: 19,
   anomaly: 15,
+  toxic: 16,
+  metallic: 20,
+  energy: 17,
   unknown: 14,
 };
 

@@ -7,7 +7,18 @@
 import React from 'react';
 import type { Locale } from '@shared/types/locale';
 
-export type Biome = 'rocky' | 'ocean' | 'gas_giant' | 'ice' | 'volcanic' | 'green' | 'anomaly' | 'unknown';
+export type Biome =
+  | 'rocky'
+  | 'ocean'
+  | 'gas_giant'
+  | 'ice'
+  | 'volcanic'
+  | 'green'
+  | 'anomaly'
+  | 'toxic'
+  | 'metallic'
+  | 'energy'
+  | 'unknown';
 
 export interface BiomeMeta {
   label: string;
@@ -26,6 +37,9 @@ export const BIOME_META: Record<Biome, BiomeMeta> = {
   volcanic: { label: 'Volcanic', labels: { en: 'Volcanic', ru: 'Вулканическая' }, tag: 'MAGMATIC', tags: { en: 'MAGMATIC', ru: 'МАГМА' }, accent: '#FF6B2C', hue: 18 },
   green: { label: 'Green', labels: { en: 'Green', ru: 'Зеленая' }, tag: 'BIOTIC', tags: { en: 'BIOTIC', ru: 'БИО' }, accent: '#9FE0B5', hue: 150 },
   anomaly: { label: 'Anomaly', labels: { en: 'Anomaly', ru: 'Аномалия' }, tag: 'EXOTIC', tags: { en: 'EXOTIC', ru: 'ЭКЗОТИКА' }, accent: '#E0B0FF', hue: 280 },
+  toxic: { label: 'Toxic', labels: { en: 'Toxic', ru: 'Токсичная' }, tag: 'HAZARD', tags: { en: 'HAZARD', ru: 'ТОКСИН' }, accent: '#B6FF6A', hue: 92 },
+  metallic: { label: 'Metallic', labels: { en: 'Metallic', ru: 'Металлическая' }, tag: 'METALLIC', tags: { en: 'METALLIC', ru: 'МЕТАЛЛ' }, accent: '#D7DEE8', hue: 220 },
+  energy: { label: 'Energetic', labels: { en: 'Energetic', ru: 'Энергетическая' }, tag: 'ENERGY', tags: { en: 'ENERGY', ru: 'ЭНЕРГИЯ' }, accent: '#7DF9FF', hue: 184 },
   unknown: { label: 'Unknown', labels: { en: 'Unknown', ru: 'Неизвестно' }, tag: 'UNIDENTIFIED', tags: { en: 'UNIDENTIFIED', ru: 'НЕИЗВЕСТНО' }, accent: '#96AFD2', hue: 210 },
 };
 
@@ -232,6 +246,86 @@ export const PlanetAnomaly: React.FC<PlanetSvgProps> = ({ size = 88, uid }) => (
   </svg>
 );
 
+export const PlanetToxic: React.FC<PlanetSvgProps> = ({ size = 88, uid }) => (
+  <svg width={size} height={size} viewBox="0 0 100 100">
+    <defs>
+      <radialGradient id={`tox-g${u(uid)}`} cx="40%" cy="35%" r="75%">
+        <stop offset="0%" stopColor="#D8FF8A" />
+        <stop offset="48%" stopColor="#5F9E35" />
+        <stop offset="100%" stopColor="#18260D" />
+      </radialGradient>
+      <clipPath id={`tox-c${u(uid)}`}>
+        <circle cx="50" cy="50" r="46" />
+      </clipPath>
+    </defs>
+    <circle cx="50" cy="50" r="46" fill={`url(#tox-g${u(uid)})`} />
+    <g clipPath={`url(#tox-c${u(uid)})`} fill="none" stroke="#D8FF8A" strokeWidth="1.6" opacity="0.75">
+      <path d="M12 36 q18 -10 36 0 t40 0" />
+      <path d="M8 58 q20 10 42 0 t42 0" />
+      <path d="M26 78 q16 -8 32 0 t30 0" opacity="0.55" />
+    </g>
+    <g clipPath={`url(#tox-c${u(uid)})`} fill="#F2FFB2" opacity="0.8">
+      <circle cx="34" cy="42" r="3" />
+      <circle cx="67" cy="57" r="4" />
+      <circle cx="49" cy="72" r="2.2" />
+    </g>
+    <circle cx="50" cy="50" r="46" fill="none" stroke="#B6FF6A" strokeOpacity="0.5" strokeWidth="1" />
+  </svg>
+);
+
+export const PlanetMetallic: React.FC<PlanetSvgProps> = ({ size = 88, uid }) => (
+  <svg width={size} height={size} viewBox="0 0 100 100">
+    <defs>
+      <radialGradient id={`met-g${u(uid)}`} cx="32%" cy="30%" r="80%">
+        <stop offset="0%" stopColor="#FFFFFF" />
+        <stop offset="42%" stopColor="#AAB7C8" />
+        <stop offset="100%" stopColor="#243246" />
+      </radialGradient>
+      <clipPath id={`met-c${u(uid)}`}>
+        <circle cx="50" cy="50" r="46" />
+      </clipPath>
+    </defs>
+    <circle cx="50" cy="50" r="46" fill={`url(#met-g${u(uid)})`} />
+    <g clipPath={`url(#met-c${u(uid)})`} fill="#D7DEE8" opacity="0.75">
+      <path d="M20 36 l18 -10 l16 12 l-8 16 l-20 2z" />
+      <path d="M56 58 l22 -8 l10 14 l-14 16 l-22 -6z" opacity="0.7" />
+      <path d="M48 18 l16 4 l-6 12 l-18 -2z" opacity="0.55" />
+    </g>
+    <g clipPath={`url(#met-c${u(uid)})`} stroke="#FFFFFF" strokeWidth="1" opacity="0.55">
+      <path d="M10 48 h80" />
+      <path d="M18 68 h64" />
+    </g>
+    <circle cx="50" cy="50" r="46" fill="none" stroke="#D7DEE8" strokeOpacity="0.55" strokeWidth="1" />
+  </svg>
+);
+
+export const PlanetEnergy: React.FC<PlanetSvgProps> = ({ size = 88, uid }) => (
+  <svg width={size} height={size} viewBox="0 0 100 100">
+    <defs>
+      <radialGradient id={`en-g${u(uid)}`} cx="50%" cy="50%" r="70%">
+        <stop offset="0%" stopColor="#E7FFFF" />
+        <stop offset="45%" stopColor="#2DB7FF" />
+        <stop offset="100%" stopColor="#051A44" />
+      </radialGradient>
+      <radialGradient id={`en-glow${u(uid)}`} cx="50%" cy="50%" r="60%">
+        <stop offset="0%" stopColor="#7DF9FF" stopOpacity="0.75" />
+        <stop offset="100%" stopColor="#7DF9FF" stopOpacity="0" />
+      </radialGradient>
+      <clipPath id={`en-c${u(uid)}`}>
+        <circle cx="50" cy="50" r="44" />
+      </clipPath>
+    </defs>
+    <circle cx="50" cy="50" r="50" fill={`url(#en-glow${u(uid)})`} />
+    <circle cx="50" cy="50" r="44" fill={`url(#en-g${u(uid)})`} />
+    <g clipPath={`url(#en-c${u(uid)})`} stroke="#E7FFFF" strokeWidth="1.5" fill="none" opacity="0.85">
+      <path d="M52 8 L38 44 h18 L44 92 L68 48 H50z" />
+      <circle cx="50" cy="50" r="28" opacity="0.45" />
+      <circle cx="50" cy="50" r="16" opacity="0.35" />
+    </g>
+    <circle cx="50" cy="50" r="44" fill="none" stroke="#7DF9FF" strokeOpacity="0.7" strokeWidth="1" />
+  </svg>
+);
+
 export const PlanetFog: React.FC<PlanetSvgProps> = ({ size = 88, uid }) => (
   <svg width={size} height={size} viewBox="0 0 100 100">
     <defs>
@@ -267,6 +361,9 @@ export const PLANET_BY_BIOME: Record<Biome, React.FC<PlanetSvgProps>> = {
   volcanic: PlanetVolcanic,
   green: PlanetGreen,
   anomaly: PlanetAnomaly,
+  toxic: PlanetToxic,
+  metallic: PlanetMetallic,
+  energy: PlanetEnergy,
   unknown: PlanetFog,
 };
 
@@ -286,6 +383,9 @@ export function resolveBiome(value: string | undefined | null): Biome {
   if (v === 'lava' || v === 'magmatic') return 'volcanic';
   if (v === 'frozen' || v === 'cryogenic') return 'ice';
   if (v === 'exotic') return 'anomaly';
+  if (v === 'hazard' || v === 'toxin') return 'toxic';
+  if (v === 'metal' || v === 'ore') return 'metallic';
+  if (v === 'energetic' || v === 'power') return 'energy';
   if (v === 'unknown' || v === 'fog' || v === 'locked') return 'unknown';
   return 'rocky';
 }

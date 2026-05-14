@@ -37,7 +37,6 @@ const RESOURCE_META: Record<string, ResourceMeta> = {
   cobalt: { symbol: 'Co', full: { en: 'Cobalt', ru: 'Кобальт' } },
   silicon_carbide: { symbol: 'SiC', full: { en: 'Silicon Carbide', ru: 'Карбид кремния' } },
   antimatter: { symbol: 'Am', full: { en: 'Antimatter', ru: 'Антиматерия' } },
-  dark_matter: { symbol: 'Dm', full: { en: 'Dark Matter', ru: 'Тёмная материя' } },
   iridium: { symbol: 'Ir', full: { en: 'Iridium', ru: 'Иридий' } },
   biomass: { symbol: 'Bio', full: { en: 'Biomass', ru: 'Биомасса' } },
   steel: { symbol: 'St', full: { en: 'Steel', ru: 'Сталь' } },
