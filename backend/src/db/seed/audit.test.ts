@@ -71,4 +71,21 @@ describe('catalog seed audit (P2-POL-002)', () => {
       'methane',
     ]);
   });
+
+  it('keeps active ship catalog ids aligned with Jump Gate semantics', () => {
+    expect(SHIP_TYPE_CATALOG_ROWS.map((ship) => ship.id)).toEqual([
+      'scout',
+      'cargo_light',
+      'colonizer',
+      'recon_probe',
+    ]);
+    const reconProbe = SHIP_TYPE_CATALOG_ROWS.find((ship) => ship.id === 'recon_probe');
+    expect(reconProbe).toBeDefined();
+    expect(reconProbe!.name).toMatchObject({
+      en: 'Recon Probe',
+      ru: 'Разведывательный зонд',
+    });
+    expect(reconProbe!.role).toBe('exploration');
+    expect(reconProbe!.cargo).toBe(0);
+  });
 });

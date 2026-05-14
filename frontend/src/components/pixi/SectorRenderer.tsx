@@ -289,7 +289,16 @@ function drawMarker(entity: SectorPresenceEntity, selected: boolean): PIXI.Conta
   const shape = new PIXI.Graphics();
   if (entity.entityType === 'fleet') {
     shape
-      .poly([0, -radius - 3, radius + 5, radius + 3, 0, radius, -radius - 5, radius + 3])
+      .circle(0, 0, radius + 5)
+      .fill({ color: palette.halo, alpha: entity.visibility === 'full' ? 0.22 : 0.12 })
+      .moveTo(-radius - 6, radius + 4)
+      .lineTo(-2, -radius - 6)
+      .quadraticCurveTo(0, -radius - 9, 2, -radius - 6)
+      .lineTo(radius + 6, radius + 4)
+      .lineTo(4, radius + 1)
+      .lineTo(0, radius + 8)
+      .lineTo(-4, radius + 1)
+      .lineTo(-radius - 6, radius + 4)
       .fill({ color: palette.fill, alpha: entity.visibility === 'full' ? 0.95 : 0.56 })
       .stroke({ width: selected ? 2 : 1.2, color: palette.stroke, alpha: 0.98 });
   } else if (entity.entityType === 'colony') {

@@ -21,18 +21,16 @@ import {
   type ShipBuildBlockedReason,
 } from "../lib/ship-build-eligibility";
 import { resolveBuildingType } from "../components/cosmic/buildings";
+import {
+  getShipClassTag,
+  isShipTypeVisible,
+  isShipTypeVisibleInShipyard,
+  ShipIconBadge,
+  shipStatusTone,
+} from "../components/cosmic/ships";
 import { isCargoTransferShip, isCargoTransferShipType } from "../lib/fleet";
 import type { ExpeditionRouteMode } from "@shared/config/expeditionRouting";
 import { researchBranchLabel } from "@shared/types/research";
-
-const SHIP_CLASS_TAG: Record<string, string> = {
-  scout: "SCOUT",
-  cargo_light: "CARGO",
-  cargo: "CARGO",
-  colonizer: "COLONIZE",
-  jump: "JUMP",
-  fighter: "COMBAT",
-};
 
 function formatDuration(totalSeconds: number): string {
   const seconds = Math.max(0, Math.ceil(totalSeconds));
@@ -62,6 +60,10 @@ export function ShipsPage() {
   const [now, setNow] = useState(Date.now());
 
   const ships = meData?.ships || [];
+  const visibleShips = useMemo(
+    () => ships.filter((ship) => isShipTypeVisible(ship.typeId)),
+    [ships],
+  );
   const origin = meData?.homeSystem || { sectorX: 0, sectorY: 0, sectorZ: 0 };
   const homePlanetId = meData?.homeSystem?.planets?.[0]?.id;
   const activeTab =
@@ -79,6 +81,10 @@ export function ShipsPage() {
   const getShipType = (typeId: string) =>
     shipTypes?.find((t) => t.id === typeId);
   const planets = meData?.planets ?? [];
+  const buildableShipTypes = useMemo(
+    () => (shipTypes ?? []).filter((type) => isShipTypeVisibleInShipyard(type.id)),
+    [shipTypes],
+  );
 
   const shipyardPlanets = useMemo(() => {
     return planets.filter((planet) =>
@@ -201,7 +207,7 @@ export function ShipsPage() {
         </div>
         <div className="page-stat">
           <div className="ps-v">
-            {activeTab === "shipyard" ? shipyardPlanets.length : ships.length}
+            {activeTab === "shipyard" ? shipyardPlanets.length : visibleShips.length}
           </div>
           <div className="ps-l">
             {activeTab === "shipyard" ? t("ships.shipyards").toUpperCase() : t("ships.vessels").toUpperCase()}
@@ -282,7 +288,7 @@ export function ShipsPage() {
                   ))}
                 </div>
 
-                {(shipTypes ?? []).map((type) => {
+                {buildableShipTypes.map((type) => {
                   const requirements = type.requiredBuildings
                     .map((req) =>
                       formatRequirement(selectedPlanet, req.typeId, req.level),
@@ -298,9 +304,16 @@ export function ShipsPage() {
 
                   return (
                     <div key={type.id} className="ship-row">
-                      <div className="ship-cls">
-                        {SHIP_CLASS_TAG[type.id.toLowerCase()] ??
-                          type.id.slice(0, 6).toUpperCase()}
+                      <div className="ship-visual">
+                        <ShipIconBadge
+                          typeId={type.id}
+                          status={canBuild ? "idle" : "building"}
+                          size={36}
+                          title={type.name[locale]}
+                        />
+                        <div className="ship-cls">
+                          {getShipClassTag(type.id, locale)}
+                        </div>
                       </div>
                       <div>
                         <div className="ship-name">{type.name[locale]}</div>
@@ -375,7 +388,7 @@ export function ShipsPage() {
           </div>
         ) : (
           <div className="ship-list">
-            {ships.length === 0 && (
+            {visibleShips.length === 0 && (
               <div
                 style={{
                   padding: "40px 20px",
@@ -392,12 +405,10 @@ export function ShipsPage() {
               </div>
             )}
 
-            {ships.map((ship) => {
+            {visibleShips.map((ship) => {
               const type = getShipType(ship.typeId);
               const isCargoShip = isCargoTransferShip(ship, shipTypes);
-              const cls =
-                SHIP_CLASS_TAG[ship.typeId.toLowerCase()] ??
-                ship.typeId.slice(0, 6).toUpperCase();
+              const isDiscoveryProbe = ship.typeId === "recon_probe";
               const queueItem = queueByShipId.get(ship.id);
               const effectiveStatus =
                 ship.status === "building" && !queueItem ? "idle" : ship.status;
@@ -437,7 +448,20 @@ export function ShipsPage() {
                     : `${t("ships.inTransit")} · ${t("ships.syncingRoute")}`;
               return (
                 <div key={ship.id} className="ship-row">
-                  <div className="ship-cls">{cls}</div>
+                  <div className="ship-visual">
+                    <ShipIconBadge
+                      typeId={ship.typeId}
+                      status={effectiveStatus}
+                      size={36}
+                      title={type?.name?.[locale] ?? ship.typeId}
+                    />
+                    <div
+                      className="ship-cls"
+                      style={{ color: shipStatusTone(effectiveStatus) }}
+                    >
+                      {getShipClassTag(ship.typeId, locale)}
+                    </div>
+                  </div>
                   <div>
                     <div className="ship-name">
                       {type?.name?.[locale] ?? ship.typeId}
@@ -454,6 +478,10 @@ export function ShipsPage() {
                             cargoShip: ship.id,
                           });
                           navigate(`/colonies?${params.toString()}`);
+                          return;
+                        }
+                        if (isDiscoveryProbe) {
+                          navigate("/map");
                           return;
                         }
                         setSelectedShip(ship);
@@ -476,7 +504,9 @@ export function ShipsPage() {
                       {isIdle
                         ? isCargoShip
                           ? t("ships.openCargo").toUpperCase()
-                          : t("ships.sendMission").toUpperCase()
+                          : isDiscoveryProbe
+                            ? t("ships.openJumpGate").toUpperCase()
+                            : t("ships.sendMission").toUpperCase()
                         : isBuilding
                           ? t("ships.building").toUpperCase()
                           : expeditionEtaSec != null

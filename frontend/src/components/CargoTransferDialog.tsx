@@ -15,6 +15,7 @@ import {
 } from '@shared/config/expeditionRouting';
 import { formatTimerDuration } from '../lib/timers';
 import { getResourceLabel, getResourceSymbol } from './cosmic/resources';
+import { ShipIconBadge } from './cosmic/ships';
 
 interface CargoTransferDialogProps {
   originPlanet: Planet;
@@ -187,9 +188,17 @@ export function CargoTransferDialog({
                           : 'bg-slate-800/50 border-slate-700 hover:border-slate-600'
                       }`}
                     >
-                      <div className="text-left">
-                        <div className="text-sm font-bold text-slate-200">{type?.name[locale] || t('cargo.unknownShip')}</div>
-                        <div className="text-[10px] text-slate-400">{t('cargo.shipId', { id: ship.id.slice(0, 8) })}</div>
+                      <div className="flex items-center gap-3 text-left">
+                        <ShipIconBadge
+                          typeId={ship.typeId}
+                          status={ship.status}
+                          size={30}
+                          title={type?.name[locale] || t('cargo.unknownShip')}
+                        />
+                        <div>
+                          <div className="text-sm font-bold text-slate-200">{type?.name[locale] || t('cargo.unknownShip')}</div>
+                          <div className="text-[10px] text-slate-400">{t('cargo.shipId', { id: ship.id.slice(0, 8) })}</div>
+                        </div>
                       </div>
                       <div className="text-right">
                         <div className="text-xs text-cyan-400 font-medium">{t('cargo.capacity', { capacity: type?.cargo || 0 })}</div>

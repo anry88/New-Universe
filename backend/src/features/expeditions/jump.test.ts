@@ -30,7 +30,7 @@ import {
 const RANDOM_JUMP_NOW = new Date('2026-05-13T12:00:00.000Z');
 const REPEAT_JUMP_NOW = new Date('2026-05-13T12:10:00.000Z');
 
-describe('Jump Ship Feature', () => {
+describe('Recon Probe Jump Gate Discovery', () => {
   async function createTestUser(usernamePrefix: string) {
     const [user] = await db.insert(users).values({
       tgId: BigInt(Math.floor(Math.random() * 100000000)),
@@ -71,23 +71,37 @@ describe('Jump Ship Feature', () => {
     });
 
     await db.insert(shipTypes).values({
-      id: 'jump_ship',
-      name: { ru: 'Прыжковый корабль', en: 'Jump Ship' },
+      id: 'recon_probe',
+      name: { ru: 'Разведывательный зонд', en: 'Recon Probe' },
       role: 'exploration',
-      hp: 200,
-      speed: '1.60',
-      cargo: 50,
-      dps: 25,
-      armor: 10,
-      fuelConsumption: '0.60',
-      buildTimeSec: 2700,
+      hp: 20,
+      speed: '4.00',
+      cargo: 0,
+      dps: 0,
+      armor: 0,
+      fuelConsumption: '0.10',
+      buildTimeSec: 300,
       buildCost: {},
-      sensorRange: 15,
+      sensorRange: 60,
+    }).onConflictDoNothing();
+    await db.insert(shipTypes).values({
+      id: 'scout',
+      name: { ru: 'Разведчик', en: 'Scout' },
+      role: 'recon',
+      hp: 40,
+      speed: '2.00',
+      cargo: 50,
+      dps: 0,
+      armor: 0,
+      fuelConsumption: '0.30',
+      buildTimeSec: 600,
+      buildCost: {},
+      sensorRange: 30,
     }).onConflictDoNothing();
 
     const [ship] = await db.insert(ships).values({
       ownerId: user.id,
-      typeId: 'jump_ship',
+      typeId: 'recon_probe',
       locationPlanetId: originPlanet.id,
       status: 'idle',
       fuel: '100',
@@ -164,7 +178,35 @@ describe('Jump Ship Feature', () => {
     expect(createdSector).toBeUndefined();
   });
 
-  it('performs a server-authoritative random jump and records a known destination', async () => {
+  it('requires a recon probe only for opening a new random system', async () => {
+    const { user, originPlanet } = await createSetup();
+    await unlockJumpDrive(user.id);
+    const [scout] = await db.insert(ships).values({
+      ownerId: user.id,
+      typeId: 'scout',
+      locationPlanetId: originPlanet.id,
+      status: 'idle',
+      fuel: '100',
+    }).returning();
+
+    const result = await jumpShip(
+      user.id,
+      { shipId: scout.id, mode: 'random' },
+      {
+        now: RANDOM_JUMP_NOW,
+        selectRandomSector: () => ({ x: 2, y: 3, z: 4 }),
+      },
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/only recon probes/i);
+    const stillDocked = await db.query.ships.findFirst({
+      where: eq(ships.id, scout.id),
+    });
+    expect(stillDocked?.locationPlanetId).toBe(originPlanet.id);
+  });
+
+  it('performs a server-authoritative random jump, records a known destination, and consumes the recon probe', async () => {
     const { user, ship, originPlanet } = await createSetup();
     await unlockJumpDrive(user.id);
 
@@ -191,11 +233,16 @@ describe('Jump Ship Feature', () => {
       lastVisitedAt: RANDOM_JUMP_NOW.toISOString(),
     });
 
+    expect(result.ship).toMatchObject({
+      id: ship.id,
+      typeId: 'recon_probe',
+      status: 'consumed',
+      locationPlanetId: null,
+    });
     const updatedShip = await db.query.ships.findFirst({
       where: eq(ships.id, ship.id),
     });
-    expect(updatedShip?.locationPlanetId).toBe(result.arrivalPlanetId);
-    expect(Number(updatedShip?.fuel)).toBe(100);
+    expect(updatedShip).toBeUndefined();
     const originJumpFuel = await db.query.planetResources.findFirst({
       where: and(
         eq(planetResources.planetId, originPlanet.id),
@@ -220,7 +267,7 @@ describe('Jump Ship Feature', () => {
   });
 
   it('repeats travel to a known destination by destination id', async () => {
-    const { user, ship } = await createSetup();
+    const { user, ship, originPlanet } = await createSetup();
     await unlockJumpDrive(user.id);
 
     const firstJump = await jumpShip(
@@ -232,20 +279,18 @@ describe('Jump Ship Feature', () => {
       },
     );
     expect(firstJump.success).toBe(true);
-    await db.insert(planetResources).values({
-      planetId: firstJump.arrivalPlanetId!,
-      resourceId: JUMP_FUEL_RESOURCE_ID,
-      amount: String(JUMP_GATE_JUMP_FUEL_COST),
-      regenRate: '0',
-    }).onConflictDoUpdate({
-      target: [planetResources.planetId, planetResources.resourceId],
-      set: { amount: String(JUMP_GATE_JUMP_FUEL_COST), regenRate: '0' },
-    });
+    const [scout] = await db.insert(ships).values({
+      ownerId: user.id,
+      typeId: 'scout',
+      locationPlanetId: originPlanet.id,
+      status: 'idle',
+      fuel: '100',
+    }).returning();
 
     const secondJump = await jumpShip(
       user.id,
       {
-        shipId: ship.id,
+        shipId: scout.id,
         destinationSystemId: firstJump.destination!.systemId,
       },
       { now: REPEAT_JUMP_NOW },
@@ -257,16 +302,17 @@ describe('Jump Ship Feature', () => {
     expect(secondJump.destination?.lastVisitedAt).toBe(REPEAT_JUMP_NOW.toISOString());
 
     const updatedShip = await db.query.ships.findFirst({
-      where: eq(ships.id, ship.id),
+      where: eq(ships.id, scout.id),
     });
     expect(Number(updatedShip?.fuel)).toBe(100);
-    const remoteJumpFuel = await db.query.planetResources.findFirst({
+    expect(updatedShip?.locationPlanetId).toBe(secondJump.arrivalPlanetId);
+    const originJumpFuel = await db.query.planetResources.findFirst({
       where: and(
-        eq(planetResources.planetId, firstJump.arrivalPlanetId!),
+        eq(planetResources.planetId, originPlanet.id),
         eq(planetResources.resourceId, JUMP_FUEL_RESOURCE_ID),
       ),
     });
-    expect(Number(remoteJumpFuel?.amount)).toBe(0);
+    expect(Number(originJumpFuel?.amount)).toBe(0);
 
     const discovery = await db.query.discoveredSystems.findFirst({
       where: and(

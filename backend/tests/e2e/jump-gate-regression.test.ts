@@ -180,11 +180,11 @@ describe('Jump Gate end-to-end regression suite', () => {
     await setPlanetResource(homePlanet.id, 'fuel', 1_000);
     await setPlanetResource(homePlanet.id, JUMP_FUEL_RESOURCE_ID, 500);
 
-    const [jumpShip] = await db
+    const [reconProbe] = await db
       .insert(ships)
       .values({
         ownerId: userId,
-        typeId: 'jump_ship',
+        typeId: 'recon_probe',
         locationPlanetId: homePlanet.id,
         status: 'idle',
         fuel: '100',
@@ -195,7 +195,7 @@ describe('Jump Gate end-to-end regression suite', () => {
       method: 'POST',
       url: '/jump-gate/random-jump',
       headers: { authorization: `Bearer ${token}` },
-      payload: { shipId: jumpShip.id },
+      payload: { shipId: reconProbe.id },
     });
     expect(randomJumpRes.statusCode, `${AREA.jump} POST /jump-gate/random-jump`).toBe(200);
     const randomJump = randomJumpRes.json() as {
@@ -208,13 +208,27 @@ describe('Jump Gate end-to-end regression suite', () => {
     expect(randomJump.destination.source, `${AREA.jump} destination source`).toBe('random_jump');
     expect(randomJump.jumpFuelRequired, `${AREA.jump} random jump fuel cost`).toBe(JUMP_GATE_JUMP_FUEL_COST);
     expect(await planetAmount(homePlanet.id, JUMP_FUEL_RESOURCE_ID), `${AREA.jump} home Jump Fuel debited`).toBe(450);
+    expect(
+      await db.query.ships.findFirst({ where: eq(ships.id, reconProbe.id) }),
+      `${AREA.jump} recon probe consumed after opening a system`,
+    ).toBeUndefined();
 
+    const [knownJumpShip] = await db
+      .insert(ships)
+      .values({
+        ownerId: userId,
+        typeId: 'scout',
+        locationPlanetId: homePlanet.id,
+        status: 'idle',
+        fuel: '100',
+      })
+      .returning();
     await setPlanetResource(randomJump.arrivalPlanetId, JUMP_FUEL_RESOURCE_ID, JUMP_GATE_JUMP_FUEL_COST);
     const knownJumpRes = await app.inject({
       method: 'POST',
       url: `/jump-gate/destinations/${randomJump.destination.systemId}/jump`,
       headers: { authorization: `Bearer ${token}` },
-      payload: { shipId: jumpShip.id },
+      payload: { shipId: knownJumpShip.id },
     });
     expect(knownJumpRes.statusCode, `${AREA.jump} POST /jump-gate/destinations/:systemId/jump`).toBe(200);
     const knownJump = knownJumpRes.json() as {

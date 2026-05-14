@@ -43,6 +43,7 @@ import { SunSvg } from "./sun";
 import { FoundColonyDialog } from "../FoundColonyDialog";
 import { useI18n } from "../../lib/i18n";
 import { getResourceLabel, getResourceSymbol } from "./resources";
+import { ShipIcon } from "./ships";
 
 /** When set, the map is used to pick a sector jump vector from the home star: tap = set course, drag = pan. */
 export interface ExpeditionPickConfig {
@@ -460,38 +461,40 @@ const ShipMarkers = React.memo(function ShipMarkers({
         }
 
         if (!isMoving) {
-          const r = layout.orbitRadius + 22;
+          const r = layout.orbitRadius + layout.spriteSize / 2 + 14;
           const a = layout.angle + 0.18 + shipIdx * 0.06;
           sx = Math.cos(a) * r;
           sy = Math.sin(a) * r;
           angle = a + Math.PI / 2;
         }
 
+        const tone = isMoving
+          ? isReturning
+            ? "#F4B84A"
+            : "#5BD7FF"
+          : "#5BFFA9";
+
         return (
           <div
             key={ship.id}
             style={{
               position: "absolute",
-              left: sx! - 8,
-              top: sy! - 8,
-              width: 16,
-              height: 16,
-              color: isMoving
-                ? isReturning
-                  ? "#F4B84A"
-                  : "#5BD7FF"
-                : "#5BFFA9",
+              left: sx! - 12,
+              top: sy! - 12,
+              width: 24,
+              height: 24,
+              color: tone,
               transform: `rotate(${angle}rad)`,
-              filter: isMoving ? "drop-shadow(0 0 4px currentColor)" : "none",
+              filter: isMoving
+                ? "drop-shadow(0 0 6px currentColor)"
+                : "drop-shadow(0 0 4px rgba(91,255,169,0.4))",
               pointerEvents: isPicking ? "none" : "auto",
               transition: isMoving
                 ? `left ${SHIP_MARKER_TICK_MS}ms linear, top ${SHIP_MARKER_TICK_MS}ms linear`
                 : "none",
             }}
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-              <polygon points="0,0 16,8 0,16 4,8" />
-            </svg>
+            <ShipIcon typeId={ship.typeId} size={24} tone="currentColor" />
           </div>
         );
       })}
@@ -1137,7 +1140,7 @@ export function CosmicSystemRenderer({
             onSelectPlanet={selectPlanet}
           />
 
-          {/* Ship markers — small green chevron just outside parking orbit or on trail */}
+          {/* Ship markers use the shared Cosmic Atlas hull set near parking orbit or on trails. */}
           <ShipMarkers
             ships={ships}
             activeExpeditions={activeExpeditions}

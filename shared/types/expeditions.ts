@@ -52,8 +52,8 @@ export interface ExpeditionJumpRequest {
   destinationSystemId?: string;
   /**
    * @deprecated Manual sector coordinates are no longer accepted for Jump Gate travel.
-   * Use `mode: "random"` for server-authoritative exploration or `destinationSystemId`
-   * for a known destination.
+   * Use `mode: "random"` with a one-use `recon_probe` for server-authoritative
+   * exploration, or `destinationSystemId` for a known destination.
    */
   targetSector?: { x: number; y: number; z: number };
 }

@@ -5,6 +5,7 @@ All notable changes to New Universe will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- `P2.2-016` (issue #327): добавлен общий Cosmic Atlas mapper иконок кораблей для карты, флота, верфи, запуска экспедиций и грузового диалога.
 - Добавлены задачи в план по работе с кораблями и запуском:
   - `P2.2-016` (issue #327): «Стилизация иконок кораблей».
   - `P2.2-017` (issue #328): «Очистка мета-информации и локализация имен».
@@ -12,6 +13,7 @@ All notable changes to New Universe will be documented in this file.
 - Сформирована явная цепочка зависимостей задач: `P2.2-016 -> P2.2-017 -> P2.2-018`.
 
 ### Changed
+- `P2.2-016` (issue #327): активный каталог использует `recon_probe` / «Разведывательный зонд» без миграции; random Jump Gate discovery теперь расходует этот одноразовый зонд, а обычные scout/colonizer/cargo_light остаются для маршрутов в уже известные системы.
 - Подготовлены отдельные GitHub-issues и добавлены в Project для последующего исполнения без смешивания с текущими задачами других агентов.
 - `P2.2-014` (issue #322): `POST /buildings/build` и `POST /buildings/upgrade` больше не создают Redis/BullMQ Queue/connection в request lifecycle; optional BullMQ enqueue вынесен в общий producer, а completion остаётся в `tick-buildings`.
 - `P2.2-015` (issue #323): перебалансирована стартовая система игрока до 8 планет с одной ледяной планетой, фиксированными слотами стартовых месторождений, новыми газами/драгметаллами и обновлёнными ролями добывающих зданий.
