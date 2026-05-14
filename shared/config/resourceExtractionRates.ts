@@ -25,7 +25,6 @@ export const EXTRACTABLE_RESOURCE_RATES_PER_HOUR = {
   nitrogen: 6,
   uranium: 3,
   cobalt: 5,
-  silicon_carbide: 6,
   tritium: 2,
   gold: 5,
   antimatter: 1,

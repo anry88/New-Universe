@@ -70,7 +70,7 @@ export const RESOURCE_CATALOG_ROWS: ResourceCatalogRow[] = [
     symbol: 'SiC',
     tier: 3,
     name: { ru: 'Карбид кремния', en: 'Silicon Carbide' },
-    baseRegenRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.silicon_carbide,
+    baseRegenRate: 0,
     defaultStorageCap: 1000,
   },
   { id: 'tritium', symbol: 'T', tier: 3, name: { ru: 'Тритий', en: 'Tritium' }, baseRegenRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.tritium, defaultStorageCap: 500 },

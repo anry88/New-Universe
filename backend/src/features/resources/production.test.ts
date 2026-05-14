@@ -78,6 +78,7 @@ describe('production orders', () => {
       { planetId: planet.id, resourceId: 'iron', amount: '1000', regenRate: '0' },
       { planetId: planet.id, resourceId: 'water', amount: '1000', regenRate: '0' },
       { planetId: planet.id, resourceId: 'silicon', amount: '1000', regenRate: '0' },
+      { planetId: planet.id, resourceId: 'carbon', amount: '1000', regenRate: '0' },
       { planetId: planet.id, resourceId: 'copper', amount: '1000', regenRate: '0' },
       { planetId: planet.id, resourceId: 'steel', amount: '1000', regenRate: '0' },
       { planetId: planet.id, resourceId: 'silicon_carbide', amount: '1000', regenRate: '0' },
@@ -212,6 +213,30 @@ describe('production orders', () => {
       'steel',
     ]);
     expect(electronicsPreview.energyPerHour).toBeGreaterThan(0);
+
+    const siliconCarbide = await createProductionPlanet('fabrication_bay');
+    await db
+      .update(planetResources)
+      .set({ amount: '0' })
+      .where(and(
+        eq(planetResources.planetId, siliconCarbide.planet.id),
+        eq(planetResources.resourceId, 'silicon_carbide'),
+      ));
+
+    const siliconCarbidePreview = await productionService.preview(siliconCarbide.user.id, {
+      planetId: siliconCarbide.planet.id,
+      buildingId: siliconCarbide.building.id,
+      recipeId: 'silicon_carbide_from_silicon_carbon',
+      quantity: 1,
+    });
+    expect(siliconCarbidePreview.canStart).toBe(true);
+    expect(siliconCarbidePreview.output).toEqual({ resourceId: 'silicon_carbide', amount: 1 });
+    expect(siliconCarbidePreview.inputs).toEqual([
+      { resourceId: 'silicon', amount: 24 },
+      { resourceId: 'carbon', amount: 16 },
+      { resourceId: 'steel', amount: 2 },
+    ]);
+    expect(siliconCarbidePreview.durationSec).toBe(180);
 
     const refinery = await createProductionPlanet('refinery');
     const oilPreview = await productionService.preview(refinery.user.id, {

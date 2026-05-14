@@ -20,7 +20,6 @@ export const METAL_DEPOSIT_RESOURCE_IDS = [
   'gold',
   'uranium',
   'cobalt',
-  'silicon_carbide',
   'antimatter',
   'iridium',
 ] as const;

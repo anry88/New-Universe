@@ -205,6 +205,7 @@ describe('generateSystemsInSector', () => {
     for (const resourceId of naturalCatalogResourceIds) {
       expect(biomeResourceIds.has(resourceId)).toBe(true);
     }
+    expect(biomeResourceIds.has('silicon_carbide')).toBe(false);
     expect(biomeResourceIds.has(['dark', 'matter'].join('_'))).toBe(false);
     expect(generateCommonPlanetRichness('energy', 20, 12, () => 0.5)).toEqual({});
   });
