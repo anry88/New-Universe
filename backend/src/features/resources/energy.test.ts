@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { resolvePlanetEnergyState, solarEnergyMultiplier, windEnergyMultiplier } from './energy.js';
+import {
+  createPlanetEnergyRequestCache,
+  invalidatePlanetEnergyStateCache,
+  resolvePlanetEnergyState,
+  solarEnergyMultiplier,
+  windEnergyMultiplier,
+} from './energy.js';
 
 describe('planet energy formulas', () => {
   it('makes solar output noticeably stronger on inner orbits than outer orbits', () => {
@@ -69,5 +75,68 @@ describe('planet energy formulas', () => {
     expect(state.produced).toBeCloseTo(50 * solarEnergyMultiplier({ id: planetId, name: 'home-1', biome: 'volcanic' }) * 1.18, 4);
     expect(state.consumed).toBeCloseTo(9.2, 4);
     expect(state.buildingStates['battery-1'].capacity).toBeCloseTo(625, 4);
+  });
+
+  it('invalidates request-scoped energy snapshots after building state changes', async () => {
+    const planetId = 'planet-energy-cache';
+    let planetQueryCount = 0;
+    const queuedSolar = {
+      id: 'solar-cache',
+      typeId: 'solar_plant',
+      level: 0,
+      queueAction: 'build' as string | null,
+      type: { id: 'solar_plant', baseOutput: { energy: 50 }, energyConsumption: 0 },
+    };
+    const database = {
+      query: {
+        planets: {
+          findFirst: async () => {
+            planetQueryCount += 1;
+            return {
+              id: planetId,
+              name: 'home-1',
+              biome: 'volcanic',
+              size: 12,
+              system: { ownerId: 'user-energy-cache' },
+              buildings: [
+                {
+                  id: 'battery-cache',
+                  typeId: 'battery',
+                  level: 1,
+                  queueAction: null,
+                  type: { id: 'battery', baseOutput: { energyCap: 500 }, energyConsumption: 0 },
+                },
+                queuedSolar,
+              ],
+            };
+          },
+        },
+        planetResources: {
+          findFirst: async () => ({ amount: '0', lastUpdateAt: new Date() }),
+        },
+        researchProgress: {
+          findMany: async () => [],
+        },
+        productionOrders: {
+          findMany: async () => [],
+        },
+      },
+    };
+    const cache = createPlanetEnergyRequestCache();
+
+    const before = await resolvePlanetEnergyState(planetId, database, cache);
+    const cached = await resolvePlanetEnergyState(planetId, database, cache);
+
+    expect(cached).toEqual(before);
+    expect(planetQueryCount).toBe(1);
+    expect(before.produced).toBe(0);
+
+    queuedSolar.level = 1;
+    queuedSolar.queueAction = null;
+    invalidatePlanetEnergyStateCache(planetId, cache);
+    const afterCompletion = await resolvePlanetEnergyState(planetId, database, cache);
+
+    expect(planetQueryCount).toBe(2);
+    expect(afterCompletion.produced).toBeGreaterThan(before.produced);
   });
 });

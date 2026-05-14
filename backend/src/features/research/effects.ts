@@ -22,6 +22,10 @@ export interface ResearchEffects {
   buildTimeMultiplier: number;
 }
 
+export interface ResearchEffectsRequestCache {
+  effectsByUserId: Map<string, Promise<ResearchEffects>>;
+}
+
 const DEFAULT_EFFECTS: ResearchEffects = {
   resourceProductionMultiplier: 1,
   resourceStorageMultiplier: 1,
@@ -112,7 +116,11 @@ export function computeResearchEffects(
   return composeResearchEffects(buildResearchEffectModifiers(progressRows));
 }
 
-export async function getResearchEffectsForUser(userId: string, database: any = defaultDb): Promise<ResearchEffects> {
+export function createResearchEffectsRequestCache(): ResearchEffectsRequestCache {
+  return { effectsByUserId: new Map() };
+}
+
+async function loadResearchEffectsForUser(userId: string, database: any = defaultDb): Promise<ResearchEffects> {
   const progressRows = await database.query.researchProgress.findMany({
     where: eq(researchProgress.userId, userId),
     columns: { branch: true, level: true },
@@ -120,11 +128,30 @@ export async function getResearchEffectsForUser(userId: string, database: any = 
   return computeResearchEffects(progressRows);
 }
 
+export async function getResearchEffectsForUser(
+  userId: string,
+  database: any = defaultDb,
+  cache?: ResearchEffectsRequestCache,
+): Promise<ResearchEffects> {
+  if (!cache) {
+    return loadResearchEffectsForUser(userId, database);
+  }
+
+  let cached = cache.effectsByUserId.get(userId);
+  if (!cached) {
+    cached = loadResearchEffectsForUser(userId, database);
+    cache.effectsByUserId.set(userId, cached);
+  }
+  return cached;
+}
+
 /**
- * Hook for clearing memoized research snapshots after tier completions (`completion.ts`).
- * Server-side effects are computed from `research_progress` on demand today; call stays a no-op until caching is added.
+ * Clears a request-scoped research-effects snapshot after tier completions/rushes.
+ * Omit `cache` for callers that do not share snapshots inside the current request.
  */
-export function invalidateResearchEffectsCache(_userId: string): void {}
+export function invalidateResearchEffectsCache(userId: string, cache?: ResearchEffectsRequestCache): void {
+  cache?.effectsByUserId.delete(userId);
+}
 
 export function applyProductionRate(baseRegenRate: number, effects: ResearchEffects): number {
   return baseRegenRate * effects.resourceProductionMultiplier;

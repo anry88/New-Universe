@@ -3,7 +3,10 @@ import { db } from '../../db/index.js';
 import { researchProgress, notifications, users } from '../../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import { processCompletedResearch } from './completion.js';
-import { getResearchEffectsForUser } from './effects.js';
+import {
+  createResearchEffectsRequestCache,
+  getResearchEffectsForUser,
+} from './effects.js';
 
 describe('processCompletedResearch', () => {
   let userId: string;
@@ -131,5 +134,22 @@ describe('processCompletedResearch', () => {
     });
     expect(row?.level).toBe(0);
     expect(row?.completesAt).not.toBeNull();
+  });
+
+  it('invalidates request-scoped effects cache after a research completion', async () => {
+    await db.insert(researchProgress).values({
+      userId,
+      branch: 'mining',
+      level: 0,
+      completesAt: new Date(Date.now() - 60_000),
+    });
+    const cache = createResearchEffectsRequestCache();
+
+    const beforeEffects = await getResearchEffectsForUser(userId, db, cache);
+    await processCompletedResearch(db, { userId, skipNotification: true, effectsCache: cache });
+    const afterEffects = await getResearchEffectsForUser(userId, db, cache);
+
+    expect(beforeEffects.resourceProductionMultiplier).toBe(1);
+    expect(afterEffects.resourceProductionMultiplier).toBeGreaterThan(1);
   });
 });
