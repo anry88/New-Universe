@@ -21,6 +21,7 @@ Primary links:
 ## Documentation Split
 
 - `README.md` — human-facing product overview, local-development quickstart, and links to GDD/tasks.
+- `CHANGELOG.md` — project-level change register. Agents keep notable task, release, operational, and workflow changes there before PR handoff.
 - `DOCUMENTATION.md` — engineering architecture overview. Lists every top-level area (backend, frontend, shared) and links to the package READMEs that describe individual files and functions.
 - `AGENTS.md` (this file) — repository-wide rules and workflows for AI coding assistants.
 - `backend/src/README.md`, `backend/src/<package>/README.md`, `frontend/src/README.md`, `shared/README.md` — low-level code navigation. Each README describes every file in that directory with a short description of its responsibilities and the key exports/functions other code calls into.
@@ -47,6 +48,7 @@ Primary links:
 - `.github/workflows/e2e.yml` — Playwright E2E (see [.github/workflows/README.md](.github/workflows/README.md)): manual dispatch, or PR labeled **`run-e2e`** only (task issues already carry `epic:EPIC-…` from import — never auto-trigger on that substring).
 - `.github/workflows/deploy.yml` — manual, GitHub-Environment-gated deployment and rollback workflow for staging/production (see [docs/production/release-workflow.md](docs/production/release-workflow.md)). Requires staging deploy + rollback drill evidence before production dispatch.
 - `scripts/ci-verify.sh` — local automation mirror of `ci.yml`; set `RUN_PLAYWRIGHT_E2E=1` to include the same Playwright step as `e2e.yml`.
+- `CHANGELOG.md` — chronological register of notable unreleased and released changes. It is maintained by agents as part of task completion and release preparation.
 
 ## First Pass For Any Agent
 
@@ -414,6 +416,20 @@ Verification that documentation stays in sync:
 - If you renamed an exported symbol, run `rg "<oldName>" -- '*.md'` and update every hit.
 - If you added a new package directory, confirm it appears in `DOCUMENTATION.md` and in the "Repository Map" / "First Pass For Any Agent" sections of `AGENTS.md`.
 - Treat doc updates as part of the task: a PR that ships code without the matching README updates is not "done" under these rules.
+
+## Changelog Rules
+
+`CHANGELOG.md` is the project-level record of notable changes. It complements GitHub issues, PRs, and Project status fields; it does not replace them.
+
+- Keep the file in a Keep-a-Changelog-style structure: `## [Unreleased]` first, then dated sections such as `## [2026-05-14]`, with category headings only when they have entries (`Added`, `Changed`, `Fixed`, `Removed`, `Security`, `Docs`, `Chore`).
+- Every task PR must add or update a concise bullet under `## [Unreleased]` when it changes player-visible behavior, API contracts, database schema or seeds, generated assets, CI/deploy/security posture, task planning, or agent workflow rules.
+- Purely mechanical refactors, formatting-only changes, and test-only changes do not need changelog entries unless they change an operational contract or risk profile. Documentation-only changes need an entry when they alter how agents or maintainers are expected to work.
+- Write entries for humans, not as file lists. Mention the task id and issue/PR number when known, summarize the observable effect, and avoid copying acceptance criteria verbatim.
+- Keep task-planning changes traceable: when adding, splitting, reordering, or blocking tasks, include the affected task ids and the dependency direction if relevant.
+- Never put secrets, tokens, private environment URLs, customer/user data, or detailed exploit instructions in `CHANGELOG.md`. Security-sensitive entries should describe the mitigation at a high level and link only to the appropriate private record if one exists.
+- Preserve other agents' bullets during merges. If two branches edit `## [Unreleased]`, keep both sets of entries and group them under the correct category instead of choosing one side.
+- When preparing a release, move the relevant `## [Unreleased]` entries into a new dated section, leave a fresh empty `## [Unreleased]` section at the top, and make sure the release notes match the PRs/issues actually included.
+- Do not use `CHANGELOG.md` as a scratchpad, task tracker, or replacement for `tasks/tasks.json`. It records decisions and delivered changes after they become part of a branch or release.
 
 ## GitHub Bookkeeping Rules
 

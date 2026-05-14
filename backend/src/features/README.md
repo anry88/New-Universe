@@ -18,8 +18,8 @@ Private Home System Jump Gate state.
 Planet infrastructure management.
 
 - **`routes.ts`** — registers `GET /types`, `POST /build`, `POST /upgrade`, **`POST /resource`** for post-build extractor target changes, `POST /demolish`, `POST /sync/:planetId`, `GET /queue`, **`POST /rush`**.
-- **`service.ts`** — handles building logic, shared L10 / Command Center upgrade caps, L6+ extra material costs, queueing, **`rushQueuedBuilding`**, demolish, sync/finalize helpers, selected-resource passive regen and post-build retargeting for extractors such as mines, drills, oil pumps, and biomass harvesters with per-resource deposit limits/rates, plus energy storage/generation sync for `battery`, `solar_plant`, `wind_turbine`, and `fuel_generator`.
-- **`buildings.test.ts`**, **`rush.test.ts`**, etc. — integration tests for construction flows.
+- **`service.ts`** — handles building logic, shared L10 / Command Center upgrade caps, L6+ extra material costs, queueing, **`rushQueuedBuilding`**, demolish, sync/finalize helpers, selected-resource passive regen and post-build retargeting for extractors such as mines, drills, oil pumps, and biomass harvesters with per-resource deposit limits/rates, plus energy storage/generation sync for `battery`, `solar_plant`, `wind_turbine`, and `fuel_generator`. Build/upgrade mutations persist Postgres queue rows first, then use the shared `completion-queue.ts` producer to optionally wake BullMQ without request-time Redis/Queue creation.
+- **`completion-queue.ts`**, **`buildings.test.ts`**, **`completion-queue.test.ts`**, **`rush.test.ts`**, etc. — shared completion enqueue helper plus integration/unit tests for construction flows and BullMQ hot-path behavior.
 
 ## `auth/`
 
@@ -78,7 +78,7 @@ Building construction and queue management. [Detailed documentation](./buildings
   5a. Applies shared planet-specific gates: mines require metal deposits, drills require fluid/gas/ice deposits, oil pumps require oil, and biomass harvesters require biomass. Refineries are processors and can use either oil or methane recipes, so they are not tied to an oil deposit.
   6. Deducts resource costs via `spendResources` (from `features/resources/transactions.ts`).
   7. Creates a `buildings` row with `queueAction='build'` and `queueCompletesAt = now + baseTime`.
-  8. Optionally enqueues a BullMQ delayed job for completion when `ENABLE_BULLMQ=true`; otherwise the periodic Postgres worker and active-session sync finalize due rows.
+  8. After the transaction commits, optionally schedules a BullMQ delayed job through the shared `completion-queue.ts` producer when `ENABLE_BULLMQ=true`; otherwise the periodic Postgres worker and active-session sync finalize due rows.
   9. On queue completion, **`finalizeBuildingConstruction`** recomputes **`planet_resources.regenRate`** for resources the completed building can passively produce on that planet by summing producer levels and **inserts** a `planet_resources` row the first time that resource appears. Processors (`smelter`, `refinery`, `fabrication_bay`, `cryo_factory`) do not get passive crafted-resource regen; they use explicit production recipes.
 - **`service.test.ts`** — Vitest integration suite covering the full build flow: successful mine construction, free-slot exhaustion (via direct DB insert), queue limit enforcement, missing auth, unknown building type, and non-existent planet.
 
