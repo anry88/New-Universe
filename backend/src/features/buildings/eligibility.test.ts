@@ -197,6 +197,13 @@ describe('planet resource construction rules', () => {
 
   it('maps extractor output to local deposits instead of fixed catalog ids', () => {
     expect(
+      selectableResourceIdsForExtractor({
+        typeId: 'mine',
+        planetResourceIds: ['silicon_carbide', 'iron'],
+      }),
+    ).toEqual(['iron']);
+
+    expect(
       resolveBuildingProducedResourceIds({
         typeId: 'mine',
         baseOutput: { resourceId: 'iron', baseRate: 50 },

@@ -47,6 +47,22 @@ export const PRODUCTION_RECIPES: ProductionRecipe[] = [
     baseDurationSec: 24,
   },
   {
+    id: 'silicon_carbide_from_silicon_carbon',
+    buildingTypeId: 'fabrication_bay',
+    name: { ru: 'Карбид кремния', en: 'Silicon Carbide' },
+    description: {
+      ru: 'Дорогой высокотемпературный цикл из кремния, углерода и стали для прочных композитов.',
+      en: 'Runs an expensive high-temperature silicon, carbon, and steel cycle for durable composites.',
+    },
+    output: { resourceId: 'silicon_carbide', amount: 1 },
+    inputs: [
+      { resourceId: 'silicon', amount: 24 },
+      { resourceId: 'carbon', amount: 16 },
+      { resourceId: 'steel', amount: 2 },
+    ],
+    baseDurationSec: 180,
+  },
+  {
     id: 'water_from_ice',
     buildingTypeId: 'cryo_factory',
     name: { ru: 'Растопить лёд', en: 'Melt Ice' },

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { MAX_BUILDING_LEVEL, HIGH_TIER_UPGRADE_COSTS_BY_BUILDING } from '@shared/config/buildingUpgradeEconomy.js';
 import { EXTRACTABLE_RESOURCE_RATES_PER_HOUR } from '@shared/config/resourceExtractionRates.js';
+import { PRODUCTION_RECIPES } from '@shared/config/productionRecipes.js';
 import { runCatalogAudit } from './audit.js';
 import { BUILDING_TYPE_CATALOG_ROWS, RESOURCE_CATALOG_ROWS, SHIP_TYPE_CATALOG_ROWS } from './catalog-rows.js';
 
@@ -68,6 +69,22 @@ describe('catalog seed audit (P2-POL-002)', () => {
     });
     expect(HIGH_TIER_UPGRADE_COSTS_BY_BUILDING.spaceport).not.toHaveProperty('biomass');
     expect(HIGH_TIER_UPGRADE_COSTS_BY_BUILDING.shipyard).not.toHaveProperty('biomass');
+  });
+
+  it('keeps silicon carbide as an expensive manufactured material', () => {
+    const recipe = PRODUCTION_RECIPES.find((row) => row.id === 'silicon_carbide_from_silicon_carbon');
+    const resource = RESOURCE_CATALOG_ROWS.find((row) => row.id === 'silicon_carbide');
+
+    expect(resource?.baseRegenRate).toBe(0);
+    expect(recipe).toBeDefined();
+    expect(recipe!.buildingTypeId).toBe('fabrication_bay');
+    expect(recipe!.output).toEqual({ resourceId: 'silicon_carbide', amount: 1 });
+    expect(recipe!.inputs).toEqual([
+      { resourceId: 'silicon', amount: 24 },
+      { resourceId: 'carbon', amount: 16 },
+      { resourceId: 'steel', amount: 2 },
+    ]);
+    expect(recipe!.baseDurationSec).toBeGreaterThanOrEqual(180);
   });
 
   it('unlocks the shipyard after a level 1 spaceport', () => {

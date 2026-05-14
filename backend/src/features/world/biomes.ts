@@ -188,7 +188,7 @@ export const BIOMES: Record<BiomeType, Biome> = {
     id: 'metallic',
     name: { ru: 'Металлическая', en: 'Metallic' },
     commonResources: ['iron', 'copper', 'aluminum', 'silver', 'titanium', 'magnesium'],
-    rareResources: ['gold', 'cobalt', 'silicon_carbide', 'iridium', 'uranium'],
+    rareResources: ['gold', 'cobalt', 'iridium', 'uranium'],
     bonuses: ['dense_ore_fields'],
     penalties: ['low_volatiles'],
     orbitTier: BIOME_ORBIT_TIER.metallic,
