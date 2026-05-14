@@ -26,10 +26,19 @@ export interface ColonizationEligibility {
   };
 }
 
+export interface ColonizationGateOptions {
+  enforceDistance?: boolean;
+}
+
 /**
  * Checks if a player satisfies all colonization gates.
  */
-export async function checkColonizationGates(userId: string, targetPlanetId: string): Promise<ColonizationEligibility> {
+export async function checkColonizationGates(
+  userId: string,
+  targetPlanetId: string,
+  options: ColonizationGateOptions = {},
+): Promise<ColonizationEligibility> {
+  const enforceDistance = options.enforceDistance ?? true;
   const [targetPlanetInfo] = await db
     .select({
       systemOwnerId: systems.ownerId,
@@ -153,6 +162,13 @@ export async function checkColonizationGates(userId: string, targetPlanetId: str
         details,
       };
     }
+  }
+
+  if (!enforceDistance) {
+    return {
+      allowed: true,
+      details,
+    };
   }
 
   // 4. Distance Gate

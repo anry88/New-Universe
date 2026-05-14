@@ -353,7 +353,9 @@ export async function launchExpedition(
         return launchFailure(400, { code: "expedition_target_already_surveyed" });
       }
     } else if (shipRow.shipRole === "colonization") {
-      const gates = await checkColonizationGates(userId, targetPlanetId);
+      const gates = await checkColonizationGates(userId, targetPlanetId, {
+        enforceDistance: routeMode !== "jump_gate",
+      });
       if (!gates.allowed) {
         return launchFailure(400, {
           code: "expedition_colonization_blocked",

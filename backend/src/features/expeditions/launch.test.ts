@@ -725,6 +725,46 @@ describe("Expeditions - POST /expeditions", () => {
     expect(commandCenter).toBeDefined();
   });
 
+  it("does not apply the colony-distance gate to Jump Gate colonizer launches", async () => {
+    const { app, token, userId } = await createTestUser();
+    const { planet } = await getHomeContext(userId);
+    const destination = await createKnownPublicDestination(userId);
+    const targetPlanet = destination.planets[1];
+
+    await db
+      .update(systems)
+      .set({
+        x: "5000.00",
+        y: "5000.00",
+        z: "0.00",
+      })
+      .where(eq(systems.id, destination.system.id));
+    await unlockJumpGate(userId);
+    await db
+      .insert(discoveredPlanets)
+      .values({ userId, planetId: targetPlanet.id })
+      .onConflictDoNothing();
+    await ensureFuel(planet.id, 1000);
+    await ensureJumpFuel(planet.id, JUMP_GATE_JUMP_FUEL_COST);
+    const ship = await createIdleColonizer(userId, planet.id);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/expeditions",
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        shipId: ship.id,
+        routeMode: "jump_gate",
+        destinationSystemId: destination.system.id,
+        targetPlanetId: targetPlanet.id,
+        cargoLoaded: 0,
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().expedition.targetPlanetId).toBe(targetPlanet.id);
+  });
+
   it("rejects Jump Gate routes without stored Jump Fuel on the launch planet", async () => {
     const { app, token, userId } = await createTestUser();
     const { planet } = await getHomeContext(userId);
