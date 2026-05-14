@@ -164,7 +164,9 @@ Tech tree definitions and starting research on a planet.
 
 Ship construction and fleet queue helpers.
 
-- **`build.ts`** — `buildShip`, `getShipQueue`, `rushShipBuild`, and `syncReadyShips(userId?, options?)`. Queue payloads include server-derived `queueStartedAt`; `syncReadyShips` can be scoped to the active user and suppress stale pending `ship_done` notifications.
+- **`build.ts`** — `buildShip`, `getShipQueue`, `rushShipBuild`, and `syncReadyShips(userId?, options?)`. Queue payloads include server-derived `queueStartedAt`; `syncReadyShips` can be scoped to the active user and suppress stale pending `ship_done` notifications. Ship build completion is always persisted in Postgres (`status='building'` + `queueCompletesAt`), then:
+  - `ENABLE_BULLMQ=true` keeps the historical BullMQ delayed-job enqueue path.
+  - `ENABLE_BULLMQ=false` relies on periodic database polling in the worker and active-session `/me` sync.
 - **`routes.ts`** — registers `GET /types`, JSON-schema-validated `POST /build`, `GET /queue`, and JSON-schema-validated `POST /rush`; ship mutations declare rate-limit/security metadata. Queue reads run user-scoped `syncReadyShips(..., { skipNotifications: true })` before returning the current queue.
 - **`build.test.ts`** — integration coverage for ship construction gates and active-session ready-ship sync.
 

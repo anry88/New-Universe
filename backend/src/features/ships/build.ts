@@ -135,23 +135,25 @@ export async function buildShip(
       })
       .returning();
 
-    try {
-      const { Queue: BQueue } = await import('bullmq');
-      const Redis = (await import('ioredis')).default as unknown as new (...args: any[]) => any;
-      const redis = new Redis(env.REDIS_URL, {
-        maxRetriesPerRequest: null,
-        lazyConnect: true,
-      });
-      const shipQueue = new BQueue('ships', { connection: redis });
-      await shipQueue.add(
-        'complete-build',
-        { shipId: newShip.id, planetId },
-        { delay: type.buildTimeSec * 1000 },
-      );
-      await shipQueue.close();
-      await redis.quit();
-    } catch {
-      // Redis/BullMQ not available — worker handles completion via polling
+    if (env.ENABLE_BULLMQ) {
+      try {
+        const { Queue: BQueue } = await import('bullmq');
+        const Redis = (await import('ioredis')).default as unknown as new (...args: any[]) => any;
+        const redis = new Redis(env.REDIS_URL, {
+          maxRetriesPerRequest: null,
+          lazyConnect: true,
+        });
+        const shipQueue = new BQueue('ships', { connection: redis });
+        await shipQueue.add(
+          'complete-build',
+          { shipId: newShip.id, planetId },
+          { delay: type.buildTimeSec * 1000 },
+        );
+        await shipQueue.close();
+        await redis.quit();
+      } catch {
+        // Redis/BullMQ not available — worker handles completion via polling
+      }
     }
 
     return {
