@@ -18,6 +18,7 @@ All notable changes to New Universe will be documented in this file.
 
 ### Docs
 - Зафиксированы правила для агентов по ведению `CHANGELOG.md`: когда добавлять записи, как работать с `Unreleased`, как сохранять записи других агентов и какие данные нельзя заносить в журнал.
+- Зафиксировано правило локального deploy fallback: `scripts/deploy-local.sh` нужно запускать из чистого `env -i` окружения с явным deploy env-файлом, чтобы локальные Docker/build переменные не утекали в staging/production.
 
 ## [2026-05-14]
 
