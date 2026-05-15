@@ -15,6 +15,8 @@ const ONLINE_SYNC_NOTIFICATION_TYPES = [
   'expedition_returned',
   'colony_founded',
   'ship_destroyed',
+  'building_destroyed',
+  'colony_destroyed',
 ];
 
 async function playerPlanetIds(userId: string): Promise<string[]> {

@@ -239,6 +239,13 @@
       "when": 1778837881886,
       "tag": "0035_woozy_mongoose",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1778839840251,
+      "tag": "0036_hard_punisher",
+      "breakpoints": true
     }
   ]
 }

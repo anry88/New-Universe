@@ -4,11 +4,26 @@ import { planets, systems } from '../../db/schema/world.js';
 import { buildings } from '../../db/schema/buildings.js';
 import { discoveredPlanets } from '../../db/schema/discovery.js';
 import { researchProgress } from '../../db/schema/research.js';
-import { eq, and, count, desc } from 'drizzle-orm';
+import { eq, and, count, desc, isNull, sql } from 'drizzle-orm';
 import {
   COLONIZATION_RULES,
   maxColoniesForLogisticsLevel,
 } from '../../config/colonization-rules.js';
+
+/**
+ * Typed colonization block codes — stable strings the frontend can switch on
+ * to render localized messages without parsing English `reason` strings.
+ */
+export type ColonizationBlockCode =
+  | 'colony_planet_not_found'
+  | 'colony_protected_home'
+  | 'colony_not_discovered'
+  | 'colony_already_colonized'
+  | 'colony_blocked_hostile_buildings'
+  | 'colony_research_required'
+  | 'colony_limit_reached'
+  | 'colony_cooldown'
+  | 'colony_too_far';
 
 /**
  * Validation result for colonization gates.
@@ -16,6 +31,7 @@ import {
 export interface ColonizationEligibility {
   allowed: boolean;
   reason?: string;
+  code?: ColonizationBlockCode;
   details?: {
     currentColonies: number;
     maxColonies: number;
@@ -50,13 +66,18 @@ export async function checkColonizationGates(
     .limit(1);
 
   if (!targetPlanetInfo) {
-    return { allowed: false, reason: 'Target planet not found' };
+    return {
+      allowed: false,
+      reason: 'Target planet not found',
+      code: 'colony_planet_not_found',
+    };
   }
 
   if (targetPlanetInfo.isHome && targetPlanetInfo.systemOwnerId !== userId) {
     return {
       allowed: false,
       reason: 'Cannot colonize protected home systems',
+      code: 'colony_protected_home',
     };
   }
 
@@ -71,32 +92,53 @@ export async function checkColonizationGates(
     return {
       allowed: false,
       reason: 'Planet not discovered',
+      code: 'colony_not_discovered',
     };
   }
 
-  // 0. Check if planet is already colonized or already has an active base.
+  // 0. Hostile-buildings gate (P3-COM-007): while any defending building is
+  // still standing on the target planet, the colonizer cannot land. Bombing
+  // (combat tick) clears these one by one; when the Command Center finally
+  // dies, the cascade in `tick-combat.ts` wipes the colony and remaining
+  // buildings together, so a fresh colonizer can claim the planet.
   const existingColony = await db.query.colonies.findFirst({
     where: eq(colonies.planetId, targetPlanetId),
   });
 
   if (existingColony) {
+    if (existingColony.ownerId === userId) {
+      return {
+        allowed: false,
+        reason: 'Planet already colonized',
+        code: 'colony_already_colonized',
+      };
+    }
+    const hasHostileBuilding = await hasAliveBuildingOnPlanet(targetPlanetId);
+    if (hasHostileBuilding) {
+      return {
+        allowed: false,
+        reason: 'Planet defended by hostile buildings — clear them before colonizing',
+        code: 'colony_blocked_hostile_buildings',
+      };
+    }
+    // Defensive fallback: a foreign colony row with no live buildings should
+    // not exist (CC destruction wipes both atomically) but treat it as still
+    // colonized rather than silently allowing a takeover.
     return {
       allowed: false,
       reason: 'Planet already colonized',
+      code: 'colony_already_colonized',
     };
   }
 
-  const existingCommandCenter = await db.query.buildings.findFirst({
-    where: and(
-      eq(buildings.planetId, targetPlanetId),
-      eq(buildings.typeId, 'command_center'),
-    ),
-  });
-
-  if (existingCommandCenter) {
+  // Defensive: there is no colony row, but there might still be an orphaned
+  // Command Center or non-CC building from an out-of-band scenario.
+  const aliveBuildingExists = await hasAliveBuildingOnPlanet(targetPlanetId);
+  if (aliveBuildingExists) {
     return {
       allowed: false,
-      reason: 'Planet already colonized',
+      reason: 'Planet defended by hostile buildings — clear them before colonizing',
+      code: 'colony_blocked_hostile_buildings',
     };
   }
 
@@ -120,6 +162,7 @@ export async function checkColonizationGates(
     return {
       allowed: false,
       reason: `Requires ${COLONIZATION_RULES.researchRequirement.branch} level ${COLONIZATION_RULES.researchRequirement.level}`,
+      code: 'colony_research_required',
       details,
     };
   }
@@ -140,6 +183,7 @@ export async function checkColonizationGates(
     return {
       allowed: false,
       reason: `Colony limit reached (${currentColonies}/${maxColonies})`,
+      code: 'colony_limit_reached',
       details,
     };
   }
@@ -159,6 +203,7 @@ export async function checkColonizationGates(
       return {
         allowed: false,
         reason: 'Colonization on cooldown',
+        code: 'colony_cooldown',
         details,
       };
     }
@@ -184,7 +229,12 @@ export async function checkColonizationGates(
     .limit(1);
 
   if (!targetPlanet) {
-    return { allowed: false, reason: 'Target planet not found', details };
+    return {
+      allowed: false,
+      reason: 'Target planet not found',
+      code: 'colony_planet_not_found',
+      details,
+    };
   }
 
   const ownedColonies = await db
@@ -228,6 +278,7 @@ export async function checkColonizationGates(
     return {
       allowed: false,
       reason: `Target is too far from nearest colony (Distance: ${Math.round(minDistance)}, Max: ${COLONIZATION_RULES.maxDistance})`,
+      code: 'colony_too_far',
       details,
     };
   }
@@ -236,4 +287,22 @@ export async function checkColonizationGates(
     allowed: true,
     details,
   };
+}
+
+/**
+ * Returns true when the given planet still has at least one defending
+ * building — i.e. an entry in `buildings` with `destroyed_at IS NULL`
+ * and HP above zero. Used by the colonization gate (P3-COM-007) to block
+ * settlement until orbital bombing finishes the planet off.
+ */
+async function hasAliveBuildingOnPlanet(planetId: string): Promise<boolean> {
+  const row = await db.query.buildings.findFirst({
+    where: and(
+      eq(buildings.planetId, planetId),
+      isNull(buildings.destroyedAt),
+      sql`${buildings.hp} > 0`,
+    ),
+    columns: { id: true },
+  });
+  return !!row;
 }

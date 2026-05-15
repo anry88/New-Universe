@@ -148,3 +148,118 @@ export function sumDpsPerDefender(hits: AttackerHit[]): Map<string, number> {
   }
   return totals;
 }
+
+// ---------------------------------------------------------------------------
+// Bomber → building targeting (orbital range, surface targets).
+// ---------------------------------------------------------------------------
+
+export interface BomberActor {
+  id: string;
+  ownerId: string;
+  status: string;
+  hp: number;
+  combatStats: CombatStats;
+  /** System the bomber is currently docked at; orbital bombers must be in-system to bomb. */
+  hostSystemId: string | null;
+}
+
+export interface BuildingTarget {
+  id: string;
+  planetId: string;
+  systemId: string;
+  ownerId: string | null;
+  /** `command_center` is a special last-resort target; everything else is a non-CC priority target. */
+  targetClass: 'building' | 'command_center';
+  armor: number;
+  hp: number;
+  destroyed: boolean;
+  lastCombatTickAtMs: number | null;
+}
+
+export interface BomberHit {
+  bomberId: string;
+  buildingId: string;
+  planetId: string;
+  effectiveDps: number;
+}
+
+/**
+ * Pick the single building a bomber targets this tick. Non-Command-Center
+ * structures take priority — Command Centers are only attacked when every
+ * other valid target on the planet is already down. Order within each tier
+ * is deterministic by building id for reproducible tests.
+ */
+export function selectBomberTargetForPlanet(
+  buildings: BuildingTarget[],
+): BuildingTarget | null {
+  const alive = buildings.filter((b) => !b.destroyed && b.hp > 0);
+  if (alive.length === 0) return null;
+  const sorted = alive.slice().sort((a, b) => a.id.localeCompare(b.id));
+  const nonCc = sorted.find((b) => b.targetClass !== 'command_center');
+  if (nonCc) return nonCc;
+  return sorted.find((b) => b.targetClass === 'command_center') ?? null;
+}
+
+/**
+ * Resolve every (bomber, building) hit for the current tick.
+ *
+ * - Bomber must be a non-destroyed military hull with an `orbital` damage
+ *   profile and a known host system (in-flight bombers cannot drop ordnance).
+ * - The bomber engages every enemy-owned planet inside that system,
+ *   targeting one building per planet (priority: non-CC, then CC).
+ * - Pure function: no DB I/O; the orchestrator collects targets and applies
+ *   damage idempotently against `lastCombatTickAt`.
+ */
+export function resolveBomberHits(
+  bombers: BomberActor[],
+  buildingsByPlanet: Map<string, BuildingTarget[]>,
+): BomberHit[] {
+  const hits: BomberHit[] = [];
+
+  for (const bomber of bombers) {
+    if (!isBomberActive(bomber)) continue;
+    if (!bomber.hostSystemId) continue;
+
+    for (const [planetId, planetBuildings] of buildingsByPlanet) {
+      if (planetBuildings.length === 0) continue;
+      const planetSystemId = planetBuildings[0].systemId;
+      if (planetSystemId !== bomber.hostSystemId) continue;
+
+      const hostileBuildings = planetBuildings.filter(
+        (b) => b.ownerId && b.ownerId !== bomber.ownerId,
+      );
+      if (hostileBuildings.length === 0) continue;
+
+      const target = selectBomberTargetForPlanet(hostileBuildings);
+      if (!target) continue;
+
+      const eff = effectiveDpsAgainst(bomber.combatStats.damageProfile, target.armor);
+      if (eff <= 0) continue;
+
+      hits.push({
+        bomberId: bomber.id,
+        buildingId: target.id,
+        planetId,
+        effectiveDps: eff,
+      });
+    }
+  }
+
+  return hits;
+}
+
+export function sumDpsPerBuilding(hits: BomberHit[]): Map<string, number> {
+  const totals = new Map<string, number>();
+  for (const hit of hits) {
+    totals.set(hit.buildingId, (totals.get(hit.buildingId) ?? 0) + hit.effectiveDps);
+  }
+  return totals;
+}
+
+function isBomberActive(actor: BomberActor): boolean {
+  if (actor.status === 'destroyed' || actor.status === 'building') return false;
+  if (actor.hp <= 0) return false;
+  const stats = actor.combatStats;
+  if (!stats?.damageProfile || stats.engagementRange !== 'orbital') return false;
+  return true;
+}
