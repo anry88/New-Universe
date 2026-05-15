@@ -159,14 +159,14 @@
     {
       "idx": 24,
       "version": "7",
-      "when": 1778426099344,
+      "when": 1779100000001,
       "tag": "0024_curvy_miek",
       "breakpoints": true
     },
     {
       "idx": 25,
       "version": "7",
-      "when": 1778474544226,
+      "when": 1779100000002,
       "tag": "0025_heavy_starfox",
       "breakpoints": true
     },
@@ -187,14 +187,14 @@
     {
       "idx": 28,
       "version": "7",
-      "when": 1778597783961,
+      "when": 1779300000001,
       "tag": "0028_puzzling_genesis",
       "breakpoints": true
     },
     {
       "idx": 29,
       "version": "7",
-      "when": 1778605643379,
+      "when": 1779300000002,
       "tag": "0029_whole_skaar",
       "breakpoints": true
     },
@@ -215,43 +215,36 @@
     {
       "idx": 32,
       "version": "7",
-      "when": 1778762044896,
+      "when": 1779500000001,
       "tag": "0032_good_falcon",
       "breakpoints": true
     },
     {
       "idx": 33,
       "version": "7",
-      "when": 1778830829712,
+      "when": 1779500000002,
       "tag": "0033_orange_jasper_sitwell",
       "breakpoints": true
     },
     {
       "idx": 34,
       "version": "7",
-      "when": 1778834268839,
+      "when": 1779500000003,
       "tag": "0034_aspiring_tattoo",
       "breakpoints": true
     },
     {
       "idx": 35,
       "version": "7",
-      "when": 1778837881886,
+      "when": 1779500000004,
       "tag": "0035_woozy_mongoose",
       "breakpoints": true
     },
     {
       "idx": 36,
       "version": "7",
-      "when": 1778839840251,
+      "when": 1779500000005,
       "tag": "0036_hard_punisher",
-      "breakpoints": true
-    },
-    {
-      "idx": 37,
-      "version": "7",
-      "when": 1779500000001,
-      "tag": "0037_staging_combat_schema_repair",
       "breakpoints": true
     }
   ]
