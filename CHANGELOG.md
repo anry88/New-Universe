@@ -5,6 +5,7 @@ All notable changes to New Universe will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- `issue #370`: добавлен общий Cosmic Atlas resolver иконок ресурсов с покрытием всех gameplay-ресурсов, чтобы UI больше не показывал `Fe`, `Si`, `MA` и другие текстовые аббревиатуры вместо иконок.
 - `P3-COM-010`: добавлены абстрактные правила ядерного payload-протокола, Weapons V gate, поздние advanced/Common Pool costs, cooldown, серверные проверки видимости/владения/нейтралов/protected-home/поселённых целей, shield-first damage resolution и локализованный warning-блок в верфи.
 - `P3-COM-013` (issue #355): добавлен late-tier `atomic_reactor` с Energy IV gate, one-per-planet limit, abstract sealed-cell energy recipes на advanced Common Pool resources, backend production/audit/sector tests, Cosmic Atlas icon/labels и balance-sim mirror.
 - `P3-COM-009` (issue #351): добавлены малый/средний/большой щитовые корабли с RU/EN метаданными, Cosmic Atlas иконками, advanced build costs, Energy gates, shield HP/radius/recharge/downtime hooks, серверной механикой покрытия/перекрытия/пробития/восстановления и UI-строкой статуса щита.
@@ -22,6 +23,7 @@ All notable changes to New Universe will be documented in this file.
 - Сформирована явная цепочка зависимостей задач: `P2.2-016 -> P2.2-017 -> P2.2-018`.
 
 ### Changed
+- `issue #370`: пользовательские названия starter military resources обновлены с `Military Alloy` / `Military Composite` на реальные материалы Silver Steel / C/SiC Composite в seed catalog, shared entity labels, recipes и RU/EN локалях.
 - `P3-EPIC-COMBAT` (issue #342): refuel transfer now validates and updates both ships under row locks, preventing concurrent refuel requests from overdrawing a refueler or overfilling a target tank.
 - `P3-EPIC-COMBAT` (issue #342): colonization limits, cooldowns, and `/me` summaries now exclude only the seeded home capital, so a fresh player can still spend the first expansion colony slot after home-system generation creates the capital colony row.
 - Normalized Drizzle migration journal timestamps so later migrations are not skipped by an older future-dated entry; staging should be recreated cleanly while the game is still pre-production.

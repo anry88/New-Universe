@@ -40,8 +40,8 @@ export const RESOURCE_ENTITY_LABELS: Record<string, EntityLabels> = {
   oil_or_methane: { en: 'Oil or Methane', ru: 'Нефть или метан' },
   water_or_biomass: { en: 'Water or Biomass', ru: 'Вода или биомасса' },
   liquid_nitrogen: { en: 'Liquid Nitrogen', ru: 'Жидкий азот' },
-  military_alloy: { en: 'Military Alloy', ru: 'Военный сплав' },
-  military_composite: { en: 'Military Composite', ru: 'Военный композит' },
+  military_alloy: { en: 'Silver Steel', ru: 'Серебряная сталь' },
+  military_composite: { en: 'C/SiC Composite', ru: 'C/SiC-композит' },
 };
 
 export const BUILDING_ENTITY_LABELS: Record<string, EntityLabels> = {

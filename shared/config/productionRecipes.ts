@@ -219,10 +219,10 @@ export const PRODUCTION_RECIPES: ProductionRecipe[] = [
   {
     id: 'military_alloy_from_iron_silver',
     buildingTypeId: 'smelter',
-    name: { ru: 'Военный сплав', en: 'Military Alloy' },
+    name: { ru: 'Серебряная сталь', en: 'Silver Steel' },
     description: {
-      ru: 'Прочный сплав на основе железа и серебра для легких корпусов.',
-      en: 'Durable iron and silver alloy for light hulls.',
+      ru: 'Высокоуглеродистая инструментальная сталь для легких корпусов.',
+      en: 'High-carbon tool steel for light hull frames.',
     },
     output: { resourceId: 'military_alloy', amount: 1 },
     inputs: [
@@ -234,10 +234,10 @@ export const PRODUCTION_RECIPES: ProductionRecipe[] = [
   {
     id: 'military_composite_from_carbon_silicon',
     buildingTypeId: 'fabrication_bay',
-    name: { ru: 'Военный композит', en: 'Military Composite' },
+    name: { ru: 'C/SiC-композит', en: 'C/SiC Composite' },
     description: {
-      ru: 'Армированный композит для легкого вооружения.',
-      en: 'Reinforced composite for light weapons.',
+      ru: 'Углерод-карбидокремниевый композит для легкого вооружения.',
+      en: 'Carbon-fiber reinforced silicon carbide composite for light weapons.',
     },
     output: { resourceId: 'military_composite', amount: 1 },
     inputs: [

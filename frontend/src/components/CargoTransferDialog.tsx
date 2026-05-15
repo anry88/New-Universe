@@ -14,7 +14,7 @@ import {
   JUMP_GATE_JUMP_FUEL_COST,
 } from '@shared/config/expeditionRouting';
 import { formatTimerDuration } from '../lib/timers';
-import { getResourceLabel, getResourceSymbol } from './cosmic/resources';
+import { getResourceLabel, ResourceIcon } from './cosmic/resources';
 import { getShipClassTag, ShipIconBadge } from './cosmic/ships';
 
 interface CargoTransferDialogProps {
@@ -256,8 +256,8 @@ export function CargoTransferDialog({
               {originPlanet.resources?.map(res => (
                 <div key={res.resourceId} className="flex items-center gap-3 p-2 bg-slate-800/30 rounded-xl border border-slate-700/50">
                   <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center border border-slate-700">
-                     <span className="text-[10px] font-bold text-slate-400">
-                       {getResourceSymbol(res.resourceId)}
+                     <span className="text-slate-400">
+                       <ResourceIcon resourceId={res.resourceId} size={22} />
                      </span>
                   </div>
                   <div className="flex-1">

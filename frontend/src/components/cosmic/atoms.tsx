@@ -10,7 +10,7 @@ import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { BIOME_META, PlanetSvg, Stars, getBiomeLabel, getBiomeTag, resolveBiome } from './planets';
 import { getBuildingCategory, getBuildingLabel, resolveBuildingType } from './buildings';
-import { getResourceSymbol } from './resources';
+import { ResourceIcon } from './resources';
 import { useI18n } from '../../lib/i18n';
 
 // --- Resource chip ---------------------------------------------------------
@@ -36,7 +36,9 @@ export const ResourceChip: React.FC<{ data: ResourceChipData; onClick?: (resourc
       title={clickable ? t('resources.buyWithDiamonds') : undefined}
     >
       <div className="rchip-row">
-        <span className="rchip-sym">{getResourceSymbol(data.resourceId)}</span>
+        <span className="rchip-sym">
+          <ResourceIcon resourceId={data.resourceId} size={18} />
+        </span>
         <span className="rchip-amt">{Math.floor(data.amount).toLocaleString()}</span>
       </div>
       <div className="rchip-meta">
@@ -156,7 +158,7 @@ export interface BuildSlotData {
   energyStored?: number;
   energyCapacity?: number;
   process?: {
-    outputLabel: string;
+    outputLabel: React.ReactNode;
     etaSec: number;
     progressPct: number;
     paused?: boolean;

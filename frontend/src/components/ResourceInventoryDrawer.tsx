@@ -1,4 +1,4 @@
-import { getResourceLabel, getResourceSymbol } from './cosmic/resources';
+import { getResourceLabel, ResourceIcon } from './cosmic/resources';
 import { useI18n } from '../lib/i18n';
 
 export interface InventoryRow {
@@ -66,7 +66,9 @@ export function ResourceInventoryDrawer({
                 <li key={r.resourceId} className={'resource-inv-row' + (clickable ? ' resource-inv-row-clickable' : '')}>
                   <div className="resource-inv-row-top">
                     <div className="resource-inv-row-main">
-                      <span className="resource-inv-sym">{getResourceSymbol(r.resourceId)}</span>
+                      <span className="resource-inv-sym">
+                        <ResourceIcon resourceId={r.resourceId} size={22} />
+                      </span>
                       <div className="resource-inv-meta">
                         <span className="resource-inv-name">{getResourceLabel(r.resourceId, locale)}</span>
                         <span className="resource-inv-sub">

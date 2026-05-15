@@ -20,7 +20,7 @@ import { estimateRushDiamondCost } from "@shared/types/diamonds";
 import type { CombatStats, EngagementRange } from "@shared/types/combat";
 import type { Building, Planet } from "@shared/types/world";
 import { shipDescription } from "@shared/types/entity-labels";
-import { getResourceLabel, getResourceSymbol } from "../components/cosmic/resources";
+import { getResourceLabel, ResourceAmountList } from "../components/cosmic/resources";
 import { timerSnapshot } from "../lib/timers";
 import {
   isShipReadyForOrders,
@@ -467,12 +467,13 @@ export function ShipsPage() {
                         </div>
                         <div className="ship-loc">
                           {t("common.cost")}:{" "}
-                          {Object.entries(type.buildCost)
-                            .map(
-                              ([resourceId, amount]) =>
-                                `${getResourceSymbol(resourceId)} ${amount}`,
-                            )
-                            .join(" · ")}
+                          <ResourceAmountList
+                            items={Object.entries(type.buildCost).map(([resourceId, amount]) => ({
+                              resourceId,
+                              amount,
+                            }))}
+                            locale={locale}
+                          />
                         </div>
                         <div className="ship-loc">
                           {t("ships.requires")}: {requirements || t("common.none")}

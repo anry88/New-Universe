@@ -35,7 +35,7 @@ import {
 import { getShipClassTag, ShipIconBadge } from "./cosmic/ships";
 import { useI18n } from "../lib/i18n";
 import { buildExpeditionPreview } from "../lib/expedition-routing";
-import { getResourceSymbol } from "./cosmic/resources";
+import { ResourceAmount } from "./cosmic/resources";
 import {
   buildSystemMapLayouts,
   systemMapJumpGatePoint,
@@ -1174,7 +1174,7 @@ export function ExpeditionDialog({
                       fontSize: 16,
                     }}
                   >
-                    {preview.fuelRequired} {getResourceSymbol("fuel")}
+                    <ResourceAmount resourceId="fuel" amount={preview.fuelRequired} locale={locale} />
                   </div>
                   <div
                     style={{
@@ -1236,7 +1236,7 @@ export function ExpeditionDialog({
                           fontSize: 16,
                         }}
                       >
-                        {preview.jumpFuelRequired} {getResourceSymbol("jump_fuel")}
+                        <ResourceAmount resourceId="jump_fuel" amount={preview.jumpFuelRequired} locale={locale} />
                       </div>
                       <div
                         style={{
@@ -1280,7 +1280,11 @@ export function ExpeditionDialog({
               >
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <span>{t("expedition.availableOnPlanet")}</span>
-                  <span>{getResourceSymbol("fuel")} {fuelAvailable} · {getResourceSymbol("jump_fuel")} {jumpFuelAvailable}</span>
+                  <span className="resource-amount-list">
+                    <ResourceAmount resourceId="fuel" amount={fuelAvailable} iconSize={12} locale={locale} />
+                    <span className="resource-amount-sep">·</span>
+                    <ResourceAmount resourceId="jump_fuel" amount={jumpFuelAvailable} iconSize={12} locale={locale} />
+                  </span>
                 </div>
               </div>
               </div>

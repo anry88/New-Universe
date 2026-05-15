@@ -10,7 +10,7 @@ import {
   buildingUpgradeTimeSeconds,
 } from '@shared/config/buildingUpgradeEconomy';
 import { getBuildingCategory, resolveBuildingType } from './cosmic/buildings';
-import { getResourceLabel, getResourceSymbol } from './cosmic/resources';
+import { getResourceLabel, ResourceAmount, ResourceAmountList, ResourceIcon } from './cosmic/resources';
 import { useI18n } from '../lib/i18n';
 import type { BuildDialogResourceChoice } from './BuildDialog';
 import { recipesForBuildingType } from '@shared/config/productionRecipes';
@@ -149,7 +149,9 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
                         aria-pressed={selected}
                         aria-label={`${getResourceLabel(choice.resourceId, locale)} ${choice.used}/${choice.depositLimit}`}
                       >
-                        <span>{getResourceSymbol(choice.resourceId)}</span>
+                        <span className="bopt-resource-icon">
+                          <ResourceIcon resourceId={choice.resourceId} size={16} />
+                        </span>
                         <span>{choice.used}/{choice.depositLimit}</span>
                       </button>
                     );
@@ -188,7 +190,14 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
                       )}
                       {outputResourceId && outputRatePerLevel > 0 && (
                         <span className="bstat">
-                          {t('build.yield')}: {outputRatePerLevel * curLvl} → {outputRatePerLevel * nextLvl} {getResourceSymbol(outputResourceId)}/h
+                          {t('build.yield')}:{' '}
+                          <ResourceAmount
+                            resourceId={outputResourceId}
+                            amount={`${outputRatePerLevel * curLvl} → ${outputRatePerLevel * nextLvl}`}
+                            suffix="/h"
+                            iconSize={12}
+                            locale={locale}
+                          />
                         </span>
                       )}
                       {output.cap && (
@@ -213,7 +222,18 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
                       )}
                       {output.conversion && (
                         <span className="bstat">
-                          {getResourceSymbol(output.conversion.from)} → {getResourceSymbol(output.conversion.to)} ({output.conversion.rate}/h)
+                          <ResourceIcon
+                            resourceId={output.conversion.from}
+                            size={12}
+                            title={getResourceLabel(output.conversion.from, locale)}
+                          />{' '}
+                          →{' '}
+                          <ResourceIcon
+                            resourceId={output.conversion.to}
+                            size={12}
+                            title={getResourceLabel(output.conversion.to, locale)}
+                          />{' '}
+                          ({output.conversion.rate}/h)
                         </span>
                       )}
                     </>
@@ -225,9 +245,15 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
                 <span className="bopt-cost">
                   {costs.length === 0
                     ? '—'
-                    : costs
-                        .map(({ resId, amount }) => `${getResourceSymbol(resId)} ${amount.toLocaleString()}`)
-                        .join('  ·  ')}
+                    : (
+                      <ResourceAmountList
+                        items={costs.map(({ resId, amount }) => ({
+                          resourceId: resId,
+                          amount: amount.toLocaleString(),
+                        }))}
+                        locale={locale}
+                      />
+                    )}
                 </span>
                 <span className="bopt-time">
                   {minutes > 0 ? `${minutes}m ${seconds.toString().padStart(2, '0')}s` : `${seconds}s`}
