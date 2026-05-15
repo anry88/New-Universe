@@ -8,6 +8,7 @@ interface ResourceDiamondPurchaseDialogProps {
   planetId: string | null;
   resourceId: string | null;
   diamondBalance: number;
+  availableSpace: number | null;
   busy: boolean;
   onClose: () => void;
   onConfirm: (amount: number) => Promise<void>;
@@ -18,13 +19,18 @@ export function ResourceDiamondPurchaseDialog({
   planetId,
   resourceId,
   diamondBalance,
+  availableSpace,
   busy,
   onClose,
   onConfirm,
 }: ResourceDiamondPurchaseDialogProps) {
   const { locale, t } = useI18n();
   const [amount, setAmount] = useState('100');
-  const parsedAmount = useMemo(() => Math.max(0, Math.floor(Number(amount))), [amount]);
+  const maxAmount = availableSpace !== null ? Math.max(0, Math.floor(availableSpace)) : undefined;
+  const parsedAmount = useMemo(
+    () => Math.max(0, Math.min(Math.floor(Number(amount)), maxAmount ?? Infinity)),
+    [amount, maxAmount],
+  );
   const [quote, setQuote] = useState<{ diamondsNeeded: number; unitsPerDiamond: number; tier: number } | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
 
@@ -86,13 +92,19 @@ export function ResourceDiamondPurchaseDialog({
             <input
               type="number"
               min={1}
+              max={maxAmount}
               step={1}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               className="resource-buy-input"
-              disabled={busy}
+              disabled={busy || maxAmount === 0}
             />
           </label>
+          {maxAmount !== undefined && (
+            <div className="resource-inv-hint">
+              {t('resources.storageAvailable', { available: maxAmount.toLocaleString() })}
+            </div>
+          )}
           <div className="resource-inv-hint">{t('resources.diamondBalance', { diamonds: diamondBalance.toLocaleString() })}</div>
           <div className="resource-inv-hint">
             {quoteLoading
@@ -108,7 +120,7 @@ export function ResourceDiamondPurchaseDialog({
           <button
             type="button"
             className="resource-buy-confirm-btn"
-            disabled={busy || parsedAmount <= 0 || !quote}
+            disabled={busy || parsedAmount <= 0 || !quote || maxAmount === 0}
             onClick={() => onConfirm(parsedAmount)}
           >
             {busy ? t('common.processing') : t('resources.buyWithDiamonds')}

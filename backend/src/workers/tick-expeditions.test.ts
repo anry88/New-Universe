@@ -362,10 +362,10 @@ describe("Tick Expeditions Worker", () => {
     expect(notes.filter((note) => note.type === "expedition_returned")).toHaveLength(0);
   });
 
-  it("should discover new systems/planets during travel", async () => {
+  it("should not auto-discover public system planets during travel (probe-only mechanic)", async () => {
     const { ship, originPlanet, user } = await createSetup();
 
-    // System along the way at X=50
+    // Public system along the way at X=50 — NOT auto-discovered by sensor range
     const [midSystem] = await db
       .insert(systems)
       .values({
@@ -415,6 +415,7 @@ describe("Tick Expeditions Worker", () => {
 
     await processExpeditions();
 
+    // Public system planet should NOT be auto-discovered — requires explicit probe jump + recon expedition
     const discovery = await db.query.discoveredPlanets.findFirst({
       where: and(
         eq(discoveredPlanets.userId, user.id),
@@ -422,7 +423,7 @@ describe("Tick Expeditions Worker", () => {
       ),
     });
 
-    expect(discovery).toBeDefined();
+    expect(discovery).toBeUndefined();
   });
 
   it("discovers a targeted home planet when scout reaches destination", async () => {

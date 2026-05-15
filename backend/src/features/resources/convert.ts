@@ -3,6 +3,8 @@ import { planets, systems, buildings, buildingTypes, users, resources, planetRes
 import { eq, and, sql } from 'drizzle-orm';
 import { spendResources, gainResources } from './transactions.js';
 import { ENERGY_RESOURCE_ID, energyRequirementForDuration } from './energy.js';
+import { getResearchEffectsForUser, applyStorageCap } from '../research/effects.js';
+import { syncPlanetResources } from './accrual.js';
 
 export interface ConvertRequest {
   planetId: string;
@@ -77,7 +79,7 @@ async function resolveDiamondPurchaseContext(
   planetId: string,
   resourceId: string,
 ): Promise<
-  | { ok: true; tier: number }
+  | { ok: true; tier: number; defaultStorageCap: number }
   | { ok: false; status: number; error: string }
 > {
   const db = defaultDb;
@@ -108,7 +110,7 @@ async function resolveDiamondPurchaseContext(
     return { ok: false, status: 400, error: 'Resource is not available on this planet' };
   }
 
-  return { ok: true, tier: resource.tier };
+  return { ok: true, tier: resource.tier, defaultStorageCap: Number(resource.defaultStorageCap) };
 }
 
 export async function convertResources(
@@ -233,9 +235,60 @@ export async function buyResourceWithDiamonds(
   if (!context.ok) {
     return { success: false, status: context.status, error: context.error };
   }
-  const { diamonds, unitsPerDiamond } = quoteDiamondPurchase(context.tier, amount);
+
+  const [researchEffects, storageRows] = await Promise.all([
+    getResearchEffectsForUser(userId),
+    db
+      .select({ level: buildings.level, baseOutput: buildingTypes.baseOutput })
+      .from(buildings)
+      .innerJoin(buildingTypes, eq(buildingTypes.id, buildings.typeId))
+      .where(
+        and(
+          eq(buildings.planetId, planetId),
+          eq(buildings.typeId, 'storage'),
+          sql`${buildings.queueAction} IS NULL`,
+        ),
+      ),
+  ]);
+
+  const storageBonus = storageRows.reduce((sum, row) => {
+    const cap = typeof (row.baseOutput as Record<string, unknown>)?.cap === 'number'
+      ? (row.baseOutput as Record<string, unknown>).cap as number
+      : 0;
+    return sum + cap * row.level;
+  }, 0);
+  const totalStorageCap = Math.floor(
+    applyStorageCap(context.defaultStorageCap + storageBonus, researchEffects),
+  );
 
   return db.transaction(async (tx) => {
+    await syncPlanetResources(planetId, tx);
+
+    const [currentRow] = await tx
+      .select({ amount: planetResources.amount })
+      .from(planetResources)
+      .where(
+        and(
+          eq(planetResources.planetId, planetId),
+          eq(planetResources.resourceId, resourceId),
+        ),
+      )
+      .for('update');
+
+    const currentAmount = Number(currentRow?.amount ?? 0);
+    const availableSpace = Math.max(0, totalStorageCap - currentAmount);
+
+    if (availableSpace <= 0) {
+      return {
+        success: false,
+        status: 400,
+        error: 'Storage is full',
+      } as BuyWithDiamondsResult;
+    }
+
+    const actualAmount = Math.min(amount, Math.floor(availableSpace));
+    const { diamonds, unitsPerDiamond } = quoteDiamondPurchase(context.tier, actualAmount);
+
     const diamondRows = await tx
       .update(users)
       .set({ diamonds: sql`${users.diamonds} - ${diamonds}` })
@@ -253,7 +306,7 @@ export async function buyResourceWithDiamonds(
     await tx
       .update(planetResources)
       .set({
-        amount: sql`${planetResources.amount}::numeric + ${amount}`,
+        amount: sql`${planetResources.amount}::numeric + ${actualAmount}`,
         lastUpdateAt: new Date(),
       })
       .where(
@@ -268,7 +321,7 @@ export async function buyResourceWithDiamonds(
       status: 200,
       data: {
         resourceId,
-        amount,
+        amount: actualAmount,
         diamondsSpent: diamonds,
         diamondsRemaining: diamondRows[0]!.diamonds,
         unitsPerDiamond,
