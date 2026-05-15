@@ -2,6 +2,7 @@ import { pgTable, uuid, text, integer, jsonb, timestamp } from 'drizzle-orm/pg-c
 import { relations } from 'drizzle-orm';
 import { planets } from './world.js';
 import { resources } from './resources.js';
+import type { CombatStats } from '@shared/types/combat.js';
 
 export const buildingTypes = pgTable('building_types', {
   id: text('id').primaryKey(),
@@ -18,6 +19,8 @@ export const buildingTypes = pgTable('building_types', {
   baseTimeSec: integer('base_time_sec').notNull(),
   baseOutput: jsonb('base_output').$type<Record<string, any>>().notNull().default({}),
   energyConsumption: integer('energy_consumption').notNull().default(0),
+  hp: integer('hp').notNull().default(1000),
+  combatStats: jsonb('combat_stats').$type<CombatStats>().notNull().default({ targetClass: 'building' } as CombatStats),
 });
 
 export const buildings = pgTable('buildings', {
@@ -29,6 +32,8 @@ export const buildings = pgTable('buildings', {
   slotIndex: integer('slot_index').notNull(),
   queueAction: text('queue_action'),
   queueCompletesAt: timestamp('queue_completes_at'),
+  hp: integer('hp').notNull().default(1000),
+  maxHp: integer('max_hp').notNull().default(1000),
 });
 
 export const buildingsRelations = relations(buildings, ({ one }) => ({

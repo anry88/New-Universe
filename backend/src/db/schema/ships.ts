@@ -1,6 +1,7 @@
 import { pgTable, uuid, text, integer, jsonb, numeric, timestamp } from 'drizzle-orm/pg-core';
 import { users } from './users.js';
 import { planets } from './world.js';
+import type { CombatStats } from '@shared/types/combat.js';
 
 export const shipTypes = pgTable('ship_types', {
   id: text('id').primaryKey(),
@@ -16,6 +17,7 @@ export const shipTypes = pgTable('ship_types', {
   buildCost: jsonb('build_cost').$type<Record<string, number>>().notNull(),
   requiredBuildings: jsonb('required_buildings').$type<{ typeId: string; level: number }[]>().notNull().default([]),
   sensorRange: integer('sensor_range').notNull(),
+  combatStats: jsonb('combat_stats').$type<CombatStats>().notNull().default({ targetClass: 'civilian' } as CombatStats),
 });
 
 export const ships = pgTable('ships', {
@@ -27,4 +29,7 @@ export const ships = pgTable('ships', {
   queueCompletesAt: timestamp('queue_completes_at'),
   cargoJson: jsonb('cargo_json').$type<Record<string, number>>().notNull().default({}),
   fuel: numeric('fuel', { precision: 12, scale: 2 }).notNull().default('0'),
+  hp: integer('hp').notNull().default(100),
+  maxHp: integer('max_hp').notNull().default(100),
+  combatStats: jsonb('combat_stats').$type<CombatStats>().notNull().default({ targetClass: 'civilian' } as CombatStats),
 });

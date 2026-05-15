@@ -1,6 +1,7 @@
 import type { Locale } from './locale.js';
 import { buildingLabel, formatInsufficientResourceMessage } from './entity-labels.js';
 import { researchBranchLabel } from './research.js';
+import type { CombatStats } from './combat.js';
 
 export interface Ship {
   id: string;
@@ -12,6 +13,9 @@ export interface Ship {
   queueStartedAt?: string | null;
   cargoJson: Record<string, number>;
   fuel: string;
+  hp: number;
+  maxHp: number;
+  combatStats: CombatStats;
 }
 
 export interface ShipQueueItem {
@@ -53,6 +57,7 @@ export interface ShipType {
   buildCost: Record<string, number>;
   requiredBuildings: { typeId: string; level: number }[];
   sensorRange: number;
+  combatStats: CombatStats;
 }
 
 export type ShipBuildErrorCode =
