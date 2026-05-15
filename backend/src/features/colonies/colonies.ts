@@ -4,8 +4,9 @@ import { planets, systems } from '../../db/schema/world.js';
 import { discoveredPlanets } from '../../db/schema/discovery.js';
 import { buildings } from '../../db/schema/buildings.js';
 import { researchProgress } from '../../db/schema/research.js';
-import { eq, and, count } from 'drizzle-orm';
+import { eq, and, count, isNull, sql } from 'drizzle-orm';
 import { maxColoniesForLogisticsLevel } from '../../config/colonization-rules.js';
+import type { ColonizationBlockCode } from './colonization-rules.js';
 
 export class ColonyService {
   /**
@@ -17,7 +18,10 @@ export class ColonyService {
    * 4. Planet must not already be colonized by anyone.
    * 5. Player must not have reached their Logistics-scaled colony limit.
    */
-  async canColonize(userId: string, planetId: string): Promise<{ allowed: boolean; reason?: string }> {
+  async canColonize(
+    userId: string,
+    planetId: string,
+  ): Promise<{ allowed: boolean; reason?: string; code?: ColonizationBlockCode }> {
     // 1. Check if planet exists and get its system info
     const [planetInfo] = await db
       .select({
@@ -32,13 +36,17 @@ export class ColonyService {
       .limit(1);
 
     if (!planetInfo) {
-      return { allowed: false, reason: 'Planet not found' };
+      return { allowed: false, reason: 'Planet not found', code: 'colony_planet_not_found' };
     }
 
     // 2. Protect foreign home systems. Own home-system bodies can be
     // settled after scout discovery; discovery alone must not unlock builds.
     if (planetInfo.isHome && planetInfo.systemOwnerId !== userId) {
-      return { allowed: false, reason: 'Cannot colonize protected home systems' };
+      return {
+        allowed: false,
+        reason: 'Cannot colonize protected home systems',
+        code: 'colony_protected_home',
+      };
     }
 
     // 3. Check discovery
@@ -54,10 +62,10 @@ export class ColonyService {
       .limit(1);
 
     if (!discovery) {
-      return { allowed: false, reason: 'Planet not discovered' };
+      return { allowed: false, reason: 'Planet not discovered', code: 'colony_not_discovered' };
     }
 
-    // 4. Check if already colonized
+    // 4. Block on existing colony / hostile buildings (P3-COM-007).
     const [existing] = await db
       .select()
       .from(colonies)
@@ -65,22 +73,57 @@ export class ColonyService {
       .limit(1);
 
     if (existing) {
-      return { allowed: false, reason: 'Planet already colonized' };
+      if (existing.ownerId === userId) {
+        return {
+          allowed: false,
+          reason: 'Planet already colonized',
+          code: 'colony_already_colonized',
+        };
+      }
+      const [aliveBuilding] = await db
+        .select({ id: buildings.id })
+        .from(buildings)
+        .where(
+          and(
+            eq(buildings.planetId, planetId),
+            isNull(buildings.destroyedAt),
+            sql`${buildings.hp} > 0`,
+          ),
+        )
+        .limit(1);
+      if (aliveBuilding) {
+        return {
+          allowed: false,
+          reason: 'Planet defended by hostile buildings — clear them before colonizing',
+          code: 'colony_blocked_hostile_buildings',
+        };
+      }
+      return {
+        allowed: false,
+        reason: 'Planet already colonized',
+        code: 'colony_already_colonized',
+      };
     }
 
-    const [commandCenter] = await db
-      .select()
+    // Defensive: orphaned buildings without a colony row.
+    const [orphanBuilding] = await db
+      .select({ id: buildings.id })
       .from(buildings)
       .where(
         and(
           eq(buildings.planetId, planetId),
-          eq(buildings.typeId, 'command_center'),
+          isNull(buildings.destroyedAt),
+          sql`${buildings.hp} > 0`,
         ),
       )
       .limit(1);
 
-    if (commandCenter) {
-      return { allowed: false, reason: 'Planet already colonized' };
+    if (orphanBuilding) {
+      return {
+        allowed: false,
+        reason: 'Planet defended by hostile buildings — clear them before colonizing',
+        code: 'colony_blocked_hostile_buildings',
+      };
     }
 
     // 5. Check user limits
@@ -97,7 +140,7 @@ export class ColonyService {
     const limit = maxColoniesForLogisticsLevel(logisticsLevel);
     
     if (colonyCount >= limit) {
-      return { allowed: false, reason: 'Colony limit reached' };
+      return { allowed: false, reason: 'Colony limit reached', code: 'colony_limit_reached' };
     }
 
     return { allowed: true };

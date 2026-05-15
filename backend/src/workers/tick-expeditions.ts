@@ -13,7 +13,7 @@ import {
 } from "../db/schema.js";
 import { bootstrapColony } from "../features/colonies/bootstrap.js";
 
-import { and, eq, inArray, or } from "drizzle-orm";
+import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 
 import { logger } from "../lib/logger.js";
 import { checkVisibility } from "../features/world/visibility.js";
@@ -495,6 +495,33 @@ async function autoColonizeAtTarget(
         planetId: expedition.targetPlanetId,
       },
       "Colonizer target already has a command center; consuming one-way mission",
+    );
+    await tx.delete(ships).where(eq(ships.id, expedition.shipId));
+    return { consumed: true, founded: false };
+  }
+
+  // P3-COM-007: orbital bombing may have cleared the previous owner's Command
+  // Center while non-CC buildings still stand. Block colonization until the
+  // last defending structure is gone.
+  const [hostileBuilding] = await tx
+    .select({ id: buildings.id })
+    .from(buildings)
+    .where(
+      and(
+        eq(buildings.planetId, expedition.targetPlanetId),
+        isNull(buildings.destroyedAt),
+        sql`${buildings.hp} > 0`,
+      ),
+    )
+    .limit(1);
+  if (hostileBuilding) {
+    logger.warn(
+      {
+        expeditionId: expedition.id,
+        shipId: expedition.shipId,
+        planetId: expedition.targetPlanetId,
+      },
+      "Colonizer arrival blocked by hostile buildings remaining on target",
     );
     await tx.delete(ships).where(eq(ships.id, expedition.shipId));
     return { consumed: true, founded: false };

@@ -14,7 +14,7 @@
  * Used both by the periodic combat worker (`workers/tick-combat.ts`) and by
  * the per-user online sync (`features/me/online-sync.ts`).
  */
-import { and, eq, inArray, ne } from 'drizzle-orm';
+import { and, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 import { db as defaultDb } from '../../db/index.js';
 import {
   ships,
@@ -23,14 +23,22 @@ import {
   systems,
   expeditions,
   notifications,
+  buildings,
+  buildingTypes,
+  colonies,
 } from '../../db/schema.js';
 import { logger } from '../../lib/logger.js';
 import { calculateExpeditionPosition } from '../../workers/tick-expeditions.js';
 import { SHIP_STATUS_DESTROYED, type CombatStats } from '@shared/types/combat.js';
+import { COMMAND_CENTER_TYPE_ID } from '@shared/config/buildingUpgradeEconomy.js';
 import {
+  type BomberActor,
+  type BuildingTarget,
   type CombatActor,
   computeTickDamage,
   resolveAttackerHits,
+  resolveBomberHits,
+  sumDpsPerBuilding,
   sumDpsPerDefender,
 } from './engine.js';
 
@@ -78,12 +86,24 @@ interface ExpeditionRow {
 
 export async function processDueCombat(
   options: ProcessDueCombatOptions = {},
-): Promise<{ defendersDamaged: number; destroyed: string[] }> {
+): Promise<{
+  defendersDamaged: number;
+  destroyed: string[];
+  buildingsDamaged: number;
+  buildingsDestroyed: string[];
+  coloniesAbandoned: string[];
+}> {
   const now = options.now ?? new Date();
 
   const aliveShips = await loadAliveShips(defaultDb);
   if (aliveShips.length === 0) {
-    return { defendersDamaged: 0, destroyed: [] };
+    return {
+      defendersDamaged: 0,
+      destroyed: [],
+      buildingsDamaged: 0,
+      buildingsDestroyed: [],
+      coloniesAbandoned: [],
+    };
   }
 
   const inFlightShipIds = aliveShips
@@ -116,8 +136,14 @@ export async function processDueCombat(
   const hits = resolveAttackerHits(actors);
   const dpsByDefender = sumDpsPerDefender(hits);
 
+  const bombingResult = await runBombingPass(aliveShips, now, options);
+
   if (dpsByDefender.size === 0) {
-    return { defendersDamaged: 0, destroyed: [] };
+    return {
+      defendersDamaged: 0,
+      destroyed: [],
+      ...bombingResult,
+    };
   }
 
   const actorById = new Map(actors.map((a) => [a.id, a]));
@@ -165,7 +191,11 @@ export async function processDueCombat(
         .set({ lastCombatTickAt: now })
         .where(inArray(ships.id, firstTouchIds));
     }
-    return { defendersDamaged: 0, destroyed: [] };
+    return {
+      defendersDamaged: 0,
+      destroyed: [],
+      ...bombingResult,
+    };
   }
 
   await defaultDb.transaction(async (tx) => {
@@ -220,7 +250,299 @@ export async function processDueCombat(
     logger.info({ destroyed }, 'Combat tick: ships destroyed');
   }
 
-  return { defendersDamaged: updates.length, destroyed };
+  return {
+    defendersDamaged: updates.length,
+    destroyed,
+    ...bombingResult,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Bomber → building pass.
+// ---------------------------------------------------------------------------
+
+interface BombingPassResult {
+  buildingsDamaged: number;
+  buildingsDestroyed: string[];
+  coloniesAbandoned: string[];
+}
+
+interface AliveBuildingRow {
+  id: string;
+  planetId: string;
+  systemId: string;
+  typeId: string;
+  level: number;
+  hp: number;
+  destroyedAt: Date | null;
+  lastCombatTickAt: Date | null;
+  combatStats: CombatStats;
+  typeCombatStats: CombatStats;
+  /** Owner of the colony that controls this building (null when planet is uncolonized). */
+  colonyOwnerId: string | null;
+  colonyId: string | null;
+}
+
+async function runBombingPass(
+  aliveShips: ShipRow[],
+  now: Date,
+  options: ProcessDueCombatOptions,
+): Promise<BombingPassResult> {
+  // Build the bomber list from the same ship snapshot — bombers must be docked
+  // at a host system (in-flight orbital strikes are out of scope for the MVP).
+  const bombers: BomberActor[] = aliveShips
+    .filter((s) => s.status !== 'moving' && s.hostSystem)
+    .map((s) => {
+      const mergedStats = mergeCombatStats(s.typeCombatStats, s.combatStats);
+      return {
+        id: s.id,
+        ownerId: s.ownerId,
+        status: s.status,
+        hp: s.hp,
+        combatStats: mergedStats,
+        hostSystemId: s.hostSystem?.id ?? null,
+      };
+    })
+    .filter((b) => b.combatStats.engagementRange === 'orbital' && b.hp > 0);
+
+  if (bombers.length === 0) {
+    return { buildingsDamaged: 0, buildingsDestroyed: [], coloniesAbandoned: [] };
+  }
+
+  const bomberSystemIds = Array.from(
+    new Set(bombers.map((b) => b.hostSystemId).filter((id): id is string => !!id)),
+  );
+
+  const aliveBuildings = await loadAliveBuildingsForSystems(defaultDb, bomberSystemIds);
+  if (aliveBuildings.length === 0) {
+    return { buildingsDamaged: 0, buildingsDestroyed: [], coloniesAbandoned: [] };
+  }
+
+  const buildingsByPlanet = new Map<string, BuildingTarget[]>();
+  for (const b of aliveBuildings) {
+    const targetClass: 'building' | 'command_center' =
+      b.typeId === COMMAND_CENTER_TYPE_ID ? 'command_center' : 'building';
+    const armor = Math.max(0, b.combatStats.armor ?? b.typeCombatStats.armor ?? 0);
+    const list = buildingsByPlanet.get(b.planetId) ?? [];
+    list.push({
+      id: b.id,
+      planetId: b.planetId,
+      systemId: b.systemId,
+      ownerId: b.colonyOwnerId,
+      targetClass,
+      armor,
+      hp: b.hp,
+      destroyed: b.destroyedAt != null || b.hp <= 0,
+      lastCombatTickAtMs: b.lastCombatTickAt ? b.lastCombatTickAt.getTime() : null,
+    });
+    buildingsByPlanet.set(b.planetId, list);
+  }
+
+  const hits = resolveBomberHits(bombers, buildingsByPlanet);
+  const dpsByBuilding = sumDpsPerBuilding(hits);
+  if (dpsByBuilding.size === 0) {
+    return { buildingsDamaged: 0, buildingsDestroyed: [], coloniesAbandoned: [] };
+  }
+
+  const buildingById = new Map(aliveBuildings.map((b) => [b.id, b]));
+  const buildingsDestroyed: string[] = [];
+  const coloniesAbandoned: string[] = [];
+
+  const updates: Array<{
+    buildingId: string;
+    planetId: string;
+    ownerId: string | null;
+    typeId: string;
+    newHp: number;
+    destroyed: boolean;
+    isCommandCenter: boolean;
+  }> = [];
+  const firstTouchOnly: string[] = [];
+
+  for (const [buildingId, totalDps] of dpsByBuilding) {
+    const b = buildingById.get(buildingId);
+    if (!b) continue;
+    const lastMs = b.lastCombatTickAt ? b.lastCombatTickAt.getTime() : null;
+    const damage = computeTickDamage({ lastCombatTickAtMs: lastMs }, totalDps, now.getTime());
+    const damageApplied = Math.max(0, Math.round(damage));
+    const newHp = Math.max(0, b.hp - damageApplied);
+    if (damageApplied === 0) {
+      if (lastMs == null) firstTouchOnly.push(buildingId);
+      continue;
+    }
+    updates.push({
+      buildingId,
+      planetId: b.planetId,
+      ownerId: b.colonyOwnerId,
+      typeId: b.typeId,
+      newHp,
+      destroyed: newHp === 0,
+      isCommandCenter: b.typeId === COMMAND_CENTER_TYPE_ID,
+    });
+  }
+
+  if (updates.length === 0 && firstTouchOnly.length === 0) {
+    return { buildingsDamaged: 0, buildingsDestroyed: [], coloniesAbandoned: [] };
+  }
+
+  // Planets whose Command Center is being killed this tick — they get a full
+  // cascade cleanup (delete colony + every building on the planet). Done as a
+  // separate pass so building-level damage updates inside the same transaction
+  // do not collide with the cascading deletes.
+  const planetsToWipe = new Set<string>();
+  for (const upd of updates) {
+    if (upd.destroyed && upd.isCommandCenter) {
+      planetsToWipe.add(upd.planetId);
+    }
+  }
+
+  await defaultDb.transaction(async (tx) => {
+    if (firstTouchOnly.length > 0) {
+      await tx
+        .update(buildings)
+        .set({ lastCombatTickAt: now })
+        .where(inArray(buildings.id, firstTouchOnly));
+    }
+
+    for (const upd of updates) {
+      if (planetsToWipe.has(upd.planetId)) continue; // handled below
+      if (upd.destroyed) {
+        await tx
+          .update(buildings)
+          .set({
+            hp: 0,
+            destroyedAt: now,
+            lastCombatTickAt: now,
+            queueAction: null,
+            queueCompletesAt: null,
+          })
+          .where(eq(buildings.id, upd.buildingId));
+        buildingsDestroyed.push(upd.buildingId);
+      } else {
+        await tx
+          .update(buildings)
+          .set({ hp: upd.newHp, lastCombatTickAt: now })
+          .where(eq(buildings.id, upd.buildingId));
+      }
+    }
+
+    for (const planetId of planetsToWipe) {
+      const planetBuildings = aliveBuildings.filter((b) => b.planetId === planetId);
+      const colonyOwnerId =
+        planetBuildings.find((b) => b.colonyOwnerId != null)?.colonyOwnerId ?? null;
+      const colonyId = planetBuildings.find((b) => b.colonyId != null)?.colonyId ?? null;
+
+      // Delete EVERY row on the planet — including non-CC husks from previous
+      // ticks that already had destroyedAt set, plus structures built between
+      // ticks. The planet must be a clean slate before re-colonization.
+      const planetWipeResult = await tx
+        .delete(buildings)
+        .where(eq(buildings.planetId, planetId))
+        .returning({ id: buildings.id });
+      for (const row of planetWipeResult) {
+        if (!buildingsDestroyed.includes(row.id)) buildingsDestroyed.push(row.id);
+      }
+      if (colonyId) {
+        await tx.delete(colonies).where(eq(colonies.id, colonyId));
+        coloniesAbandoned.push(colonyId);
+
+        if (!options.skipNotifications && colonyOwnerId) {
+          await tx.insert(notifications).values({
+            userId: colonyOwnerId,
+            type: 'colony_destroyed',
+            payload: {
+              planetId,
+              colonyId,
+              destroyedAt: now.toISOString(),
+            },
+          });
+        }
+      }
+    }
+
+    if (!options.skipNotifications) {
+      const notifs = updates
+        .filter((u) => u.destroyed && !u.isCommandCenter && u.ownerId)
+        .map((u) => ({
+          userId: u.ownerId!,
+          type: 'building_destroyed',
+          payload: {
+            buildingId: u.buildingId,
+            typeId: u.typeId,
+            planetId: u.planetId,
+            destroyedAt: now.toISOString(),
+          },
+        }));
+      if (notifs.length > 0) {
+        await tx.insert(notifications).values(notifs);
+      }
+    }
+  });
+
+  if (buildingsDestroyed.length > 0) {
+    logger.info(
+      { buildingsDestroyed, coloniesAbandoned },
+      'Combat tick: buildings destroyed by orbital bombing',
+    );
+  }
+
+  return {
+    buildingsDamaged: updates.length,
+    buildingsDestroyed,
+    coloniesAbandoned,
+  };
+}
+
+async function loadAliveBuildingsForSystems(
+  database: typeof defaultDb,
+  systemIds: string[],
+): Promise<AliveBuildingRow[]> {
+  if (systemIds.length === 0) return [];
+  const rows = await database
+    .select({
+      id: buildings.id,
+      planetId: buildings.planetId,
+      typeId: buildings.typeId,
+      level: buildings.level,
+      hp: buildings.hp,
+      destroyedAt: buildings.destroyedAt,
+      lastCombatTickAt: buildings.lastCombatTickAt,
+      planetSystemId: planets.systemId,
+      typeCombatStats: buildingTypes.combatStats,
+      colonyOwnerId: colonies.ownerId,
+      colonyId: colonies.id,
+    })
+    .from(buildings)
+    .innerJoin(planets, eq(planets.id, buildings.planetId))
+    .innerJoin(buildingTypes, eq(buildingTypes.id, buildings.typeId))
+    .leftJoin(colonies, eq(colonies.planetId, buildings.planetId))
+    .where(
+      and(
+        inArray(planets.systemId, systemIds),
+        // Skip already-destroyed buildings; also skip those still under
+        // initial construction (no level yet), since they have no defensible
+        // structure to bomb.
+        isNull(buildings.destroyedAt),
+        sql`${buildings.hp} > 0`,
+      ),
+    );
+
+  return rows.map((r) => ({
+    id: r.id,
+    planetId: r.planetId,
+    systemId: r.planetSystemId,
+    typeId: r.typeId,
+    level: r.level,
+    hp: r.hp,
+    destroyedAt: r.destroyedAt,
+    lastCombatTickAt: r.lastCombatTickAt,
+    // The building row does not currently store its own combatStats; we fall
+    // back to the type-level stats (armor/targetClass) for damage math.
+    combatStats: { targetClass: 'building' } as CombatStats,
+    typeCombatStats: r.typeCombatStats,
+    colonyOwnerId: r.colonyOwnerId,
+    colonyId: r.colonyId,
+  }));
 }
 
 async function loadAliveShips(database: typeof defaultDb): Promise<ShipRow[]> {

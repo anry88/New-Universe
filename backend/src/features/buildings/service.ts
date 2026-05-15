@@ -13,6 +13,7 @@ import { rushDiamondCost, rushRemainingSeconds } from '../../lib/diamonds.js';
 import { BuildingType, ConstructionStatus, DemolishStatus } from '@shared/types/buildings.js';
 import { spendResources, gainResources } from '../resources/transactions.js';
 import { applyBuildTimeSeconds, getResearchEffectsForUser } from '../research/effects.js';
+import { deriveBuildingMaxHp } from '../combat/durability.js';
 import { BUILDING_RESEARCH_GATES } from '../../config/research-unlocks.js';
 import { loadUserResearchLevels } from '../research/gates.js';
 import { logger } from '../../lib/logger.js';
@@ -761,18 +762,26 @@ export class BuildingService {
     const isBuild = building.queueAction === 'build';
     const newLevel = isBuild ? 1 : building.level + 1;
 
+    const bType = await tx.query.buildingTypes.findFirst({
+      where: eq(buildingTypes.id, building.typeId),
+    });
+    const newMaxHp = deriveBuildingMaxHp(bType?.hp, newLevel);
+
     await tx
       .update(buildings)
       .set({
         level: newLevel,
         queueAction: null,
         queueCompletesAt: null,
+        hp: newMaxHp,
+        maxHp: newMaxHp,
+        // A fresh build or upgrade reinforces the structure: heal-to-full and
+        // clear any combat-tick history so the next bombing run measures from
+        // construction completion.
+        lastCombatTickAt: null,
+        destroyedAt: null,
       })
       .where(eq(buildings.id, building.id));
-
-    const bType = await tx.query.buildingTypes.findFirst({
-      where: eq(buildingTypes.id, building.typeId),
-    });
 
     if (bType?.baseOutput) {
       await recalculateProductionRegenForBuildingType(tx, building.planetId, bType);

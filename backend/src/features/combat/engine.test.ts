@@ -4,7 +4,12 @@ import {
   computeTickDamage,
   isDefenderProtectedFromAttacker,
   resolveAttackerHits,
+  resolveBomberHits,
+  selectBomberTargetForPlanet,
+  sumDpsPerBuilding,
   sumDpsPerDefender,
+  type BomberActor,
+  type BuildingTarget,
   type CombatActor,
 } from './engine.js';
 import { engagementRangeToSectorDistance, effectiveDpsAgainst } from '@shared/types/combat.js';
@@ -209,5 +214,125 @@ describe('combat engine — computeTickDamage', () => {
 
   it('returns 0 when totalDps is 0', () => {
     expect(computeTickDamage({ lastCombatTickAtMs: 0 }, 0, 10_000)).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Bomber → building targeting (P3-COM-007).
+// ---------------------------------------------------------------------------
+
+function makeBuilding(overrides: Partial<BuildingTarget>): BuildingTarget {
+  return {
+    id: 'B-' + Math.random().toString(36).slice(2, 8),
+    planetId: 'planet-1',
+    systemId: 'sys-1',
+    ownerId: 'owner-target',
+    targetClass: 'building',
+    armor: 0,
+    hp: 1000,
+    destroyed: false,
+    lastCombatTickAtMs: null,
+    ...overrides,
+  };
+}
+
+function makeBomber(overrides: Partial<BomberActor> = {}): BomberActor {
+  return {
+    id: 'X-' + Math.random().toString(36).slice(2, 8),
+    ownerId: 'owner-attacker',
+    status: 'idle',
+    hp: 350,
+    combatStats: lightBomberStats,
+    hostSystemId: 'sys-1',
+    ...overrides,
+  };
+}
+
+describe('combat engine — selectBomberTargetForPlanet', () => {
+  it('picks a non-CC building before the Command Center', () => {
+    const cc = makeBuilding({ id: 'B-aaa', targetClass: 'command_center' });
+    const mine = makeBuilding({ id: 'B-zzz', targetClass: 'building' });
+    expect(selectBomberTargetForPlanet([cc, mine])?.id).toBe('B-zzz');
+  });
+
+  it('falls back to the Command Center when every non-CC is destroyed', () => {
+    const cc = makeBuilding({ id: 'B-aaa', targetClass: 'command_center' });
+    const mine = makeBuilding({ id: 'B-zzz', targetClass: 'building', destroyed: true });
+    expect(selectBomberTargetForPlanet([cc, mine])?.id).toBe('B-aaa');
+  });
+
+  it('returns null when no building is alive', () => {
+    const cc = makeBuilding({ id: 'B-aaa', targetClass: 'command_center', hp: 0 });
+    const mine = makeBuilding({ id: 'B-zzz', targetClass: 'building', destroyed: true });
+    expect(selectBomberTargetForPlanet([cc, mine])).toBeNull();
+  });
+
+  it('is deterministic — sorts by id within each priority tier', () => {
+    const a = makeBuilding({ id: 'B-zzz', targetClass: 'building' });
+    const b = makeBuilding({ id: 'B-aaa', targetClass: 'building' });
+    expect(selectBomberTargetForPlanet([a, b])?.id).toBe('B-aaa');
+  });
+});
+
+describe('combat engine — resolveBomberHits', () => {
+  it('targets one building per enemy planet inside the same system', () => {
+    const bomber = makeBomber({ hostSystemId: 'sys-1' });
+    const planetA: BuildingTarget[] = [
+      makeBuilding({ id: 'B-pa1', planetId: 'plA', systemId: 'sys-1', targetClass: 'building' }),
+      makeBuilding({ id: 'B-pa2', planetId: 'plA', systemId: 'sys-1', targetClass: 'command_center' }),
+    ];
+    const planetB: BuildingTarget[] = [
+      makeBuilding({ id: 'B-pb1', planetId: 'plB', systemId: 'sys-1', targetClass: 'building' }),
+    ];
+    const map = new Map<string, BuildingTarget[]>([['plA', planetA], ['plB', planetB]]);
+    const hits = resolveBomberHits([bomber], map);
+    expect(hits).toHaveLength(2);
+    const targets = hits.map((h) => h.buildingId).sort();
+    expect(targets).toEqual(['B-pa1', 'B-pb1'].sort());
+  });
+
+  it('skips planets in another system', () => {
+    const bomber = makeBomber({ hostSystemId: 'sys-1' });
+    const farPlanet: BuildingTarget[] = [
+      makeBuilding({ id: 'B-far', planetId: 'far', systemId: 'sys-2', targetClass: 'building' }),
+    ];
+    const map = new Map<string, BuildingTarget[]>([['far', farPlanet]]);
+    expect(resolveBomberHits([bomber], map)).toHaveLength(0);
+  });
+
+  it('skips planets owned by the bomber\'s player', () => {
+    const bomber = makeBomber({ ownerId: 'O1' });
+    const friendly: BuildingTarget[] = [
+      makeBuilding({ id: 'B-f', ownerId: 'O1', targetClass: 'building' }),
+    ];
+    expect(resolveBomberHits([bomber], new Map([['p', friendly]]))).toHaveLength(0);
+  });
+
+  it('skips planets with no hostile buildings (all destroyed)', () => {
+    const bomber = makeBomber({});
+    const empty: BuildingTarget[] = [
+      makeBuilding({ id: 'B-d1', destroyed: true }),
+      makeBuilding({ id: 'B-d2', hp: 0 }),
+    ];
+    expect(resolveBomberHits([bomber], new Map([['p', empty]]))).toHaveLength(0);
+  });
+
+  it('skips in-flight bombers (no host system)', () => {
+    const bomber = makeBomber({ hostSystemId: null });
+    const targets: BuildingTarget[] = [makeBuilding({})];
+    expect(resolveBomberHits([bomber], new Map([['p', targets]]))).toHaveLength(0);
+  });
+
+  it('two bombers stack DPS against the same building (priority CC-last still respected)', () => {
+    const b1 = makeBomber({ id: 'X1', hostSystemId: 'sys-1' });
+    const b2 = makeBomber({ id: 'X2', hostSystemId: 'sys-1' });
+    const planet: BuildingTarget[] = [
+      makeBuilding({ id: 'B-zzz', targetClass: 'building' }),
+      makeBuilding({ id: 'B-aaa', targetClass: 'command_center' }),
+    ];
+    const hits = resolveBomberHits([b1, b2], new Map([['p', planet]]));
+    const dps = sumDpsPerBuilding(hits);
+    expect(dps.get('B-zzz')).toBe(200); // both 100 dps bombers stack on the non-CC target
+    expect(dps.get('B-aaa')).toBeUndefined();
   });
 });

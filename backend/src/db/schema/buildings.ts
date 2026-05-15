@@ -34,6 +34,8 @@ export const buildings = pgTable('buildings', {
   queueCompletesAt: timestamp('queue_completes_at'),
   hp: integer('hp').notNull().default(1000),
   maxHp: integer('max_hp').notNull().default(1000),
+  lastCombatTickAt: timestamp('last_combat_tick_at'),
+  destroyedAt: timestamp('destroyed_at'),
 });
 
 export const buildingsRelations = relations(buildings, ({ one }) => ({
