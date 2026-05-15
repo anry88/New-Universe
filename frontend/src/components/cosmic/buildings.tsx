@@ -30,6 +30,7 @@ export type BuildingTypeId =
   | 'solar_plant'
   | 'wind_turbine'
   | 'fuel_generator'
+  | 'atomic_reactor'
   | 'military_shipyard';
 
 export interface BuildingIconProps {
@@ -280,6 +281,21 @@ export const IconFuelGenerator: React.FC<BuildingIconProps> = ({ size, tone }) =
   </Icon>
 );
 
+export const IconAtomicReactor: React.FC<BuildingIconProps> = ({ size, tone }) => (
+  <Icon size={size} tone={tone}>
+    <circle cx="32" cy="31" r="15" fill={tone ?? '#5BD7FF'} fillOpacity="0.11" />
+    <circle cx="32" cy="31" r="6" fill={tone ?? '#5BD7FF'} fillOpacity="0.18" />
+    <path d="M32 10 L32 16" />
+    <path d="M32 46 L32 54" />
+    <path d="M12 31 L18 31" />
+    <path d="M46 31 L52 31" />
+    <path d="M21 20 Q32 12 43 20" />
+    <path d="M21 42 Q32 50 43 42" />
+    <path d="M22 31 Q26 24 32 24 Q38 24 42 31 Q38 38 32 38 Q26 38 22 31 Z" />
+    <path d="M18 54 L46 54" />
+  </Icon>
+);
+
 /**
  * Military Shipyard — fortified combat vessel construction bay.
  * Visually a hardened shipyard with a crosshair targeting reticle.
@@ -362,6 +378,7 @@ const BUILDING_CATEGORY_BY_TYPE: Record<BuildingTypeId, BuildingCategoryKey> = {
   solar_plant: 'energy',
   wind_turbine: 'energy',
   fuel_generator: 'energy',
+  atomic_reactor: 'energy',
 };
 
 export const BUILDING_BY_TYPE: Record<BuildingTypeId, BuildingDef> = {
@@ -382,6 +399,7 @@ export const BUILDING_BY_TYPE: Record<BuildingTypeId, BuildingDef> = {
   solar_plant: { Icon: IconSolarPlant, label: 'Solar Plant', labels: { en: 'Solar Plant', ru: 'Солнечная станция' }, cat: 'Energy', cats: BUILDING_CATEGORY_LABELS.energy },
   wind_turbine: { Icon: IconWindTurbine, label: 'Wind Turbine', labels: { en: 'Wind Turbine', ru: 'Ветротурбина' }, cat: 'Energy', cats: BUILDING_CATEGORY_LABELS.energy },
   fuel_generator: { Icon: IconFuelGenerator, label: 'Fuel Generator', labels: { en: 'Fuel Generator', ru: 'Топливный генератор' }, cat: 'Energy', cats: BUILDING_CATEGORY_LABELS.energy },
+  atomic_reactor: { Icon: IconAtomicReactor, label: 'Atomic Reactor', labels: { en: 'Atomic Reactor', ru: 'Атомный реактор' }, cat: 'Energy', cats: BUILDING_CATEGORY_LABELS.energy },
   military_shipyard: { Icon: IconMilitaryShipyard, label: 'Military Shipyard', labels: { en: 'Military Shipyard', ru: 'Военная верфь' }, cat: 'Shipbuilding', cats: BUILDING_CATEGORY_LABELS.shipbuilding },
 };
 

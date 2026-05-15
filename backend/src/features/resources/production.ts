@@ -24,6 +24,7 @@ import {
   PROCESS_ENERGY_CONSUMER_TYPES,
   resolveEnergyOutputCapacity,
   resolvePlanetEnergyState,
+  STORED_ENERGY_PROCESS_TYPES,
   syncEnergyResourceRow,
 } from './energy.js';
 
@@ -80,7 +81,7 @@ function productionEnergyPerHour(input: {
   energyConsumption: number;
   effects: ResearchEffects;
 }): number {
-  if (input.recipeOutputResourceId === ENERGY_RESOURCE_ID) return 0;
+  if (input.recipeOutputResourceId === ENERGY_RESOURCE_ID || STORED_ENERGY_PROCESS_TYPES.has(input.buildingTypeId)) return 0;
   if (!PROCESS_ENERGY_CONSUMER_TYPES.has(input.buildingTypeId)) return 0;
   return roundResourceAmount(
     applyEnergyRequirement(

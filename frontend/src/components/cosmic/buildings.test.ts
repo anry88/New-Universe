@@ -22,6 +22,11 @@ describe('resolveBuildingType', () => {
     expect(BUILDING_BY_TYPE.biomass_harvester.label).toBe('Bioreactor');
   });
 
+  it('resolves the atomic reactor energy entry', () => {
+    expect(resolveBuildingType('atomic_reactor')).toBe(BUILDING_BY_TYPE.atomic_reactor);
+    expect(BUILDING_BY_TYPE.atomic_reactor.labels.ru).toBe('Атомный реактор');
+  });
+
   it('resolves legacy `electronics_factory` alias to fabrication_bay', () => {
     expect(resolveBuildingType('electronics_factory')).toBe(BUILDING_BY_TYPE.fabrication_bay);
   });
@@ -60,6 +65,7 @@ describe('building categories', () => {
       'unknown',
     ]);
     expect(getBuildingCategoryKey('solar_plant')).toBe('energy');
+    expect(getBuildingCategoryKey('atomic_reactor')).toBe('energy');
     expect(getBuildingCategoryKey('mine')).toBe('extraction');
     expect(getBuildingCategoryKey('biomass_harvester')).toBe('extraction');
     expect(getBuildingCategoryKey('smelter')).toBe('processing');

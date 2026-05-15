@@ -15,6 +15,7 @@ export const ENERGY_RESOURCE_ID = 'energy';
 export const ENERGY_FREE_BIOME_ID = 'energy';
 export const BATTERY_BUILDING_TYPE_ID = 'battery';
 export const PASSIVE_ENERGY_PRODUCER_TYPES = new Set(['solar_plant', 'wind_turbine']);
+export const STORED_ENERGY_PROCESS_TYPES = new Set(['fuel_generator', 'atomic_reactor']);
 export const PROCESS_ENERGY_CONSUMER_TYPES = new Set(['smelter', 'refinery', 'fabrication_bay', 'cryo_factory']);
 
 export type PlanetEnergyBuildingRow = {
