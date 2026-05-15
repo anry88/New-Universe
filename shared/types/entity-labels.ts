@@ -78,6 +78,97 @@ export const SHIP_ENTITY_LABELS: Record<string, EntityLabels> = {
   light_laser: { en: 'Light Laser Ship', ru: 'Лёгкий лазерный корабль' },
   cruiser: { en: 'Cruiser', ru: 'Крейсер' },
   battleship: { en: 'Battleship', ru: 'Линкор' },
+  medium_fighter: { en: 'Medium Fighter', ru: 'Средний истребитель' },
+  medium_bomber: { en: 'Medium Bomber', ru: 'Средний бомбардировщик' },
+  medium_laser: { en: 'Medium Laser Ship', ru: 'Средний лазерный корабль' },
+  heavy_fighter: { en: 'Heavy Fighter', ru: 'Тяжёлый истребитель' },
+  heavy_bomber: { en: 'Heavy Bomber', ru: 'Тяжёлый бомбардировщик' },
+  heavy_laser: { en: 'Heavy Laser Ship', ru: 'Тяжёлый лазерный корабль' },
+  rocket_carrier: { en: 'Rocket Carrier', ru: 'Ракетный носитель' },
+  heavy_rocket_carrier: { en: 'Heavy Rocket Carrier', ru: 'Тяжёлый ракетный носитель' },
+};
+
+export const SHIP_ENTITY_DESCRIPTIONS: Record<string, EntityLabels> = {
+  scout: {
+    en: 'Fast survey hull for local routes and early discovery.',
+    ru: 'Быстрый разведывательный корпус для локальных маршрутов и ранних открытий.',
+  },
+  cargo_light: {
+    en: 'Light logistics hauler for moving resources between owned settlements.',
+    ru: 'Лёгкий логистический транспорт для перевозки ресурсов между вашими поселениями.',
+  },
+  cargo: {
+    en: 'Cargo transport for resource logistics.',
+    ru: 'Грузовой транспорт для ресурсной логистики.',
+  },
+  colonizer: {
+    en: 'Settlement hull that founds a new colony on an eligible discovered planet.',
+    ru: 'Колонизационный корпус для основания поселения на подходящей открытой планете.',
+  },
+  recon_probe: {
+    en: 'One-use probe for opening a new Jump Gate destination.',
+    ru: 'Одноразовый зонд для открытия нового направления через Прыжковые врата.',
+  },
+  refueler: {
+    en: 'Support tanker that transfers ordinary and Jump Fuel to idle ships.',
+    ru: 'Корабль поддержки, передающий обычное и прыжковое топливо свободным кораблям.',
+  },
+  fighter: {
+    en: 'General-purpose combat ship with medium-range kinetic fire.',
+    ru: 'Универсальный боевой корабль со средней дистанцией кинетического огня.',
+  },
+  light_fighter: {
+    en: 'Fast close-range interceptor that counters heavier payload carriers with evasion.',
+    ru: 'Быстрый ближний перехватчик, который уклонением сдерживает носители тяжёлых зарядов.',
+  },
+  light_bomber: {
+    en: 'Light orbital striker for slowly breaking hostile surface structures.',
+    ru: 'Лёгкий орбитальный ударный корабль для постепенного подавления вражеских построек.',
+  },
+  light_laser: {
+    en: 'Long-range light beam ship with strong armor penetration.',
+    ru: 'Лёгкий дальнобойный лучевой корабль с высоким пробитием брони.',
+  },
+  cruiser: {
+    en: 'Medium combat hull with stronger armor and sustained fire.',
+    ru: 'Средний боевой корпус с усиленной бронёй и стабильным огнём.',
+  },
+  battleship: {
+    en: 'Heavy capital hull for slow long-range line combat.',
+    ru: 'Тяжёлый линейный корпус для медленного дальнего боя.',
+  },
+  medium_fighter: {
+    en: 'Up-armored fighter line that trades speed for stronger sustained damage.',
+    ru: 'Усиленная линия истребителей: меньше скорости, больше устойчивого урона.',
+  },
+  medium_bomber: {
+    en: 'Heavier orbital striker for fortified hostile colonies.',
+    ru: 'Более тяжёлый орбитальный ударный корабль против укреплённых вражеских колоний.',
+  },
+  medium_laser: {
+    en: 'Common Pool laser hull using advanced cooling and components for long-range pressure.',
+    ru: 'Лазерный корпус Common Pool с продвинутым охлаждением и компонентами для дальнего давления.',
+  },
+  heavy_fighter: {
+    en: 'Heavy interceptor built from advanced alloys for line-breaking ship combat.',
+    ru: 'Тяжёлый перехватчик из продвинутых сплавов для прорыва боевой линии.',
+  },
+  heavy_bomber: {
+    en: 'Slow high-durability bomber for late fortified targets.',
+    ru: 'Медленный прочный бомбардировщик против поздних укреплённых целей.',
+  },
+  heavy_laser: {
+    en: 'Late laser hull with rare components and high armor penetration.',
+    ru: 'Поздний лазерный корпус с редкими компонентами и высоким пробитием брони.',
+  },
+  rocket_carrier: {
+    en: 'Long-range payload carrier that pressures medium and heavy ships but struggles against light evasive hulls.',
+    ru: 'Дальнобойный носитель зарядов против средних и тяжёлых кораблей, уязвимый к лёгким манёвренным корпусам.',
+  },
+  heavy_rocket_carrier: {
+    en: 'Heavy payload carrier with stronger bursts, high cost, and the same light-hull counterplay.',
+    ru: 'Тяжёлый носитель зарядов с мощными залпами, высокой ценой и тем же контрплеем лёгких корпусов.',
+  },
 };
 
 export function humanizeEntityId(entityId: string | null | undefined): string {
@@ -110,6 +201,10 @@ export function buildingLabel(typeId: string | null | undefined, locale: Locale 
 
 export function shipLabel(typeId: string | null | undefined, locale: Locale = 'en'): string {
   return labelFor(SHIP_ENTITY_LABELS, typeId, locale);
+}
+
+export function shipDescription(typeId: string | null | undefined, locale: Locale = 'en'): string {
+  return labelFor(SHIP_ENTITY_DESCRIPTIONS, typeId, locale);
 }
 
 export function formatEntityList(

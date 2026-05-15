@@ -17,6 +17,20 @@ export interface DamageProfile {
 
 export type EngagementRange = 'close' | 'medium' | 'long' | 'orbital';
 
+export interface MissilePayloadProfile {
+  damageType: Extract<DamageType, 'explosive'>;
+  /** Abstract burst value used by game balance. It is not a real-world specification. */
+  alphaDamage: number;
+  /** Minimum seconds between payload bursts when tuning sustained pressure. */
+  reloadSec: number;
+  armorPenetration: number;
+  shieldMultiplier: number;
+  validTargetClasses: DamageTargetClass[];
+  /** Defenders at or above this evasion value are too agile for this payload line. */
+  evasionCounterThreshold: number;
+  maxRange: Exclude<EngagementRange, 'orbital'>;
+}
+
 export interface ShieldHooks {
   capacity: number;
   rechargeRate: number;
@@ -28,6 +42,7 @@ export type DestructionState = 'intact' | 'damaged' | 'disabled' | 'destroyed';
 export interface CombatStats {
   targetClass: DamageTargetClass;
   damageProfile?: DamageProfile;
+  missilePayload?: MissilePayloadProfile;
   engagementRange?: EngagementRange;
   shields?: ShieldHooks;
   armor?: number;
@@ -73,8 +88,12 @@ export function effectiveDpsAgainst(
 
 /** True when the unit can engage another ship (i.e. its weapon is not surface-only). */
 export function canTargetShips(stats: CombatStats | undefined): boolean {
-  if (!stats?.damageProfile || !stats.engagementRange) return false;
-  return stats.engagementRange !== 'orbital';
+  const hasSustainedShipWeapon = Boolean(
+    stats?.damageProfile &&
+    stats.engagementRange &&
+    stats.engagementRange !== 'orbital',
+  );
+  return hasSustainedShipWeapon || Boolean(stats?.missilePayload);
 }
 
 /** True when the unit is a valid ship target (any military or civilian ship hull class). */
@@ -85,4 +104,9 @@ export function isShipTargetClass(targetClass: DamageTargetClass): boolean {
     targetClass === 'military_medium' ||
     targetClass === 'military_heavy'
   );
+}
+
+export function missilePayloadSustainedDps(payload: MissilePayloadProfile | undefined): number {
+  if (!payload || payload.reloadSec <= 0) return 0;
+  return payload.alphaDamage / payload.reloadSec;
 }

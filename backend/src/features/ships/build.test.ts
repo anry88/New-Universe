@@ -142,6 +142,9 @@ describe('Ship Building - POST /ships/build', () => {
     expect(body.ship).toBeDefined();
     expect(body.ship.typeId).toBe('scout');
     expect(body.ship.status).toBe('building');
+    expect(body.ship.hp).toBe(40);
+    expect(body.ship.maxHp).toBe(40);
+    expect(body.ship.combatStats.targetClass).toBe('civilian');
     expect(body.ship.queueCompletesAt).toBeTruthy();
     expect(body.ship.queueStartedAt).toBeTruthy();
     expect(body.ship.ownerId).toBe(userId);
@@ -607,7 +610,7 @@ describe('Ship Building - POST /ships/build', () => {
     expect(okRes.json().ship.typeId).toBe('light_laser');
   });
 
-  it('ship catalog contains all three light combat hulls with correct stats', async () => {
+  it('ship catalog contains light, medium, heavy and rocket combat hulls with correct stats', async () => {
     const { app, token } = await createTestUser();
 
     const res = await app.inject({
@@ -617,7 +620,15 @@ describe('Ship Building - POST /ships/build', () => {
     });
 
     expect(res.statusCode).toBe(200);
-    const types: Array<{ id: string; hp: number; fuelCapacity: number; jumpFuelCapacity: number }> = res.json();
+    const types: Array<{
+      id: string;
+      hp: number;
+      dps: number;
+      fuelCapacity: number;
+      jumpFuelCapacity: number;
+      requiredBuildings: { typeId: string; level: number }[];
+      combatStats: { targetClass: string; missilePayload?: { alphaDamage: number; validTargetClasses: string[] } };
+    }> = res.json();
 
     const lightFighter = types.find((t) => t.id === 'light_fighter');
     expect(lightFighter).toBeDefined();
@@ -636,6 +647,33 @@ describe('Ship Building - POST /ships/build', () => {
     expect(lightLaser!.hp).toBe(280);
     expect(lightLaser!.fuelCapacity).toBe(150);
     expect(lightLaser!.jumpFuelCapacity).toBe(6);
+
+    const mediumFighter = types.find((t) => t.id === 'medium_fighter');
+    expect(mediumFighter).toBeDefined();
+    expect(mediumFighter!.hp).toBeGreaterThan(lightFighter!.hp);
+    expect(mediumFighter!.dps).toBeGreaterThan(lightFighter!.dps);
+    expect(mediumFighter!.requiredBuildings).toEqual([{ typeId: 'military_shipyard', level: 3 }]);
+
+    const heavyFighter = types.find((t) => t.id === 'heavy_fighter');
+    expect(heavyFighter).toBeDefined();
+    expect(heavyFighter!.hp).toBeGreaterThan(mediumFighter!.hp);
+    expect(heavyFighter!.dps).toBeGreaterThan(mediumFighter!.dps);
+    expect(heavyFighter!.requiredBuildings).toEqual([{ typeId: 'military_shipyard', level: 5 }]);
+
+    const rocketCarrier = types.find((t) => t.id === 'rocket_carrier');
+    expect(rocketCarrier).toBeDefined();
+    expect(rocketCarrier!.combatStats.missilePayload).toMatchObject({
+      alphaDamage: 1500,
+      validTargetClasses: ['military_medium', 'military_heavy'],
+    });
+
+    const heavyRocketCarrier = types.find((t) => t.id === 'heavy_rocket_carrier');
+    expect(heavyRocketCarrier).toBeDefined();
+    expect(heavyRocketCarrier!.hp).toBeGreaterThan(rocketCarrier!.hp);
+    expect(heavyRocketCarrier!.combatStats.missilePayload).toMatchObject({
+      alphaDamage: 3300,
+      validTargetClasses: ['military_medium', 'military_heavy'],
+    });
   });
 
   it('should return 401 without authorization', async () => {

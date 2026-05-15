@@ -25,6 +25,14 @@ export type ShipTypeId =
   | 'light_fighter'
   | 'light_bomber'
   | 'light_laser'
+  | 'medium_fighter'
+  | 'medium_bomber'
+  | 'medium_laser'
+  | 'heavy_fighter'
+  | 'heavy_bomber'
+  | 'heavy_laser'
+  | 'rocket_carrier'
+  | 'heavy_rocket_carrier'
   | 'cruiser'
   | 'battleship';
 
@@ -179,6 +187,109 @@ export const IconLightLaser: React.FC<ShipIconProps> = ({ size, tone }) => (
   </HullIcon>
 );
 
+export const IconMediumFighter: React.FC<ShipIconProps> = ({ size, tone }) => (
+  <HullIcon size={size} tone={tone}>
+    <path d="M54 32 L24 12 L14 32 L24 52 Z" fill={tone ?? '#5BD7FF'} fillOpacity="0.16" />
+    <path d="M24 12 L29 27 L29 37 L24 52" />
+    <path d="M18 24 L8 18" />
+    <path d="M18 40 L8 46" />
+    <path d="M54 32 L61 32" />
+    <circle cx="37" cy="32" r="3" fill={tone ?? '#5BD7FF'} fillOpacity="0.45" />
+    <path d="M26 23 L42 32 L26 41" />
+  </HullIcon>
+);
+
+export const IconMediumBomber: React.FC<ShipIconProps> = ({ size, tone }) => (
+  <HullIcon size={size} tone={tone}>
+    <path d="M48 32 L30 10 L10 18 L8 32 L10 46 L30 54 Z" fill={tone ?? '#5BD7FF'} fillOpacity="0.14" />
+    <path d="M10 18 L40 32 L10 46" />
+    <rect x="22" y="26" width="18" height="12" rx="2" />
+    <circle cx="30" cy="32" r="2" fill={tone ?? '#5BD7FF'} fillOpacity="0.5" />
+    <path d="M30 38 L30 50" />
+    <path d="M25 47 L30 52 L35 47" />
+    <path d="M14 18 L6 12" />
+    <path d="M14 46 L6 52" />
+  </HullIcon>
+);
+
+export const IconMediumLaser: React.FC<ShipIconProps> = ({ size, tone }) => (
+  <HullIcon size={size} tone={tone}>
+    <path d="M52 32 L26 12 L16 32 L26 52 Z" fill={tone ?? '#5BD7FF'} fillOpacity="0.14" />
+    <path d="M52 32 L63 32" strokeOpacity="0.58" strokeDasharray="4 2" />
+    <path d="M26 12 L30 28 L30 36 L26 52" />
+    <circle cx="38" cy="32" r="4" fill={tone ?? '#5BD7FF'} fillOpacity="0.35" />
+    <path d="M16 32 L7 32" />
+    <path d="M23 19 L13 12" />
+    <path d="M23 45 L13 52" />
+  </HullIcon>
+);
+
+export const IconHeavyFighter: React.FC<ShipIconProps> = ({ size, tone }) => (
+  <HullIcon size={size} tone={tone}>
+    <path d="M56 32 L30 8 L10 32 L30 56 Z" fill={tone ?? '#5BD7FF'} fillOpacity="0.17" />
+    <path d="M30 8 L35 26 L35 38 L30 56" />
+    <path d="M15 24 L4 16" />
+    <path d="M15 40 L4 48" />
+    <path d="M56 32 L63 32" />
+    <rect x="30" y="27" width="13" height="10" rx="2" />
+    <circle cx="44" cy="32" r="2" fill={tone ?? '#5BD7FF'} fillOpacity="0.55" />
+  </HullIcon>
+);
+
+export const IconHeavyBomber: React.FC<ShipIconProps> = ({ size, tone }) => (
+  <HullIcon size={size} tone={tone}>
+    <path d="M50 32 L32 7 L8 16 L6 32 L8 48 L32 57 Z" fill={tone ?? '#5BD7FF'} fillOpacity="0.16" />
+    <path d="M8 16 L42 32 L8 48" />
+    <rect x="18" y="24" width="23" height="16" rx="3" />
+    <path d="M25 40 L25 55" />
+    <path d="M35 40 L35 55" />
+    <path d="M21 51 L25 56 L29 51" />
+    <path d="M31 51 L35 56 L39 51" />
+    <path d="M14 16 L5 8" />
+    <path d="M14 48 L5 56" />
+  </HullIcon>
+);
+
+export const IconHeavyLaser: React.FC<ShipIconProps> = ({ size, tone }) => (
+  <HullIcon size={size} tone={tone}>
+    <path d="M54 32 L31 8 L12 32 L31 56 Z" fill={tone ?? '#5BD7FF'} fillOpacity="0.16" />
+    <path d="M54 32 L63 32" strokeOpacity="0.65" strokeDasharray="5 2" />
+    <path d="M31 8 L36 28 L36 36 L31 56" />
+    <circle cx="40" cy="32" r="5" fill={tone ?? '#5BD7FF'} fillOpacity="0.36" />
+    <path d="M12 32 L3 32" />
+    <path d="M24 17 L12 8" />
+    <path d="M24 47 L12 56" />
+  </HullIcon>
+);
+
+export const IconRocketCarrier: React.FC<ShipIconProps> = ({ size, tone }) => (
+  <HullIcon size={size} tone={tone}>
+    <path d="M50 32 L34 12 L12 20 L12 44 L34 52 Z" fill={tone ?? '#5BD7FF'} fillOpacity="0.14" />
+    <path d="M16 22 L40 32 L16 42" />
+    <rect x="18" y="18" width="8" height="10" rx="2" />
+    <rect x="18" y="36" width="8" height="10" rx="2" />
+    <path d="M28 23 L42 23" />
+    <path d="M28 41 L42 41" />
+    <path d="M42 23 L48 20" />
+    <path d="M42 41 L48 44" />
+    <circle cx="34" cy="32" r="3" fill={tone ?? '#5BD7FF'} fillOpacity="0.4" />
+  </HullIcon>
+);
+
+export const IconHeavyRocketCarrier: React.FC<ShipIconProps> = ({ size, tone }) => (
+  <HullIcon size={size} tone={tone}>
+    <path d="M54 32 L36 7 L8 18 L8 46 L36 57 Z" fill={tone ?? '#5BD7FF'} fillOpacity="0.16" />
+    <path d="M12 20 L44 32 L12 44" />
+    <rect x="15" y="15" width="9" height="12" rx="2" />
+    <rect x="15" y="37" width="9" height="12" rx="2" />
+    <rect x="28" y="20" width="9" height="9" rx="2" />
+    <rect x="28" y="35" width="9" height="9" rx="2" />
+    <path d="M38 24 L51 19" />
+    <path d="M38 40 L51 45" />
+    <circle cx="41" cy="32" r="4" fill={tone ?? '#5BD7FF'} fillOpacity="0.35" />
+  </HullIcon>
+);
+
 /** Medium combat cruiser — wider hull with side turrets */
 export const IconCruiser: React.FC<ShipIconProps> = ({ size, tone }) => (
   <HullIcon size={size} tone={tone}>
@@ -276,6 +387,62 @@ export const SHIP_BY_TYPE: Record<ShipTypeId, ShipDef> = {
     labels: { en: 'Light Laser Ship', ru: 'Лёгкий лазерный корабль' },
     tag: 'COMBAT',
     tags: { en: 'COMBAT', ru: 'БОЙ' },
+  },
+  medium_fighter: {
+    Icon: IconMediumFighter,
+    label: 'Medium Fighter',
+    labels: { en: 'Medium Fighter', ru: 'Средний истребитель' },
+    tag: 'FIGHTER',
+    tags: { en: 'FIGHTER', ru: 'ИСТРЕБИТЕЛЬ' },
+  },
+  medium_bomber: {
+    Icon: IconMediumBomber,
+    label: 'Medium Bomber',
+    labels: { en: 'Medium Bomber', ru: 'Средний бомбардировщик' },
+    tag: 'BOMBER',
+    tags: { en: 'BOMBER', ru: 'БОМБАРДИРОВЩИК' },
+  },
+  medium_laser: {
+    Icon: IconMediumLaser,
+    label: 'Medium Laser Ship',
+    labels: { en: 'Medium Laser Ship', ru: 'Средний лазерный корабль' },
+    tag: 'LASER',
+    tags: { en: 'LASER', ru: 'ЛАЗЕР' },
+  },
+  heavy_fighter: {
+    Icon: IconHeavyFighter,
+    label: 'Heavy Fighter',
+    labels: { en: 'Heavy Fighter', ru: 'Тяжёлый истребитель' },
+    tag: 'FIGHTER',
+    tags: { en: 'FIGHTER', ru: 'ИСТРЕБИТЕЛЬ' },
+  },
+  heavy_bomber: {
+    Icon: IconHeavyBomber,
+    label: 'Heavy Bomber',
+    labels: { en: 'Heavy Bomber', ru: 'Тяжёлый бомбардировщик' },
+    tag: 'BOMBER',
+    tags: { en: 'BOMBER', ru: 'БОМБАРДИРОВЩИК' },
+  },
+  heavy_laser: {
+    Icon: IconHeavyLaser,
+    label: 'Heavy Laser Ship',
+    labels: { en: 'Heavy Laser Ship', ru: 'Тяжёлый лазерный корабль' },
+    tag: 'LASER',
+    tags: { en: 'LASER', ru: 'ЛАЗЕР' },
+  },
+  rocket_carrier: {
+    Icon: IconRocketCarrier,
+    label: 'Rocket Carrier',
+    labels: { en: 'Rocket Carrier', ru: 'Ракетный носитель' },
+    tag: 'CARRIER',
+    tags: { en: 'CARRIER', ru: 'НОСИТЕЛЬ' },
+  },
+  heavy_rocket_carrier: {
+    Icon: IconHeavyRocketCarrier,
+    label: 'Heavy Rocket Carrier',
+    labels: { en: 'Heavy Rocket Carrier', ru: 'Тяжёлый ракетный носитель' },
+    tag: 'CARRIER',
+    tags: { en: 'CARRIER', ru: 'НОСИТЕЛЬ' },
   },
   cruiser: {
     Icon: IconCruiser,

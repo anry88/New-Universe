@@ -14,7 +14,7 @@
  * Used both by the periodic combat worker (`workers/tick-combat.ts`) and by
  * the per-user online sync (`features/me/online-sync.ts`).
  */
-import { and, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import { db as defaultDb } from '../../db/index.js';
 import {
   ships,
@@ -672,6 +672,7 @@ function mergeCombatStats(typeStats: CombatStats, instanceStats: CombatStats): C
     ...typeStats,
     ...instanceStats,
     damageProfile: instanceStats.damageProfile ?? typeStats.damageProfile,
+    missilePayload: instanceStats.missilePayload ?? typeStats.missilePayload,
     engagementRange: instanceStats.engagementRange ?? typeStats.engagementRange,
     targetClass: typeStats.targetClass,
   };

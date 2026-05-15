@@ -11,4 +11,12 @@ export const SHIP_RESEARCH_GATES: Partial<Record<string, ResearchUnlockRequireme
   light_bomber: { branch: 'weapons', level: 2 },
   light_laser: { branch: 'weapons', level: 2 },
   battleship: { branch: 'weapons', level: 3 },
+  medium_fighter: { branch: 'weapons', level: 3 },
+  medium_bomber: { branch: 'weapons', level: 3 },
+  medium_laser: { branch: 'weapons', level: 3 },
+  rocket_carrier: { branch: 'weapons', level: 4 },
+  heavy_fighter: { branch: 'weapons', level: 4 },
+  heavy_bomber: { branch: 'weapons', level: 4 },
+  heavy_laser: { branch: 'weapons', level: 4 },
+  heavy_rocket_carrier: { branch: 'weapons', level: 5 },
 };

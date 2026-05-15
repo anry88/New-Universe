@@ -1,10 +1,12 @@
 import type { ResearchBranchCatalog } from '@shared/config/researchCatalog.js';
 import { PRODUCTION_RECIPES } from '@shared/config/productionRecipes.js';
 import { EXTRACTABLE_RESOURCE_RATES_PER_HOUR } from '@shared/config/resourceExtractionRates.js';
+import { SHIP_ENTITY_DESCRIPTIONS, SHIP_ENTITY_LABELS } from '@shared/types/entity-labels.js';
 import {
   HIGH_TIER_UPGRADE_COSTS_BY_BUILDING,
   MAX_BUILDING_LEVEL,
 } from '@shared/config/buildingUpgradeEconomy.js';
+import { missilePayloadSustainedDps } from '@shared/types/combat.js';
 import { RESEARCH_CATALOG } from '../../config/research-catalog.js';
 import {
   BUILDING_TYPE_CATALOG_ROWS,
@@ -158,6 +160,44 @@ export function runCatalogAudit(): CatalogAuditResult {
 
   for (const row of SHIP_TYPE_CATALOG_ROWS) {
     isNonEmptyLocalizedName(row.name, `ship "${row.id}"`, errors);
+    if (!SHIP_ENTITY_LABELS[row.id]) {
+      errors.push(`ship "${row.id}": missing shared entity label`);
+    } else {
+      isNonEmptyLocalizedName(SHIP_ENTITY_LABELS[row.id], `ship label "${row.id}"`, errors);
+    }
+    if (!SHIP_ENTITY_DESCRIPTIONS[row.id]) {
+      errors.push(`ship "${row.id}": missing shared entity description`);
+    } else {
+      isNonEmptyLocalizedName(SHIP_ENTITY_DESCRIPTIONS[row.id], `ship description "${row.id}"`, errors);
+    }
+    const fuelCapacity = row.fuelCapacity ?? 0;
+    const jumpFuelCapacity = row.jumpFuelCapacity ?? 0;
+    const combatStats = row.combatStats;
+    if (row.hp <= 0) errors.push(`ship "${row.id}": hp must be positive`);
+    if (fuelCapacity <= 0) errors.push(`ship "${row.id}": fuelCapacity must be positive`);
+    if (jumpFuelCapacity < 0) errors.push(`ship "${row.id}": jumpFuelCapacity must be non-negative`);
+    if (!combatStats?.targetClass) {
+      errors.push(`ship "${row.id}": missing combat targetClass`);
+    }
+    if (combatStats && combatStats.targetClass !== 'civilian') {
+      const hasSustainedProfile = Boolean(combatStats.damageProfile);
+      const hasMissilePayload = Boolean(combatStats.missilePayload);
+      if (!hasSustainedProfile && !hasMissilePayload) {
+        errors.push(`ship "${row.id}": military hull requires damageProfile or missilePayload`);
+      }
+    }
+    const missilePayload = combatStats?.missilePayload;
+    if (missilePayload) {
+      if (missilePayload.alphaDamage <= 0) errors.push(`ship "${row.id}": missile alphaDamage must be positive`);
+      if (missilePayload.reloadSec <= 0) errors.push(`ship "${row.id}": missile reloadSec must be positive`);
+      if (missilePayload.validTargetClasses.includes('civilian')) {
+        errors.push(`ship "${row.id}": missile payload must not target civilian hulls`);
+      }
+      const expectedDps = Math.round(missilePayloadSustainedDps(missilePayload));
+      if (row.dps !== expectedDps) {
+        errors.push(`ship "${row.id}": dps ${row.dps} must equal rounded missile sustained DPS ${expectedDps}`);
+      }
+    }
     for (const req of row.requiredBuildings ?? []) {
       if (!buildingSet.has(req.typeId)) {
         errors.push(`ship "${row.id}": requiredBuildings references unknown building "${req.typeId}"`);

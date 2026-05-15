@@ -121,6 +121,14 @@ describe('catalog seed audit (P2-POL-002)', () => {
       'light_fighter',
       'light_bomber',
       'light_laser',
+      'medium_fighter',
+      'medium_bomber',
+      'medium_laser',
+      'heavy_fighter',
+      'heavy_bomber',
+      'heavy_laser',
+      'rocket_carrier',
+      'heavy_rocket_carrier',
     ]);
     const reconProbe = SHIP_TYPE_CATALOG_ROWS.find((ship) => ship.id === 'recon_probe');
     expect(reconProbe).toBeDefined();
@@ -130,5 +138,58 @@ describe('catalog seed audit (P2-POL-002)', () => {
     });
     expect(reconProbe!.role).toBe('exploration');
     expect(reconProbe!.cargo).toBe(0);
+  });
+
+  it('keeps advanced combat hulls gated by military shipyard and Common Pool materials', () => {
+    const byId = new Map(SHIP_TYPE_CATALOG_ROWS.map((ship) => [ship.id, ship]));
+    const mediumIds = ['medium_fighter', 'medium_bomber', 'medium_laser'];
+    const heavyIds = ['heavy_fighter', 'heavy_bomber', 'heavy_laser'];
+
+    for (const id of mediumIds) {
+      const ship = byId.get(id);
+      expect(ship, id).toBeDefined();
+      expect(ship!.requiredBuildings).toEqual([{ typeId: 'military_shipyard', level: 3 }]);
+      expect(Object.keys(ship!.buildCost)).toEqual(
+        expect.arrayContaining(['steel', 'electronics']),
+      );
+    }
+
+    for (const id of heavyIds) {
+      const ship = byId.get(id);
+      expect(ship, id).toBeDefined();
+      expect(ship!.requiredBuildings).toEqual([{ typeId: 'military_shipyard', level: 5 }]);
+      expect(Object.keys(ship!.buildCost)).toEqual(
+        expect.arrayContaining(['steel', 'electronics', 'jump_fuel']),
+      );
+    }
+
+    expect(byId.get('medium_laser')!.buildCost).toHaveProperty('cobalt');
+    expect(byId.get('heavy_bomber')!.buildCost).toHaveProperty('iridium');
+    expect(byId.get('heavy_rocket_carrier')!.buildCost).toHaveProperty('antimatter');
+  });
+
+  it('keeps rocket carriers as limited missile-payload hulls', () => {
+    const rocket = SHIP_TYPE_CATALOG_ROWS.find((ship) => ship.id === 'rocket_carrier');
+    const heavyRocket = SHIP_TYPE_CATALOG_ROWS.find((ship) => ship.id === 'heavy_rocket_carrier');
+
+    expect(rocket).toBeDefined();
+    expect(heavyRocket).toBeDefined();
+    expect(rocket!.role).toBe('missile');
+    expect(heavyRocket!.role).toBe('missile');
+    const rocketPayload = rocket!.combatStats!.missilePayload!;
+    const heavyRocketPayload = heavyRocket!.combatStats!.missilePayload!;
+    expect(rocketPayload).toMatchObject({
+      alphaDamage: 1500,
+      validTargetClasses: ['military_medium', 'military_heavy'],
+      evasionCounterThreshold: 0.3,
+      maxRange: 'long',
+    });
+    expect(heavyRocketPayload).toMatchObject({
+      validTargetClasses: ['military_medium', 'military_heavy'],
+      evasionCounterThreshold: 0.25,
+      maxRange: 'long',
+    });
+    expect(rocketPayload.validTargetClasses).not.toContain('civilian');
+    expect(rocketPayload.validTargetClasses).not.toContain('military_light');
   });
 });
