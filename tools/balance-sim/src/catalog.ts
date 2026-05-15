@@ -202,7 +202,7 @@ export const BUILDINGS = {
     baseTimeSec: 900,
     category: 'production',
     maxLevel: MAX_BUILDING_LEVEL,
-    recipes: ['steel_from_iron_water'],
+    recipes: ['steel_from_iron_water', 'military_alloy_from_iron_silver'],
   },
   fabrication_bay: {
     deps: [{ typeId: 'command_center', level: 3 }],
@@ -210,7 +210,7 @@ export const BUILDINGS = {
     baseTimeSec: 1200,
     category: 'production',
     maxLevel: MAX_BUILDING_LEVEL,
-    recipes: ['electronics_standard'],
+    recipes: ['electronics_standard', 'military_composite_from_carbon_silicon'],
   },
   refinery: {
     deps: [{ typeId: 'command_center', level: 3 }],
@@ -226,7 +226,7 @@ export const BUILDINGS = {
     baseTimeSec: 2700,
     category: 'production',
     maxLevel: MAX_BUILDING_LEVEL,
-    recipes: ['water_from_ice', 'ice_from_water'],
+    recipes: ['water_from_ice', 'ice_from_water', 'liquid_nitrogen_from_nitrogen_ice'],
   },
   spaceport: {
     deps: [{ typeId: 'command_center', level: 4 }],
@@ -387,6 +387,9 @@ export const RESOURCE_TIER: Record<string, number> = {
   magnesium: 3,
   lead: 3,
   nitrogen: 3,
+  liquid_nitrogen: 3,
+  military_alloy: 3,
+  military_composite: 3,
   uranium: 3,
   cobalt: 3,
   silicon_carbide: 3,

@@ -42,6 +42,9 @@ const RESOURCE_META: Record<string, ResourceMeta> = {
   steel: { symbol: 'St', full: { en: 'Steel', ru: 'Сталь' } },
   electronics: { symbol: 'EC', full: { en: 'Electronics', ru: 'Электроника' } },
   energy: { symbol: '⚡', full: { en: 'Energy', ru: 'Энергия' } },
+  liquid_nitrogen: { symbol: 'LN₂', full: { en: 'Liquid Nitrogen', ru: 'Жидкий азот' } },
+  military_alloy: { symbol: 'MA', full: { en: 'Military Alloy', ru: 'Военный сплав' } },
+  military_composite: { symbol: 'MC', full: { en: 'Military Composite', ru: 'Военный композит' } },
 };
 
 export function getResourceSymbol(resourceId: string): string {

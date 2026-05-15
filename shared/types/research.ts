@@ -108,4 +108,7 @@ export type ResourceId =
   | 'jump_fuel'
   | 'antimatter'
   | 'iridium'
-  | 'biomass';
+  | 'biomass'
+  | 'liquid_nitrogen'
+  | 'military_alloy'
+  | 'military_composite';

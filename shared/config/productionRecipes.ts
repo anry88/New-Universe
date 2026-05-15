@@ -169,6 +169,52 @@ export const PRODUCTION_RECIPES: ProductionRecipe[] = [
     inputs: [{ resourceId: 'methane', amount: 2 }],
     baseDurationSec: 32,
   },
+  {
+    id: 'liquid_nitrogen_from_nitrogen_ice',
+    buildingTypeId: 'cryo_factory',
+    name: { ru: 'Жидкий азот', en: 'Liquid Nitrogen' },
+    description: {
+      ru: 'Охлаждает азот с помощью льда для лазерных систем.',
+      en: 'Cools nitrogen using ice for laser systems.',
+    },
+    output: { resourceId: 'liquid_nitrogen', amount: 1 },
+    inputs: [
+      { resourceId: 'nitrogen', amount: 2 },
+      { resourceId: 'ice', amount: 1 },
+    ],
+    baseDurationSec: 15,
+  },
+  {
+    id: 'military_alloy_from_iron_silver',
+    buildingTypeId: 'smelter',
+    name: { ru: 'Военный сплав', en: 'Military Alloy' },
+    description: {
+      ru: 'Прочный сплав на основе железа и серебра для легких корпусов.',
+      en: 'Durable iron and silver alloy for light hulls.',
+    },
+    output: { resourceId: 'military_alloy', amount: 1 },
+    inputs: [
+      { resourceId: 'iron', amount: 4 },
+      { resourceId: 'silver', amount: 1 },
+    ],
+    baseDurationSec: 20,
+  },
+  {
+    id: 'military_composite_from_carbon_silicon',
+    buildingTypeId: 'fabrication_bay',
+    name: { ru: 'Военный композит', en: 'Military Composite' },
+    description: {
+      ru: 'Армированный композит для легкого вооружения.',
+      en: 'Reinforced composite for light weapons.',
+    },
+    output: { resourceId: 'military_composite', amount: 1 },
+    inputs: [
+      { resourceId: 'carbon', amount: 3 },
+      { resourceId: 'silicon', amount: 2 },
+      { resourceId: 'nitrogen', amount: 1 },
+    ],
+    baseDurationSec: 30,
+  },
 ];
 
 export function recipesForBuildingType(buildingTypeId: string): ProductionRecipe[] {
