@@ -2,8 +2,10 @@ import { FastifyInstance } from 'fastify';
 import jwt from 'jsonwebtoken';
 import { env } from '../../lib/env.js';
 import { buildShip, getShipQueue, rushShipBuild, syncReadyShips } from './build.js';
+import { refuelShip } from './refuel.js';
 import { db } from '../../db/index.js';
 import { formatShipBuildErrorMessage, RushShipBuildRequest, type ShipBuildErrorDetails } from '@shared/types/ships.js';
+import { type RefuelRequest, type RefuelErrorDetails, formatRefuelErrorMessage } from '@shared/types/refuel.js';
 import { resolveRequestLocale } from '../../lib/i18n.js';
 import { mutationRateLimit } from '../../lib/rate-limit.js';
 import { nonEmptyStringSchema, objectBodySchema, securityRouteConfig } from '../../lib/security.js';
@@ -109,5 +111,40 @@ export async function shipsRoutes(app: FastifyInstance) {
       const message = err instanceof Error ? err.message : 'Bad Request';
       return reply.status(400).send({ error: message });
     }
+  });
+
+  app.post('/refuel', {
+    config: securityRouteConfig(mutationRateLimit, 'body'),
+    schema: {
+      body: objectBodySchema(
+        {
+          targetShipId: nonEmptyStringSchema,
+          sourceShipId: nonEmptyStringSchema,
+          fuel: { type: 'number', minimum: 0 },
+          jumpFuel: { type: 'number', minimum: 0 },
+        },
+        ['targetShipId', 'sourceShipId'],
+      ),
+    },
+  }, async (request, reply) => {
+    const auth = resolveUserId(request, reply);
+    if (!auth.ok) return;
+
+    const req = request.body as RefuelRequest;
+    const result = await refuelShip(auth.userId, req);
+
+    if (!result.success) {
+      const locale = resolveRequestLocale(request);
+      const details = result.code
+        ? ({ code: result.code, ...(result.details ?? {}) } as RefuelErrorDetails)
+        : null;
+      return reply.status(result.status).send({
+        error: details ? formatRefuelErrorMessage(details, locale) : result.error,
+        code: result.code,
+        details: result.details,
+      });
+    }
+
+    return reply.send(result.data);
   });
 }

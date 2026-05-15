@@ -251,7 +251,7 @@ describe('Recon Probe Jump Gate Discovery', () => {
         eq(planetResources.resourceId, JUMP_FUEL_RESOURCE_ID),
       ),
     });
-    expect(Number(originJumpFuel?.amount)).toBe(50);
+    expect(Number(originJumpFuel?.amount)).toBe(97);
 
     const discovery = await db.query.discoveredSystems.findFirst({
       where: and(
@@ -392,7 +392,7 @@ describe('Recon Probe Jump Gate Discovery', () => {
         eq(planetResources.resourceId, JUMP_FUEL_RESOURCE_ID),
       ),
     });
-    expect(Number(originJumpFuel?.amount)).toBe(0);
+    expect(Number(originJumpFuel?.amount)).toBe(94);
 
     const discovery = await db.query.discoveredSystems.findFirst({
       where: and(

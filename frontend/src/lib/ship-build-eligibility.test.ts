@@ -19,7 +19,9 @@ const cargoLight: ShipType = {
   buildCost: { iron: 500, silicon: 300, carbon: 200, methane: 100 },
   requiredBuildings: [{ typeId: "shipyard", level: 2 }],
   sensorRange: 8,
-  combatStats: { targetClass: 'military_light' },
+  fuelCapacity: 5000,
+  jumpFuelCapacity: 100,
+  combatStats: { targetClass: "military_light" },
 };
 
 const basePlanet: Planet = {

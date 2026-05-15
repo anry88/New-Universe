@@ -25,6 +25,7 @@ import {
   Timer,
   Target,
   AlertTriangle,
+  Zap,
 } from "lucide-react";
 import { useState, useMemo, useCallback } from "react";
 import { CosmicBackground } from "./cosmic/atoms";
@@ -35,6 +36,7 @@ import {
 import { getShipClassTag, ShipIconBadge } from "./cosmic/ships";
 import { useI18n } from "../lib/i18n";
 import { buildExpeditionPreview } from "../lib/expedition-routing";
+import { getResourceSymbol } from "./cosmic/resources";
 import {
   buildSystemMapLayouts,
   systemMapJumpGatePoint,
@@ -140,8 +142,10 @@ export function ExpeditionDialog({
   const [selectedDestinationSystemId, setSelectedDestinationSystemId] =
     useState<string | null>(initialDestinationSystemId ?? null);
   const [jumpTargetPoints, setJumpTargetPoints] = useState<Record<string, SystemMapPoint>>({});
-  const [launchError, setLaunchError] = useState<string | null>(null);
+  const [fuelLoaded, setFuelLoaded] = useState(0);
+  const [jumpFuelLoaded, setJumpFuelLoaded] = useState(0);
   const [cargo] = useState(0);
+  const [launchError, setLaunchError] = useState<string | null>(null);
   const launch = useLaunchExpedition();
 
   const homeSystem = meData?.homeSystem;
@@ -345,9 +349,12 @@ export function ExpeditionDialog({
   const recommendedFuel = preview.fuelRequired;
   const jumpFuelRequired = preview.jumpFuelRequired;
 
-  const shortOnFuel = fuelAvailable > 0 && recommendedFuel > fuelAvailable;
+  const totalFuelAtLaunch = Number(ship.fuel) + fuelLoaded;
+  const totalJumpFuelAtLaunch = Number(ship.jumpFuel) + jumpFuelLoaded;
+
+  const shortOnFuel = totalFuelAtLaunch < recommendedFuel;
   const shortOnJumpFuel =
-    routeMode === "jump_gate" && jumpFuelRequired > jumpFuelAvailable;
+    routeMode === "jump_gate" && totalJumpFuelAtLaunch < jumpFuelRequired;
   const colonizationDetails =
     colonizationEligibility.data?.eligibility.details;
   const colonizationGateBlocked = Boolean(
@@ -407,9 +414,7 @@ export function ExpeditionDialog({
     routeMode === "jump_gate" &&
     (jumpGateUnavailable || jumpGateCalibrating || !selectedDestination);
   const launchBlocked =
-    recommendedFuel <= 0 ||
-    recommendedFuel > fuelAvailable ||
-    fuelAvailable <= 0 ||
+    shortOnFuel ||
     shortOnJumpFuel ||
     colonizationPreflightPending ||
     colonizationGateBlocked ||
@@ -482,6 +487,8 @@ export function ExpeditionDialog({
             : undefined,
         destinationSystemId:
           routeMode === "jump_gate" ? selectedDestination?.systemId : undefined,
+        fuelLoaded: fuelLoaded > 0 ? fuelLoaded : undefined,
+        jumpFuelLoaded: jumpFuelLoaded > 0 ? jumpFuelLoaded : undefined,
         cargoLoaded: cargo,
         targetPlanetId: targetPlanetId ?? undefined,
       });
@@ -1158,63 +1165,127 @@ export function ExpeditionDialog({
                   }}
                 >
                   <Fuel size={16} style={{ opacity: 0.85 }} />{" "}
-                  {t("expedition.fuel")} (
-                  {preview.returnTrip
-                    ? t("expedition.roundTrip")
-                    : t("expedition.oneWay")}{" "}
-                  {t("expedition.estimate")})
+                  {t("expedition.fuelRequired")}
                 </div>
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontWeight: 700,
-                    fontSize: 16,
-                    color: "#6ee7b7",
-                  }}
-                >
-                  {recommendedFuel}{" "}
-                  <span style={{ fontSize: 11, color: "var(--text-faint)" }}>
-                    / {fuelAvailable} {t("expedition.availableShort")}
-                  </span>
-                </span>
-              </div>
-              {routeMode === "jump_gate" ? (
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    gap: 8,
-                    marginTop: 12,
-                  }}
-                >
+                <div style={{ textAlign: "right" }}>
                   <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      color: "var(--text-dim)",
-                      fontSize: 13,
-                    }}
-                  >
-                    <Navigation size={16} style={{ opacity: 0.85 }} />{" "}
-                    {t("expedition.jumpFuel")}
-                  </div>
-                  <span
                     style={{
                       fontFamily: "var(--font-mono)",
                       fontWeight: 700,
                       fontSize: 16,
-                      color: shortOnJumpFuel ? "#fcd34d" : "#93c5fd",
                     }}
                   >
-                    {jumpFuelRequired}{" "}
-                    <span style={{ fontSize: 11, color: "var(--text-faint)" }}>
-                      / {jumpFuelAvailable} {t("expedition.availableShort")}
-                    </span>
-                  </span>
+                    {preview.fuelRequired} {getResourceSymbol("fuel")}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 10,
+                      color: "var(--text-faint)",
+                      marginTop: 2,
+                    }}
+                  >
+                    {t("expedition_dialog_tank_status", {
+                      current: Number(ship.fuel).toFixed(0),
+                      capacity: shipType.fuelCapacity,
+                    })}
+                  </div>
                 </div>
-              ) : null}
+              </div>
+
+              {/* Ordinary Fuel Loading Slider */}
+              <div style={{ marginTop: 4 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                   <div style={{ fontSize: 11, color: "var(--text-dim)" }}>{t("expedition_dialog_load_fuel")}</div>
+                   <div style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--accent)" }}>+{fuelLoaded}</div>
+                </div>
+                <input 
+                  type="range"
+                  className="cosmic-range"
+                  min={0}
+                  max={Math.min(fuelAvailable, Math.max(0, shipType.fuelCapacity - Number(ship.fuel)))}
+                  value={fuelLoaded}
+                  onChange={(e) => setFuelLoaded(Number(e.target.value))}
+                />
+              </div>
+
+              {preview.jumpFuelRequired > 0 && (
+                <>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        color: "var(--text-dim)",
+                        fontSize: 13,
+                      }}
+                    >
+                      <Zap size={16} style={{ opacity: 0.85 }} />{" "}
+                      {t("expedition.jumpFuelRequired")}
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div
+                        style={{
+                          fontFamily: "var(--font-mono)",
+                          fontWeight: 700,
+                          fontSize: 16,
+                        }}
+                      >
+                        {preview.jumpFuelRequired} {getResourceSymbol("jump_fuel")}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 10,
+                          color: "var(--text-faint)",
+                          marginTop: 2,
+                        }}
+                      >
+                        {t("expedition_dialog_tank_status", {
+                          current: Number(ship.jumpFuel).toFixed(0),
+                          capacity: shipType.jumpFuelCapacity,
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Jump Fuel Loading Slider */}
+                  <div style={{ marginTop: 4 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                       <div style={{ fontSize: 11, color: "var(--text-dim)" }}>{t("expedition_dialog_load_jump_fuel")}</div>
+                       <div style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--accent)" }}>+{jumpFuelLoaded}</div>
+                    </div>
+                    <input 
+                      type="range"
+                      className="cosmic-range"
+                      min={0}
+                      max={Math.min(jumpFuelAvailable, Math.max(0, shipType.jumpFuelCapacity - Number(ship.jumpFuel)))}
+                      value={jumpFuelLoaded}
+                      onChange={(e) => setJumpFuelLoaded(Number(e.target.value))}
+                    />
+                  </div>
+                </>
+              )}
+
+              <div
+                style={{
+                  marginTop: 12,
+                  fontSize: 11,
+                  color: "var(--text-dim)",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>{t("expedition.availableOnPlanet")}</span>
+                  <span>{getResourceSymbol("fuel")} {fuelAvailable} · {getResourceSymbol("jump_fuel")} {jumpFuelAvailable}</span>
+                </div>
+              </div>
+              </div>
+
               <div
                 style={{
                   marginTop: 8,
@@ -1385,7 +1456,7 @@ export function ExpeditionDialog({
             <span>{launchError}</span>
           </div>
         ) : null}
-      </div>
+
     </div>
   );
 }

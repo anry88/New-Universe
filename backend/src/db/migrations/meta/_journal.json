@@ -225,6 +225,13 @@
       "when": 1778830829712,
       "tag": "0033_orange_jasper_sitwell",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1778834268839,
+      "tag": "0034_aspiring_tattoo",
+      "breakpoints": true
     }
   ]
 }

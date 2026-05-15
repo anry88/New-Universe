@@ -19,6 +19,7 @@ import {
   planets,
   planetResources,
   ships,
+  shipTypes,
   systems,
 } from '../../db/schema.js';
 import { getJumpGateState } from '../jump-gate/service.js';
@@ -454,17 +455,59 @@ async function jumpToSystem(params: {
     .where(eq(planets.systemId, targetSystem.id));
 
   const result = await database.transaction(async (tx) => {
-    const jumpFuelSpend = await spendResources(
-      shipRow.locationPlanetId!,
-      [{ resourceId: JUMP_FUEL_RESOURCE_ID, amount: JUMP_GATE_JUMP_FUEL_COST }],
-      tx,
-    );
-    if (!jumpFuelSpend.success) {
+    const shipTypeId = shipRow.typeId;
+    const shipType = await tx.query.shipTypes.findFirst({
+      where: eq(shipTypes.id, shipTypeId),
+    });
+
+    if (!shipType) {
+      throw new Error(`Ship type ${shipTypeId} not found`);
+    }
+
+    const currentJumpFuel = Number(shipRow.jumpFuel);
+    const jumpFuelCapacity = shipType.jumpFuelCapacity;
+
+    if (JUMP_GATE_JUMP_FUEL_COST > jumpFuelCapacity) {
       return {
         success: false,
         status: 400,
-        error: jumpFuelSpend.error ?? `not enough ${JUMP_FUEL_RESOURCE_ID}`,
+        error: `Ship jump fuel capacity (${jumpFuelCapacity}) is insufficient for this jump (cost ${JUMP_GATE_JUMP_FUEL_COST}).`,
       } satisfies JumpResult;
+    }
+
+    const fuelToLoad = Math.max(0, jumpFuelCapacity - currentJumpFuel);
+    
+    const jumpFuelRow = await tx.query.planetResources.findFirst({
+      where: and(
+        eq(planetResources.planetId, shipRow.locationPlanetId!),
+        eq(planetResources.resourceId, JUMP_FUEL_RESOURCE_ID)
+      )
+    });
+    const availableJumpFuel = Number(jumpFuelRow?.amount ?? 0);
+    const actualLoad = Math.min(availableJumpFuel, fuelToLoad);
+
+    if (currentJumpFuel + actualLoad < JUMP_GATE_JUMP_FUEL_COST) {
+      return {
+        success: false,
+        status: 400,
+        error: formatInsufficientResourceMessage(JUMP_FUEL_RESOURCE_ID, 'en'),
+      } satisfies JumpResult;
+    }
+
+    // Debit from planet to fill tank
+    if (actualLoad > 0) {
+      const jumpFuelSpend = await spendResources(
+        shipRow.locationPlanetId!,
+        [{ resourceId: JUMP_FUEL_RESOURCE_ID, amount: actualLoad }],
+        tx,
+      );
+      if (!jumpFuelSpend.success) {
+        return {
+          success: false,
+          status: 400,
+          error: jumpFuelSpend.error ?? `not enough ${JUMP_FUEL_RESOURCE_ID}`,
+        } satisfies JumpResult;
+      }
     }
 
     const changedShips = consumeShip
@@ -480,6 +523,7 @@ async function jumpToSystem(params: {
           .update(ships)
           .set({
             locationPlanetId: targetPlanet.id,
+            jumpFuel: sql`${ships.jumpFuel} + ${actualLoad} - ${JUMP_GATE_JUMP_FUEL_COST}`,
           })
           .where(and(
             eq(ships.id, shipRow.id),

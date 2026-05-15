@@ -13,6 +13,7 @@ export interface Ship {
   queueStartedAt?: string | null;
   cargoJson: Record<string, number>;
   fuel: string;
+  jumpFuel: string;
   hp: number;
   maxHp: number;
   combatStats: CombatStats;
@@ -53,6 +54,8 @@ export interface ShipType {
   dps: number;
   armor: number;
   fuelConsumption: string;
+  fuelCapacity: number;
+  jumpFuelCapacity: number;
   buildTimeSec: number;
   buildCost: Record<string, number>;
   requiredBuildings: { typeId: string; level: number }[];
