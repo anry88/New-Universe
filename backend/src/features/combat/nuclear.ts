@@ -75,7 +75,7 @@ export type NuclearPayloadImpactResult =
 export function evaluateNuclearPayloadUse(
   context: NuclearPayloadUseContext,
 ): NuclearPayloadUseResult {
-  const profile = context.profile ?? NUCLEAR_PAYLOAD_PROFILE;
+  const profile: NuclearPayloadProfile = context.profile ?? NUCLEAR_PAYLOAD_PROFILE;
   const { actor, target } = context;
 
   if (!target.isVisibleToActor) return { allowed: false, code: 'target_not_visible' };
