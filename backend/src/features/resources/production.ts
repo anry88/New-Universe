@@ -356,6 +356,21 @@ export class ProductionService {
     return rows.map((row) => mapOrder(row));
   }
 
+  private async isAnyOutputAtStorageCap(
+    planetId: string,
+    outputs: ResourceAmount[],
+    effects: ResearchEffects,
+    database: any,
+  ): Promise<boolean> {
+    for (const output of outputs) {
+      const capacity = await this.resolveOutputCapacity(planetId, output.resourceId, effects, database);
+      if (capacity.currentAmount >= capacity.storageCap) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private async syncPausedOrders(
     options: { userId?: string; planetId?: string } = {},
     database: any = defaultDb,
@@ -384,10 +399,14 @@ export class ProductionService {
         if (!locked) return;
 
         const now = new Date();
-        const energyState = await resolvePlanetEnergyState(locked.planetId, tx);
+        const [energyState, effects] = await Promise.all([
+          resolvePlanetEnergyState(locked.planetId, tx),
+          getResearchEffectsForUser(locked.userId, tx),
+        ]);
         const buildingEnergyState = locked.buildingId ? energyState.buildingStates[locked.buildingId] : undefined;
+        const outputAtCap = await this.isAnyOutputAtStorageCap(locked.planetId, locked.outputs, effects, tx);
 
-        if (locked.status === 'queued' && buildingEnergyState?.disabled) {
+        if (locked.status === 'queued' && (buildingEnergyState?.disabled || outputAtCap)) {
           await tx
             .update(productionOrders)
             .set({
@@ -403,7 +422,12 @@ export class ProductionService {
           return;
         }
 
-        if (locked.status === 'paused' && !energyState.shortage && (energyState.stored > 0 || energyState.netRate > 0)) {
+        if (
+          locked.status === 'paused' &&
+          !energyState.shortage &&
+          (energyState.stored > 0 || energyState.netRate > 0) &&
+          !outputAtCap
+        ) {
           const pausedAt = locked.pausedAt ?? now;
           const pausedMs = Math.max(0, now.getTime() - pausedAt.getTime());
           const shiftedCompletesAt = new Date(

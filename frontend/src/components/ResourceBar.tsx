@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useMe } from '../hooks/useMe';
 import { apiFetch } from '../lib/api';
 import type { PlanetResource } from '@shared/types/world';
@@ -124,6 +124,15 @@ export function ResourceBar({ planetId, planetLabel }: ResourceBarProps) {
     t('colonies.planetSingular');
 
   const selectedPlanetId = planetId || meData?.homeSystem?.planets?.[0]?.id;
+
+  const purchaseAvailableSpace = useMemo(() => {
+    if (!purchaseResourceId) return null;
+    const res = resources.find((r) => r.resourceId === purchaseResourceId);
+    if (!res) return null;
+    const storageCap = parseFloat(String(res.storageCap));
+    return Math.max(0, storageCap - res.currentAmount);
+  }, [purchaseResourceId, resources]);
+
   const openPurchase = (resourceId: string) => {
     setPurchaseResourceId(resourceId);
     setPurchaseOpen(true);
@@ -217,6 +226,7 @@ export function ResourceBar({ planetId, planetLabel }: ResourceBarProps) {
         planetId={selectedPlanetId ?? null}
         resourceId={purchaseResourceId}
         diamondBalance={diamondBalance ?? 0}
+        availableSpace={purchaseAvailableSpace}
         busy={purchaseBusy}
         onClose={() => setPurchaseOpen(false)}
         onConfirm={handlePurchase}

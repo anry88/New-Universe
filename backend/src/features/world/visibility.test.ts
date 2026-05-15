@@ -175,22 +175,24 @@ describe("Visibility Check Service", () => {
     await db.delete(users);
   });
 
-  it("discovers a planet in a nearby system within sensor range", async () => {
+  it("does not auto-discover planets in a public system via sensor range", async () => {
     const userId = await createTestUser();
     const shipSystem = await createSystem(0, 0, 0);
     const shipPlanetId = await createPlanet(shipSystem.id, "Ship Planet");
     const shipId = await createShip(userId, shipPlanetId);
 
+    // Public system within sensor range — planets here should NOT be auto-discovered
     const targetSystem = await createSystem(25, 0, 0);
     const targetPlanetId = await createPlanet(targetSystem.id, "Target Planet");
 
     const discoveries = await checkVisibility(shipId);
 
-    expect(discoveries.length).toBeGreaterThan(0);
     const planetDiscovery = discoveries.find((d) => d.id === targetPlanetId);
-    expect(planetDiscovery).toBeDefined();
-    expect(planetDiscovery?.type).toBe("planet");
-    expect(planetDiscovery?.name).toBe("Target Planet");
+    expect(planetDiscovery).toBeUndefined();
+    const systemDiscovery = discoveries.find(
+      (d) => d.type === "system" && d.id === targetSystem.id,
+    );
+    expect(systemDiscovery).toBeUndefined();
   });
 
   it("does not discover a planet outside sensor range", async () => {
@@ -281,12 +283,13 @@ describe("Visibility Check Service", () => {
     expect(systemDiscovery?.id).toBe(homeSystem.id);
   });
 
-  it("discovers all planets in a newly visible system", async () => {
+  it("does not auto-discover planets in a public system (probe-only mechanic)", async () => {
     const userId = await createTestUser();
     const shipSystem = await createSystem(0, 0, 0);
     const shipPlanetId = await createPlanet(shipSystem.id, "Ship Planet");
     const shipId = await createShip(userId, shipPlanetId);
 
+    // Public common system — requires explicit probe jump to discover
     const targetSystem = await createSystem(20, 0, 0);
     const planet1 = await createPlanet(targetSystem.id, "Planet A");
     const planet2 = await createPlanet(targetSystem.id, "Planet B");
@@ -297,17 +300,18 @@ describe("Visibility Check Service", () => {
     const planetIds = discoveries
       .filter((d) => d.type === "planet")
       .map((d) => d.id);
-    expect(planetIds).toContain(planet1);
-    expect(planetIds).toContain(planet2);
-    expect(planetIds).toContain(planet3);
+    expect(planetIds).not.toContain(planet1);
+    expect(planetIds).not.toContain(planet2);
+    expect(planetIds).not.toContain(planet3);
   });
 
-  it("discovers both system and its planets", async () => {
+  it("does not auto-discover a public system or its planets via sensor range", async () => {
     const userId = await createTestUser();
     const shipSystem = await createSystem(0, 0, 0);
     const shipPlanetId = await createPlanet(shipSystem.id, "Ship Planet");
     const shipId = await createShip(userId, shipPlanetId);
 
+    // Public system within range — should not be revealed without probe jump
     const targetSystem = await createSystem(18, 0, 0);
     await createPlanet(targetSystem.id, "Planet in Range");
 
@@ -316,12 +320,12 @@ describe("Visibility Check Service", () => {
     const systemDisc = discoveries.find(
       (d) => d.type === "system" && d.id === targetSystem.id,
     );
-    expect(systemDisc).toBeDefined();
+    expect(systemDisc).toBeUndefined();
 
     const planetDisc = discoveries.find(
       (d) => d.type === "planet" && d.name === "Planet in Range",
     );
-    expect(planetDisc).toBeDefined();
+    expect(planetDisc).toBeUndefined();
   });
 
   it("returns empty array for missing or invalid ship", async () => {
@@ -331,32 +335,34 @@ describe("Visibility Check Service", () => {
     expect(result).toEqual([]);
   });
 
-  it("respects planar sector distance (Z is ignored)", async () => {
+  it("discovers own home system using planar XY distance (Z is ignored)", async () => {
     const userId = await createTestUser();
     const shipSystem = await createSystem(0, 0, 0);
     const shipPlanetId = await createPlanet(shipSystem.id, "Ship Planet");
     const shipId = await createShip(userId, shipPlanetId);
 
-    // Same XY as old “inside” 3D case, large Z — still in range on the galactic plane.
-    const systemInside = await createSystem(10, 10, 999);
-    await createPlanet(systemInside.id, "Inside Planet");
+    // Own home system at large Z — XY distance ≈ 14.1 is still within range 30.
+    const homeInside = await createSystem(10, 10, 999, userId, true);
+    await createPlanet(homeInside.id, "Home Planet Inside");
 
-    // Far in XY only; Z does not shrink the distance anymore.
-    const systemOutside = await createSystem(40, 0, 0);
-    await createPlanet(systemOutside.id, "Outside Planet");
+    // Public system far in XY; also outside range, but public regardless.
+    const publicOutside = await createSystem(40, 0, 0);
+    await createPlanet(publicOutside.id, "Outside Planet");
 
     expect(Math.hypot(10, 10)).toBeLessThanOrEqual(30);
     expect(Math.hypot(40, 0)).toBeGreaterThan(30);
 
     const discoveries = await checkVisibility(shipId);
 
-    const insideDisc = discoveries.find(
-      (d) => d.type === "system" && d.id === systemInside.id,
+    // Own home system IS discovered (Z ignored, XY in range)
+    const homeDisc = discoveries.find(
+      (d) => d.type === "system" && d.id === homeInside.id,
     );
-    expect(insideDisc).toBeDefined();
+    expect(homeDisc).toBeDefined();
 
+    // Public system is never auto-discovered via sensor
     const outsideDisc = discoveries.find(
-      (d) => d.type === "system" && d.id === systemOutside.id,
+      (d) => d.type === "system" && d.id === publicOutside.id,
     );
     expect(outsideDisc).toBeUndefined();
   });

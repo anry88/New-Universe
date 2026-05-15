@@ -320,6 +320,7 @@
   "resources.priceNow": "Текущая цена: ◆ {diamonds} (уровень {tier}, {units} ед./алмаз)",
   "resources.priceUnavailable": "Цена недоступна",
   "resources.failedBuy": "Не удалось купить ресурс",
+  "resources.storageAvailable": "Свободно в хранилище: {available} ед.",
   "sector.title": "Карта сектора",
   "sector.subtitle": "Мультиплеерный радар с сокрытием чужих контактов",
   "sector.noHome": "Домашняя система недоступна — карту сектора не к чему привязать.",

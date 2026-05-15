@@ -173,8 +173,10 @@ export async function checkVisibility(
 
   const systemById = new Map(visibleSystems.map((s: SystemRow) => [s.id, s]));
 
+  // Common/public systems (no owner, not home) are discovered exclusively via
+  // the recon probe random jump. Sensor range must not reveal them in bulk.
   const newSystems = visibleSystems.filter(
-    (sys: SystemRow) => !alreadyKnownSys.has(sys.id),
+    (sys: SystemRow) => !alreadyKnownSys.has(sys.id) && (sys.isHome || sys.ownerId !== null),
   );
   const newPlanets = allPlanets
     .filter((p: PlanetRow) => !alreadyKnownPlanets.has(p.id))
@@ -185,6 +187,9 @@ export async function checkVisibility(
       // orbit at once. Recon unlocks those planets only along the route corridor in
       // `workers/tick-expeditions.ts` (`discoverHomePlanetsAlongRoute`).
       if (sys?.isHome && sys.ownerId === ownerId) return false;
+      // Common/public systems follow the same rule: planets are revealed only by
+      // explicit recon expeditions (`discoverJumpGateDestinationPlanetsAlongRoute`).
+      if (!sys?.isHome && !sys?.ownerId) return false;
       return true;
     });
 
