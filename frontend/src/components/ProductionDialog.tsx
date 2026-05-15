@@ -6,12 +6,13 @@ import type {
   ProductionRecipeSummary,
   ProductionStartResponse,
 } from '@shared/types/production';
+import type { Locale } from '@shared/types/locale';
 import type { Building } from '@shared/types/world';
 import { apiFetch } from '../lib/api';
 import { canStartProduction, defaultProductionRecipeId, productionBlockedText } from '../lib/production';
 import { formatTimerDuration, timerSnapshot } from '../lib/timers';
 import { useI18n } from '../lib/i18n';
-import { getResourceSymbol } from './cosmic/resources';
+import { ResourceAmount, ResourceAmountList } from './cosmic/resources';
 
 interface ProductionDialogProps {
   isOpen: boolean;
@@ -28,12 +29,36 @@ function formatAmount(value: number): string {
   });
 }
 
-function formatResourceAmount(change: { resourceId: string; amount: number }, prefix = ''): string {
-  return `${prefix}${formatAmount(change.amount)} ${getResourceSymbol(change.resourceId)}`;
+function formatResourceAmount(
+  change: { resourceId: string; amount: number },
+  locale: Locale,
+  prefix = '',
+): React.ReactElement {
+  return (
+    <ResourceAmount
+      resourceId={change.resourceId}
+      amount={formatAmount(change.amount)}
+      prefix={prefix}
+      locale={locale}
+    />
+  );
 }
 
-function formatResourceList(changes: { resourceId: string; amount: number }[], prefix = ''): string {
-  return changes.map((change) => formatResourceAmount(change, prefix)).join(' · ');
+function formatResourceList(
+  changes: { resourceId: string; amount: number }[],
+  locale: Locale,
+  prefix = '',
+): React.ReactElement {
+  return (
+    <ResourceAmountList
+      items={changes.map((change) => ({
+        resourceId: change.resourceId,
+        amount: formatAmount(change.amount),
+      }))}
+      prefix={prefix}
+      locale={locale}
+    />
+  );
 }
 
 export const ProductionDialog: React.FC<ProductionDialogProps> = ({
@@ -206,11 +231,11 @@ export const ProductionDialog: React.FC<ProductionDialogProps> = ({
                   >
                     <div className="prod-card-head">
                       <span className="prod-card-title">{recipe.name[locale]}</span>
-                      <span className="prod-pill">{formatResourceAmount(recipe.output, '+')}</span>
+                      <span className="prod-pill">{formatResourceAmount(recipe.output, locale, '+')}</span>
                     </div>
                     <div className="prod-detail-line">
                       <span className="prod-detail-label">{t('production.inputs')}</span>
-                      <span className="prod-detail-value">{formatResourceList(recipe.inputs, '-')}</span>
+                      <span className="prod-detail-value">{formatResourceList(recipe.inputs, locale, '-')}</span>
                     </div>
                   </button>
                 ))}
@@ -244,11 +269,11 @@ export const ProductionDialog: React.FC<ProductionDialogProps> = ({
               <div className="prod-summary">
                 <div className="prod-detail-line">
                   <span className="prod-detail-label">{t('production.output')}</span>
-                  <span className="prod-detail-value strong">{formatResourceAmount(preview.output, '+')}</span>
+                  <span className="prod-detail-value strong">{formatResourceAmount(preview.output, locale, '+')}</span>
                 </div>
                 <div className="prod-detail-line">
                   <span className="prod-detail-label">{t('production.inputs')}</span>
-                  <span className="prod-detail-value">{formatResourceList(preview.inputs, '-')}</span>
+                  <span className="prod-detail-value">{formatResourceList(preview.inputs, locale, '-')}</span>
                 </div>
                 <div className="prod-detail-line">
                   <span className="prod-detail-label">{t('production.duration')}</span>
@@ -278,7 +303,14 @@ export const ProductionDialog: React.FC<ProductionDialogProps> = ({
                 <div key={order.id} className="prod-order">
                   <div className="prod-card-head">
                     <span className="prod-card-title">
-                      {order.outputs.map((output) => formatResourceAmount(output, '+')).join(', ')}
+                      <ResourceAmountList
+                        items={order.outputs.map((output) => ({
+                          resourceId: output.resourceId,
+                          amount: formatAmount(output.amount),
+                        }))}
+                        prefix="+"
+                        locale={locale}
+                      />
                     </span>
                     <span className="prod-pill">
                       {order.status === 'paused'

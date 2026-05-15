@@ -4,7 +4,7 @@ import { useI18n } from '../lib/i18n';
 import { useRefuel } from '../hooks/useShips';
 import { getShipLabel, ShipIconBadge } from './cosmic/ships';
 import type { Ship, ShipType } from '@shared/types/ships';
-import { getResourceSymbol } from './cosmic/resources';
+import { ResourceAmount } from './cosmic/resources';
 
 interface RefuelDialogProps {
   sourceShip: Ship;
@@ -111,10 +111,20 @@ export function RefuelDialog({
                 <div className="ship-name">{sourceType.name[locale]}</div>
                 <div className="ship-stats-row">
                   <span className="ship-stat-mini">
-                    {getResourceSymbol('fuel')} {Number(sourceShip.fuel).toFixed(0)} / {sourceType.fuelCapacity}
+                    <ResourceAmount
+                      resourceId="fuel"
+                      amount={`${Number(sourceShip.fuel).toFixed(0)} / ${sourceType.fuelCapacity}`}
+                      iconSize={12}
+                      locale={locale}
+                    />
                   </span>
                   <span className="ship-stat-mini">
-                    {getResourceSymbol('jump_fuel')} {Number(sourceShip.jumpFuel).toFixed(0)} / {sourceType.jumpFuelCapacity}
+                    <ResourceAmount
+                      resourceId="jump_fuel"
+                      amount={`${Number(sourceShip.jumpFuel).toFixed(0)} / ${sourceType.jumpFuelCapacity}`}
+                      iconSize={12}
+                      locale={locale}
+                    />
                   </span>
                 </div>
               </div>

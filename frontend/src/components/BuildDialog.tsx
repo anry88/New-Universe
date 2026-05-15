@@ -11,7 +11,7 @@ import {
   resolveBuildingType,
   type BuildingCategoryKey,
 } from './cosmic/buildings';
-import { getResourceLabel, getResourceSymbol } from './cosmic/resources';
+import { getResourceLabel, ResourceAmount, ResourceAmountList, ResourceIcon } from './cosmic/resources';
 import { useI18n } from '../lib/i18n';
 import { recipesForBuildingType } from '@shared/config/productionRecipes';
 
@@ -245,7 +245,9 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
                                   aria-pressed={selected}
                                   aria-label={`${getResourceLabel(choice.resourceId, locale)} ${choice.used}/${choice.depositLimit}`}
                                 >
-                                  <span>{getResourceSymbol(choice.resourceId)}</span>
+                                  <span className="bopt-resource-icon">
+                                    <ResourceIcon resourceId={choice.resourceId} size={16} />
+                                  </span>
                                   <span>{choice.used}/{choice.depositLimit}</span>
                                 </button>
                               );
@@ -255,7 +257,14 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
                         <div className="bopt-stats">
                           {outputResourceId && outputRate > 0 && (
                             <span className="bstat">
-                              {t('build.yield')}: +{outputRate} {getResourceSymbol(outputResourceId)}/h
+                              {t('build.yield')}:{' '}
+                              <ResourceAmount
+                                resourceId={outputResourceId}
+                                amount={`+${outputRate}`}
+                                suffix="/h"
+                                iconSize={12}
+                                locale={locale}
+                              />
                             </span>
                           )}
                           {output.cap && (
@@ -285,7 +294,18 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
                           )}
                           {output.conversion && (
                             <span className="bstat">
-                              {getResourceSymbol(output.conversion.from)} → {getResourceSymbol(output.conversion.to)} ({output.conversion.rate}/h)
+                              <ResourceIcon
+                                resourceId={output.conversion.from}
+                                size={12}
+                                title={getResourceLabel(output.conversion.from, locale)}
+                              />{' '}
+                              →{' '}
+                              <ResourceIcon
+                                resourceId={output.conversion.to}
+                                size={12}
+                                title={getResourceLabel(output.conversion.to, locale)}
+                              />{' '}
+                              ({output.conversion.rate}/h)
                             </span>
                           )}
                         </div>
@@ -293,9 +313,15 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
                           <span className="bopt-cost">
                             {costs.length === 0
                               ? '—'
-                              : costs
-                                  .map(([resId, amount]) => `${getResourceSymbol(resId)} ${amount}`)
-                                  .join('  ·  ')}
+                              : (
+                                <ResourceAmountList
+                                  items={costs.map(([resourceId, amount]) => ({
+                                    resourceId,
+                                    amount,
+                                  }))}
+                                  locale={locale}
+                                />
+                              )}
                           </span>
                           <span className="bopt-time">
                             {minutes > 0 ? `${minutes}m ${seconds.toString().padStart(2, '0')}s` : `${seconds}s`}

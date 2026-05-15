@@ -5,7 +5,7 @@ import {
 } from "@shared/types/combat";
 import type { ResearchProgress } from "@shared/types/research";
 import { researchBranchLabel } from "@shared/types/research";
-import { getResourceLabel, getResourceSymbol } from "./cosmic/resources";
+import { ResourceAmountList } from "./cosmic/resources";
 import { useI18n } from "../lib/i18n";
 
 export interface CombatShipMenuProps {
@@ -18,11 +18,10 @@ export function CombatShipMenu({ research = [] }: CombatShipMenuProps) {
     research.find((row) => row.branch === NUCLEAR_PAYLOAD_RESEARCH_GATE.branch)?.level ?? 0;
   const unlocked = currentLevel >= NUCLEAR_PAYLOAD_RESEARCH_GATE.level;
   const branch = researchBranchLabel(NUCLEAR_PAYLOAD_RESEARCH_GATE.branch, locale);
-  const costText = Object.entries(NUCLEAR_PAYLOAD_RESOURCE_COST)
-    .map(([resourceId, amount]) => {
-      return `${getResourceSymbol(resourceId)} ${amount} ${getResourceLabel(resourceId, locale)}`;
-    })
-    .join(" · ");
+  const costItems = Object.entries(NUCLEAR_PAYLOAD_RESOURCE_COST).map(([resourceId, amount]) => ({
+    resourceId,
+    amount,
+  }));
 
   return (
     <section
@@ -52,7 +51,7 @@ export function CombatShipMenu({ research = [] }: CombatShipMenuProps) {
               })}
         </div>
         <div className="ship-loc">
-          {t("combat.nuclear.cost", { resources: costText })}
+          {t("combat.nuclear.cost")} <ResourceAmountList items={costItems} locale={locale} />
         </div>
         <div className="ship-loc">
           {t("combat.nuclear.cooldown", {

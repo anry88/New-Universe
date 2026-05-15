@@ -45,7 +45,7 @@ import { BIOME_META, PlanetSvg, getBiomeTag, resolveBiome } from "./planets";
 import { SunSvg } from "./sun";
 import { FoundColonyDialog } from "../FoundColonyDialog";
 import { useI18n } from "../../lib/i18n";
-import { getResourceLabel, getResourceSymbol } from "./resources";
+import { getResourceLabel, ResourceIcon } from "./resources";
 import { ShipIcon } from "./ships";
 
 /** When set, the map is used to pick a sector jump vector from the home star: tap = set course, drag = pan. */
@@ -1483,9 +1483,7 @@ export function CosmicSystemRenderer({
                     <span
                       style={{ display: "flex", alignItems: "center", gap: 6 }}
                     >
-                      <b style={{ color: "var(--accent)" }}>
-                        {getResourceSymbol(resource.resourceId)}
-                      </b>
+                      <ResourceIcon resourceId={resource.resourceId} size={16} />
                       {getResourceLabel(resource.resourceId, locale)}
                     </span>
                     <span style={{ color: "var(--text-dim)" }}>

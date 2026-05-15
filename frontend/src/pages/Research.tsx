@@ -10,7 +10,7 @@ import { TechTreeNode, type TechTreeNodeVisualState } from '../components/TechTr
 import { CosmicBackground, CosmicBottomNav } from '../components/cosmic/atoms';
 import { ChevronLeft, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getResourceSymbol } from '../components/cosmic/resources';
+import { ResourceAmountList } from '../components/cosmic/resources';
 import { resolveBuildingType } from '../components/cosmic/buildings';
 import { estimateRushDiamondCost } from '@shared/types/diamonds';
 import { formatTimerDuration, timerSnapshot } from '../lib/timers';
@@ -437,9 +437,13 @@ function TierDetailSheet({
               </div>
               <div className="bopt-meta">
                 <span className="bopt-cost">
-                  {Object.entries(def.cost)
-                    .map(([res, amount]) => `${getResourceSymbol(res)} ${amount}`)
-                    .join('  ·  ')}
+                  <ResourceAmountList
+                    items={Object.entries(def.cost).map(([resourceId, amount]) => ({
+                      resourceId,
+                      amount,
+                    }))}
+                    locale={locale}
+                  />
                 </span>
                 <span className="bopt-time">{formatTimerDuration(def.timeSec)}</span>
               </div>

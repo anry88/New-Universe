@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { getResourceLabel, getResourceSymbol } from './cosmic/resources';
+import { getResourceLabel, ResourceIcon } from './cosmic/resources';
 import { apiFetch } from '../lib/api';
 import { useI18n } from '../lib/i18n';
 
@@ -78,8 +78,9 @@ export function ResourceDiamondPurchaseDialog({
         </div>
         <section className="resource-inv-section">
           <div className="resource-inv-section-label">{t('resources.purchase')}</div>
-          <div className="resource-inv-hint">
-            {getResourceSymbol(resourceId)} {getResourceLabel(resourceId, locale)}
+          <div className="resource-inv-hint resource-buy-resource">
+            <ResourceIcon resourceId={resourceId} size={20} />
+            <span>{getResourceLabel(resourceId, locale)}</span>
           </div>
           <label className="resource-buy-input-wrap">
             <span className="resource-inv-sub">{t('resources.amount')}</span>

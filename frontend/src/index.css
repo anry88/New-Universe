@@ -556,10 +556,11 @@ body {
   min-width: 0;
 }
 .resource-inv-sym {
-  font-family: var(--font-mono);
-  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: var(--text-dim);
-  min-width: 1.25rem;
+  min-width: 1.5rem;
 }
 .resource-inv-meta {
   display: flex;
@@ -640,6 +641,11 @@ body {
   gap: 6px;
   margin-bottom: 10px;
 }
+.resource-buy-resource {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .resource-buy-input {
   border: 1px solid var(--line);
   background: rgba(14, 20, 36, 0.7);
@@ -667,15 +673,35 @@ body {
 }
 .rchip-row {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 4px;
 }
 .rchip-sym {
-  font-family: var(--font-mono);
-  font-size: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
   color: var(--text-dim);
-  letter-spacing: 0.05em;
+}
+.resource-icon {
+  display: block;
+  filter: drop-shadow(0 0 7px rgba(91, 215, 255, 0.18));
+}
+.resource-amount,
+.resource-amount-list {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  vertical-align: middle;
+}
+.resource-amount {
+  white-space: nowrap;
+}
+.resource-amount-sep {
+  color: var(--text-faint);
+  margin: 0 2px;
 }
 .rchip-amt {
   font-family: var(--font-mono);
@@ -1476,6 +1502,13 @@ body {
   color: var(--accent);
   border-color: color-mix(in srgb, var(--accent) 55%, transparent);
   background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.bopt-resource-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
 }
 .bopt-resource.full:not(.selected) {
   color: var(--warn);

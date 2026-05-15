@@ -1,8 +1,10 @@
 import React from 'react';
+import type { Locale } from '@shared/types/locale';
 import type { Building } from '@shared/types/world';
 import { BuildSlot } from './cosmic/atoms';
 import { timerSnapshot } from '../lib/timers';
-import { getResourceSymbol } from './cosmic/resources';
+import { ResourceAmountList } from './cosmic/resources';
+import { useI18n } from '../lib/i18n';
 
 interface BuildingSlotProps {
   index: number;
@@ -24,23 +26,31 @@ const computeProgress = (building: Building) => {
   };
 };
 
-const formatProcessOutput = (building: Building): string | undefined => {
+const formatProcessOutput = (building: Building, locale: Locale): React.ReactElement | undefined => {
   const activeOrders = (building.production?.activeOrders ?? []).filter((order) =>
     order.status === 'queued' || order.status === 'paused',
   );
   const order = activeOrders[0];
   if (!order) return undefined;
-  return order.outputs
-    .map((output) => `+${output.amount.toLocaleString(undefined, { maximumFractionDigits: 1 })}${getResourceSymbol(output.resourceId)}`)
-    .join(' ');
+  return (
+    <ResourceAmountList
+      items={order.outputs.map((output) => ({
+        resourceId: output.resourceId,
+        amount: output.amount.toLocaleString(undefined, { maximumFractionDigits: 1 }),
+      }))}
+      prefix="+"
+      iconSize={12}
+      locale={locale}
+    />
+  );
 };
 
-const computeProcess = (building: Building) => {
+const computeProcess = (building: Building, locale: Locale) => {
   const activeOrders = (building.production?.activeOrders ?? []).filter((order) =>
     order.status === 'queued' || order.status === 'paused',
   );
   const order = activeOrders[0];
-  const outputLabel = formatProcessOutput(building);
+  const outputLabel = formatProcessOutput(building, locale);
   if (!order || !outputLabel) return undefined;
   const pausedAtMs = order.status === 'paused' && order.pausedAt
     ? new Date(order.pausedAt).getTime()
@@ -69,6 +79,7 @@ export const BuildingSlot: React.FC<BuildingSlotProps> = ({
   onClick,
   biomeAccent = '#5BD7FF',
 }) => {
+  const { locale } = useI18n();
   const hasQueue = Boolean(building?.queueAction && building.queueCompletesAt);
   const [, setNow] = React.useState(Date.now());
 
@@ -79,7 +90,7 @@ export const BuildingSlot: React.FC<BuildingSlotProps> = ({
   }, [hasQueue]);
 
   const progress = building ? computeProgress(building) : undefined;
-  const process = building ? computeProcess(building) : undefined;
+  const process = building ? computeProcess(building, locale) : undefined;
   return (
     <BuildSlot
       slot={{
