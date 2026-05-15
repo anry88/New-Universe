@@ -29,6 +29,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { Shield, Crosshair, Swords } from "lucide-react";
 import type { HomeSystem, Planet } from "@shared/types/world";
 import type { Ship } from "@shared/types/ships";
 import type { Expedition } from "@shared/types/expeditions";
@@ -514,6 +515,16 @@ const ShipMarkers = React.memo(function ShipMarkers({
             }}
           >
             <ShipIcon typeId={ship.typeId} size={24} tone="currentColor" />
+            {ship.combatStats?.shields && (
+              <div style={{ position: 'absolute', right: -4, top: -4, filter: 'drop-shadow(0 0 4px #60a5fa)' }}>
+                <Shield size={10} color="#60a5fa" />
+              </div>
+            )}
+            {ship.combatStats?.engagementRange && (
+              <div style={{ position: 'absolute', right: -4, bottom: -4, filter: 'drop-shadow(0 0 4px #f87171)' }}>
+                {ship.combatStats.engagementRange === 'orbital' ? <Crosshair size={10} color="#f87171" /> : <Swords size={10} color="#f87171" />}
+              </div>
+            )}
           </div>
         );
       })}

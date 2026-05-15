@@ -11,6 +11,7 @@ interface RefuelDialogProps {
   sourceType: ShipType;
   allShips: Ship[];
   allShipTypes: ShipType[];
+  initialTargetShipId?: string;
   onClose: () => void;
 }
 
@@ -19,12 +20,13 @@ export function RefuelDialog({
   sourceType,
   allShips,
   allShipTypes,
+  initialTargetShipId,
   onClose,
 }: RefuelDialogProps) {
   const { t, locale } = useI18n();
   const refuel = useRefuel();
 
-  const [targetShipId, setTargetShipId] = useState<string>('');
+  const [targetShipId, setTargetShipId] = useState<string>(initialTargetShipId ?? '');
   const [fuelAmount, setFuelAmount] = useState<number>(0);
   const [jumpFuelAmount, setJumpFuelAmount] = useState<number>(0);
 
@@ -48,9 +50,12 @@ export function RefuelDialog({
     targetType ? targetType.jumpFuelCapacity - Number(targetShip?.jumpFuel ?? 0) : 0
   );
 
+  const [error, setError] = useState<string | null>(null);
+
   const handleRefuel = async () => {
     if (!targetShipId) return;
     try {
+      setError(null);
       await refuel.mutateAsync({
         targetShipId,
         sourceShipId: sourceShip.id,
@@ -59,7 +64,7 @@ export function RefuelDialog({
       });
       onClose();
     } catch (err: unknown) {
-      alert((err as Error).message || 'Refuel failed');
+      setError((err as Error).message || 'Refuel failed');
     }
   };
 
@@ -77,6 +82,21 @@ export function RefuelDialog({
         </div>
 
         <div className="modal-body scrollable">
+          {error && (
+            <div style={{
+              color: '#f87171',
+              fontSize: 12,
+              marginBottom: 16,
+              padding: '10px 12px',
+              background: 'rgba(248, 113, 113, 0.08)',
+              border: '1px solid rgba(248, 113, 113, 0.2)',
+              borderRadius: 8,
+              fontFamily: 'var(--font-mono)',
+              lineHeight: 1.4
+            }}>
+              {error}
+            </div>
+          )}
           <div className="refuel-source-info">
             <div className="refuel-label">{t('refuel_dialog_source')}</div>
             <div className="ship-row mini">
