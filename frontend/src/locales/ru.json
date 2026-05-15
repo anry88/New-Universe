@@ -381,6 +381,8 @@
   "ships.blocked.buildingLevel": "Требуется {building} L{level} на этой планете (сейчас L{current}).",
   "ships.blocked.research": "Требуется исследование «{branch}» L{level} (сейчас L{current}).",
   "ships.blocked.resource": "Нужно {required} {resource}; доступно {available}.",
+  "ships.blocked.queueFull": "На этой планете уже строится другой корабль. Дождитесь окончания или ускорьте текущий заказ.",
+  "ships.blocked.spaceportFull": "Слоты посадки космопорта заняты ({occupied} пришвартовано + {reserved} зарезервировано / {capacity}). Улучшите космопорт, отправьте корабль или дождитесь освобождения резерва.",
   "ships.colonizerLimitWarning": "Лимит колоний достигнут ({current}/{max}). Корпус можно построить, но он не сможет основать новую колонию, пока «Логистика» не добавит {count} слотов за уровень.",
   "ships.combatStats": "HP {hp} · Урон {dps} · Дист. {range} · Топливо {fuel}",
   "ships.payload": "Заряд: {alpha} за залп / перезарядка {reload} с; неэффективен против лёгких манёвренных корпусов.",

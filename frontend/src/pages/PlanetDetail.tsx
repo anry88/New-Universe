@@ -46,6 +46,7 @@ import {
   resolveInsufficientResourcesBlockedReason,
   resolveQueueFullBlockedReason,
 } from '../lib/build-eligibility';
+import { estimateLandingSlotUsage } from '../lib/ship-build-eligibility';
 import { ChevronLeft } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatHomeSystemTitleForUser } from '../lib/homeSystemTitle';
@@ -593,6 +594,35 @@ export function PlanetDetailPage() {
   const selectedUpgradeBlockedReason = selectedBuilding && selectedBuildingType
     ? upgradeBlockedReasonForBuilding(selectedBuilding, selectedBuildingType)
     : null;
+  const selectedDemolishBlockedReason = useMemo(() => {
+    if (!selectedBuilding || !planet) return null;
+    if (selectedBuilding.queueAction) {
+      return {
+        code: 'demolish_blocked_queued',
+        message:
+          locale === 'ru'
+            ? 'Сначала дождитесь окончания текущей работы здания.'
+            : 'Wait for this building to finish its current queue first.',
+      } as const;
+    }
+    if (selectedBuilding.typeId === 'spaceport') {
+      const usage = estimateLandingSlotUsage({
+        planet,
+        ships: meData?.ships,
+        expeditions: meData?.expeditions,
+      });
+      if (usage.used > 0) {
+        return {
+          code: 'demolish_blocked_spaceport_reserved',
+          message:
+            locale === 'ru'
+              ? `Космопорт обслуживает ${usage.occupied} пришвартованных и ${usage.reserved} зарезервированных слотов — снос невозможен.`
+              : `Spaceport has ${usage.occupied} docked ship(s) and ${usage.reserved} reservation(s) — demolish blocked.`,
+        } as const;
+      }
+    }
+    return null;
+  }, [selectedBuilding, planet, meData?.ships, meData?.expeditions, locale]);
   const selectedBuildingCanProduce =
     selectedBuildingType ? recipesForBuildingType(selectedBuildingType.id).length > 0 : false;
 
@@ -736,6 +766,7 @@ export function PlanetDetailPage() {
             : undefined
         }
         upgradeBlockedReason={selectedUpgradeBlockedReason}
+        demolishBlockedMessage={selectedDemolishBlockedReason?.message ?? null}
         onChangeResource={handleChangeExtractorResource}
         isProcessing={isProcessing}
         accent={accent}

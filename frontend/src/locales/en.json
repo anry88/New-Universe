@@ -381,6 +381,8 @@
   "ships.blocked.buildingLevel": "Requires {building} L{level} on this planet (current L{current}).",
   "ships.blocked.research": "Requires {branch} research L{level} (current L{current}).",
   "ships.blocked.resource": "Need {required} {resource}; available {available}.",
+  "ships.blocked.queueFull": "Another ship is already being built on this planet. Wait for the current order to finish or rush it.",
+  "ships.blocked.spaceportFull": "Spaceport landing slots are full ({occupied} docked + {reserved} reserved / {capacity}). Upgrade the spaceport, dispatch a ship, or wait for a reservation to clear.",
   "ships.colonizerLimitWarning": "Colony limit reached ({current}/{max}). You can build this hull, but it cannot found a new colony until Logistics adds {count} slots per level.",
   "ships.combatStats": "HP {hp} · DPS {dps} · Range {range} · Fuel {fuel}",
   "ships.payload": "Payload: {alpha} burst / {reload}s reload; ineffective against light evasive hulls.",
