@@ -1,4 +1,5 @@
 import type { ResearchRequirementRef } from './research.js';
+import type { PlanetResource } from './world.js';
 
 export type JumpGateCalibrationStatus = 'locked' | 'idle' | 'calibrating' | 'ready';
 export type JumpGateCalibrationMode = 'random' | 'known';
@@ -45,6 +46,7 @@ export interface JumpGateRandomJumpAvailability {
 export interface JumpGateKnownDestinationSummary {
   systemId: string;
   systemName: string;
+  shortTag: string;
   sector: { x: number; y: number; z: number };
   seed: number;
   planetCount: number;
@@ -61,6 +63,8 @@ export interface JumpGateDestinationPlanetSummary {
   name: string | null;
   biome: string | null;
   size: number | null;
+  slotCount: number | null;
+  resources?: PlanetResource[];
   isDiscovered: boolean;
   isColonized: boolean;
   isOwnedColony: boolean;
@@ -88,6 +92,7 @@ export interface JumpGateKnownDestinationJumpRequest {
 export interface JumpGateJumpTargetSystem {
   id: string;
   name: string;
+  shortTag: string;
   sector: { x: number; y: number; z: number };
 }
 

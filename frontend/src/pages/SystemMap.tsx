@@ -21,6 +21,11 @@ import { useI18n } from '../lib/i18n';
 import { useJumpGateState, useRandomJump } from '../hooks/useJumpGateState';
 import { useShipTypes } from '../hooks/useShips';
 import {
+  formatCommonSystemDisplayName,
+  homeSystemShortTag,
+  type HomeNamingLocale,
+} from '@shared/format/homeSystemNaming';
+import {
   JUMP_FUEL_RESOURCE_ID,
   JUMP_GATE_JUMP_FUEL_COST,
 } from '@shared/config/expeditionRouting';
@@ -102,7 +107,15 @@ function destinationOwnedColony(destination: JumpGateKnownDestinationSummary) {
   return destination.planets.find((planet) => planet.isOwnedColony) ?? null;
 }
 
-function destinationToSystem(destination: JumpGateKnownDestinationSummary): HomeSystem {
+function commonSystemDisplayName(destination: JumpGateKnownDestinationSummary, locale: string) {
+  const namingLocale: HomeNamingLocale = locale === 'ru' ? 'ru' : 'en';
+  return formatCommonSystemDisplayName(
+    namingLocale,
+    destination.shortTag ?? homeSystemShortTag(destination.systemId),
+  );
+}
+
+function destinationToSystem(destination: JumpGateKnownDestinationSummary, locale: string): HomeSystem {
   const planets: Planet[] = destination.planets
     .filter((planet) => planet.isDiscovered)
     .map((planet) => ({
@@ -110,10 +123,11 @@ function destinationToSystem(destination: JumpGateKnownDestinationSummary): Home
       systemId: planet.systemId,
       biome: planet.biome ?? 'unknown',
       size: planet.size ?? 10,
-      slotCount: 0,
+      slotCount: planet.slotCount ?? 0,
       name: planet.name ?? `#${planet.orbitIndex}`,
       isDiscovered: true,
       isColonized: planet.isColonized,
+      resources: planet.resources ?? [],
     }));
 
   return {
@@ -123,7 +137,7 @@ function destinationToSystem(destination: JumpGateKnownDestinationSummary): Home
     sectorX: destination.sector.x,
     sectorY: destination.sector.y,
     sectorZ: destination.sector.z,
-    name: destination.systemName,
+    name: commonSystemDisplayName(destination, locale),
     seed: destination.seed,
     planets,
   };
@@ -159,10 +173,10 @@ export function SystemMapPage() {
     [knownDestinations, selectedSystemId],
   );
   const renderedSystem = useMemo<HomeSystem | null>(() => {
-    if (selectedDestination) return destinationToSystem(selectedDestination);
+    if (selectedDestination) return destinationToSystem(selectedDestination, locale);
     return home;
-  }, [home, selectedDestination]);
-  const canSelectSector = knownDestinations.length > 0;
+  }, [home, locale, selectedDestination]);
+  const canSelectSector = Boolean(home);
   const ownedPlanetIds = useMemo(() => {
     return new Set(
       meData?.planets
@@ -261,7 +275,10 @@ export function SystemMapPage() {
 
     try {
       const result = await randomJump.mutateAsync({ shipId: selectedReconProbe.ship.id });
-      setGateNotice(t('jumpGate.random.success', { system: result.targetSystem.name }));
+      const systemName = result.destination
+        ? commonSystemDisplayName(result.destination, locale)
+        : result.targetSystem.name;
+      setGateNotice(t('jumpGate.random.success', { system: systemName }));
     } catch (err) {
       setGateError(formatJumpGateError(err instanceof Error ? err.message : String(err), t));
     }
@@ -367,7 +384,9 @@ export function SystemMapPage() {
           }}
         >
           <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 13, color: 'var(--text)' }}>
-            {selectedDestination ? selectedDestination.systemName : formatHomeSystemTitleForUser(meData)}
+            {selectedDestination
+              ? commonSystemDisplayName(selectedDestination, locale)
+              : formatHomeSystemTitleForUser(meData)}
           </div>
           <div
             style={{
@@ -437,7 +456,8 @@ export function SystemMapPage() {
             onClick: () => setIsGatePanelOpen(true),
             position: selectedDestination ? systemMapJumpGatePoint() : undefined,
           }}
-          showOrbitRings={!selectedDestination || (activeSystem.planets?.length ?? 0) > 0}
+          minimumOrbitCount={selectedDestination?.planetCount}
+          showOrbitRings={true}
           emptyStateLabel={selectedDestination ? null : undefined}
         />
       </div>
@@ -465,10 +485,20 @@ export function SystemMapPage() {
 
       {isSystemSelectorOpen ? (
         <SystemSelectorPanel
+          homeLabel={formatHomeSystemTitleForUser(meData)}
+          homeSector={[
+            meData.homeSystem.sectorX,
+            meData.homeSystem.sectorY,
+            meData.homeSystem.sectorZ,
+          ]}
           destinations={knownDestinations}
           selectedSystemId={selectedDestination?.systemId ?? null}
           locale={locale}
           t={t}
+          onSelectHome={() => {
+            setSearchParams({});
+            setIsSystemSelectorOpen(false);
+          }}
           onSelect={(destination) => {
             setSearchParams({ systemId: destination.systemId });
             setIsSystemSelectorOpen(false);
@@ -483,19 +513,25 @@ export function SystemMapPage() {
 }
 
 interface SystemSelectorPanelProps {
+  homeLabel: string;
+  homeSector: [number, number, number];
   destinations: JumpGateKnownDestinationSummary[];
   selectedSystemId: string | null;
   locale: string;
   t: TFunction;
+  onSelectHome: () => void;
   onSelect: (destination: JumpGateKnownDestinationSummary) => void;
   onClose: () => void;
 }
 
 function SystemSelectorPanel({
+  homeLabel,
+  homeSector,
   destinations,
   selectedSystemId,
   locale,
   t,
+  onSelectHome,
   onSelect,
   onClose,
 }: SystemSelectorPanelProps) {
@@ -551,9 +587,34 @@ function SystemSelectorPanel({
       </div>
 
       <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
+        <button
+          type="button"
+          onClick={onSelectHome}
+          style={{
+            textAlign: 'left',
+            borderRadius: 10,
+            border: selectedSystemId === null ? '1px solid var(--accent)' : '1px solid rgba(148,163,184,0.22)',
+            background: selectedSystemId === null ? 'rgba(91,215,255,0.14)' : 'rgba(5,8,17,0.74)',
+            color: 'var(--text)',
+            padding: '10px 11px',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+            <span style={{ fontWeight: 900, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {homeLabel}
+            </span>
+            <span style={{ color: 'var(--text-faint)', fontFamily: 'var(--font-mono)', fontSize: 10 }}>
+              [{homeSector[0]}, {homeSector[1]}, {homeSector[2]}]
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+            <GateBadge icon={<Compass size={12} />} text={t('map.systemSelector.home')} />
+          </div>
+        </button>
         {destinations.map((destination) => {
           const counts = destinationCounts(destination);
           const active = selectedSystemId === destination.systemId;
+          const systemName = commonSystemDisplayName(destination, locale);
           return (
             <button
               key={destination.systemId}
@@ -570,7 +631,7 @@ function SystemSelectorPanel({
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
                 <span style={{ fontWeight: 900, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {destination.systemName}
+                  {systemName}
                 </span>
                 <span style={{ color: 'var(--text-faint)', fontFamily: 'var(--font-mono)', fontSize: 10 }}>
                   [{destination.sector.x}, {destination.sector.y}, {destination.sector.z}]
@@ -839,6 +900,7 @@ function JumpGatePanel({
           const canScout = counts.unknown > 0;
           const canColonize = counts.colonizerTargets > 0;
           const canCargo = Boolean(colony);
+          const systemName = commonSystemDisplayName(destination, locale);
           return (
             <div
               key={destination.systemId}
@@ -853,7 +915,7 @@ function JumpGatePanel({
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start' }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ color: 'var(--text)', fontWeight: 900, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {destination.systemName}
+                    {systemName}
                   </div>
                   <div style={{ color: 'var(--text-faint)', fontFamily: 'var(--font-mono)', fontSize: 10, marginTop: 3 }}>
                     [{destination.sector.x}, {destination.sector.y}, {destination.sector.z}]

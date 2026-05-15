@@ -19,11 +19,11 @@ Ship launch and expedition scheduling live here. The module accepts launch reque
   - Verifies the selected ship is owned, idle, stationed on a planet, and funded with stored Jump Fuel.
   - Verifies the private Jump Gate is unlocked from completed `jump_drive` research level 1+ and is not calibrating.
   - Deducts 50 stored `jump_fuel` from the current planet inventory.
-  - For random discovery, requires a `recon_probe`, chooses deterministic server-side candidate sectors, lazily generates common-pool systems, and consumes the probe after opening exactly one public neutral system into the player's known-destination registry; private Home Systems are never valid jump targets.
+  - For random discovery, requires a `recon_probe`, chooses deterministic server-side candidate sectors, lazily generates common-pool systems, skips already-known public systems, requires the player's first opened public system to have no foreign colonies or docked ships, and consumes the probe after opening exactly one public neutral system into the player's known-destination registry; private Home Systems are never valid jump targets.
   - For repeat travel, accepts only a known `destinationSystemId` from `discovered_systems`; ordinary idle ships can move through known gate routes, and manual sector coordinates are not accepted.
   - Upserts the system-level known destination with `source='random_jump'` and `lastVisitedAt`, but does not automatically discover every planet in the target system. Stored Jump Fuel blockers use the shared localized resource label.
 - **`launch.test.ts`** — Vitest integration suite for standard launches, Jump Gate scout routing, Jump Gate colonizer launch/arrival, protected Home System rejection, insufficient fuel, and missing auth.
-- **`jump.test.ts`** — Vitest integration suite for locked random jumps, deprecated manual coordinates, known-destination repeats, common-pool target generation, and foreign Home System suppression.
+- **`jump.test.ts`** — Vitest integration suite for locked random jumps, deprecated manual coordinates, known-destination repeats, first-public-system foreign presence filtering, common-pool target generation, and foreign Home System suppression.
 
 ## Adding a new expedition action
 

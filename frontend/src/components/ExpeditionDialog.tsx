@@ -42,6 +42,11 @@ import {
   systemMapPointDistanceLy,
   type SystemMapPoint,
 } from "@shared/format/systemMapLayout";
+import {
+  formatCommonSystemDisplayName,
+  homeSystemShortTag,
+  type HomeNamingLocale,
+} from "@shared/format/homeSystemNaming";
 import type { HomeSystem, Planet } from "@shared/types/world";
 
 interface ExpeditionDialogProps {
@@ -75,7 +80,13 @@ interface ColonizationEligibilityResponse {
 
 function destinationToSystem(
   destination: JumpGateKnownDestinationSummary,
+  locale: string,
 ): HomeSystem {
+  const namingLocale: HomeNamingLocale = locale === "ru" ? "ru" : "en";
+  const systemName = formatCommonSystemDisplayName(
+    namingLocale,
+    destination.shortTag ?? homeSystemShortTag(destination.systemId),
+  );
   const planets: Planet[] = destination.planets
     .filter((planet) => planet.isDiscovered)
     .map((planet) => ({
@@ -83,10 +94,11 @@ function destinationToSystem(
       systemId: planet.systemId,
       biome: planet.biome ?? "unknown",
       size: planet.size ?? 10,
-      slotCount: 0,
+      slotCount: planet.slotCount ?? 0,
       name: planet.name ?? `#${planet.orbitIndex}`,
       isDiscovered: true,
       isColonized: planet.isColonized,
+      resources: planet.resources ?? [],
     }));
 
   return {
@@ -96,7 +108,7 @@ function destinationToSystem(
     sectorX: destination.sector.x,
     sectorY: destination.sector.y,
     sectorZ: destination.sector.z,
-    name: destination.systemName,
+    name: systemName,
     seed: destination.seed,
     planets,
   };
@@ -177,8 +189,8 @@ export function ExpeditionDialog({
     [knownDestinations, selectedDestinationSystemId],
   );
   const selectedDestinationSystem = useMemo(
-    () => (selectedDestination ? destinationToSystem(selectedDestination) : null),
-    [selectedDestination],
+    () => (selectedDestination ? destinationToSystem(selectedDestination, locale) : null),
+    [locale, selectedDestination],
   );
   const selectedJumpTargetPoint = selectedDestination
     ? jumpTargetPoints[selectedDestination.systemId] ?? null
@@ -716,7 +728,10 @@ export function ExpeditionDialog({
                     }
                   : undefined
               }
-              showOrbitRings={routeMode !== "jump_gate" || (renderedSystem.planets?.length ?? 0) > 0}
+              minimumOrbitCount={
+                routeMode === "jump_gate" ? selectedDestination?.planetCount : undefined
+              }
+              showOrbitRings={true}
               emptyStateLabel={routeMode === "jump_gate" ? null : undefined}
             />
           </div>
@@ -846,6 +861,11 @@ export function ExpeditionDialog({
                 {knownDestinations.map((destination) => {
                   const active =
                     selectedDestination?.systemId === destination.systemId;
+                  const namingLocale: HomeNamingLocale = locale === "ru" ? "ru" : "en";
+                  const systemName = formatCommonSystemDisplayName(
+                    namingLocale,
+                    destination.shortTag ?? homeSystemShortTag(destination.systemId),
+                  );
                   return (
                     <button
                       key={destination.systemId}
@@ -877,7 +897,7 @@ export function ExpeditionDialog({
                           whiteSpace: "nowrap",
                         }}
                       >
-                        {destination.systemName}
+                        {systemName}
                       </div>
                       <div
                         style={{

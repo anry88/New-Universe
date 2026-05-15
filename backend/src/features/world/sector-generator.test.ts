@@ -14,6 +14,7 @@ import {
   richness,
   buildings,
   discoveredPlanets,
+  discoveredSystems,
   ships,
   colonies,
   productionOrders,
@@ -33,6 +34,7 @@ describe('generateSystemsInSector', () => {
     await db.delete(colonies);
     await db.delete(buildings);
     await db.delete(discoveredPlanets);
+    await db.delete(discoveredSystems);
     await db.delete(planetResources);
     await db.delete(richness);
     await db.delete(planets);

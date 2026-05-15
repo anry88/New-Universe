@@ -963,6 +963,8 @@ describe("Tick Expeditions Worker", () => {
 
   it("reveals only public destination planets along a Jump Gate scout point route", async () => {
     const { user, originSystem, originPlanet, ship } = await createSetup();
+    const routePlanetId = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa";
+    const distantPlanetId = "bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb";
     const [destinationSystem] = await db
       .insert(systems)
       .values({
@@ -982,6 +984,7 @@ describe("Tick Expeditions Worker", () => {
       .insert(planets)
       .values([
         {
+          id: routePlanetId,
           systemId: destinationSystem.id,
           name: "Route Body",
           biome: "rocky",
@@ -989,6 +992,7 @@ describe("Tick Expeditions Worker", () => {
           slotCount: 8,
         },
         {
+          id: distantPlanetId,
           systemId: destinationSystem.id,
           name: "Distant Body",
           biome: "ice",

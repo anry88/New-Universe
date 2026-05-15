@@ -1,3 +1,9 @@
+import { randomUUID } from 'node:crypto';
+import {
+  formatCommonSystemDisplayName,
+  formatPlanetCode,
+  homeSystemShortTag,
+} from '@shared/format/homeSystemNaming.js';
 import { db as defaultDb } from '../../db/index.js';
 import { systems, planets, richness, planetResources } from '../../db/schema.js';
 import {
@@ -258,10 +264,13 @@ export async function generateSystemsInSector(sector: any, targetCount: number =
       existingPositions
     );
 
+    const systemId = randomUUID();
     const systemSeed = Math.floor(random() * 1000000);
-    const systemName = `System ${sector.x},${sector.y},${sector.z}-${existingSystems.length + i + 1}`;
+    const systemShortTag = homeSystemShortTag(systemId);
+    const systemName = formatCommonSystemDisplayName('en', systemShortTag);
 
     const [newSystem] = await database.insert(systems).values({
+      id: systemId,
       sectorX: sector.x,
       sectorY: sector.y,
       sectorZ: sector.z,
@@ -305,7 +314,7 @@ export async function generateSystemsInSector(sector: any, targetCount: number =
         biome: biomeType,
         size,
         slotCount,
-        name: `${systemName} - ${p + 1}`,
+        name: formatPlanetCode(systemShortTag, p + 1),
       }).returning();
 
       const richnessByResource = generateCommonPlanetRichness(
