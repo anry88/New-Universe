@@ -40,6 +40,7 @@ import {
   syncEnergyResourceRow,
   type PlanetEnergyRequestCache,
 } from '../resources/energy.js';
+import { syncPlanetResources } from '../resources/accrual.js';
 import {
   scheduleBuildingCompletionJob,
   type BuildingCompletionJob,
@@ -552,6 +553,7 @@ export class BuildingService {
       }
 
       const deposits = await loadPlanetDeposits(tx, locked.planetId);
+      await syncPlanetResources(locked.planetId, tx);
       const planetDepositResourceIds = deposits.map((row) => row.resourceId);
       const output = typeInfo.baseOutput as BuildingOutput | null;
       const oldResourceIds = resolveBuildingProducedResourceIds({
