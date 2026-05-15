@@ -1,3 +1,5 @@
+import type { CombatStats } from './combat.js';
+
 export interface BuildingOutput {
   resourceId?: string;
   baseRate?: number;
@@ -26,6 +28,8 @@ export interface BuildingType {
   baseTimeSec: number;
   baseOutput: BuildingOutput;
   energyConsumption: number;
+  hp?: number;
+  combatStats?: CombatStats;
 }
 
 /** Structured validation failure for construction (API + UI copy). */

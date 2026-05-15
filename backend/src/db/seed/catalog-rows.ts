@@ -7,6 +7,7 @@ import type { resources } from '../schema/resources.js';
 import type { shipTypes } from '../schema/ships.js';
 import * as resourceExtractionRatesModule from '@shared/config/resourceExtractionRates.js';
 import * as buildingUpgradeEconomyModule from '@shared/config/buildingUpgradeEconomy.js';
+import type { CombatStats } from '@shared/types/combat.js';
 
 export type ResourceCatalogRow = typeof resources.$inferInsert;
 export type BuildingCatalogRow = typeof buildingTypes.$inferInsert;
@@ -105,6 +106,7 @@ export const BUILDING_TYPE_CATALOG_ROWS: BuildingCatalogRow[] = [
     baseTimeSec: 600,
     baseOutput: {},
     energyConsumption: 0,
+    combatStats: { targetClass: 'command_center' } as CombatStats,
   },
   {
     // Solid-resource surface mine. Pairs with the gases-only `drill` below;
@@ -377,6 +379,7 @@ export const SHIP_TYPE_CATALOG_ROWS: ShipCatalogRow[] = [
     buildCost: { iron: 100, silicon: 50, fuel: 30 },
     requiredBuildings: [{ typeId: 'shipyard', level: 1 }],
     sensorRange: 30,
+    combatStats: { targetClass: 'civilian' } as CombatStats,
   },
   {
     id: 'cargo_light',
@@ -392,6 +395,7 @@ export const SHIP_TYPE_CATALOG_ROWS: ShipCatalogRow[] = [
     buildCost: { iron: 500, silicon: 300, carbon: 200, methane: 100 },
     requiredBuildings: [{ typeId: 'shipyard', level: 2 }],
     sensorRange: 8,
+    combatStats: { targetClass: 'civilian' } as CombatStats,
   },
   {
     id: 'colonizer',
@@ -407,6 +411,7 @@ export const SHIP_TYPE_CATALOG_ROWS: ShipCatalogRow[] = [
     buildCost: { steel: 2500, silicon: 800, biomass: 400 },
     requiredBuildings: [{ typeId: 'shipyard', level: 1 }],
     sensorRange: 10,
+    combatStats: { targetClass: 'civilian' } as CombatStats,
   },
   {
     id: 'recon_probe',
@@ -422,5 +427,54 @@ export const SHIP_TYPE_CATALOG_ROWS: ShipCatalogRow[] = [
     buildCost: { silicon: 40, fuel: 20, electronics: 10 },
     requiredBuildings: [{ typeId: 'shipyard', level: 1 }],
     sensorRange: 60,
+    combatStats: { targetClass: 'civilian' } as CombatStats,
+  },
+  {
+    id: 'fighter',
+    name: { ru: 'Истребитель', en: 'Fighter' },
+    role: 'combat',
+    hp: 400,
+    speed: '3.00',
+    cargo: 0,
+    dps: 50,
+    armor: 10,
+    fuelConsumption: '0.50',
+    buildTimeSec: 1800,
+    buildCost: { iron: 300, silicon: 200, fuel: 50 },
+    requiredBuildings: [{ typeId: 'shipyard', level: 1 }],
+    sensorRange: 20,
+    combatStats: { targetClass: 'military_light' } as CombatStats,
+  },
+  {
+    id: 'cruiser',
+    name: { ru: 'Крейсер', en: 'Cruiser' },
+    role: 'combat',
+    hp: 1500,
+    speed: '1.50',
+    cargo: 500,
+    dps: 200,
+    armor: 50,
+    fuelConsumption: '2.00',
+    buildTimeSec: 7200,
+    buildCost: { steel: 1000, electronics: 300, fuel: 200 },
+    requiredBuildings: [{ typeId: 'shipyard', level: 3 }],
+    sensorRange: 40,
+    combatStats: { targetClass: 'military_medium' } as CombatStats,
+  },
+  {
+    id: 'battleship',
+    name: { ru: 'Линкор', en: 'Battleship' },
+    role: 'combat',
+    hp: 5000,
+    speed: '1.00',
+    cargo: 1000,
+    dps: 800,
+    armor: 150,
+    fuelConsumption: '5.00',
+    buildTimeSec: 28800,
+    buildCost: { steel: 4000, electronics: 1500, jump_fuel: 10 },
+    requiredBuildings: [{ typeId: 'shipyard', level: 5 }],
+    sensorRange: 60,
+    combatStats: { targetClass: 'military_heavy' } as CombatStats,
   },
 ];

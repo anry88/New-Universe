@@ -35,6 +35,8 @@ export interface Building {
   production?: {
     activeOrders: ProductionOrder[];
   };
+  hp?: number;
+  maxHp?: number;
 }
 
 export interface PlanetEnergyStatus {

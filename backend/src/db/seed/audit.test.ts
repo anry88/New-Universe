@@ -114,6 +114,9 @@ describe('catalog seed audit (P2-POL-002)', () => {
       'cargo_light',
       'colonizer',
       'recon_probe',
+      'fighter',
+      'cruiser',
+      'battleship',
     ]);
     const reconProbe = SHIP_TYPE_CATALOG_ROWS.find((ship) => ship.id === 'recon_probe');
     expect(reconProbe).toBeDefined();
