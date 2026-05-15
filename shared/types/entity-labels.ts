@@ -62,6 +62,7 @@ export const BUILDING_ENTITY_LABELS: Record<string, EntityLabels> = {
   solar_plant: { en: 'Solar Plant', ru: 'Солнечная станция' },
   wind_turbine: { en: 'Wind Turbine', ru: 'Ветротурбина' },
   fuel_generator: { en: 'Fuel Generator', ru: 'Топливный генератор' },
+  atomic_reactor: { en: 'Atomic Reactor', ru: 'Атомный реактор' },
   military_shipyard: { en: 'Military Shipyard', ru: 'Военная верфь' },
 };
 

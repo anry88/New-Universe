@@ -22,6 +22,10 @@ import {
 import { BIOMES, type BiomeType, isAnomalousCommonBiome } from './biomes.js';
 import { RESOURCE_CATALOG_ROWS } from '../../db/seed/catalog-rows.js';
 import { seedResources } from '../../db/seed/resources.js';
+import {
+  ADVANCED_COMMON_POOL_RESOURCE_IDS,
+  RADIOACTIVE_RESOURCE_IDS,
+} from '@shared/types/resources.js';
 
 describe('generateSystemsInSector', () => {
   beforeEach(async () => {
@@ -210,5 +214,25 @@ describe('generateSystemsInSector', () => {
     expect(biomeResourceIds.has('silicon_carbide')).toBe(false);
     expect(biomeResourceIds.has(['dark', 'matter'].join('_'))).toBe(false);
     expect(generateCommonPlanetRichness('energy', 20, 12, () => 0.5)).toEqual({});
+  });
+
+  it('keeps advanced and radioactive resources discoverable in Common Pool biomes', () => {
+    const biomeResourceIds = new Set(
+      Object.values(BIOMES).flatMap((biome) => [
+        ...biome.commonResources,
+        ...biome.rareResources,
+      ]),
+    );
+
+    for (const resourceId of RADIOACTIVE_RESOURCE_IDS) {
+      expect(biomeResourceIds.has(resourceId)).toBe(true);
+    }
+    for (const resourceId of ADVANCED_COMMON_POOL_RESOURCE_IDS) {
+      expect(biomeResourceIds.has(resourceId)).toBe(true);
+    }
+
+    const homeGuaranteedResources = new Set(['iron', 'carbon', 'silicon', 'water', 'ice', 'methane', 'tritium']);
+    expect(homeGuaranteedResources.has('uranium')).toBe(false);
+    expect(homeGuaranteedResources.has('antimatter')).toBe(false);
   });
 });

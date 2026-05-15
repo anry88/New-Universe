@@ -61,6 +61,7 @@ export const HIGH_TIER_UPGRADE_COSTS_BY_BUILDING = {
   solar_plant: { aluminum: 14, copper: 10 },
   wind_turbine: { aluminum: 18, titanium: 8 },
   fuel_generator: { copper: 10, steel: 18, titanium: 8 },
+  atomic_reactor: { lead: 12, steel: 24, silicon_carbide: 10 },
   military_shipyard: { steel: 30, military_alloy: 14, military_composite: 8 },
 } as const satisfies Record<string, Record<string, number>>;
 
@@ -134,6 +135,23 @@ export const JUMP_FUEL_RECIPE = {
   output: { resourceId: JUMP_FUEL_RESOURCE_ID, amount: 1 },
   inputs: { ice: 3, tritium: 0.05, sulfur: 0.2 },
   baseDurationSec: 18,
+} as const;
+
+export const ATOMIC_REACTOR_RECIPES = {
+  energy_from_uranium_cell: {
+    id: 'energy_from_uranium_cell',
+    buildingId: 'atomic_reactor',
+    output: { resourceId: 'energy', amount: 900 },
+    inputs: { uranium: 0.4, lead: 1.5, water: 2 },
+    baseDurationSec: 180,
+  },
+  energy_from_tritium_cell: {
+    id: 'energy_from_tritium_cell',
+    buildingId: 'atomic_reactor',
+    output: { resourceId: 'energy', amount: 1300 },
+    inputs: { tritium: 0.25, liquid_nitrogen: 1, water: 2 },
+    baseDurationSec: 240,
+  },
 } as const;
 
 export const BUILDINGS = {
@@ -283,6 +301,18 @@ export const BUILDINGS = {
     category: 'energy',
     maxLevel: MAX_BUILDING_LEVEL,
     recipes: ['energy_from_fuel', 'energy_from_oil', 'energy_from_methane'],
+  },
+  atomic_reactor: {
+    deps: [
+      { typeId: 'command_center', level: 5 },
+      { typeId: 'battery', level: 2 },
+    ],
+    baseCost: { steel: 1400, electronics: 900, lead: 240, silicon_carbide: 180 },
+    baseTimeSec: 5400,
+    category: 'energy',
+    maxLevel: MAX_BUILDING_LEVEL,
+    maxPerPlanet: 1 as const,
+    recipes: ['energy_from_uranium_cell', 'energy_from_tritium_cell'],
   },
 } as const;
 

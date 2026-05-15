@@ -13,6 +13,7 @@ export const BUILDING_RESEARCH_GATES: Partial<Record<string, ResearchUnlockRequi
   /** Lab, Battery, and Solar Plant are intentionally ungated level-0 infrastructure. */
   wind_turbine: { branch: 'energy', level: 1 },
   fuel_generator: { branch: 'energy', level: 2 },
+  atomic_reactor: { branch: 'energy', level: 4 },
   shipyard: { branch: 'engineering', level: 1 },
   spaceport: { branch: 'engineering', level: 1 },
   cryo_factory: { branch: 'engineering', level: 2 },

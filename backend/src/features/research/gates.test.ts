@@ -4,7 +4,11 @@ import {
   levelsMapFromRows,
   meetsResearchRequirement,
 } from './gates.js';
-import { COLONIZATION_RESEARCH_GATE, SHIP_RESEARCH_GATES } from '../../config/research-unlocks.js';
+import {
+  BUILDING_RESEARCH_GATES,
+  COLONIZATION_RESEARCH_GATE,
+  SHIP_RESEARCH_GATES,
+} from '../../config/research-unlocks.js';
 
 describe('research gates', () => {
   it('levelsMapFromRows aggregates branch levels', () => {
@@ -56,6 +60,10 @@ describe('research gates', () => {
     expect(SHIP_RESEARCH_GATES.small_shield_ship).toEqual({ branch: 'energy', level: 2 });
     expect(SHIP_RESEARCH_GATES.medium_shield_ship).toEqual({ branch: 'energy', level: 3 });
     expect(SHIP_RESEARCH_GATES.large_shield_ship).toEqual({ branch: 'energy', level: 4 });
+  });
+
+  it('gates atomic reactor construction behind Energy IV', () => {
+    expect(BUILDING_RESEARCH_GATES.atomic_reactor).toEqual({ branch: 'energy', level: 4 });
   });
 
   it('blocks fighter build when Weapons I is not researched', () => {

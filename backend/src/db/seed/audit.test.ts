@@ -3,6 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { MAX_BUILDING_LEVEL, HIGH_TIER_UPGRADE_COSTS_BY_BUILDING } from '@shared/config/buildingUpgradeEconomy.js';
 import { EXTRACTABLE_RESOURCE_RATES_PER_HOUR } from '@shared/config/resourceExtractionRates.js';
 import { PRODUCTION_RECIPES } from '@shared/config/productionRecipes.js';
+import {
+  ADVANCED_COMMON_POOL_RESOURCE_IDS,
+  RADIOACTIVE_RESOURCE_IDS,
+} from '@shared/types/resources.js';
 import { runCatalogAudit } from './audit.js';
 import { BUILDING_TYPE_CATALOG_ROWS, RESOURCE_CATALOG_ROWS, SHIP_TYPE_CATALOG_ROWS } from './catalog-rows.js';
 
@@ -181,6 +185,51 @@ describe('catalog seed audit (P2-POL-002)', () => {
       expect(Object.keys(ship!.buildCost)).toEqual(
         expect.arrayContaining(['steel', 'electronics']),
       );
+    }
+  });
+
+  it('keeps advanced Common Pool and atomic power content abstract and reachable', () => {
+    const resourceIds = new Set(RESOURCE_CATALOG_ROWS.map((row) => row.id));
+    for (const resourceId of ADVANCED_COMMON_POOL_RESOURCE_IDS) {
+      expect(resourceIds.has(resourceId)).toBe(true);
+    }
+
+    const reactor = BUILDING_TYPE_CATALOG_ROWS.find((building) => building.id === 'atomic_reactor');
+    expect(reactor).toBeDefined();
+    expect(reactor!.maxPerPlanet).toBe(1);
+    expect(reactor!.deps).toEqual([
+      { typeId: 'command_center', level: 5 },
+      { typeId: 'battery', level: 2 },
+    ]);
+
+    const recipes = PRODUCTION_RECIPES.filter((recipe) => recipe.buildingTypeId === 'atomic_reactor');
+    expect(recipes.map((recipe) => recipe.id).sort()).toEqual([
+      'energy_from_tritium_cell',
+      'energy_from_uranium_cell',
+    ]);
+    for (const recipe of recipes) {
+      expect(recipe.output.resourceId).toBe('energy');
+      expect(recipe.output.amount).toBeGreaterThan(500);
+      expect(recipe.inputs.some((input) =>
+        (RADIOACTIVE_RESOURCE_IDS as readonly string[]).includes(input.resourceId),
+      )).toBe(true);
+    }
+
+    const forbidden = /\b(enrichment|centrifuge|warhead|detonation|assembly|isotope|fission|fusion)\b/i;
+    const playerFacingTexts = [
+      reactor!.name.en,
+      reactor!.name.ru,
+      reactor!.description!.en,
+      reactor!.description!.ru,
+      ...recipes.flatMap((recipe) => [
+        recipe.name.en,
+        recipe.name.ru,
+        recipe.description.en,
+        recipe.description.ru,
+      ]),
+    ];
+    for (const text of playerFacingTexts) {
+      expect(text).not.toMatch(forbidden);
     }
   });
 

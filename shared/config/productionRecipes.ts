@@ -170,6 +170,38 @@ export const PRODUCTION_RECIPES: ProductionRecipe[] = [
     baseDurationSec: 32,
   },
   {
+    id: 'energy_from_uranium_cell',
+    buildingTypeId: 'atomic_reactor',
+    name: { ru: 'Атомный энергоблок', en: 'Atomic Power Cell' },
+    description: {
+      ru: 'Абстрактный закрытый энергоблок для долгой зарядки аккумуляторов редкими материалами.',
+      en: 'Abstract sealed power cell for long battery charging with rare materials.',
+    },
+    output: { resourceId: 'energy', amount: 900 },
+    inputs: [
+      { resourceId: 'uranium', amount: 0.4 },
+      { resourceId: 'lead', amount: 1.5 },
+      { resourceId: 'water', amount: 2 },
+    ],
+    baseDurationSec: 180,
+  },
+  {
+    id: 'energy_from_tritium_cell',
+    buildingTypeId: 'atomic_reactor',
+    name: { ru: 'Усиленный атомный энергоблок', en: 'Advanced Atomic Power Cell' },
+    description: {
+      ru: 'Абстрактный высокоуровневый цикл для большой зарядки аккумуляторов через закрытый энергоблок.',
+      en: 'Abstract high-tier cycle for a large battery charge through a sealed power cell.',
+    },
+    output: { resourceId: 'energy', amount: 1300 },
+    inputs: [
+      { resourceId: 'tritium', amount: 0.25 },
+      { resourceId: 'liquid_nitrogen', amount: 1 },
+      { resourceId: 'water', amount: 2 },
+    ],
+    baseDurationSec: 240,
+  },
+  {
     id: 'liquid_nitrogen_from_nitrogen_ice',
     buildingTypeId: 'cryo_factory',
     name: { ru: 'Жидкий азот', en: 'Liquid Nitrogen' },

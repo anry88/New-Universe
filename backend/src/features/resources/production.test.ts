@@ -82,11 +82,14 @@ describe('production orders', () => {
       { planetId: planet.id, resourceId: 'copper', amount: '1000', regenRate: '0' },
       { planetId: planet.id, resourceId: 'steel', amount: '1000', regenRate: '0' },
       { planetId: planet.id, resourceId: 'silicon_carbide', amount: '1000', regenRate: '0' },
+      { planetId: planet.id, resourceId: 'lead', amount: '1000', regenRate: '0' },
+      { planetId: planet.id, resourceId: 'uranium', amount: '1000', regenRate: '0' },
       { planetId: planet.id, resourceId: 'oil', amount: '1000', regenRate: '0' },
       { planetId: planet.id, resourceId: 'methane', amount: '1000', regenRate: '0' },
       { planetId: planet.id, resourceId: 'sulfur', amount: '1000', regenRate: '0' },
       { planetId: planet.id, resourceId: 'ice', amount: '1000', regenRate: '0' },
       { planetId: planet.id, resourceId: 'tritium', amount: '1000', regenRate: '0' },
+      { planetId: planet.id, resourceId: 'liquid_nitrogen', amount: '1000', regenRate: '0' },
       { planetId: planet.id, resourceId: 'fuel', amount: '1000', regenRate: '0' },
       { planetId: planet.id, resourceId: 'electronics', amount: '0', regenRate: '0' },
       { planetId: planet.id, resourceId: 'energy', amount: '500', regenRate: '0' },
@@ -313,6 +316,55 @@ describe('production orders', () => {
     expect(fuelPreview.canStart).toBe(true);
     expect(fuelPreview.output.amount).toBeCloseTo(90 * 1.18, 4);
     expect(fuelPreview.output.amount).toBeGreaterThan(methanePreview.output.amount);
+  });
+
+  it('supports abstract atomic reactor charge recipes from advanced resources', async () => {
+    const reactor = await createProductionPlanet('atomic_reactor', 2);
+    await db
+      .update(buildings)
+      .set({ level: 6 })
+      .where(and(eq(buildings.planetId, reactor.planet.id), eq(buildings.typeId, 'battery')));
+    await db
+      .update(planetResources)
+      .set({ amount: '0', regenRate: '0' })
+      .where(and(eq(planetResources.planetId, reactor.planet.id), eq(planetResources.resourceId, 'energy')));
+    await db.insert(researchProgress).values({
+      userId: reactor.user.id,
+      branch: 'energy',
+      level: 4,
+    }).onConflictDoUpdate({
+      target: [researchProgress.userId, researchProgress.branch],
+      set: { level: 4 },
+    });
+
+    const uraniumPreview = await productionService.preview(reactor.user.id, {
+      planetId: reactor.planet.id,
+      buildingId: reactor.building.id,
+      recipeId: 'energy_from_uranium_cell',
+      quantity: 1,
+    });
+    const tritiumPreview = await productionService.preview(reactor.user.id, {
+      planetId: reactor.planet.id,
+      buildingId: reactor.building.id,
+      recipeId: 'energy_from_tritium_cell',
+      quantity: 1,
+    });
+
+    expect(uraniumPreview.canStart).toBe(true);
+    expect(uraniumPreview.energyPerHour).toBe(0);
+    expect(uraniumPreview.output.resourceId).toBe('energy');
+    expect(uraniumPreview.inputs.map((input) => input.resourceId).sort()).toEqual([
+      'lead',
+      'uranium',
+      'water',
+    ]);
+    expect(tritiumPreview.canStart).toBe(true);
+    expect(tritiumPreview.output.amount).toBeGreaterThan(uraniumPreview.output.amount);
+    expect(tritiumPreview.inputs.map((input) => input.resourceId).sort()).toEqual([
+      'liquid_nitrogen',
+      'tritium',
+      'water',
+    ]);
   });
 
   it('does not require production energy on energy anomaly planets', async () => {

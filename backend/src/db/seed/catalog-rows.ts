@@ -366,6 +366,28 @@ export const BUILDING_TYPE_CATALOG_ROWS: BuildingCatalogRow[] = [
     energyConsumption: 0,
   },
   {
+    id: 'atomic_reactor',
+    name: { ru: 'Атомный реактор', en: 'Atomic Reactor' },
+    description: {
+      ru: 'Позднее энергетическое здание: заряжает аккумуляторы через абстрактные закрытые энергоблоки из редких материалов.',
+      en: 'Late energy building: charges batteries through abstract sealed power cells made from rare materials.',
+    },
+    category: 'energy',
+    maxPerPlanet: 1,
+    maxGlobal: null,
+    maxLevel: MAX_BUILDING_LEVEL,
+    deps: [
+      { typeId: 'command_center', level: 5 },
+      { typeId: 'battery', level: 2 },
+    ],
+    baseCost: { steel: 1400, electronics: 900, lead: 240, silicon_carbide: 180 },
+    baseTimeSec: 5400,
+    baseOutput: {},
+    energyConsumption: 0,
+    hp: 1800,
+    combatStats: { targetClass: 'building' } as CombatStats,
+  },
+  {
     id: 'military_shipyard',
     name: { ru: 'Военная верфь', en: 'Military Shipyard' },
     description: {
