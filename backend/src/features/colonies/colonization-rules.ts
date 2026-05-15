@@ -4,7 +4,7 @@ import { planets, systems } from '../../db/schema/world.js';
 import { buildings } from '../../db/schema/buildings.js';
 import { discoveredPlanets } from '../../db/schema/discovery.js';
 import { researchProgress } from '../../db/schema/research.js';
-import { eq, and, count, desc, isNull, sql } from 'drizzle-orm';
+import { eq, and, asc, isNull, sql } from 'drizzle-orm';
 import {
   COLONIZATION_RULES,
   maxColoniesForLogisticsLevel,
@@ -44,6 +44,45 @@ export interface ColonizationEligibility {
 
 export interface ColonizationGateOptions {
   enforceDistance?: boolean;
+}
+
+export interface ExpansionColony {
+  id: string;
+  planetId: string;
+  foundedAt: Date;
+}
+
+/**
+ * Expansion limits and cooldowns ignore the seeded capital colony in the
+ * player's home system. Later colonies, including additional settled planets
+ * in the home system, still count normally.
+ */
+export async function loadExpansionColonies(userId: string): Promise<ExpansionColony[]> {
+  const [ownedColonies, [homeCapital]] = await Promise.all([
+    db
+      .select({
+        id: colonies.id,
+        planetId: colonies.planetId,
+        foundedAt: colonies.foundedAt,
+      })
+      .from(colonies)
+      .where(and(eq(colonies.ownerId, userId), eq(colonies.status, 'active'))),
+    db
+      .select({ planetId: planets.id })
+      .from(systems)
+      .innerJoin(planets, eq(planets.systemId, systems.id))
+      .where(and(eq(systems.ownerId, userId), eq(systems.isHome, true)))
+      .orderBy(asc(planets.name))
+      .limit(1),
+  ]);
+
+  return ownedColonies
+    .filter((row) => row.planetId !== homeCapital?.planetId)
+    .map((row) => ({
+      id: row.id,
+      planetId: row.planetId,
+      foundedAt: row.foundedAt,
+    }));
 }
 
 /**
@@ -168,12 +207,8 @@ export async function checkColonizationGates(
   }
 
   // 2. Colony Limit Gate
-  const [result] = await db
-    .select({ value: count() })
-    .from(colonies)
-    .where(eq(colonies.ownerId, userId));
-  
-  const currentColonies = Number(result?.value ?? 0);
+  const expansionColonies = await loadExpansionColonies(userId);
+  const currentColonies = expansionColonies.length;
   const maxColonies = maxColoniesForLogisticsLevel(logisticsLevel);
 
   details.currentColonies = currentColonies;
@@ -189,12 +224,9 @@ export async function checkColonizationGates(
   }
 
   // 3. Cooldown Gate
-  const [lastColony] = await db
-    .select({ foundedAt: colonies.foundedAt })
-    .from(colonies)
-    .where(eq(colonies.ownerId, userId))
-    .orderBy(desc(colonies.foundedAt))
-    .limit(1);
+  const [lastColony] = [...expansionColonies].sort(
+    (a, b) => b.foundedAt.getTime() - a.foundedAt.getTime(),
+  );
 
   if (lastColony) {
     const elapsedSec = Math.floor((Date.now() - new Date(lastColony.foundedAt).getTime()) / 1000);

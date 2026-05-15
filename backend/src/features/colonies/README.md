@@ -5,7 +5,7 @@ Player colony and settlement management. Discovery only reveals a planet; a plan
 ## Files
 
 - **`colonies.ts`** — `ColonyService` singleton. Centralizes colonization rules like discovery checks, home system protection, and the shared colony limit formula (base 1 + 5 per completed Logistics level).
-- **`colonization-rules.ts`** — shared colonizer launch/founding gate checks. Enforces discovery, protection, research, colony limit, cooldown, and local colonization distance; callers can disable only the distance gate for Jump Gate colonizer routes, because gate travel is already constrained by known-destination discovery and stored Jump Fuel.
+- **`colonization-rules.ts`** — shared colonizer launch/founding gate checks. Enforces discovery, protection, research, colony limit, cooldown, and local colonization distance; callers can disable only the distance gate for Jump Gate colonizer routes, because gate travel is already constrained by known-destination discovery and stored Jump Fuel. Exposes `loadExpansionColonies()` so limits/cooldowns ignore only the seeded home capital while counting every later active colony.
 - **`ownership.ts`** — settlement ownership helpers. `getPlayerPlanetSettlement(userId, planetId, db?)` returns whether a planet is the user's capital or an active colony, and `getPlanetSettlementOwnerId(planetId, db?)` resolves completion-notification ownership for both home capitals and colony planets.
 - **`found-colony.ts`** — `foundColony(userId, shipId, planetId)` action module. Implements the atomic colonization transaction:
   - Validates ship role is `colonization`.
@@ -25,7 +25,7 @@ Player colony and settlement management. Discovery only reveals a planet; a plan
 
 1. **Discovery**: A player can only colonize a planet they have discovered.
 2. **Protection**: Foreign home systems (marked with `isHome: true` and another owner) are protected. A player's own discovered home-system bodies can be settled by colonizer, but discovery alone does not permit construction.
-3. **Limit**: Players start with 1 colony slot, and each completed Logistics level adds 5 more slots.
+3. **Limit**: Players start with 1 expansion colony slot, and each completed Logistics level adds 5 more slots. The seeded home capital does not consume that slot or start the cooldown.
 4. **Distance**: local/manual founding paths enforce max distance from the nearest owned settlement; Jump Gate colonizer launches skip that distance gate and only require the destination system and planet to be known/discovered.
 5. **Ship**: founding a colony requires a `colonizer` ship, which is consumed in the process.
 6. **Infrastructure**: Every new colony starts with a completed Command Center at level 1 on slot 0; the colonizer is consumed as that base hull.

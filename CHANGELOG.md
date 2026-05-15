@@ -22,6 +22,8 @@ All notable changes to New Universe will be documented in this file.
 - Сформирована явная цепочка зависимостей задач: `P2.2-016 -> P2.2-017 -> P2.2-018`.
 
 ### Changed
+- `P3-EPIC-COMBAT` (issue #342): refuel transfer now validates and updates both ships under row locks, preventing concurrent refuel requests from overdrawing a refueler or overfilling a target tank.
+- `P3-EPIC-COMBAT` (issue #342): colonization limits, cooldowns, and `/me` summaries now exclude only the seeded home capital, so a fresh player can still spend the first expansion colony slot after home-system generation creates the capital colony row.
 - Jump Gate discovery/map behavior now keeps a player's first opened public system free of foreign colonies or docked ships, exposes mined-resource deposits for discovered public planets, shows Home in the system selector, draws hidden destination orbits from total planet count, and places docked ship markers directly on planet sprites.
 - Jump Gate colonizer launches no longer apply the local colony-distance gate; known destination + discovered target planet are enough for range, and the launch dialog now selects jump-colonization targets by tapping planets on the destination map instead of choosing from planet chips.
 - Селектор «Сектор» на системной карте показывает домашнюю систему и, после random Jump Gate discovery, список известных публичных систем; выбранная публичная система открывается как закрытая карта со звездой, порталом и скрытыми орбитами. Jump Gate scout-маршруты теперь выбирают точку в открытой системе и считают топливо по маршруту планета старта -> домашний портал -> портал назначения -> выбранная точка, плюс отдельный расход Jump Fuel.
@@ -43,6 +45,7 @@ All notable changes to New Universe will be documented in this file.
 - `issue #365`: исправлен `POST /buildings/resource` — добавлена синхронизация ресурсных рядов планеты перед пересчётом `regenRate`, чтобы сохранение запасов в `planet_resources` не ломалось при смене целевого добываемого ресурса.
 
 ### Docs
+- Added Phase 3 combat regression evidence notes, including focused verification commands and guidance that combat migrations apply through `db:migrate`/`db:seed` without requiring a database drop.
 - Добавлено правило для агентов: игровые тексты не должны содержать task-id, raw slug/id, внутренние названия полей, технические пояснения реализации или агентскую метаинформацию.
 - Зафиксированы правила для агентов по ведению `CHANGELOG.md`: когда добавлять записи, как работать с `Unreleased`, как сохранять записи других агентов и какие данные нельзя заносить в журнал.
 - Зафиксировано правило локального deploy fallback: `scripts/deploy-local.sh` нужно запускать из чистого `env -i` окружения с явным deploy env-файлом, чтобы локальные Docker/build переменные не утекали в staging/production.

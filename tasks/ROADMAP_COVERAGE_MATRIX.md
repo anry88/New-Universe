@@ -66,21 +66,22 @@ Roll-up issue: [`P3-EPIC-COMBAT`](https://github.com/anry88/New-Universe/issues/
 | Acceptance area | Child task(s) | Required evidence |
 |-----------------|---------------|-------------------|
 | Combat model and starter military economy | `P3-COM-001`, `P3-COM-002`, `P3-COM-003` | HP/combat catalog tests, starter resource/production audit, Weapons/Military Shipyard gate tests |
-| Fleet fuel and first combat hulls | `P3-COM-004`, `P3-COM-005` | Fuel preview/refuel transfer tests, light fighter/bomber/laser build tests, localized UI smoke |
+| Fleet fuel and first combat hulls | `P3-COM-004`, `P3-COM-005` | Fuel preview/refuel transfer tests (`backend/src/features/ships/refuel.test.ts`), light fighter/bomber/laser build tests, localized UI smoke |
 | Server-authoritative combat | `P3-COM-006`, `P3-COM-007` | Idempotent ship combat ticks, bombing ticks, building destruction order, colonization block tests |
 | Advanced resources and atomic power | `P3-COM-013` | Common Pool resource generation, advanced material recipe, atomic reactor energy, content audit and balance-sim tests |
 | Advanced combat lines | `P3-COM-008`, `P3-COM-009`, `P3-COM-010` | Medium/heavy hull audits, rocket-carrier tests, shield coverage/recharge tests, nuclear payload gate/restriction tests |
 | Player-facing and regression gate | `P3-COM-011`, `P3-COM-012` | Mobile UI smoke, balance/regression report, `./scripts/ci-verify.sh`, and rollup PR `run-e2e` evidence |
-| Combat regression suite | `P3-COM-012` | [`backend/tests/e2e/combat-regression.test.ts`](../backend/tests/e2e/combat-regression.test.ts) passes locally and validates full build-produce-fuel-fight-bomb-colonize loop |
+| Combat regression suite | `P3-COM-012` | [`backend/tests/e2e/combat-regression.test.ts`](../backend/tests/e2e/combat-regression.test.ts) and [`docs/testing/combat-regression.md`](../docs/testing/combat-regression.md) validate build-produce-fuel-fight-bomb-colonize plus refuel evidence |
 
 ## Phase 3 combat rollup gate (P3-EPIC-COMBAT) evidence
 
 | Acceptance criterion | Evidence in repo | How to verify locally |
 |----------------------|------------------|------------------------|
 | Server-authoritative ship combat and building bombing work correctly | [`backend/tests/e2e/combat-regression.test.ts`](../backend/tests/e2e/combat-regression.test.ts) | `cd backend && npx vitest run tests/e2e/combat-regression.test.ts` |
-| Fleet fuel and production prerequisites are enforced | [`backend/tests/e2e/combat-regression.test.ts`](../backend/tests/e2e/combat-regression.test.ts) (Step 1-5) | `cd backend && npx vitest run tests/e2e/combat-regression.test.ts` |
+| Fleet fuel, refuel transfer, and production prerequisites are enforced | [`backend/tests/e2e/combat-regression.test.ts`](../backend/tests/e2e/combat-regression.test.ts) (Step 1-5), [`backend/src/features/ships/refuel.test.ts`](../backend/src/features/ships/refuel.test.ts) | `cd backend && npx vitest run src/features/ships/refuel.test.ts tests/e2e/combat-regression.test.ts` |
 | Building destruction and planet wipe rules are stable | [`backend/tests/e2e/combat-regression.test.ts`](../backend/tests/e2e/combat-regression.test.ts) (Step 7) | `cd backend && npx vitest run tests/e2e/combat-regression.test.ts` |
 | Colonization is blocked by hostile presence | [`backend/tests/e2e/combat-regression.test.ts`](../backend/tests/e2e/combat-regression.test.ts) (Step 8) | `cd backend && npx vitest run tests/e2e/combat-regression.test.ts` |
+| Combat migrations can be applied without a database drop | [`docs/testing/combat-regression.md`](../docs/testing/combat-regression.md) (migration guidance) | `cd backend && npm run db:migrate && npm run db:seed` |
 
 ## Known Gaps After This Expansion
 

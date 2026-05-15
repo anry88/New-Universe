@@ -357,9 +357,12 @@ describe('combat tick — processDueCombat', () => {
     const atk = await createUser(`atkB${label}`);
     const def = await createUser(`defB${label}`);
 
-    // Mark the defender's planet as colonized so the bomber + colonization
-    // gate logic can pick up a hostile owner for the buildings.
-    await db.insert(colonies).values({ ownerId: def.userId, planetId: def.planetId });
+    // `generateHomeSystem` already creates the capital colony. Keep this
+    // idempotent so the fixture also works if reused with a non-capital planet.
+    await db
+      .insert(colonies)
+      .values({ ownerId: def.userId, planetId: def.planetId })
+      .onConflictDoNothing();
 
     // CC sits at slot 0 — `home-system-generator` already planted one, so we
     // do not create it again. Just confirm it exists.

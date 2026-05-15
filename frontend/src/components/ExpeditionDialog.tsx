@@ -19,7 +19,6 @@ import { useMe } from "../hooks/useMe";
 import {
   X,
   Send,
-  Navigation,
   Fuel,
   Box,
   Timer,
