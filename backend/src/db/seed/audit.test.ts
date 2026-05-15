@@ -114,6 +114,7 @@ describe('catalog seed audit (P2-POL-002)', () => {
       'cargo_light',
       'colonizer',
       'recon_probe',
+      'refueler',
       'fighter',
       'cruiser',
       'battleship',

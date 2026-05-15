@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../lib/api';
 import type { User } from '@shared/types/user';
 import type { BuildShipResponse, RushShipBuildResponse, Ship, ShipQueueItem, ShipType } from '@shared/types/ships';
+import type { RefuelRequest, RefuelResponse } from '@shared/types/refuel';
 
 const MAX_TIMEOUT_MS = 2_147_483_647;
 
@@ -47,9 +48,10 @@ export function useBuildShip() {
         queueStartedAt: startedAt,
         cargoJson: {},
         fuel: '0',
+        jumpFuel: '0',
         hp: 1,
         maxHp: 1,
-        combatStats: { targetClass: 'military_light' },
+        combatStats: { targetClass: 'civilian' },
       };
       const optimisticQueueItem: ShipQueueItem = {
         id: tempId,
@@ -142,6 +144,20 @@ export function useRushShip() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['me'] });
       queryClient.invalidateQueries({ queryKey: ['ship-queue'] });
+    },
+  });
+}
+
+export function useRefuel() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: RefuelRequest) =>
+      apiFetch<RefuelResponse>('/ships/refuel', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['me'] });
     },
   });
 }

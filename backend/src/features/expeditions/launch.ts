@@ -75,6 +75,10 @@ type ShipLaunchRow = {
   originY: number;
   originZ: number;
   originPlanetId: string;
+  shipFuel: string;
+  shipJumpFuel: string;
+  shipFuelCapacity: number;
+  shipJumpFuelCapacity: number;
 };
 
 function isFiniteNumber(value: unknown): value is number {
@@ -132,6 +136,7 @@ export async function launchExpedition(
     targetY,
     targetZ,
     fuelLoaded,
+    jumpFuelLoaded,
     cargoLoaded,
     targetPlanetId,
     destinationSystemId,
@@ -194,6 +199,10 @@ export async function launchExpedition(
       originY: systems.sectorY,
       originZ: systems.sectorZ,
       originPlanetId: planets.id,
+      shipFuel: ships.fuel,
+      shipJumpFuel: ships.jumpFuel,
+      shipFuelCapacity: shipTypes.fuelCapacity,
+      shipJumpFuelCapacity: shipTypes.jumpFuelCapacity,
     })
     .from(ships)
     .innerJoin(shipTypes, eq(shipTypes.id, ships.typeId))
@@ -478,24 +487,79 @@ export async function launchExpedition(
       return launchFailure(400, { code: "expedition_cargo_unavailable" });
     }
 
-    const launchCosts = [{ resourceId: "fuel", amount: fuelRequired }];
-    if (jumpFuelRequired > 0) {
-      launchCosts.push({
-        resourceId: JUMP_FUEL_RESOURCE_ID,
-        amount: jumpFuelRequired,
-      });
-    }
+    const currentFuel = Number(shipRow.shipFuel);
+    const currentJumpFuel = Number(shipRow.shipJumpFuel);
+    const fuelCapacity = shipRow.shipFuelCapacity;
+    const jumpFuelCapacity = shipRow.shipJumpFuelCapacity;
 
-    const fuelSpend = await spendResources(shipRow.shipLocationPlanetId!, launchCosts, tx);
-    if (!fuelSpend.success) {
+    // Minimum fuel required in the ship's tank for this trip
+    const minFuelNeededInTank = fuelRequired;
+    const minJumpFuelNeededInTank = jumpFuelRequired;
+
+    if (minFuelNeededInTank > fuelCapacity) {
       return launchFailure(400, {
-        code: "insufficient_resource",
-        resourceId: fuelSpend.details?.resourceId ?? launchCosts[0]?.resourceId ?? "fuel",
-        required: fuelSpend.details?.required,
-        available: fuelSpend.details?.available,
+        code: "expedition_fuel_capacity_exceeded",
+        capacity: fuelCapacity,
+        required: minFuelNeededInTank,
+      });
+    }
+    if (minJumpFuelNeededInTank > jumpFuelCapacity) {
+      return launchFailure(400, {
+        code: "expedition_jump_fuel_capacity_exceeded",
+        capacity: jumpFuelCapacity,
+        required: minJumpFuelNeededInTank,
       });
     }
 
+    // Determine how much to load from the planet
+    const extraFuelRequested = fuelLoaded ?? 0;
+    const extraJumpFuelRequested = jumpFuelLoaded ?? 0;
+
+    // We must have at least the minimum required fuel after loading
+    let targetFuelInTank = Math.max(minFuelNeededInTank, currentFuel + extraFuelRequested);
+    let targetJumpFuelInTank = Math.max(minJumpFuelNeededInTank, currentJumpFuel + extraJumpFuelRequested);
+
+    // Cap at tank capacity
+    targetFuelInTank = Math.min(targetFuelInTank, fuelCapacity);
+    targetJumpFuelInTank = Math.min(targetJumpFuelInTank, jumpFuelCapacity);
+
+    // Amount to take from planet inventory
+    const fuelToTakeFromPlanet = Math.max(0, targetFuelInTank - currentFuel);
+    const jumpFuelToTakeFromPlanet = Math.max(0, targetJumpFuelInTank - currentJumpFuel);
+
+    if (fuelToTakeFromPlanet > 0 || jumpFuelToTakeFromPlanet > 0) {
+      const launchCosts = [];
+      if (fuelToTakeFromPlanet > 0) {
+        launchCosts.push({ resourceId: "fuel", amount: fuelToTakeFromPlanet });
+      }
+      if (jumpFuelToTakeFromPlanet > 0) {
+        launchCosts.push({
+          resourceId: JUMP_FUEL_RESOURCE_ID,
+          amount: jumpFuelToTakeFromPlanet,
+        });
+      }
+
+      const fuelSpend = await spendResources(
+        shipRow.shipLocationPlanetId!,
+        launchCosts,
+        tx,
+      );
+      if (!fuelSpend.success) {
+        return launchFailure(400, {
+          code: "insufficient_resource",
+          resourceId:
+            fuelSpend.details?.resourceId ?? launchCosts[0]?.resourceId ?? "fuel",
+          required: fuelSpend.details?.required,
+          available: fuelSpend.details?.available,
+        });
+      }
+    }
+
+    // Subtract the trip cost from the ship's tank. The fuel is consumed at launch.
+    const remainingFuel = targetFuelInTank - fuelRequired;
+    const remainingJumpFuel = targetJumpFuelInTank - jumpFuelRequired;
+
+    // Update ship state: it's moving, no longer on a planet, and has remaining fuel
     const [expedition] = await tx
       .insert(expeditions)
       .values({
@@ -527,17 +591,21 @@ export async function launchExpedition(
       })
       .returning();
 
-    const shipUpdate: Partial<typeof ships.$inferInsert> = {
-      status: "moving",
-      cargoJson: {
-        loaded: cargoLoaded,
-        fuelRequired,
-        jumpFuelRequired,
-      },
-    };
     const [updatedShip] = await tx
       .update(ships)
-      .set(shipUpdate)
+      .set({
+        status: "moving",
+        locationPlanetId: null,
+        fuel: remainingFuel.toFixed(2),
+        jumpFuel: remainingJumpFuel.toFixed(2),
+        cargoJson: {
+          loaded: cargoLoaded,
+          // We keep these for legacy compatibility if needed, 
+          // though columns are now the source of truth.
+          fuelRequired,
+          jumpFuelRequired,
+        },
+      })
       .where(eq(ships.id, shipRow.shipId))
       .returning();
 

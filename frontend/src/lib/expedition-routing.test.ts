@@ -18,7 +18,7 @@ describe("expedition route preview", () => {
     expect(preview.distance).toBe(12);
     expect(preview.etaSeconds).toBe(360);
     expect(preview.fuelRequired).toBe(8);
-    expect(preview.jumpFuelRequired).toBe(50);
+    expect(preview.jumpFuelRequired).toBe(1);
     expect(preview.returnTrip).toBe(true);
   });
 
@@ -36,7 +36,7 @@ describe("expedition route preview", () => {
     expect(preview.distance).toBe(5);
     expect(preview.etaSeconds).toBe(300);
     expect(preview.fuelRequired).toBe(8);
-    expect(preview.jumpFuelRequired).toBe(50);
+    expect(preview.jumpFuelRequired).toBe(1);
     expect(preview.returnTrip).toBe(false);
   });
 

@@ -18,8 +18,10 @@ export interface LaunchExpeditionRequest {
   targetSystemY?: number;
   /** Known public destination system used when `routeMode` is `jump_gate`. */
   destinationSystemId?: string | null;
-  /** Deprecated client hint. Fuel is calculated server-side from distance and ship consumption. */
+  /** Amount of ordinary fuel to load from the planet into the ship's tank. */
   fuelLoaded?: number;
+  /** Amount of jump fuel to load from the planet into the ship's tank. */
+  jumpFuelLoaded?: number;
   cargoLoaded: number;
   /** Target body for direct survey or colonizer deployment. */
   targetPlanetId?: string | null;
@@ -105,6 +107,8 @@ export type LaunchExpeditionErrorCode =
   | 'expedition_spaceport_required'
   | 'expedition_landing_slots_full'
   | 'expedition_cargo_unavailable'
+  | 'expedition_fuel_capacity_exceeded'
+  | 'expedition_jump_fuel_capacity_exceeded'
   | 'insufficient_resource';
 
 export type LaunchExpeditionErrorDetails =
@@ -143,6 +147,8 @@ export type LaunchExpeditionErrorDetails =
       reserved?: number;
     }
   | { code: 'expedition_cargo_unavailable' }
+  | { code: 'expedition_fuel_capacity_exceeded'; capacity: number; required: number }
+  | { code: 'expedition_jump_fuel_capacity_exceeded'; capacity: number; required: number }
   | { code: 'insufficient_resource'; resourceId: string; required?: number; available?: number };
 
 export function formatLaunchExpeditionErrorMessage(
@@ -271,6 +277,14 @@ export function formatLaunchExpeditionErrorMessage(
       return locale === 'ru'
         ? 'На стартовой планете недостаточно груза для загрузки.'
         : 'Launch planet does not have enough cargo to load.';
+    case 'expedition_fuel_capacity_exceeded':
+      return locale === 'ru'
+        ? `Бак корабля слишком мал для этого пути: ёмкость ${error.capacity}, нужно ${error.required}.`
+        : `Ship fuel tank is too small: capacity ${error.capacity}, required ${error.required}.`;
+    case 'expedition_jump_fuel_capacity_exceeded':
+      return locale === 'ru'
+        ? `Прыжковый бак слишком мал: ёмкость ${error.capacity}, нужно ${error.required}.`
+        : `Jump fuel tank is too small: capacity ${error.capacity}, required ${error.required}.`;
     case 'insufficient_resource':
       return formatInsufficientResourceMessage(error.resourceId, locale);
     default:

@@ -7,6 +7,7 @@ import {
   useShipTypes,
 } from "../hooks/useShips";
 import { ExpeditionDialog } from "../components/ExpeditionDialog";
+import { RefuelDialog } from "../components/RefuelDialog";
 import { ResourceBar } from "../components/ResourceBar";
 import { CosmicBackground, CosmicBottomNav, QueueStrip } from "../components/cosmic/atoms";
 import { ChevronLeft } from "lucide-react";
@@ -124,6 +125,7 @@ export function ShipsPage() {
   const location = useLocation();
   const { locale, t } = useI18n();
   const [selectedShip, setSelectedShip] = useState<Ship | null>(null);
+  const [refuelingShip, setRefuelingShip] = useState<Ship | null>(null);
   const [selectedPlanetId, setSelectedPlanetId] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
 
@@ -607,13 +609,30 @@ export function ShipsPage() {
                           ? t("ships.openCargo").toUpperCase()
                           : isDiscoveryProbe
                             ? t("ships.openJumpGate").toUpperCase()
-                            : t("ships.sendMission").toUpperCase()
+                            : ship.typeId === "refueler"
+                              ? t("refuel_dialog_transfer_button").toUpperCase()
+                              : t("ships.sendMission").toUpperCase()
                         : isBuilding
                           ? t("ships.building").toUpperCase()
                           : expeditionEtaSec != null
                             ? `ETA ${formatDuration(expeditionEtaSec)}`
                             : t("ships.inTransit").toUpperCase()}
                     </button>
+                    {ship.typeId === "refueler" && isIdle && (
+                      <button
+                        type="button"
+                        onClick={() => setRefuelingShip(ship)}
+                        className="cosmic-cta"
+                        style={{
+                          marginTop: 6,
+                          padding: "6px 12px",
+                          fontSize: 11,
+                          marginLeft: 8,
+                        }}
+                      >
+                        {t("refuel_dialog_title").toUpperCase()}
+                      </button>
+                    )}
                     {isBuilding && buildTimer ? (
                       <div className="qstrip-bar" style={{ marginTop: 8 }}>
                         <div
@@ -673,6 +692,16 @@ export function ShipsPage() {
             selectedShipSupportsJumpGate ? jumpGateDestinationSystemId : null
           }
           onClose={() => setSelectedShip(null)}
+        />
+      )}
+
+      {refuelingShip && (
+        <RefuelDialog
+          sourceShip={refuelingShip}
+          sourceType={getShipType(refuelingShip.typeId)!}
+          allShips={ships}
+          allShipTypes={shipTypes ?? []}
+          onClose={() => setRefuelingShip(null)}
         />
       )}
     </div>

@@ -207,7 +207,7 @@ describe('Jump Gate end-to-end regression suite', () => {
     expect(randomJump.destination.systemId, `${AREA.jump} known destination id`).toBe(randomJump.targetSystem.id);
     expect(randomJump.destination.source, `${AREA.jump} destination source`).toBe('random_jump');
     expect(randomJump.jumpFuelRequired, `${AREA.jump} random jump fuel cost`).toBe(JUMP_GATE_JUMP_FUEL_COST);
-    expect(await planetAmount(homePlanet.id, JUMP_FUEL_RESOURCE_ID), `${AREA.jump} home Jump Fuel debited`).toBe(450);
+    expect(await planetAmount(homePlanet.id, JUMP_FUEL_RESOURCE_ID), `${AREA.jump} home Jump Fuel debited`).toBe(497);
     expect(
       await db.query.ships.findFirst({ where: eq(ships.id, reconProbe.id) }),
       `${AREA.jump} recon probe consumed after opening a system`,

@@ -20,6 +20,7 @@ export type ShipTypeId =
   | 'cargo'
   | 'colonizer'
   | 'recon_probe'
+  | 'refueler'
   | 'fighter'
   | 'cruiser'
   | 'battleship';
@@ -98,6 +99,18 @@ export const IconReconProbe: React.FC<ShipIconProps> = ({ size, tone }) => (
     <path d="M46 32 L56 32" />
     <path d="M44 20 L52 12" />
     <path d="M20 44 L12 52" />
+  </HullIcon>
+);
+
+export const IconRefueler: React.FC<ShipIconProps> = ({ size, tone }) => (
+  <HullIcon size={size} tone={tone}>
+    <path d="M12 20 L48 20 L56 32 L48 44 L12 44 Z" fill={tone ?? '#5BD7FF'} fillOpacity="0.12" />
+    <rect x="16" y="24" width="12" height="16" rx="1" />
+    <rect x="32" y="24" width="12" height="16" rx="1" />
+    <path d="M12 28 L4 28" />
+    <path d="M12 36 L4 36" />
+    <circle cx="22" cy="32" r="2" fill={tone ?? '#5BD7FF'} />
+    <circle cx="38" cy="32" r="2" fill={tone ?? '#5BD7FF'} />
   </HullIcon>
 );
 
@@ -185,6 +198,13 @@ export const SHIP_BY_TYPE: Record<ShipTypeId, ShipDef> = {
     labels: { en: 'Recon Probe', ru: 'Разведывательный зонд' },
     tag: 'PROBE',
     tags: { en: 'PROBE', ru: 'ЗОНД' },
+  },
+  refueler: {
+    Icon: IconRefueler,
+    label: 'Refueler',
+    labels: { en: 'Refueler', ru: 'Заправщик' },
+    tag: 'SUPPORT',
+    tags: { en: 'SUPPORT', ru: 'ПОДДЕРЖКА' },
   },
   fighter: {
     Icon: IconFighter,

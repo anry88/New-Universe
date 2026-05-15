@@ -603,7 +603,7 @@ describe("Expeditions - POST /expeditions", () => {
     expect(body.expedition.targetPlanetId).toBeNull();
     expect(body.expedition.result.routeMode).toBe("jump_gate");
     expect(body.expedition.result.destinationSystemId).toBe(destination.system.id);
-    expect(body.expedition.result.jumpFuelRequired).toBe(50);
+    expect(body.expedition.result.jumpFuelRequired).toBe(1);
     expect(body.expedition.result.distance).toBeCloseTo(expectedDistance, 5);
     expect(body.expedition.result.fuelRequired).toBe(expectedFuel);
     expect(body.expedition.result.targetSystemPoint).toEqual(targetSystemPoint);

@@ -1,8 +1,8 @@
 export type ExpeditionRouteMode = 'local' | 'jump_gate';
 
 export const JUMP_FUEL_RESOURCE_ID = 'jump_fuel';
-export const JUMP_GATE_JUMP_FUEL_COST = 50;
-/** @deprecated Use `JUMP_GATE_JUMP_FUEL_COST`; Jump Fuel is stored in planet inventory. */
+export const JUMP_GATE_JUMP_FUEL_COST = 1;
+/** @deprecated Use `JUMP_GATE_JUMP_FUEL_COST`; Jump Fuel is stored in planet inventory or ship tanks. */
 export const JUMP_GATE_SHIP_FUEL_COST = JUMP_GATE_JUMP_FUEL_COST;
 
 export function calculateSectorRouteDistance(
