@@ -73,6 +73,9 @@ export const SHIP_ENTITY_LABELS: Record<string, EntityLabels> = {
   recon_probe: { en: 'Recon Probe', ru: 'Разведывательный зонд' },
   refueler: { en: 'Refueler', ru: 'Заправщик' },
   fighter: { en: 'Fighter', ru: 'Истребитель' },
+  light_fighter: { en: 'Light Fighter', ru: 'Лёгкий истребитель' },
+  light_bomber: { en: 'Light Bomber', ru: 'Лёгкий бомбардировщик' },
+  light_laser: { en: 'Light Laser Ship', ru: 'Лёгкий лазерный корабль' },
   cruiser: { en: 'Cruiser', ru: 'Крейсер' },
   battleship: { en: 'Battleship', ru: 'Линкор' },
 };

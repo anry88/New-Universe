@@ -303,6 +303,24 @@ export const SHIPS = {
     requiredBuildings: [{ typeId: 'shipyard', level: 1 }],
     requiredResearch: [{ branch: 'sensors', level: 1 }],
   },
+  light_fighter: {
+    buildCost: { iron: 200, silicon: 150, fuel: 30 },
+    buildTimeSec: 1200,
+    requiredBuildings: [{ typeId: 'military_shipyard', level: 1 }],
+    requiredResearch: [{ branch: 'weapons', level: 1 }],
+  },
+  light_bomber: {
+    buildCost: { steel: 600, military_alloy: 100, electronics: 150, fuel: 80 },
+    buildTimeSec: 3600,
+    requiredBuildings: [{ typeId: 'military_shipyard', level: 2 }],
+    requiredResearch: [{ branch: 'weapons', level: 2 }],
+  },
+  light_laser: {
+    buildCost: { steel: 400, silicon: 200, liquid_nitrogen: 50, electronics: 120 },
+    buildTimeSec: 2700,
+    requiredBuildings: [{ typeId: 'military_shipyard', level: 2 }],
+    requiredResearch: [{ branch: 'weapons', level: 2 }],
+  },
 } as const;
 
 export type ShipId = keyof typeof SHIPS;

@@ -22,6 +22,9 @@ export type ShipTypeId =
   | 'recon_probe'
   | 'refueler'
   | 'fighter'
+  | 'light_fighter'
+  | 'light_bomber'
+  | 'light_laser'
   | 'cruiser'
   | 'battleship';
 
@@ -136,6 +139,46 @@ export const IconFighter: React.FC<ShipIconProps> = ({ size, tone }) => (
   </HullIcon>
 );
 
+/** Light fighter — narrow dart hull with forward kinetic cannon */
+export const IconLightFighter: React.FC<ShipIconProps> = ({ size, tone }) => (
+  <HullIcon size={size} tone={tone}>
+    <path d="M56 32 L20 18 L16 32 L20 46 Z" fill={tone ?? '#5BD7FF'} fillOpacity="0.15" />
+    <path d="M20 18 L23 26 L23 38 L20 46" />
+    <path d="M56 32 L62 32" />
+    <circle cx="38" cy="32" r="2" fill={tone ?? '#5BD7FF'} fillOpacity="0.55" />
+    <path d="M16 32 L8 32" />
+    <path d="M20 20 L14 14" />
+    <path d="M20 44 L14 50" />
+  </HullIcon>
+);
+
+/** Light bomber — wide flat hull with orbital drop bay */
+export const IconLightBomber: React.FC<ShipIconProps> = ({ size, tone }) => (
+  <HullIcon size={size} tone={tone}>
+    <path d="M46 32 L28 14 L10 20 L10 44 L28 50 Z" fill={tone ?? '#5BD7FF'} fillOpacity="0.13" />
+    <path d="M10 20 L36 32 L10 44" />
+    <rect x="24" y="27" width="14" height="10" rx="2" />
+    <circle cx="31" cy="32" r="2" fill={tone ?? '#5BD7FF'} fillOpacity="0.5" />
+    <path d="M31 37 L31 46" />
+    <path d="M28 43 L31 46 L34 43" />
+    <path d="M28 14 L24 8" />
+    <path d="M28 50 L24 56" />
+  </HullIcon>
+);
+
+/** Light laser ship — sleek hull with long-range beam emitter */
+export const IconLightLaser: React.FC<ShipIconProps> = ({ size, tone }) => (
+  <HullIcon size={size} tone={tone}>
+    <path d="M50 32 L24 16 L18 32 L24 48 Z" fill={tone ?? '#5BD7FF'} fillOpacity="0.14" />
+    <path d="M50 32 L62 32" strokeOpacity="0.5" strokeDasharray="3 2" />
+    <path d="M24 16 L27 28 L27 36 L24 48" />
+    <circle cx="36" cy="32" r="3" fill={tone ?? '#5BD7FF'} fillOpacity="0.35" />
+    <path d="M18 32 L10 32" />
+    <path d="M22 20 L14 14" />
+    <path d="M22 44 L14 50" />
+  </HullIcon>
+);
+
 /** Medium combat cruiser — wider hull with side turrets */
 export const IconCruiser: React.FC<ShipIconProps> = ({ size, tone }) => (
   <HullIcon size={size} tone={tone}>
@@ -210,6 +253,27 @@ export const SHIP_BY_TYPE: Record<ShipTypeId, ShipDef> = {
     Icon: IconFighter,
     label: 'Fighter',
     labels: { en: 'Fighter', ru: 'Истребитель' },
+    tag: 'COMBAT',
+    tags: { en: 'COMBAT', ru: 'БОЙ' },
+  },
+  light_fighter: {
+    Icon: IconLightFighter,
+    label: 'Light Fighter',
+    labels: { en: 'Light Fighter', ru: 'Лёгкий истребитель' },
+    tag: 'COMBAT',
+    tags: { en: 'COMBAT', ru: 'БОЙ' },
+  },
+  light_bomber: {
+    Icon: IconLightBomber,
+    label: 'Light Bomber',
+    labels: { en: 'Light Bomber', ru: 'Лёгкий бомбардировщик' },
+    tag: 'BOMBER',
+    tags: { en: 'BOMBER', ru: 'БОМБАРДИРОВЩИК' },
+  },
+  light_laser: {
+    Icon: IconLightLaser,
+    label: 'Light Laser Ship',
+    labels: { en: 'Light Laser Ship', ru: 'Лёгкий лазерный корабль' },
     tag: 'COMBAT',
     tags: { en: 'COMBAT', ru: 'БОЙ' },
   },

@@ -469,6 +469,168 @@ describe('Ship Building - POST /ships/build', () => {
     expect(response.json().ship.typeId).toBe('scout');
   });
 
+  it('light_fighter: blocks without military_shipyard, then builds with Weapons I', async () => {
+    const { app, token, userId } = await createTestUser();
+    const planetId = await getHomePlanetId(userId);
+
+    await ensureSpaceport(planetId);
+    await ensureResource(planetId, 'iron', 500);
+    await ensureResource(planetId, 'silicon', 500);
+    await ensureResource(planetId, 'fuel', 100);
+
+    // Blocked: no military_shipyard at all
+    const noYardRes = await app.inject({
+      method: 'POST',
+      url: '/ships/build',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { planetId, typeSlug: 'light_fighter' },
+    });
+    expect(noYardRes.statusCode).toBe(400);
+
+    await db.insert(buildings).values({ planetId, typeId: 'military_shipyard', slotIndex: 3, level: 1 });
+
+    // Blocked: Weapons I research not completed
+    const noResearchRes = await app.inject({
+      method: 'POST',
+      url: '/ships/build',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { planetId, typeSlug: 'light_fighter' },
+    });
+    expect(noResearchRes.statusCode).toBe(400);
+    expect(noResearchRes.json().error).toMatch(/weapons/i);
+
+    await db.insert(researchProgress).values({ userId, branch: 'weapons', level: 1 });
+
+    // Allowed
+    const okRes = await app.inject({
+      method: 'POST',
+      url: '/ships/build',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { planetId, typeSlug: 'light_fighter' },
+    });
+    expect(okRes.statusCode).toBe(200);
+    expect(okRes.json().ship.typeId).toBe('light_fighter');
+  });
+
+  it('light_bomber: blocks at Military Shipyard L1 and without Weapons II, then builds at L2 + Weapons II', async () => {
+    const { app, token, userId } = await createTestUser();
+    const planetId = await getHomePlanetId(userId);
+
+    await ensureSpaceport(planetId);
+    await ensureResource(planetId, 'steel', 2000);
+    await ensureResource(planetId, 'military_alloy', 500);
+    await ensureResource(planetId, 'electronics', 500);
+    await ensureResource(planetId, 'fuel', 200);
+
+    await db.insert(buildings).values({ planetId, typeId: 'military_shipyard', slotIndex: 4, level: 1 });
+    await db.insert(researchProgress).values({ userId, branch: 'weapons', level: 1 });
+
+    // Blocked: military_shipyard L1 < required L2
+    const levelBlockRes = await app.inject({
+      method: 'POST',
+      url: '/ships/build',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { planetId, typeSlug: 'light_bomber' },
+    });
+    expect(levelBlockRes.statusCode).toBe(400);
+    expect(levelBlockRes.json().error).toMatch(/military shipyard level 2/i);
+
+    await db
+      .update(buildings)
+      .set({ level: 2 })
+      .where(and(eq(buildings.planetId, planetId), eq(buildings.typeId, 'military_shipyard')));
+
+    // Blocked: Weapons II not completed (only Weapons I unlocked)
+    const researchBlockRes = await app.inject({
+      method: 'POST',
+      url: '/ships/build',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { planetId, typeSlug: 'light_bomber' },
+    });
+    expect(researchBlockRes.statusCode).toBe(400);
+    expect(researchBlockRes.json().error).toMatch(/weapons/i);
+
+    await db.insert(researchProgress).values({ userId, branch: 'weapons', level: 2 });
+
+    // Allowed
+    const okRes = await app.inject({
+      method: 'POST',
+      url: '/ships/build',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { planetId, typeSlug: 'light_bomber' },
+    });
+    expect(okRes.statusCode).toBe(200);
+    expect(okRes.json().ship.typeId).toBe('light_bomber');
+  });
+
+  it('light_laser: requires Military Shipyard L2, Weapons II, and liquid_nitrogen in build cost', async () => {
+    const { app, token, userId } = await createTestUser();
+    const planetId = await getHomePlanetId(userId);
+
+    await ensureSpaceport(planetId);
+    await ensureResource(planetId, 'steel', 1000);
+    await ensureResource(planetId, 'silicon', 500);
+    await ensureResource(planetId, 'electronics', 500);
+    // Intentionally not adding liquid_nitrogen yet
+
+    await db.insert(buildings).values({ planetId, typeId: 'military_shipyard', slotIndex: 5, level: 2 });
+    await db.insert(researchProgress).values({ userId, branch: 'weapons', level: 2 });
+
+    // Blocked: missing liquid_nitrogen
+    const noLnRes = await app.inject({
+      method: 'POST',
+      url: '/ships/build',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { planetId, typeSlug: 'light_laser' },
+    });
+    expect(noLnRes.statusCode).toBe(400);
+    expect(noLnRes.json().code).toBe('insufficient_resource');
+    expect(noLnRes.json().error.toLowerCase()).toContain('liquid nitrogen');
+
+    await ensureResource(planetId, 'liquid_nitrogen', 100);
+
+    // Allowed
+    const okRes = await app.inject({
+      method: 'POST',
+      url: '/ships/build',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { planetId, typeSlug: 'light_laser' },
+    });
+    expect(okRes.statusCode).toBe(200);
+    expect(okRes.json().ship.typeId).toBe('light_laser');
+  });
+
+  it('ship catalog contains all three light combat hulls with correct stats', async () => {
+    const { app, token } = await createTestUser();
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/ships/types',
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const types: Array<{ id: string; hp: number; fuelCapacity: number; jumpFuelCapacity: number }> = res.json();
+
+    const lightFighter = types.find((t) => t.id === 'light_fighter');
+    expect(lightFighter).toBeDefined();
+    expect(lightFighter!.hp).toBe(200);
+    expect(lightFighter!.fuelCapacity).toBe(100);
+    expect(lightFighter!.jumpFuelCapacity).toBe(5);
+
+    const lightBomber = types.find((t) => t.id === 'light_bomber');
+    expect(lightBomber).toBeDefined();
+    expect(lightBomber!.hp).toBe(350);
+    expect(lightBomber!.fuelCapacity).toBe(200);
+    expect(lightBomber!.jumpFuelCapacity).toBe(8);
+
+    const lightLaser = types.find((t) => t.id === 'light_laser');
+    expect(lightLaser).toBeDefined();
+    expect(lightLaser!.hp).toBe(280);
+    expect(lightLaser!.fuelCapacity).toBe(150);
+    expect(lightLaser!.jumpFuelCapacity).toBe(6);
+  });
+
   it('should return 401 without authorization', async () => {
     const app = Fastify();
     await app.register(shipsRoutes, { prefix: '/ships' });
