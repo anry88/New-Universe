@@ -16,7 +16,7 @@ import {
   productionOrders,
   researchProgress,
 } from "../../db/schema.js";
-import { and, asc, count, desc, eq, inArray, or } from "drizzle-orm";
+import { and, asc, eq, inArray, or } from "drizzle-orm";
 import { syncTutorialProgress } from "../tutorial/service.js";
 import { homeSystemShortTag } from "@shared/format/homeSystemNaming.js";
 import { syncDuePlayerState } from "./online-sync.js";
@@ -53,6 +53,7 @@ import {
   COLONIZATION_RULES,
   maxColoniesForLogisticsLevel,
 } from "../../config/colonization-rules.js";
+import { loadExpansionColonies } from "../colonies/colonization-rules.js";
 
 type UserRow = typeof users.$inferSelect;
 
@@ -247,25 +248,17 @@ export async function meRoutes(app: FastifyInstance) {
           },
         },
       });
-      const [colonyCountRow] = await db
-        .select({ value: count() })
-        .from(colonies)
-        .where(eq(colonies.ownerId, user.id));
-      const [latestColony] = await db
-        .select({ foundedAt: colonies.foundedAt })
-        .from(colonies)
-        .where(eq(colonies.ownerId, user.id))
-        .orderBy(desc(colonies.foundedAt))
-        .limit(1);
 
       const colonyPlanetIds = new Set(userColonies.map((c) => c.planetId));
       const logisticsLevel =
         userResearchRows.find((row) => row.branch === "logistics")?.level ?? 0;
       const maxColonies = maxColoniesForLogisticsLevel(logisticsLevel);
-      const currentColonies = Number(colonyCountRow?.value ?? 0);
-      const latestColonyFoundedAt = latestColony?.foundedAt
-        ? new Date(latestColony.foundedAt)
-        : null;
+      const expansionColonies = await loadExpansionColonies(user.id);
+      const currentColonies = expansionColonies.length;
+      const latestColonyFoundedAt =
+        [...expansionColonies].sort(
+          (a, b) => b.foundedAt.getTime() - a.foundedAt.getTime(),
+        )[0]?.foundedAt ?? null;
       const cooldownRemainingSec = latestColonyFoundedAt
         ? Math.max(
             0,

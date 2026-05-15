@@ -1,6 +1,6 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { db as defaultDb } from '../../db/index.js';
-import { ships } from '../../db/schema.js';
+import { ships, shipTypes } from '../../db/schema.js';
 import {
   type RefuelErrorCode,
   type RefuelErrorDetails,
@@ -40,94 +40,116 @@ export async function refuelShip(
     return refuelFailure(400, { code: 'refuel_same_ship' });
   }
 
-  if (fuel <= 0 && jumpFuel <= 0) {
+  if (
+    !Number.isFinite(fuel) ||
+    !Number.isFinite(jumpFuel) ||
+    fuel < 0 ||
+    jumpFuel < 0 ||
+    (fuel <= 0 && jumpFuel <= 0)
+  ) {
     return refuelFailure(400, { code: 'refuel_no_fuel_requested' });
   }
 
-  const targetShipRow = await db.query.ships.findFirst({
-    where: and(eq(ships.id, targetShipId), eq(ships.ownerId, userId)),
-    with: { type: true },
-  });
-
-  if (!targetShipRow) {
-    return refuelFailure(404, { code: 'refuel_target_not_found' });
-  }
-
-  const sourceShipRow = await db.query.ships.findFirst({
-    where: and(eq(ships.id, sourceShipId), eq(ships.ownerId, userId)),
-    with: { type: true },
-  });
-
-  if (!sourceShipRow) {
-    return refuelFailure(404, { code: 'refuel_source_not_found' });
-  }
-
-  if (sourceShipRow.typeId !== 'refueler') {
-    return refuelFailure(400, { code: 'refuel_source_not_refueler' });
-  }
-
-  if (targetShipRow.status !== 'idle' || sourceShipRow.status !== 'idle') {
-    return refuelFailure(400, { code: 'refuel_ship_not_idle' });
-  }
-
-  if (targetShipRow.locationPlanetId !== sourceShipRow.locationPlanetId || !targetShipRow.locationPlanetId) {
-    return refuelFailure(400, { code: 'refuel_not_same_planet' });
-  }
-
-  const targetType = targetShipRow.type;
-  const sourceShipCurrentFuel = Number(sourceShipRow.fuel);
-  const sourceShipCurrentJumpFuel = Number(sourceShipRow.jumpFuel);
-  const targetShipCurrentFuel = Number(targetShipRow.fuel);
-  const targetShipCurrentJumpFuel = Number(targetShipRow.jumpFuel);
-
-  // Validate ordinary fuel transfer
-  if (fuel > 0) {
-    if (fuel > sourceShipCurrentFuel) {
-      return refuelFailure(400, { 
-        code: 'refuel_source_insufficient', 
-        fuelType: 'fuel', 
-        available: sourceShipCurrentFuel, 
-        requested: fuel 
-      });
-    }
-    if (targetShipCurrentFuel + fuel > targetType.fuelCapacity) {
-      return refuelFailure(400, { 
-        code: 'refuel_exceeds_tank', 
-        fuelType: 'fuel', 
-        capacity: targetType.fuelCapacity, 
-        current: targetShipCurrentFuel, 
-        requested: fuel 
-      });
-    }
-  }
-
-  // Validate jump fuel transfer
-  if (jumpFuel > 0) {
-    if (jumpFuel > sourceShipCurrentJumpFuel) {
-      return refuelFailure(400, { 
-        code: 'refuel_source_insufficient', 
-        fuelType: 'jump_fuel', 
-        available: sourceShipCurrentJumpFuel, 
-        requested: jumpFuel 
-      });
-    }
-    if (targetShipCurrentJumpFuel + jumpFuel > targetType.jumpFuelCapacity) {
-      return refuelFailure(400, { 
-        code: 'refuel_exceeds_tank', 
-        fuelType: 'jump_fuel', 
-        capacity: targetType.jumpFuelCapacity, 
-        current: targetShipCurrentJumpFuel, 
-        requested: jumpFuel 
-      });
-    }
-  }
-
   return await db.transaction(async (tx) => {
+    const lockedRows = await tx
+      .select({
+        id: ships.id,
+        ownerId: ships.ownerId,
+        typeId: ships.typeId,
+        status: ships.status,
+        locationPlanetId: ships.locationPlanetId,
+        fuel: ships.fuel,
+        jumpFuel: ships.jumpFuel,
+        fuelCapacity: shipTypes.fuelCapacity,
+        jumpFuelCapacity: shipTypes.jumpFuelCapacity,
+      })
+      .from(ships)
+      .innerJoin(shipTypes, eq(shipTypes.id, ships.typeId))
+      .where(and(eq(ships.ownerId, userId), inArray(ships.id, [targetShipId, sourceShipId])))
+      .orderBy(ships.id)
+      .for('update');
+
+    const targetShipRow = lockedRows.find((ship) => ship.id === targetShipId);
+    const sourceShipRow = lockedRows.find((ship) => ship.id === sourceShipId);
+
+    if (!targetShipRow) {
+      return refuelFailure(404, { code: 'refuel_target_not_found' });
+    }
+
+    if (!sourceShipRow) {
+      return refuelFailure(404, { code: 'refuel_source_not_found' });
+    }
+
+    if (sourceShipRow.typeId !== 'refueler') {
+      return refuelFailure(400, { code: 'refuel_source_not_refueler' });
+    }
+
+    if (targetShipRow.status !== 'idle' || sourceShipRow.status !== 'idle') {
+      return refuelFailure(400, { code: 'refuel_ship_not_idle' });
+    }
+
+    if (
+      targetShipRow.locationPlanetId !== sourceShipRow.locationPlanetId ||
+      !targetShipRow.locationPlanetId
+    ) {
+      return refuelFailure(400, { code: 'refuel_not_same_planet' });
+    }
+
+    const sourceShipCurrentFuel = Number(sourceShipRow.fuel);
+    const sourceShipCurrentJumpFuel = Number(sourceShipRow.jumpFuel);
+    const targetShipCurrentFuel = Number(targetShipRow.fuel);
+    const targetShipCurrentJumpFuel = Number(targetShipRow.jumpFuel);
+
+    if (fuel > 0) {
+      if (fuel > sourceShipCurrentFuel) {
+        return refuelFailure(400, {
+          code: 'refuel_source_insufficient',
+          fuelType: 'fuel',
+          available: sourceShipCurrentFuel,
+          requested: fuel,
+        });
+      }
+      if (targetShipCurrentFuel + fuel > targetShipRow.fuelCapacity) {
+        return refuelFailure(400, {
+          code: 'refuel_exceeds_tank',
+          fuelType: 'fuel',
+          capacity: targetShipRow.fuelCapacity,
+          current: targetShipCurrentFuel,
+          requested: fuel,
+        });
+      }
+    }
+
+    if (jumpFuel > 0) {
+      if (jumpFuel > sourceShipCurrentJumpFuel) {
+        return refuelFailure(400, {
+          code: 'refuel_source_insufficient',
+          fuelType: 'jump_fuel',
+          available: sourceShipCurrentJumpFuel,
+          requested: jumpFuel,
+        });
+      }
+      if (targetShipCurrentJumpFuel + jumpFuel > targetShipRow.jumpFuelCapacity) {
+        return refuelFailure(400, {
+          code: 'refuel_exceeds_tank',
+          fuelType: 'jump_fuel',
+          capacity: targetShipRow.jumpFuelCapacity,
+          current: targetShipCurrentJumpFuel,
+          requested: jumpFuel,
+        });
+      }
+    }
+
+    const targetFuelAfter = targetShipCurrentFuel + fuel;
+    const targetJumpFuelAfter = targetShipCurrentJumpFuel + jumpFuel;
+    const sourceFuelAfter = sourceShipCurrentFuel - fuel;
+    const sourceJumpFuelAfter = sourceShipCurrentJumpFuel - jumpFuel;
+
     const [updatedTarget] = await tx
       .update(ships)
       .set({
-        fuel: sql`${ships.fuel} + ${fuel}`,
-        jumpFuel: sql`${ships.jumpFuel} + ${jumpFuel}`,
+        fuel: targetFuelAfter.toFixed(2),
+        jumpFuel: targetJumpFuelAfter.toFixed(2),
       })
       .where(eq(ships.id, targetShipId))
       .returning();
@@ -135,8 +157,8 @@ export async function refuelShip(
     const [updatedSource] = await tx
       .update(ships)
       .set({
-        fuel: sql`${ships.fuel} - ${fuel}`,
-        jumpFuel: sql`${ships.jumpFuel} - ${jumpFuel}`,
+        fuel: sourceFuelAfter.toFixed(2),
+        jumpFuel: sourceJumpFuelAfter.toFixed(2),
       })
       .where(eq(ships.id, sourceShipId))
       .returning();

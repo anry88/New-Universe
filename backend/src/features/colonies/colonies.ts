@@ -4,9 +4,12 @@ import { planets, systems } from '../../db/schema/world.js';
 import { discoveredPlanets } from '../../db/schema/discovery.js';
 import { buildings } from '../../db/schema/buildings.js';
 import { researchProgress } from '../../db/schema/research.js';
-import { eq, and, count, isNull, sql } from 'drizzle-orm';
+import { eq, and, isNull, sql } from 'drizzle-orm';
 import { maxColoniesForLogisticsLevel } from '../../config/colonization-rules.js';
-import type { ColonizationBlockCode } from './colonization-rules.js';
+import {
+  loadExpansionColonies,
+  type ColonizationBlockCode,
+} from './colonization-rules.js';
 
 export class ColonyService {
   /**
@@ -127,12 +130,7 @@ export class ColonyService {
     }
 
     // 5. Check user limits
-    const [result] = await db
-      .select({ value: count() })
-      .from(colonies)
-      .where(eq(colonies.ownerId, userId));
-    
-    const colonyCount = Number(result?.value ?? 0);
+    const colonyCount = (await loadExpansionColonies(userId)).length;
     const researchRows = await db.query.researchProgress.findMany({
       where: eq(researchProgress.userId, userId),
     });

@@ -406,6 +406,7 @@
   "refuel_dialog_jump_fuel_label": "Прыжковое топливо",
   "refuel_dialog_transfer_button": "Передать топливо",
   "refuel_success": "Заправка завершена.",
+  "refuel.error.generic": "Дозаправка не удалась.",
   "expedition_dialog_load_fuel": "Загрузить доп. топливо",
   "expedition_dialog_load_jump_fuel": "Загрузить доп. прыжковое топливо",
   "expedition_dialog_tank_status": "Бак: {current} / {capacity}",

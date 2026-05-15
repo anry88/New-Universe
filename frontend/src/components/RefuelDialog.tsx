@@ -41,13 +41,19 @@ export function RefuelDialog({
   const targetShip = idleShipsOnSamePlanet.find((s) => s.id === targetShipId);
   const targetType = targetShip ? allShipTypes.find((st) => st.id === targetShip.typeId) : null;
 
-  const maxFuel = Math.min(
-    Number(sourceShip.fuel),
-    targetType ? targetType.fuelCapacity - Number(targetShip?.fuel ?? 0) : 0
+  const maxFuel = Math.max(
+    0,
+    Math.min(
+      Number(sourceShip.fuel),
+      targetType ? targetType.fuelCapacity - Number(targetShip?.fuel ?? 0) : 0,
+    ),
   );
-  const maxJumpFuel = Math.min(
-    Number(sourceShip.jumpFuel),
-    targetType ? targetType.jumpFuelCapacity - Number(targetShip?.jumpFuel ?? 0) : 0
+  const maxJumpFuel = Math.max(
+    0,
+    Math.min(
+      Number(sourceShip.jumpFuel),
+      targetType ? targetType.jumpFuelCapacity - Number(targetShip?.jumpFuel ?? 0) : 0,
+    ),
   );
 
   const [error, setError] = useState<string | null>(null);
@@ -64,7 +70,7 @@ export function RefuelDialog({
       });
       onClose();
     } catch (err: unknown) {
-      setError((err as Error).message || 'Refuel failed');
+      setError((err as Error).message || t('refuel.error.generic'));
     }
   };
 
@@ -134,7 +140,7 @@ export function RefuelDialog({
                         setJumpFuelAmount(0);
                       }}
                     >
-                      <ShipIconBadge typeId={s.id === s.id ? s.typeId : ''} status={s.status} size={24} />
+                      <ShipIconBadge typeId={s.typeId} status={s.status} size={24} />
                       <div className="target-name">
                         {st?.name[locale] ?? getShipLabel(s.typeId, locale)}
                       </div>

@@ -17,6 +17,9 @@ This directory contains end-to-end tests that validate full game loops.
   - Verifies Jump Drive unlock, random jump, known-destination repeat jump, Common Pool discovery, colonizer settlement, and Jump Gate cargo delivery.
   - Checks stale foreign Home System rows are filtered from Jump Gate known destinations, sector anchors, and sector presence payloads.
   - Re-runs worker/online-sync paths to assert discovery, colony, command center, and cargo delivery side effects are idempotent.
+- **`combat-regression.test.ts`** — implements the Phase 3 combat roll-up scenario ([`docs/testing/combat-regression.md`](../../../docs/testing/combat-regression.md), task P3-COM-012).
+  - Verifies Military Shipyard construction, light combat ship production, fuel loading, ship combat, bombing, Command Center wipe, and colonization re-check.
+  - Pairs with `backend/src/features/ships/refuel.test.ts` for the focused refuel transfer and concurrency evidence.
 - **`phase2-regression.test.ts`** — Phase 2 gate ([`docs/testing/phase2-regression.md`](../../../docs/testing/phase2-regression.md), task P2-POL-003).
   - One player journey: mining research completion → first extra colony → `cargo_light` transfer.
   - Assert messages use `[Research]` / `[Colonization]` / `[Cargo]` prefixes for failure triage.

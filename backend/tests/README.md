@@ -4,7 +4,7 @@ This directory contains integration and end-to-end tests for the backend.
 
 ## Layout
 
-- [`e2e/`](e2e/README.md) — end-to-end tests that simulate full player journeys using mocked Telegram authentication.
+- [`e2e/`](e2e/README.md) — end-to-end tests that simulate full player journeys using mocked Telegram authentication, including the documented Phase 2, Jump Gate, and Phase 3 combat regression gates.
 - [`security/`](security/README.md) — security regression tests that exercise database-backed abuse cases such as economy duplication, worker idempotency, and cargo settlement races.
 
 ## Adding a new test
