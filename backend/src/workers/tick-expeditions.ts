@@ -18,6 +18,7 @@ import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { logger } from "../lib/logger.js";
 import { checkVisibility } from "../features/world/visibility.js";
 import { completeCargoTransfer } from "../features/logistics/cargo-transfer.js";
+import { isOneWayShipRole } from "@shared/config/expeditionRouting.js";
 import {
   createIntervalWorker,
   removeLegacyRepeatableJobs,
@@ -366,6 +367,54 @@ async function handleArrivalAtTarget(
         // in processExpeditions already checks the segment to routeEnd.
         // If it arrived exactly, it will catch it there.
       }
+    }
+  }
+
+  // Combat / support / shield / missile fleets deploy one-way to the target
+  // planet: dock there, complete the expedition, and notify the owner. The
+  // ship is then free to engage from the destination instead of being yanked
+  // back home like a scout.
+  if (expedition.targetPlanetId) {
+    const [shipRow] = await tx
+      .select({ id: ships.id, ownerId: ships.ownerId, role: shipTypes.role })
+      .from(ships)
+      .innerJoin(shipTypes, eq(shipTypes.id, ships.typeId))
+      .where(eq(ships.id, expedition.shipId))
+      .limit(1);
+
+    if (shipRow && isOneWayShipRole(shipRow.role)) {
+      await tx
+        .update(ships)
+        .set({
+          status: "idle",
+          locationPlanetId: expedition.targetPlanetId,
+          cargoJson: {},
+        })
+        .where(eq(ships.id, expedition.shipId));
+      await tx.delete(expeditions).where(eq(expeditions.id, expedition.id));
+
+      if (!options.skipNotifications) {
+        await tx.insert(notifications).values({
+          userId: shipRow.ownerId,
+          type: "expedition_arrived",
+          payload: {
+            expeditionId: expedition.id,
+            shipId: shipRow.id,
+            planetId: expedition.targetPlanetId,
+          },
+        });
+      }
+
+      logger.info(
+        {
+          expeditionId: expedition.id,
+          shipId: expedition.shipId,
+          planetId: expedition.targetPlanetId,
+          role: shipRow.role,
+        },
+        "One-way expedition reached target; ship deployed at destination",
+      );
+      return;
     }
   }
 

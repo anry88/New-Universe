@@ -3,6 +3,7 @@ import {
   calculateExpeditionEtaSeconds,
   calculateExpeditionRequiredFuel,
   calculateSectorRouteDistance,
+  isOneWayExpedition,
   JUMP_GATE_JUMP_FUEL_COST,
 } from "@shared/config/expeditionRouting";
 
@@ -14,6 +15,8 @@ export interface ExpeditionPreviewInput {
   jumpGateRouteDistance?: number | null;
   hasTargetPlanet: boolean;
   isColonizer: boolean;
+  /** Role of the launching ship type — drives one-way deployment for combat/support hulls. */
+  shipRole?: string | null;
   fuelConsumption: number;
   speed: number;
 }
@@ -41,7 +44,11 @@ export function buildExpeditionPreview(
     input.routeMode === "jump_gate" || input.hasTargetPlanet
       ? Math.max(1, requestedDistance)
       : requestedDistance;
-  const returnTrip = !(input.isColonizer && input.hasTargetPlanet);
+  const returnTrip = !isOneWayExpedition({
+    shipRole: input.shipRole,
+    isColonizer: input.isColonizer,
+    hasTargetPlanet: input.hasTargetPlanet,
+  });
 
   return {
     distance,

@@ -6,7 +6,7 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
 
 - `lib/` — shared infrastructure (API client, store, Sentry init, helpers).
   - **`api.ts`** — `apiFetch` wrapper for authenticated JSON calls; sends `Accept-Language` from the persisted UI locale.
-  - **`expedition-routing.ts`** — `buildExpeditionPreview()` wraps shared expedition route math for local and Jump Gate mission previews, including one-way colonizer fuel, ETA, stored Jump Fuel requirements, and caller-supplied gate-leg route distance when the UI is plotting Home Gate -> destination Gate -> selected target point.
+  - **`expedition-routing.ts`** — `buildExpeditionPreview()` wraps shared expedition route math for local and Jump Gate mission previews, including one-way colonizer fuel, one-way deployment fuel for combat/support/shield/missile hulls (`shipRole` input feeds `isOneWayExpedition`), ETA, stored Jump Fuel requirements, and caller-supplied gate-leg route distance when the UI is plotting Home Gate -> destination Gate -> selected target point.
   - **`expedition-routing.test.ts`** — unit coverage that keeps frontend Jump Gate scout/colonizer preview math aligned with backend launch results.
   - **`i18n.tsx`** — React i18n provider/hook. Exports `I18nProvider`, `useI18n`, and `translate`; loads `locales/en.json` + `locales/ru.json`, persists locale changes, and performs simple `{param}` interpolation.
   - **`locale.ts`** — locale persistence/resolution helpers (`readStoredLocale`, `persistUiLocale`, `getUiLocale`, `normalizeUiLocale`) backed by `@shared/types/locale`.

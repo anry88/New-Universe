@@ -908,6 +908,48 @@ describe("Expeditions - POST /expeditions", () => {
     expect(body.error).toContain("Космопорт");
   });
 
+  it("launches combat ships one-way when targeting a planet", async () => {
+    const { app, token, userId } = await createTestUser();
+    const { system, planet } = await getHomeContext(userId);
+    const targetPlanet = await db.query.planets.findFirst({
+      where: eq(planets.systemId, system.id),
+      orderBy: (p, { desc }) => desc(p.name),
+    });
+    expect(targetPlanet).toBeDefined();
+
+    await ensureSpaceport(targetPlanet!.id, 1);
+    await ensureFuel(planet.id, 200);
+    const ship = await createIdleFighter(userId, planet.id);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/expeditions",
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        shipId: ship.id,
+        targetX: system.sectorX,
+        targetY: system.sectorY,
+        targetZ: system.sectorZ,
+        targetPlanetId: targetPlanet!.id,
+        cargoLoaded: 0,
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.expedition.result.returnTrip).toBe(false);
+    // Fighter has fuelConsumption 0.30 in this test setup; one-way fuel for
+    // the same-system distance must be < the previous round-trip cost.
+    expect(body.expedition.result.fuelRequired).toBeLessThan(
+      Math.ceil(body.expedition.result.distance * 2 * 0.3) + 1,
+    );
+    // Origin landing slot is not reserved for the (non-existent) return leg.
+    expect(body.expedition.result.spaceportReservation.originPlanetId).toBeUndefined();
+    expect(body.expedition.result.spaceportReservation.targetPlanetId).toBe(
+      targetPlanet!.id,
+    );
+  });
+
   it("reserves target spaceport slots across parallel launches", async () => {
     const { app, token, userId } = await createTestUser();
     const { system, planet } = await getHomeContext(userId);

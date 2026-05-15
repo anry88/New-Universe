@@ -417,9 +417,17 @@ const ShipMarkers = React.memo(function ShipMarkers({
   return (
     <>
       {ships.map((ship, shipIdx) => {
-        if (!["idle", "moving"].includes(ship.status) || !ship.locationPlanetId)
-          return null;
-        const layout = layoutByPlanetId.get(ship.locationPlanetId);
+        if (!["idle", "moving"].includes(ship.status)) return null;
+
+        // For moving ships the location_planet_id is cleared at launch — fall
+        // back to the active expedition's origin so the marker still renders
+        // along its route instead of vanishing from the map.
+        const movingExpedition =
+          ship.status === "moving" ? expeditionByShipId.get(ship.id) : undefined;
+        const anchorPlanetId =
+          ship.locationPlanetId ?? movingExpedition?.originPlanetId ?? null;
+        if (!anchorPlanetId) return null;
+        const layout = layoutByPlanetId.get(anchorPlanetId);
         if (!layout) return null;
 
         let sx,
@@ -429,7 +437,7 @@ const ShipMarkers = React.memo(function ShipMarkers({
         let isReturning = false;
 
         if (ship.status === "moving") {
-          const exp = expeditionByShipId.get(ship.id);
+          const exp = movingExpedition;
           if (exp && exp.result && typeof exp.result === "object") {
             const res = exp.result as Record<string, number>;
             if (res.distance !== undefined && res.speed) {

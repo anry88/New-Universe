@@ -40,6 +40,70 @@ describe("expedition route preview", () => {
     expect(preview.returnTrip).toBe(false);
   });
 
+  it("deploys combat ships one-way when targeting a planet", () => {
+    const preview = buildExpeditionPreview({
+      routeMode: "local",
+      originSector: { x: 0, y: 0 },
+      targetSector: { x: 3, y: 4 },
+      hasTargetPlanet: true,
+      isColonizer: false,
+      shipRole: "combat",
+      fuelConsumption: 0.5,
+      speed: 2,
+    });
+
+    expect(preview.returnTrip).toBe(false);
+    // distance = 5, one-way fuel = ceil(5 * 0.5) = 3 (vs 5 round-trip)
+    expect(preview.fuelRequired).toBe(3);
+  });
+
+  it("deploys the refueler one-way when sent to a target planet", () => {
+    const preview = buildExpeditionPreview({
+      routeMode: "local",
+      originSector: { x: 0, y: 0 },
+      targetSector: { x: 3, y: 4 },
+      hasTargetPlanet: true,
+      isColonizer: false,
+      shipRole: "support",
+      fuelConsumption: 1.0,
+      speed: 1,
+    });
+
+    expect(preview.returnTrip).toBe(false);
+    expect(preview.fuelRequired).toBe(5);
+  });
+
+  it("keeps combat ships round-trip when launched at a bare sector point", () => {
+    const preview = buildExpeditionPreview({
+      routeMode: "local",
+      originSector: { x: 0, y: 0 },
+      targetSector: { x: 3, y: 4 },
+      hasTargetPlanet: false,
+      isColonizer: false,
+      shipRole: "combat",
+      fuelConsumption: 0.5,
+      speed: 2,
+    });
+
+    expect(preview.returnTrip).toBe(true);
+    expect(preview.fuelRequired).toBe(5);
+  });
+
+  it("keeps scouts round-trip even when targeting a planet", () => {
+    const preview = buildExpeditionPreview({
+      routeMode: "local",
+      originSector: { x: 0, y: 0 },
+      targetSector: { x: 3, y: 4 },
+      hasTargetPlanet: true,
+      isColonizer: false,
+      shipRole: "recon",
+      fuelConsumption: 0.3,
+      speed: 2,
+    });
+
+    expect(preview.returnTrip).toBe(true);
+  });
+
   it("formats launch blockers with localized ship and resource names", () => {
     const logistics = formatLaunchExpeditionErrorMessage({
       code: "expedition_logistics_route_required",

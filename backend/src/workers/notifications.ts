@@ -20,6 +20,8 @@ function formatNotificationMessage(type: string, payload: any): string | null {
       return `🚀 <b>Ship Construction Complete!</b>\n\nYour ${payload.typeId} is ready for launch.`;
     case 'expedition_returned':
       return `🛰️ <b>Expedition Returned!</b>\n\nYour ship has returned from mission.`;
+    case 'expedition_arrived':
+      return `🛰️ <b>Mission Deployed!</b>\n\nYour ship has reached its destination and is now stationed there.`;
     case 'research_done':
       return `🧬 <b>Research Complete!</b>\n\nBranch <b>${payload.branch ?? '?'}</b> is now at level <b>${payload.level ?? '?'}</b>.`;
     default:

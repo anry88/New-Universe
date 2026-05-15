@@ -10,6 +10,7 @@ import {
   calculateExpeditionEtaSeconds,
   calculateExpeditionRequiredFuel,
   calculateSectorRouteDistance,
+  isOneWayExpedition,
   JUMP_FUEL_RESOURCE_ID,
   JUMP_GATE_JUMP_FUEL_COST,
 } from "@shared/config/expeditionRouting.js";
@@ -431,9 +432,12 @@ export async function launchExpedition(
     resolvedTargetPlanetId || routeMode === "jump_gate"
       ? Math.max(1, distance)
       : distance;
-  const isOneWayColonization =
-    shipRow.shipRole === "colonization" && resolvedTargetPlanetId !== null;
-  const returnTrip = !isOneWayColonization;
+  const isOneWayMission = isOneWayExpedition({
+    shipRole: shipRow.shipRole,
+    isColonizer: shipRow.shipRole === "colonization",
+    hasTargetPlanet: resolvedTargetPlanetId !== null,
+  });
+  const returnTrip = !isOneWayMission;
   const spaceportReservation = buildExpeditionSpaceportReservation({
     originPlanetId: shipRow.originPlanetId,
     targetPlanetId: resolvedTargetPlanetId,
