@@ -15,6 +15,9 @@ function ship(overrides: Partial<Ship>): Ship {
     status: 'idle',
     cargoJson: {},
     fuel: '0',
+    hp: 1,
+    maxHp: 1,
+    combatStats: { targetClass: 'military_light' },
     ...overrides,
   };
 }

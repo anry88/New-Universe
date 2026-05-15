@@ -47,6 +47,9 @@ export function useBuildShip() {
         queueStartedAt: startedAt,
         cargoJson: {},
         fuel: '0',
+        hp: 1,
+        maxHp: 1,
+        combatStats: { targetClass: 'military_light' },
       };
       const optimisticQueueItem: ShipQueueItem = {
         id: tempId,

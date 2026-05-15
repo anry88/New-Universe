@@ -81,6 +81,9 @@ export const RESOURCE_CATALOG_ROWS: ResourceCatalogRow[] = [
   { id: 'antimatter', symbol: 'Am', tier: 4, name: { ru: 'Антиматерия', en: 'Antimatter' }, baseRegenRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.antimatter, defaultStorageCap: 100 },
   { id: 'iridium', symbol: 'Ir', tier: 4, name: { ru: 'Иридий', en: 'Iridium' }, baseRegenRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.iridium, defaultStorageCap: 100 },
   { id: 'biomass', symbol: 'Bio', tier: 4, name: { ru: 'Биомасса', en: 'Biomass' }, baseRegenRate: EXTRACTABLE_RESOURCE_RATES_PER_HOUR.biomass, defaultStorageCap: 1000 },
+  { id: 'liquid_nitrogen', symbol: 'LN₂', tier: 3, name: { ru: 'Жидкий азот', en: 'Liquid Nitrogen' }, baseRegenRate: 0, defaultStorageCap: 1000 },
+  { id: 'military_alloy', symbol: 'MA', tier: 3, name: { ru: 'Военный сплав', en: 'Military Alloy' }, baseRegenRate: 0, defaultStorageCap: 1000 },
+  { id: 'military_composite', symbol: 'MC', tier: 3, name: { ru: 'Военный композит', en: 'Military Composite' }, baseRegenRate: 0, defaultStorageCap: 1000 },
 ];
 
 /**
