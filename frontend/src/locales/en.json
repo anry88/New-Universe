@@ -189,6 +189,7 @@
   "map.sectorLocked": "Open an additional system with a Recon Probe first.",
   "map.systemSelector.tag": "Opened systems",
   "map.systemSelector.title": "Select current system",
+  "map.systemSelector.home": "Home system",
   "map.noPlanets": "No planets in this system",
   "map.resetZoom": "Reset · {scale}x",
   "map.selected": "Selected",

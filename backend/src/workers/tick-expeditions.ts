@@ -33,6 +33,7 @@ import {
 } from "@shared/format/systemMapLayout.js";
 
 const POLL_INTERVAL_MS = 30000;
+const SYSTEM_MAP_SENSOR_RANGE_SCALE = 0.25;
 
 /**
  * Calculates current position of a ship in an expedition using linear interpolation.
@@ -117,6 +118,10 @@ function calculateExpeditionProgress(
   return Math.max(0, Math.min(1, (now.getTime() - startTimeMs) / durationMs));
 }
 
+function systemMapShipSensorRadius(ship: { sensorRange: number }): number {
+  return Math.max(0, Number(ship.sensorRange ?? 0)) * SYSTEM_MAP_SENSOR_RANGE_SCALE;
+}
+
 async function discoverHomePlanetsAlongRoute(
   expedition: typeof expeditions.$inferSelect,
   originSystem: {
@@ -127,7 +132,7 @@ async function discoverHomePlanetsAlongRoute(
     sectorX: number;
     sectorY: number;
   },
-  ship: { id: string; ownerId: string; role: string },
+  ship: { id: string; ownerId: string; role: string; sensorRange: number },
   now: Date,
   tx: any,
 ) {
@@ -200,7 +205,7 @@ async function discoverHomePlanetsAlongRoute(
     .filter(
       (layout) =>
         distancePointToSegment(layout, segmentStart, segmentEnd) <=
-        systemMapPlanetDiscoveryRadius(layout),
+        systemMapPlanetDiscoveryRadius(layout) + systemMapShipSensorRadius(ship),
     );
 
   if (newlyVisiblePlanets.length === 0) return [];
@@ -224,7 +229,7 @@ async function discoverHomePlanetsAlongRoute(
 
 async function discoverJumpGateDestinationPlanetsAlongRoute(
   expedition: typeof expeditions.$inferSelect,
-  ship: { id: string; ownerId: string; role: string },
+  ship: { id: string; ownerId: string; role: string; sensorRange: number },
   now: Date,
   tx: any,
 ) {
@@ -304,7 +309,7 @@ async function discoverJumpGateDestinationPlanetsAlongRoute(
     .filter(
       (layout) =>
         distancePointToSegment(layout, routeStart, visibleSegmentEnd) <=
-        systemMapPlanetDiscoveryRadius(layout),
+        systemMapPlanetDiscoveryRadius(layout) + systemMapShipSensorRadius(ship),
     );
   if (newlyVisiblePlanets.length === 0) return [];
 
@@ -610,6 +615,7 @@ export async function processExpeditions(
       shipId: ships.id,
       shipOwnerId: ships.ownerId,
       shipRole: shipTypes.role,
+      shipSensorRange: shipTypes.sensorRange,
       originSectorX: systems.sectorX,
       originSectorY: systems.sectorY,
       originSectorZ: systems.sectorZ,
@@ -633,6 +639,7 @@ export async function processExpeditions(
       shipId,
       shipOwnerId,
       shipRole,
+      shipSensorRange,
       originSectorX,
       originSectorY,
       originSectorZ,
@@ -665,13 +672,13 @@ export async function processExpeditions(
           sectorX: originSectorX,
           sectorY: originSectorY,
         },
-        { id: shipId, ownerId: shipOwnerId, role: shipRole },
+        { id: shipId, ownerId: shipOwnerId, role: shipRole, sensorRange: shipSensorRange },
         now,
         tx,
       );
       const jumpGateDiscoveries = await discoverJumpGateDestinationPlanetsAlongRoute(
         expedition,
-        { id: shipId, ownerId: shipOwnerId, role: shipRole },
+        { id: shipId, ownerId: shipOwnerId, role: shipRole, sensorRange: shipSensorRange },
         now,
         tx,
       );

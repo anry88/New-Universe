@@ -6,9 +6,14 @@ import {
   JUMP_FUEL_RESOURCE_ID,
   JUMP_GATE_JUMP_FUEL_COST,
 } from '@shared/config/expeditionRouting.js';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import {
+  formatCommonSystemDisplayName,
+  homeSystemShortTag,
+} from '@shared/format/homeSystemNaming.js';
+import { and, eq, isNull, ne, sql } from 'drizzle-orm';
 import { db as defaultDb } from '../../db/index.js';
 import {
+  colonies,
   discoveredSystems,
   jumpGates,
   planets,
@@ -147,9 +152,11 @@ function sortSystemsForJump(
 }
 
 function summarizeTargetSystem(system: typeof systems.$inferSelect) {
+  const shortTag = homeSystemShortTag(system.id);
   return {
     id: system.id,
-    name: system.name,
+    name: formatCommonSystemDisplayName('en', shortTag),
+    shortTag,
     sector: {
       x: system.sectorX,
       y: system.sectorY,
@@ -163,9 +170,11 @@ function serializeDestination(
   planetCount: number,
   row: typeof discoveredSystems.$inferSelect,
 ): JumpGateKnownDestinationSummary {
+  const shortTag = homeSystemShortTag(system.id);
   return {
     systemId: system.id,
-    systemName: system.name,
+    systemName: formatCommonSystemDisplayName('en', shortTag),
+    shortTag,
     sector: {
       x: system.sectorX,
       y: system.sectorY,
@@ -247,6 +256,68 @@ async function loadShipContext(
   return { shipRow, originSystem: originPlanet.system };
 }
 
+async function hasKnownPublicDestinations(
+  userId: string,
+  database: typeof defaultDb,
+): Promise<boolean> {
+  const [row] = await database
+    .select({ count: sql<number>`count(*)::int` })
+    .from(discoveredSystems)
+    .innerJoin(systems, eq(discoveredSystems.systemId, systems.id))
+    .where(and(
+      eq(discoveredSystems.userId, userId),
+      eq(systems.isHome, false),
+      isNull(systems.ownerId),
+    ));
+
+  return Number(row?.count ?? 0) > 0;
+}
+
+async function hasForeignPresenceInSystem(
+  userId: string,
+  systemId: string,
+  database: typeof defaultDb,
+): Promise<boolean> {
+  const [foreignColony] = await database
+    .select({ id: colonies.id })
+    .from(colonies)
+    .innerJoin(planets, eq(colonies.planetId, planets.id))
+    .where(and(
+      eq(planets.systemId, systemId),
+      ne(colonies.ownerId, userId),
+    ))
+    .limit(1);
+
+  if (foreignColony) return true;
+
+  const [foreignShip] = await database
+    .select({ id: ships.id })
+    .from(ships)
+    .innerJoin(planets, eq(ships.locationPlanetId, planets.id))
+    .where(and(
+      eq(planets.systemId, systemId),
+      ne(ships.ownerId, userId),
+    ))
+    .limit(1);
+
+  return Boolean(foreignShip);
+}
+
+async function isAlreadyKnownDestination(
+  userId: string,
+  systemId: string,
+  database: typeof defaultDb,
+): Promise<boolean> {
+  const row = await database.query.discoveredSystems.findFirst({
+    where: and(
+      eq(discoveredSystems.userId, userId),
+      eq(discoveredSystems.systemId, systemId),
+    ),
+  });
+
+  return Boolean(row);
+}
+
 async function resolveRandomTargetSystem(
   userId: string,
   shipId: string,
@@ -254,6 +325,7 @@ async function resolveRandomTargetSystem(
   now: Date,
   database: typeof defaultDb,
   selectRandomSector: NonNullable<JumpShipOptions['selectRandomSector']>,
+  requireNoForeignPresence: boolean,
 ) {
   const context: RandomJumpSectorContext = {
     userId,
@@ -271,13 +343,22 @@ async function resolveRandomTargetSystem(
       database,
     );
     const sectorSystems = await generateSystemsInSector(sector, undefined, database);
-    const [targetSystem] = sortSystemsForJump(
+    const candidateSystems = sortSystemsForJump(
       sectorSystems,
       `${userId}:${shipId}:${now.toISOString()}:${attempt}`,
     );
 
-    if (targetSystem) {
-      return targetSystem;
+    for (const candidateSystem of candidateSystems) {
+      if (await isAlreadyKnownDestination(userId, candidateSystem.id, database)) {
+        continue;
+      }
+      if (
+        requireNoForeignPresence &&
+        await hasForeignPresenceInSystem(userId, candidateSystem.id, database)
+      ) {
+        continue;
+      }
+      return candidateSystem;
     }
   }
 
@@ -538,6 +619,8 @@ export async function jumpShip(
       };
     }
 
+    const firstPublicDiscovery = !(await hasKnownPublicDestinations(userId, database));
+
     targetSystem = await resolveRandomTargetSystem(
       userId,
       req.shipId,
@@ -545,6 +628,7 @@ export async function jumpShip(
       now,
       database,
       options.selectRandomSector ?? defaultRandomSector,
+      firstPublicDiscovery,
     );
 
     if (!targetSystem) {

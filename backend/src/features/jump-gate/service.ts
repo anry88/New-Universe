@@ -1,5 +1,9 @@
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { systemMapOrbitRadiusForSlot } from '@shared/format/systemMapLayout.js';
+import {
+  formatCommonSystemDisplayName,
+  homeSystemShortTag,
+} from '@shared/format/homeSystemNaming.js';
 import type {
   JumpGateAnchor,
   JumpGateCalibrationState,
@@ -17,6 +21,9 @@ import {
   discoveredSystems,
   jumpGates,
   planets,
+  planetResources,
+  resources as resourceDefinitions,
+  richness,
   systems,
 } from '../../db/schema.js';
 import { loadUserResearchLevels, meetsResearchRequirement } from '../research/gates.js';
@@ -221,7 +228,8 @@ async function loadKnownDestinations(
 
   return rows.map((row) => ({
     systemId: row.systemId,
-    systemName: row.systemName,
+    systemName: formatCommonSystemDisplayName('en', homeSystemShortTag(row.systemId)),
+    shortTag: homeSystemShortTag(row.systemId),
     sector: {
       x: row.sectorX,
       y: row.sectorY,
@@ -250,6 +258,7 @@ async function loadKnownDestinationPlanets(
       name: planets.name,
       biome: planets.biome,
       size: planets.size,
+      slotCount: planets.slotCount,
     })
     .from(planets)
     .where(inArray(planets.systemId, systemIds))
@@ -258,7 +267,7 @@ async function loadKnownDestinationPlanets(
   const planetIds = planetRows.map((planet) => planet.id);
   if (planetIds.length === 0) return new Map();
 
-  const [discoveryRows, colonyRows] = await Promise.all([
+  const [discoveryRows, colonyRows, resourceRows, richnessRows] = await Promise.all([
     database
       .select({ planetId: discoveredPlanets.planetId })
       .from(discoveredPlanets)
@@ -275,12 +284,52 @@ async function loadKnownDestinationPlanets(
       })
       .from(colonies)
       .where(inArray(colonies.planetId, planetIds)),
+    database
+      .select({
+        planetId: planetResources.planetId,
+        resourceId: planetResources.resourceId,
+        amount: planetResources.amount,
+        regenRate: planetResources.regenRate,
+        lastUpdateAt: planetResources.lastUpdateAt,
+        storageCap: resourceDefinitions.defaultStorageCap,
+      })
+      .from(planetResources)
+      .innerJoin(resourceDefinitions, eq(resourceDefinitions.id, planetResources.resourceId))
+      .where(inArray(planetResources.planetId, planetIds)),
+    database
+      .select({
+        planetId: richness.planetId,
+        resourceId: richness.resourceId,
+        value: richness.value,
+      })
+      .from(richness)
+      .where(inArray(richness.planetId, planetIds)),
   ]);
 
   const discoveredPlanetIds = new Set(discoveryRows.map((row) => row.planetId));
   const colonyByPlanetId = new Map(
     colonyRows.map((row) => [row.planetId, row.ownerId]),
   );
+  const richnessByPlanetResource = new Map(
+    richnessRows.map((row) => [`${row.planetId}:${row.resourceId}`, row.value]),
+  );
+  const resourcesByPlanetId = new Map<
+    string,
+    NonNullable<JumpGateDestinationPlanetSummary['resources']>
+  >();
+  for (const row of resourceRows) {
+    const planetRows = resourcesByPlanetId.get(row.planetId) ?? [];
+    planetRows.push({
+      planetId: row.planetId,
+      resourceId: row.resourceId,
+      amount: row.amount.toString(),
+      lastUpdateAt: row.lastUpdateAt.toISOString(),
+      regenRate: row.regenRate.toString(),
+      richness: richnessByPlanetResource.get(`${row.planetId}:${row.resourceId}`) ?? 0,
+      storageCap: row.storageCap.toString(),
+    });
+    resourcesByPlanetId.set(row.planetId, planetRows);
+  }
   const orbitIndexBySystemId = new Map<string, number>();
   const summaries = new Map<string, JumpGateDestinationPlanetSummary[]>();
 
@@ -298,6 +347,8 @@ async function loadKnownDestinationPlanets(
       name: isDiscovered ? planet.name : null,
       biome: isDiscovered ? planet.biome : null,
       size: isDiscovered ? planet.size : null,
+      slotCount: isDiscovered ? planet.slotCount : null,
+      resources: isDiscovered ? (resourcesByPlanetId.get(planet.id) ?? []) : undefined,
       isDiscovered,
       isColonized: Boolean(colonyOwnerId),
       isOwnedColony: colonyOwnerId === userId,

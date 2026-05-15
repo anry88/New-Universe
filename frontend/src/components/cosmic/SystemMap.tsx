@@ -480,10 +480,10 @@ const ShipMarkers = React.memo(function ShipMarkers({
         }
 
         if (!isMoving) {
-          const r = layout.orbitRadius + layout.spriteSize / 2 + 14;
-          const a = layout.angle + 0.18 + shipIdx * 0.06;
-          sx = Math.cos(a) * r;
-          sy = Math.sin(a) * r;
+          const dockRadius = Math.min(14, Math.max(5, layout.spriteSize * 0.24));
+          const a = layout.angle + 0.18 + shipIdx * 0.74;
+          sx = layout.x + Math.cos(a) * dockRadius;
+          sy = layout.y + Math.sin(a) * dockRadius;
           angle = a + Math.PI / 2;
         }
 

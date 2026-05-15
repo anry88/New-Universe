@@ -189,6 +189,7 @@
   "map.sectorLocked": "Сначала откройте дополнительную систему разведывательным зондом.",
   "map.systemSelector.tag": "Открытые системы",
   "map.systemSelector.title": "Выбор текущей системы",
+  "map.systemSelector.home": "Домашняя система",
   "map.noPlanets": "В этой системе нет планет",
   "map.resetZoom": "Сброс · {scale}x",
   "map.selected": "Выбрано",

@@ -18,6 +18,11 @@ import {
   users,
 } from '../../db/schema.js';
 import { getJumpGateState } from './service.js';
+import { seedResources } from '../../db/seed/resources.js';
+import {
+  formatCommonSystemDisplayName,
+  homeSystemShortTag,
+} from '@shared/format/homeSystemNaming.js';
 
 async function createUserWithHomeSystem(suffix: string) {
   const [user] = await db.insert(users).values({
@@ -57,6 +62,7 @@ describe('getJumpGateState', () => {
     await db.delete(planets);
     await db.delete(systems);
     await db.delete(users);
+    await seedResources();
   });
 
   it('returns locked state and a home anchor before completed Jump Drive research', async () => {
@@ -189,11 +195,100 @@ describe('getJumpGateState', () => {
     const state = await getJumpGateState(user.id);
 
     expect(state.knownDestinations).toHaveLength(1);
+    const publicShortTag = homeSystemShortTag(publicSystem.id);
     expect(state.knownDestinations[0]).toMatchObject({
       systemId: publicSystem.id,
-      systemName: 'Known Public System',
+      systemName: formatCommonSystemDisplayName('en', publicShortTag),
+      shortTag: publicShortTag,
       planetCount: 2,
     });
+  });
+
+  it('returns resources for discovered public destination planets only', async () => {
+    const { user, homeSystem } = await createUserWithHomeSystem('resources');
+
+    await db.insert(researchProgress).values({
+      userId: user.id,
+      branch: 'jump_drive',
+      level: 1,
+    });
+
+    const [publicSystem] = await db.insert(systems).values({
+      ownerId: null,
+      isHome: false,
+      sectorX: homeSystem.sectorX + 1,
+      sectorY: homeSystem.sectorY,
+      sectorZ: homeSystem.sectorZ,
+      x: '100.00',
+      y: '110.00',
+      z: '120.00',
+      name: 'Known Public System',
+      seed: 200,
+    }).returning();
+
+    const [discoveredPlanet, hiddenPlanet] = await db.insert(planets).values([
+      {
+        systemId: publicSystem.id,
+        biome: 'rocky',
+        size: 12,
+        slotCount: 8,
+        name: 'a111-1',
+      },
+      {
+        systemId: publicSystem.id,
+        biome: 'ice',
+        size: 14,
+        slotCount: 9,
+        name: 'a111-2',
+      },
+    ]).returning();
+
+    await db.insert(richness).values({
+      planetId: discoveredPlanet.id,
+      resourceId: 'iron',
+      value: 3,
+    });
+    await db.insert(planetResources).values({
+      planetId: discoveredPlanet.id,
+      resourceId: 'iron',
+      amount: '0',
+      regenRate: '0',
+    });
+    await db.insert(discoveredSystems).values({
+      userId: user.id,
+      systemId: publicSystem.id,
+    });
+    await db.insert(discoveredPlanets).values({
+      userId: user.id,
+      planetId: discoveredPlanet.id,
+    });
+
+    const state = await getJumpGateState(user.id);
+    const destination = state.knownDestinations[0]!;
+    expect(destination.planets).toHaveLength(2);
+
+    const visible = destination.planets.find((planet) => planet.id === discoveredPlanet.id)!;
+    expect(visible).toMatchObject({
+      name: 'a111-1',
+      biome: 'rocky',
+      slotCount: 8,
+      isDiscovered: true,
+      resources: [
+        expect.objectContaining({
+          resourceId: 'iron',
+          richness: 3,
+        }),
+      ],
+    });
+
+    const hidden = destination.planets.find((planet) => planet.id === hiddenPlanet.id)!;
+    expect(hidden).toMatchObject({
+      name: null,
+      biome: null,
+      slotCount: null,
+      isDiscovered: false,
+    });
+    expect(hidden.resources).toBeUndefined();
   });
 
   it('marks due calibration as ready in persisted state', async () => {

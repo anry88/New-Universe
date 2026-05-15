@@ -268,6 +268,84 @@ describe('Recon Probe Jump Gate Discovery', () => {
     expect(planetDiscoveries).toHaveLength(0);
   });
 
+  it("keeps the player's first random public system free of foreign colonies and ships", async () => {
+    const { user, ship } = await createSetup();
+    await unlockJumpDrive(user.id);
+
+    const [foreignUser] = await db.insert(users).values({
+      tgId: BigInt(Math.floor(Math.random() * 100000000)),
+      tgUsername: `foreign_${Date.now()}`,
+    }).returning();
+
+    const targetSector = { x: 21, y: 22, z: 23 };
+    const publicSystems = await db.insert(systems).values(
+      Array.from({ length: 5 }, (_, index) => ({
+        name: index === 4 ? 'Pristine Public' : `Occupied Public ${index + 1}`,
+        sectorX: targetSector.x,
+        sectorY: targetSector.y,
+        sectorZ: targetSector.z,
+        x: `${targetSector.x * 500 + index}.00`,
+        y: `${targetSector.y * 500 + index}.00`,
+        z: `${targetSector.z * 500 + index}.00`,
+        seed: 9000 + index,
+        ownerId: null,
+        isHome: false,
+      })),
+    ).returning();
+    const publicPlanets = await db.insert(planets).values(
+      publicSystems.map((system, index) => ({
+        systemId: system.id,
+        name: `pub${index + 1}-1`,
+        biome: 'rocky',
+        size: 12,
+        slotCount: 8,
+      })),
+    ).returning();
+    const pristineSystem = publicSystems[4]!;
+
+    await db.insert(colonies).values([
+      {
+        ownerId: foreignUser.id,
+        planetId: publicPlanets[0]!.id,
+      },
+      {
+        ownerId: foreignUser.id,
+        planetId: publicPlanets[1]!.id,
+      },
+    ]);
+    await db.insert(ships).values([
+      {
+        ownerId: foreignUser.id,
+        typeId: 'scout',
+        locationPlanetId: publicPlanets[2]!.id,
+        status: 'idle',
+        fuel: '100',
+      },
+      {
+        ownerId: foreignUser.id,
+        typeId: 'scout',
+        locationPlanetId: publicPlanets[3]!.id,
+        status: 'idle',
+        fuel: '100',
+      },
+    ]);
+
+    const result = await jumpShip(
+      user.id,
+      {
+        shipId: ship.id,
+        mode: 'random',
+      },
+      {
+        now: RANDOM_JUMP_NOW,
+        selectRandomSector: () => targetSector,
+      },
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.targetSystem?.id).toBe(pristineSystem.id);
+  });
+
   it('repeats travel to a known destination by destination id', async () => {
     const { user, ship, originPlanet } = await createSetup();
     await unlockJumpDrive(user.id);

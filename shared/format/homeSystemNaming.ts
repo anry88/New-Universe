@@ -39,3 +39,14 @@ export function formatHomeSystemDisplayName(
   const base = playerSlug.endsWith('s') ? `${playerSlug}'` : `${playerSlug}'s`;
   return `${base} system ${shortTag}`;
 }
+
+/** Localized title for public common systems that are not owned by a player. */
+export function formatCommonSystemDisplayName(
+  locale: HomeNamingLocale,
+  shortTag: string,
+): string {
+  if (locale === 'ru') {
+    return `Система ${shortTag}`;
+  }
+  return `System ${shortTag}`;
+}
