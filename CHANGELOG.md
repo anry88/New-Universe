@@ -5,6 +5,7 @@ All notable changes to New Universe will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- `P3-COM-009` (issue #351): добавлены малый/средний/большой щитовые корабли с RU/EN метаданными, Cosmic Atlas иконками, advanced build costs, Energy gates, shield HP/radius/recharge/downtime hooks, серверной механикой покрытия/перекрытия/пробития/восстановления и UI-строкой статуса щита.
 - `P3-COM-008` (issue #350): добавлены средние/тяжёлые линии истребителей, бомбардировщиков и лазерных кораблей, а также ракетные носители с абстрактными missile payload rules, Common Pool материалами, Weapons/Military Shipyard gates, RU/EN описаниями, Cosmic Atlas иконками и audit/combat покрытием.
 - `P3-EPIC-COMBAT` (issue #342): combat-эпик разбит на исполняемые задачи `P3-COM-001…013`; стартовые боевые корабли используют home-available ресурсы, а advanced ветки вынесены на Common Pool ресурсы, редкие/радиоактивные материалы и atomic reactor energy.
 - `P2.3-509` (issue #340): добавлена отдельная задача на ребаланс общих планет, удаление тёмной материи из активного каталога и покрытие всех добываемых ресурсов генерацией биомов.

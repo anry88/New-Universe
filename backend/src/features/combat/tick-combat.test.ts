@@ -306,6 +306,47 @@ describe('combat tick — processDueCombat', () => {
     expect(stillSafe!.hp).toBe(40);
   });
 
+  it('shield ships absorb incoming fire for allied ships and recharge after combat breaks', async () => {
+    const attackerOwner = await createUser('atkShield');
+    const defenderOwner = await createUser('defShield');
+
+    const attacker = await spawnShip({
+      ownerId: attackerOwner.userId,
+      planetId: attackerOwner.planetId,
+      typeId: 'light_fighter',
+    });
+    const defender = await spawnShip({
+      ownerId: defenderOwner.userId,
+      planetId: defenderOwner.planetId,
+      typeId: 'scout',
+    });
+    const shield = await spawnShip({
+      ownerId: defenderOwner.userId,
+      planetId: defenderOwner.planetId,
+      typeId: 'small_shield_ship',
+    });
+    await relocate(attacker.id, defenderOwner.planetId);
+
+    const t0 = new Date('2026-06-01T00:00:00.000Z');
+    await processDueCombat({ now: t0, skipNotifications: true });
+    await processDueCombat({ now: new Date(t0.getTime() + 5_000), skipNotifications: true });
+
+    const protectedScout = await db.query.ships.findFirst({ where: eq(ships.id, defender.id) });
+    const shieldAfterDamage = await db.query.ships.findFirst({ where: eq(ships.id, shield.id) });
+    expect(protectedScout!.hp).toBe(40);
+    expect(shieldAfterDamage!.hp).toBe(320);
+    expect(shieldAfterDamage!.combatStats.shields?.currentHp).toBe(400);
+
+    await db.update(ships).set({ status: SHIP_STATUS_DESTROYED, hp: 0 }).where(eq(ships.id, attacker.id));
+    await processDueCombat({ now: new Date(t0.getTime() + 25_000), skipNotifications: true });
+
+    const shieldAfterRecharge = await db.query.ships.findFirst({ where: eq(ships.id, shield.id) });
+    expect(shieldAfterRecharge!.combatStats.shields?.currentHp).toBeGreaterThan(
+      shieldAfterDamage!.combatStats.shields!.currentHp!,
+    );
+    expect(shieldAfterRecharge!.combatStats.shields?.currentHp).toBeLessThanOrEqual(700);
+  });
+
   /**
    * Sets up an attacker–victim pair with a colony on the victim's planet plus
    * one optional non-CC building. The attacker docks at the victim's planet so

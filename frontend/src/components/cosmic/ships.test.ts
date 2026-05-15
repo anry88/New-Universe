@@ -20,10 +20,13 @@ describe('ship icon resolver', () => {
     expect(resolveShipType('colonizer')).toBe(SHIP_BY_TYPE.colonizer);
     expect(resolveShipType('recon_probe')).toBe(SHIP_BY_TYPE.recon_probe);
     expect(resolveShipType('medium_fighter')).toBe(SHIP_BY_TYPE.medium_fighter);
+    expect(resolveShipType('medium_shield_ship')).toBe(SHIP_BY_TYPE.medium_shield_ship);
     expect(resolveShipType('heavy_bomber')).toBe(SHIP_BY_TYPE.heavy_bomber);
+    expect(resolveShipType('large_shield_ship')).toBe(SHIP_BY_TYPE.large_shield_ship);
     expect(resolveShipType('rocket_carrier')).toBe(SHIP_BY_TYPE.rocket_carrier);
     expect(resolveShipType('heavy_rocket_carrier')).toBe(SHIP_BY_TYPE.heavy_rocket_carrier);
     expect(getShipClassTag('recon_probe', 'ru')).toBe('ЗОНД');
+    expect(getShipClassTag('small_shield_ship', 'en')).toBe('SHIELD');
     expect(getShipClassTag('rocket_carrier', 'en')).toBe('CARRIER');
   });
 

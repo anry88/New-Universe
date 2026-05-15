@@ -52,6 +52,12 @@ describe('research gates', () => {
     expect(SHIP_RESEARCH_GATES.heavy_rocket_carrier).toEqual({ branch: 'weapons', level: 5 });
   });
 
+  it('gates shield ship hulls behind Energy research branch', () => {
+    expect(SHIP_RESEARCH_GATES.small_shield_ship).toEqual({ branch: 'energy', level: 2 });
+    expect(SHIP_RESEARCH_GATES.medium_shield_ship).toEqual({ branch: 'energy', level: 3 });
+    expect(SHIP_RESEARCH_GATES.large_shield_ship).toEqual({ branch: 'energy', level: 4 });
+  });
+
   it('blocks fighter build when Weapons I is not researched', () => {
     const map = levelsMapFromRows([]);
     const gate = SHIP_RESEARCH_GATES.fighter!;

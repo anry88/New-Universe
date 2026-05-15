@@ -10,8 +10,10 @@ import {
   type EngagementRange,
   canTargetShips,
   effectiveDpsAgainst,
+  effectiveShieldDpsAgainst,
   engagementRangeToSectorDistance,
   isShipTargetClass,
+  missilePayloadShieldDps,
 } from '@shared/types/combat.js';
 import { resolveMissilePayloadDps } from './missiles.js';
 
@@ -42,6 +44,8 @@ export interface AttackerHit {
   defenderId: string;
   /** Effective DPS this attacker deals to this defender (post-armor). */
   effectiveDps: number;
+  /** Effective DPS this attacker deals to a covering shield. */
+  shieldDps: number;
 }
 
 /**
@@ -89,12 +93,22 @@ export function resolveAttackerHits(actors: CombatActor[]): AttackerHit[] {
 
       const sustainedEff = resolveSustainedShipWeaponDps(attacker, defender, dist, range);
       if (sustainedEff > 0) {
-        hits.push({ attackerId: attacker.id, defenderId: defender.id, effectiveDps: sustainedEff });
+        hits.push({
+          attackerId: attacker.id,
+          defenderId: defender.id,
+          effectiveDps: sustainedEff,
+          shieldDps: effectiveShieldDpsAgainst(attacker.combatStats.damageProfile),
+        });
       }
 
       const missileEff = resolveMissileShipWeaponDps(attacker, defender, dist);
       if (missileEff > 0) {
-        hits.push({ attackerId: attacker.id, defenderId: defender.id, effectiveDps: missileEff });
+        hits.push({
+          attackerId: attacker.id,
+          defenderId: defender.id,
+          effectiveDps: missileEff,
+          shieldDps: missilePayloadShieldDps(attacker.combatStats.missilePayload),
+        });
       }
     }
   }
