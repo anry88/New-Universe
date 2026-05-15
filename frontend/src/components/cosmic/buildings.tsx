@@ -29,7 +29,8 @@ export type BuildingTypeId =
   | 'cryo_factory'
   | 'solar_plant'
   | 'wind_turbine'
-  | 'fuel_generator';
+  | 'fuel_generator'
+  | 'military_shipyard';
 
 export interface BuildingIconProps {
   size?: number;
@@ -279,6 +280,29 @@ export const IconFuelGenerator: React.FC<BuildingIconProps> = ({ size, tone }) =
   </Icon>
 );
 
+/**
+ * Military Shipyard — fortified combat vessel construction bay.
+ * Visually a hardened shipyard with a crosshair targeting reticle.
+ */
+export const IconMilitaryShipyard: React.FC<BuildingIconProps> = ({ size, tone }) => (
+  <Icon size={size} tone={tone}>
+    <path d="M10 38 L54 38 L48 48 L16 48 Z" fill={tone ?? '#5BD7FF'} fillOpacity="0.18" />
+    <path d="M16 38 L16 28 L48 28 L48 38" />
+    <path d="M22 28 L22 16 L42 16 L42 28" />
+    <path d="M32 16 L32 10" />
+    <circle cx="32" cy="9" r="1.4" fill={tone ?? '#5BD7FF'} />
+    {/* armor plates */}
+    <path d="M14 38 L12 42" />
+    <path d="M50 38 L52 42" />
+    {/* crosshair reticle */}
+    <circle cx="32" cy="34" r="4" strokeDasharray="2 2" />
+    <path d="M32 28 L32 30" />
+    <path d="M32 38 L32 36" />
+    <path d="M26 34 L28 34" />
+    <path d="M36 34 L38 34" />
+  </Icon>
+);
+
 export interface BuildingDef {
   Icon: React.FC<BuildingIconProps>;
   label: string;
@@ -332,6 +356,7 @@ const BUILDING_CATEGORY_BY_TYPE: Record<BuildingTypeId, BuildingCategoryKey> = {
   fabrication_bay: 'processing',
   spaceport: 'shipbuilding',
   shipyard: 'shipbuilding',
+  military_shipyard: 'shipbuilding',
   lab: 'progress',
   cryo_factory: 'processing',
   solar_plant: 'energy',
@@ -357,6 +382,7 @@ export const BUILDING_BY_TYPE: Record<BuildingTypeId, BuildingDef> = {
   solar_plant: { Icon: IconSolarPlant, label: 'Solar Plant', labels: { en: 'Solar Plant', ru: 'Солнечная станция' }, cat: 'Energy', cats: BUILDING_CATEGORY_LABELS.energy },
   wind_turbine: { Icon: IconWindTurbine, label: 'Wind Turbine', labels: { en: 'Wind Turbine', ru: 'Ветротурбина' }, cat: 'Energy', cats: BUILDING_CATEGORY_LABELS.energy },
   fuel_generator: { Icon: IconFuelGenerator, label: 'Fuel Generator', labels: { en: 'Fuel Generator', ru: 'Топливный генератор' }, cat: 'Energy', cats: BUILDING_CATEGORY_LABELS.energy },
+  military_shipyard: { Icon: IconMilitaryShipyard, label: 'Military Shipyard', labels: { en: 'Military Shipyard', ru: 'Военная верфь' }, cat: 'Shipbuilding', cats: BUILDING_CATEGORY_LABELS.shipbuilding },
 };
 
 /**

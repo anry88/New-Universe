@@ -19,7 +19,10 @@ export type ShipTypeId =
   | 'cargo_light'
   | 'cargo'
   | 'colonizer'
-  | 'recon_probe';
+  | 'recon_probe'
+  | 'fighter'
+  | 'cruiser'
+  | 'battleship';
 
 export interface ShipDef {
   Icon: React.FC<ShipIconProps>;
@@ -107,6 +110,46 @@ export const IconUnknownShip: React.FC<ShipIconProps> = ({ size, tone }) => (
   </HullIcon>
 );
 
+/** Light combat interceptor with angled wings and nose cannon */
+export const IconFighter: React.FC<ShipIconProps> = ({ size, tone }) => (
+  <HullIcon size={size} tone={tone}>
+    <path d="M52 32 L22 14 L14 32 L22 50 Z" fill={tone ?? '#5BD7FF'} fillOpacity="0.16" />
+    <path d="M22 14 L26 26 L26 38 L22 50" />
+    <path d="M14 32 L8 32" />
+    <path d="M52 32 L58 32" />
+    <circle cx="36" cy="32" r="2" fill={tone ?? '#5BD7FF'} fillOpacity="0.5" />
+    <path d="M22 14 L18 8" />
+    <path d="M22 50 L18 56" />
+  </HullIcon>
+);
+
+/** Medium combat cruiser — wider hull with side turrets */
+export const IconCruiser: React.FC<ShipIconProps> = ({ size, tone }) => (
+  <HullIcon size={size} tone={tone}>
+    <path d="M50 32 L30 10 L14 22 L14 42 L30 54 Z" fill={tone ?? '#5BD7FF'} fillOpacity="0.14" />
+    <path d="M18 22 L40 32 L18 42" />
+    <rect x="12" y="18" width="8" height="6" rx="1" />
+    <rect x="12" y="40" width="8" height="6" rx="1" />
+    <circle cx="34" cy="32" r="3" fill={tone ?? '#5BD7FF'} fillOpacity="0.4" />
+    <path d="M30 10 L26 4" />
+    <path d="M30 54 L26 60" />
+  </HullIcon>
+);
+
+/** Heavy capital battleship — armored bow with broadside batteries */
+export const IconBattleship: React.FC<ShipIconProps> = ({ size, tone }) => (
+  <HullIcon size={size} tone={tone}>
+    <path d="M54 32 L34 8 L10 20 L10 44 L34 56 Z" fill={tone ?? '#5BD7FF'} fillOpacity="0.16" />
+    <path d="M14 20 L36 32 L14 44" />
+    <rect x="8" y="16" width="10" height="5" rx="1" />
+    <rect x="8" y="28" width="10" height="5" rx="1" />
+    <rect x="8" y="43" width="10" height="5" rx="1" />
+    <circle cx="38" cy="32" r="4" fill={tone ?? '#5BD7FF'} fillOpacity="0.35" />
+    <path d="M34 8 L30 2" />
+    <path d="M34 56 L30 62" />
+  </HullIcon>
+);
+
 export const SHIP_BY_TYPE: Record<ShipTypeId, ShipDef> = {
   scout: {
     Icon: IconScout,
@@ -142,6 +185,27 @@ export const SHIP_BY_TYPE: Record<ShipTypeId, ShipDef> = {
     labels: { en: 'Recon Probe', ru: 'Разведывательный зонд' },
     tag: 'PROBE',
     tags: { en: 'PROBE', ru: 'ЗОНД' },
+  },
+  fighter: {
+    Icon: IconFighter,
+    label: 'Fighter',
+    labels: { en: 'Fighter', ru: 'Истребитель' },
+    tag: 'COMBAT',
+    tags: { en: 'COMBAT', ru: 'БОЙ' },
+  },
+  cruiser: {
+    Icon: IconCruiser,
+    label: 'Cruiser',
+    labels: { en: 'Cruiser', ru: 'Крейсер' },
+    tag: 'COMBAT',
+    tags: { en: 'COMBAT', ru: 'БОЙ' },
+  },
+  battleship: {
+    Icon: IconBattleship,
+    label: 'Battleship',
+    labels: { en: 'Battleship', ru: 'Линкор' },
+    tag: 'COMBAT',
+    tags: { en: 'COMBAT', ru: 'БОЙ' },
   },
 };
 

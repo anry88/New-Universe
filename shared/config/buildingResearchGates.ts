@@ -18,4 +18,5 @@ export const BUILDING_RESEARCH_GATES: Partial<Record<string, ResearchUnlockRequi
   cryo_factory: { branch: 'engineering', level: 2 },
   smelter: { branch: 'mining', level: 1 },
   fabrication_bay: { branch: 'engineering', level: 1 },
+  military_shipyard: { branch: 'weapons', level: 1 },
 };
