@@ -320,6 +320,7 @@
   "resources.priceNow": "Price now: ◆ {diamonds} (tier {tier}, {units} units/diamond)",
   "resources.priceUnavailable": "Price unavailable",
   "resources.failedBuy": "Failed to buy resource",
+  "resources.notEnoughDiamonds": "Not enough diamonds — need ◆ {diamonds}, balance ◆ {balance}",
   "resources.storageAvailable": "Available space: {available} units",
   "sector.title": "Sector map",
   "sector.subtitle": "Multiplayer radar with redacted foreign contacts",

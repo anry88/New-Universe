@@ -375,4 +375,34 @@ describe('planet resource construction rules', () => {
     expect(formatBuildBlockedMessage(exhausted!, 'ru')).toContain('Месторождения «Железо»');
     expect(formatBuildBlockedMessage(exhausted!, 'en')).not.toContain('resourceId');
   });
+
+  it('formats client-only insufficient-resource and queue-full reasons', () => {
+    const insufficient = formatBuildBlockedMessage(
+      {
+        code: 'building_blocked_insufficient_resources',
+        details: {
+          missing: [
+            { resourceId: 'iron', required: 100, available: 25 },
+            { resourceId: 'copper', required: 60, available: 0 },
+          ],
+        },
+      },
+      'en',
+    );
+    expect(insufficient).toContain('Insufficient resources');
+    expect(insufficient).toContain('Iron');
+    expect(insufficient).toContain('Copper');
+    expect(insufficient).toContain('need 100');
+    expect(insufficient).toContain('have 25');
+
+    expect(
+      formatBuildBlockedMessage(
+        {
+          code: 'building_blocked_queue_full',
+          details: { planetId: 'p1' },
+        },
+        'ru',
+      ),
+    ).toContain('Очередь');
+  });
 });

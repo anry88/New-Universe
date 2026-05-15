@@ -5,6 +5,7 @@ All notable changes to New Universe will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- `issue #373`: добавлена клиентская предпроверка запросов на строительство, апгрейд и покупку ресурсов за алмазы. BuildDialog/UpgradeDialog теперь блокируют действие до отправки, если на планете уже идёт стройка (`building_blocked_queue_full`) или не хватает ресурсов (`building_blocked_insufficient_resources`), а ResourceDiamondPurchaseDialog скрывает кнопку и поясняет нехватку алмазов, если котировка превышает баланс.
 - `issue #370`: добавлен общий Cosmic Atlas resolver иконок ресурсов с покрытием всех gameplay-ресурсов, чтобы UI больше не показывал `Fe`, `Si`, `MA` и другие текстовые аббревиатуры вместо иконок.
 - `P3-COM-010`: добавлены абстрактные правила ядерного payload-протокола, Weapons V gate, поздние advanced/Common Pool costs, cooldown, серверные проверки видимости/владения/нейтралов/protected-home/поселённых целей, shield-first damage resolution и локализованный warning-блок в верфи.
 - `P3-COM-013` (issue #355): добавлен late-tier `atomic_reactor` с Energy IV gate, one-per-planet limit, abstract sealed-cell energy recipes на advanced Common Pool resources, backend production/audit/sector tests, Cosmic Atlas icon/labels и balance-sim mirror.

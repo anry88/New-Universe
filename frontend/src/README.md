@@ -118,6 +118,8 @@ The folders above are reserved by `AGENTS.md` (`Engineering Rules` → "Keep fro
 - **`ship-build-eligibility.test.ts`** — Vitest coverage for lightweight-transporter L2 shipyard, Logistics L1, and resource availability checks.
 - **`production.ts`** — `defaultProductionRecipeId`, `canStartProduction`, and `productionBlockedText` keep production dialog controls deterministic and translate structured server block reasons.
 - **`production.test.ts`** — Vitest coverage for production helper selection, disabled state, and localized block messages.
+- **`build-eligibility.ts`** — `resolveQueueFullBlockedReason` and `resolveInsufficientResourcesBlockedReason` mirror the backend's single-lane build queue and `spendResources` cost check so BuildDialog/UpgradeDialog can refuse a doomed request before it reaches the server.
+- **`build-eligibility.test.ts`** — Vitest coverage for queue-full detection, missing-resource enumeration, zero-cost short-circuit, and empty planet inventory.
 - **`timers.ts`** — pure local timer helpers for countdown/progress snapshots and compact duration labels. Network synchronization stays in hooks (`useMe`, `useShipQueue`) and fires at due timestamps, not every UI tick.
 - **`timers.test.ts`** — Vitest coverage for exact timestamp progress, derived start fallback, and due-state clamping.
 - **`api.ts`** — Unified fetch client. Automatically injects `X-Telegram-Init-Data` from the SDK, `Authorization: Bearer <token>` when a session is active, and `Accept-Language` from the persisted UI locale.

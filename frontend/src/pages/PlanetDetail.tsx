@@ -36,8 +36,16 @@ import {
   selectableResourceIdsForExtractor,
 } from '@shared/types/building-eligibility';
 import { BUILDING_RESEARCH_GATES } from '@shared/config/buildingResearchGates';
-import { COMMAND_CENTER_TYPE_ID, buildingUpgradeTimeSeconds } from '@shared/config/buildingUpgradeEconomy';
+import {
+  COMMAND_CENTER_TYPE_ID,
+  buildingUpgradeResourceCosts,
+  buildingUpgradeTimeSeconds,
+} from '@shared/config/buildingUpgradeEconomy';
 import { recipesForBuildingType } from '@shared/config/productionRecipes';
+import {
+  resolveInsufficientResourcesBlockedReason,
+  resolveQueueFullBlockedReason,
+} from '../lib/build-eligibility';
 import { ChevronLeft } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatHomeSystemTitleForUser } from '../lib/homeSystemTitle';
@@ -265,6 +273,18 @@ export function PlanetDetailPage() {
           });
       if (planetBlocked) return planetBlocked;
 
+      const queueBlocked = resolveQueueFullBlockedReason({
+        planetId: planet.id,
+        planetBuildings: planet.buildings,
+      });
+      if (queueBlocked) return queueBlocked;
+
+      const costBlocked = resolveInsufficientResourcesBlockedReason({
+        costs: typeRow.baseCost ?? {},
+        planetResources: planet.resources,
+      });
+      if (costBlocked) return costBlocked;
+
       return null;
     },
     [
@@ -295,9 +315,26 @@ export function PlanetDetailPage() {
         };
       }
 
+      const queueBlocked = resolveQueueFullBlockedReason({
+        planetId: planet?.id,
+        planetBuildings: planet?.buildings,
+      });
+      if (queueBlocked) return queueBlocked;
+
+      const upgradeCosts = buildingUpgradeResourceCosts({
+        typeId: typeInfo.id,
+        baseCost: typeInfo.baseCost,
+        currentLevel: building.level,
+      });
+      const costBlocked = resolveInsufficientResourcesBlockedReason({
+        costs: upgradeCosts,
+        planetResources: planet?.resources,
+      });
+      if (costBlocked) return costBlocked;
+
       return null;
     },
-    [commandCenterLevel],
+    [commandCenterLevel, planet?.buildings, planet?.id, planet?.resources],
   );
 
   const currentEnergy = useMemo(() => {
