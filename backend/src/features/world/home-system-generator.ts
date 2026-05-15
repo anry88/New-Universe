@@ -7,6 +7,7 @@ import {
   buildings,
   discoveredPlanets,
   users,
+  colonies,
 } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 import {
@@ -303,6 +304,11 @@ export async function generateHomeSystem(userId: string, tx?: any) {
       }
 
       if (isCapital) {
+        await database.insert(colonies).values({
+          ownerId: userId,
+          planetId: planet.id,
+        });
+
         await database.insert(buildings).values({
           planetId: planet.id,
           typeId: 'command_center',
