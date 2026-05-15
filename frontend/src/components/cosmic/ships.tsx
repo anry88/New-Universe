@@ -25,12 +25,15 @@ export type ShipTypeId =
   | 'light_fighter'
   | 'light_bomber'
   | 'light_laser'
+  | 'small_shield_ship'
   | 'medium_fighter'
   | 'medium_bomber'
   | 'medium_laser'
+  | 'medium_shield_ship'
   | 'heavy_fighter'
   | 'heavy_bomber'
   | 'heavy_laser'
+  | 'large_shield_ship'
   | 'rocket_carrier'
   | 'heavy_rocket_carrier'
   | 'cruiser'
@@ -187,6 +190,17 @@ export const IconLightLaser: React.FC<ShipIconProps> = ({ size, tone }) => (
   </HullIcon>
 );
 
+export const IconSmallShieldShip: React.FC<ShipIconProps> = ({ size, tone }) => (
+  <HullIcon size={size} tone={tone}>
+    <circle cx="32" cy="32" r="23" strokeOpacity="0.28" strokeDasharray="5 4" />
+    <path d="M50 32 L26 16 L17 32 L26 48 Z" fill={tone ?? '#5BD7FF'} fillOpacity="0.13" />
+    <path d="M26 16 L30 28 L30 36 L26 48" />
+    <circle cx="35" cy="32" r="8" fill={tone ?? '#5BD7FF'} fillOpacity="0.14" />
+    <path d="M18 24 Q32 12 46 24" strokeOpacity="0.55" />
+    <path d="M18 40 Q32 52 46 40" strokeOpacity="0.55" />
+  </HullIcon>
+);
+
 export const IconMediumFighter: React.FC<ShipIconProps> = ({ size, tone }) => (
   <HullIcon size={size} tone={tone}>
     <path d="M54 32 L24 12 L14 32 L24 52 Z" fill={tone ?? '#5BD7FF'} fillOpacity="0.16" />
@@ -221,6 +235,18 @@ export const IconMediumLaser: React.FC<ShipIconProps> = ({ size, tone }) => (
     <path d="M16 32 L7 32" />
     <path d="M23 19 L13 12" />
     <path d="M23 45 L13 52" />
+  </HullIcon>
+);
+
+export const IconMediumShieldShip: React.FC<ShipIconProps> = ({ size, tone }) => (
+  <HullIcon size={size} tone={tone}>
+    <circle cx="32" cy="32" r="25" strokeOpacity="0.35" strokeDasharray="6 3" />
+    <circle cx="32" cy="32" r="18" strokeOpacity="0.22" />
+    <path d="M52 32 L30 11 L12 24 L12 40 L30 53 Z" fill={tone ?? '#5BD7FF'} fillOpacity="0.14" />
+    <path d="M16 24 L42 32 L16 40" />
+    <rect x="27" y="25" width="12" height="14" rx="3" fill={tone ?? '#5BD7FF'} fillOpacity="0.14" />
+    <path d="M20 19 Q32 8 44 19" strokeOpacity="0.55" />
+    <path d="M20 45 Q32 56 44 45" strokeOpacity="0.55" />
   </HullIcon>
 );
 
@@ -259,6 +285,19 @@ export const IconHeavyLaser: React.FC<ShipIconProps> = ({ size, tone }) => (
     <path d="M12 32 L3 32" />
     <path d="M24 17 L12 8" />
     <path d="M24 47 L12 56" />
+  </HullIcon>
+);
+
+export const IconLargeShieldShip: React.FC<ShipIconProps> = ({ size, tone }) => (
+  <HullIcon size={size} tone={tone}>
+    <circle cx="32" cy="32" r="27" strokeOpacity="0.38" strokeDasharray="7 3" />
+    <circle cx="32" cy="32" r="20" strokeOpacity="0.24" />
+    <circle cx="32" cy="32" r="12" strokeOpacity="0.18" />
+    <path d="M55 32 L34 7 L9 20 L8 32 L9 44 L34 57 Z" fill={tone ?? '#5BD7FF'} fillOpacity="0.16" />
+    <path d="M13 21 L45 32 L13 43" />
+    <rect x="25" y="23" width="17" height="18" rx="4" fill={tone ?? '#5BD7FF'} fillOpacity="0.15" />
+    <path d="M18 15 Q32 3 46 15" strokeOpacity="0.55" />
+    <path d="M18 49 Q32 61 46 49" strokeOpacity="0.55" />
   </HullIcon>
 );
 
@@ -388,6 +427,13 @@ export const SHIP_BY_TYPE: Record<ShipTypeId, ShipDef> = {
     tag: 'COMBAT',
     tags: { en: 'COMBAT', ru: 'БОЙ' },
   },
+  small_shield_ship: {
+    Icon: IconSmallShieldShip,
+    label: 'Small Shield Ship',
+    labels: { en: 'Small Shield Ship', ru: 'Малый щитовой корабль' },
+    tag: 'SHIELD',
+    tags: { en: 'SHIELD', ru: 'ЩИТ' },
+  },
   medium_fighter: {
     Icon: IconMediumFighter,
     label: 'Medium Fighter',
@@ -409,6 +455,13 @@ export const SHIP_BY_TYPE: Record<ShipTypeId, ShipDef> = {
     tag: 'LASER',
     tags: { en: 'LASER', ru: 'ЛАЗЕР' },
   },
+  medium_shield_ship: {
+    Icon: IconMediumShieldShip,
+    label: 'Medium Shield Ship',
+    labels: { en: 'Medium Shield Ship', ru: 'Средний щитовой корабль' },
+    tag: 'SHIELD',
+    tags: { en: 'SHIELD', ru: 'ЩИТ' },
+  },
   heavy_fighter: {
     Icon: IconHeavyFighter,
     label: 'Heavy Fighter',
@@ -429,6 +482,13 @@ export const SHIP_BY_TYPE: Record<ShipTypeId, ShipDef> = {
     labels: { en: 'Heavy Laser Ship', ru: 'Тяжёлый лазерный корабль' },
     tag: 'LASER',
     tags: { en: 'LASER', ru: 'ЛАЗЕР' },
+  },
+  large_shield_ship: {
+    Icon: IconLargeShieldShip,
+    label: 'Large Shield Ship',
+    labels: { en: 'Large Shield Ship', ru: 'Большой щитовой корабль' },
+    tag: 'SHIELD',
+    tags: { en: 'SHIELD', ru: 'ЩИТ' },
   },
   rocket_carrier: {
     Icon: IconRocketCarrier,

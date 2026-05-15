@@ -182,8 +182,17 @@ export function runCatalogAudit(): CatalogAuditResult {
     if (combatStats && combatStats.targetClass !== 'civilian') {
       const hasSustainedProfile = Boolean(combatStats.damageProfile);
       const hasMissilePayload = Boolean(combatStats.missilePayload);
-      if (!hasSustainedProfile && !hasMissilePayload) {
-        errors.push(`ship "${row.id}": military hull requires damageProfile or missilePayload`);
+      const hasShieldProjector = Boolean(combatStats.shields);
+      if (!hasSustainedProfile && !hasMissilePayload && !hasShieldProjector) {
+        errors.push(`ship "${row.id}": military hull requires damageProfile, missilePayload or shields`);
+      }
+      if (combatStats.shields) {
+        const shield = combatStats.shields;
+        if (shield.capacity <= 0) errors.push(`ship "${row.id}": shield capacity must be positive`);
+        if (shield.radius <= 0) errors.push(`ship "${row.id}": shield radius must be positive`);
+        if (shield.rechargeRate <= 0) errors.push(`ship "${row.id}": shield rechargeRate must be positive`);
+        if (shield.delayAfterDamageSec < 0) errors.push(`ship "${row.id}": shield delayAfterDamageSec must be non-negative`);
+        if (shield.downtimeSec <= 0) errors.push(`ship "${row.id}": shield downtimeSec must be positive`);
       }
     }
     const missilePayload = combatStats?.missilePayload;

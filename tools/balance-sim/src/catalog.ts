@@ -330,6 +330,13 @@ export const SHIPS = {
     requiredBuildings: [{ typeId: 'military_shipyard', level: 2 }],
     requiredResearch: [{ branch: 'weapons', level: 2 }],
   },
+  small_shield_ship: {
+    buildCost: { steel: 700, electronics: 180, military_composite: 80, liquid_nitrogen: 60, fuel: 80 },
+    buildTimeSec: 4200,
+    requiredBuildings: [{ typeId: 'military_shipyard', level: 2 }],
+    requiredResearch: [{ branch: 'energy', level: 2 }],
+    shields: { capacity: 700, radius: 1.5, rechargeRate: 18, delayAfterDamageSec: 10, downtimeSec: 20 },
+  },
   medium_fighter: {
     buildCost: { steel: 900, military_alloy: 220, military_composite: 80, electronics: 180, titanium: 80, fuel: 120 },
     buildTimeSec: 5400,
@@ -347,6 +354,13 @@ export const SHIPS = {
     buildTimeSec: 7200,
     requiredBuildings: [{ typeId: 'military_shipyard', level: 3 }],
     requiredResearch: [{ branch: 'weapons', level: 3 }],
+  },
+  medium_shield_ship: {
+    buildCost: { steel: 1900, military_alloy: 320, military_composite: 260, electronics: 420, silicon_carbide: 100, cobalt: 120, jump_fuel: 3 },
+    buildTimeSec: 9600,
+    requiredBuildings: [{ typeId: 'military_shipyard', level: 4 }],
+    requiredResearch: [{ branch: 'energy', level: 3 }],
+    shields: { capacity: 1800, radius: 3.5, rechargeRate: 35, delayAfterDamageSec: 15, downtimeSec: 30 },
   },
   rocket_carrier: {
     buildCost: { steel: 2500, military_composite: 500, electronics: 650, cobalt: 200, sulfur: 260, jump_fuel: 10 },
@@ -372,6 +386,13 @@ export const SHIPS = {
     buildTimeSec: 18000,
     requiredBuildings: [{ typeId: 'military_shipyard', level: 5 }],
     requiredResearch: [{ branch: 'weapons', level: 4 }],
+  },
+  large_shield_ship: {
+    buildCost: { steel: 4800, military_alloy: 900, military_composite: 700, electronics: 1000, silicon_carbide: 260, iridium: 80, antimatter: 6, jump_fuel: 12 },
+    buildTimeSec: 24000,
+    requiredBuildings: [{ typeId: 'military_shipyard', level: 6 }],
+    requiredResearch: [{ branch: 'energy', level: 4 }],
+    shields: { capacity: 4200, radius: 6, rechargeRate: 70, delayAfterDamageSec: 20, downtimeSec: 45 },
   },
   heavy_rocket_carrier: {
     buildCost: { steel: 5200, military_composite: 900, electronics: 1200, cobalt: 420, iridium: 80, antimatter: 8, jump_fuel: 18 },

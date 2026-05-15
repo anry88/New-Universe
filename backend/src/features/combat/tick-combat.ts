@@ -39,8 +39,8 @@ import {
   resolveAttackerHits,
   resolveBomberHits,
   sumDpsPerBuilding,
-  sumDpsPerDefender,
 } from './engine.js';
+import { resolveShieldedDamage } from './shields.js';
 
 export interface ProcessDueCombatOptions {
   /** When set, the tick still runs globally; userId only scopes notifications. */
@@ -89,6 +89,8 @@ export async function processDueCombat(
 ): Promise<{
   defendersDamaged: number;
   destroyed: string[];
+  shieldsDamaged: number;
+  shieldsBroken: string[];
   buildingsDamaged: number;
   buildingsDestroyed: string[];
   coloniesAbandoned: string[];
@@ -100,6 +102,8 @@ export async function processDueCombat(
     return {
       defendersDamaged: 0,
       destroyed: [],
+      shieldsDamaged: 0,
+      shieldsBroken: [],
       buildingsDamaged: 0,
       buildingsDestroyed: [],
       coloniesAbandoned: [],
@@ -134,14 +138,21 @@ export async function processDueCombat(
   });
 
   const hits = resolveAttackerHits(actors);
-  const dpsByDefender = sumDpsPerDefender(hits);
+  const shieldResult = resolveShieldedDamage(actors, hits, now.getTime());
+  const damageByDefender = shieldResult.directDamageByDefender;
 
   const bombingResult = await runBombingPass(aliveShips, now, options);
 
-  if (dpsByDefender.size === 0) {
+  if (
+    damageByDefender.size === 0 &&
+    shieldResult.touchedDefenderIds.size === 0 &&
+    shieldResult.shieldUpdates.size === 0
+  ) {
     return {
       defendersDamaged: 0,
       destroyed: [],
+      shieldsDamaged: 0,
+      shieldsBroken: [],
       ...bombingResult,
     };
   }
@@ -156,10 +167,9 @@ export async function processDueCombat(
     typeId: string;
   }> = [];
 
-  for (const [defenderId, totalDps] of dpsByDefender) {
+  for (const [defenderId, damage] of damageByDefender) {
     const defender = actorById.get(defenderId);
     if (!defender) continue;
-    const damage = computeTickDamage(defender, totalDps, now.getTime());
     const damageApplied = Math.max(0, Math.round(damage));
     const newHp = Math.max(0, defender.hp - damageApplied);
     const wasFirstTouch = defender.lastCombatTickAtMs == null;
@@ -179,26 +189,41 @@ export async function processDueCombat(
     if (newHp === 0) destroyed.push(defenderId);
   }
 
-  if (updates.length === 0) {
-    // First-touch only: just stamp lastCombatTickAt so the next tick has a baseline.
-    const firstTouchIds = Array.from(dpsByDefender.keys()).filter((id) => {
-      const actor = actorById.get(id);
-      return actor && actor.lastCombatTickAtMs == null;
-    });
-    if (firstTouchIds.length > 0) {
-      await defaultDb
-        .update(ships)
-        .set({ lastCombatTickAt: now })
-        .where(inArray(ships.id, firstTouchIds));
-    }
+  const touchedOnlyIds = Array.from(shieldResult.touchedDefenderIds).filter((id) => {
+    const actor = actorById.get(id);
+    const updated = updates.some((u) => u.shipId === id);
+    return actor && !updated;
+  });
+
+  if (
+    updates.length === 0 &&
+    touchedOnlyIds.length === 0 &&
+    shieldResult.shieldUpdates.size === 0
+  ) {
     return {
       defendersDamaged: 0,
       destroyed: [],
+      shieldsDamaged: shieldResult.shieldsDamaged.size,
+      shieldsBroken: Array.from(shieldResult.shieldsBroken),
       ...bombingResult,
     };
   }
 
   await defaultDb.transaction(async (tx) => {
+    for (const [shipId, shieldHooks] of shieldResult.shieldUpdates) {
+      const actor = actorById.get(shipId);
+      if (!actor) continue;
+      await tx
+        .update(ships)
+        .set({
+          combatStats: {
+            ...actor.combatStats,
+            shields: shieldHooks,
+          },
+        })
+        .where(eq(ships.id, shipId));
+    }
+
     for (const upd of updates) {
       if (upd.destroyed) {
         await tx
@@ -219,17 +244,13 @@ export async function processDueCombat(
       }
     }
 
-    // Also stamp first-touch defenders that took zero damage so the next tick measures elapsed time.
-    const firstTouchOnlyIds = Array.from(dpsByDefender.keys()).filter((id) => {
-      const actor = actorById.get(id);
-      const updated = updates.some((u) => u.shipId === id);
-      return actor && actor.lastCombatTickAtMs == null && !updated;
-    });
-    if (firstTouchOnlyIds.length > 0) {
+    // Stamp shielded defenders too, so repeated ticks at the same instant do
+    // not reapply the same incoming damage to their covering shield.
+    if (touchedOnlyIds.length > 0) {
       await tx
         .update(ships)
         .set({ lastCombatTickAt: now })
-        .where(inArray(ships.id, firstTouchOnlyIds));
+        .where(inArray(ships.id, touchedOnlyIds));
     }
 
     if (!options.skipNotifications) {
@@ -253,6 +274,8 @@ export async function processDueCombat(
   return {
     defendersDamaged: updates.length,
     destroyed,
+    shieldsDamaged: shieldResult.shieldsDamaged.size,
+    shieldsBroken: Array.from(shieldResult.shieldsBroken),
     ...bombingResult,
   };
 }
@@ -674,6 +697,7 @@ function mergeCombatStats(typeStats: CombatStats, instanceStats: CombatStats): C
     damageProfile: instanceStats.damageProfile ?? typeStats.damageProfile,
     missilePayload: instanceStats.missilePayload ?? typeStats.missilePayload,
     engagementRange: instanceStats.engagementRange ?? typeStats.engagementRange,
+    shields: instanceStats.shields ?? typeStats.shields,
     targetClass: typeStats.targetClass,
   };
 }

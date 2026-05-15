@@ -9,6 +9,7 @@ import {
 import { ExpeditionDialog } from "../components/ExpeditionDialog";
 import { RefuelDialog } from "../components/RefuelDialog";
 import { ResourceBar } from "../components/ResourceBar";
+import { ShieldStatus } from "../components/ShieldStatus";
 import { CosmicBackground, CosmicBottomNav, QueueStrip } from "../components/cosmic/atoms";
 import { ChevronLeft } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -458,6 +459,7 @@ export function ShipsPage() {
                         {payloadText ? (
                           <div className="ship-loc">{payloadText}</div>
                         ) : null}
+                        <ShieldStatus shields={type.combatStats?.shields} />
                         {blockedText ? (
                           <div className="ship-loc" style={{ color: "#fca5a5" }}>
                             {blockedText}
@@ -621,6 +623,7 @@ export function ShipsPage() {
                         {shipDescription(type.id, locale)}
                       </div>
                     ) : null}
+                    <ShieldStatus shields={ship.combatStats?.shields ?? type?.combatStats?.shields} />
                     <div className="ship-loc">{shipLocation}</div>
                     <button
                       type="button"

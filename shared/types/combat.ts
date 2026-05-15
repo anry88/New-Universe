@@ -31,10 +31,19 @@ export interface MissilePayloadProfile {
   maxRange: Exclude<EngagementRange, 'orbital'>;
 }
 
+export type ShieldRuntimeState = 'active' | 'downtime' | 'recharging';
+
 export interface ShieldHooks {
   capacity: number;
+  radius: number;
   rechargeRate: number;
   delayAfterDamageSec: number;
+  downtimeSec: number;
+  currentHp?: number;
+  state?: ShieldRuntimeState;
+  lastDamagedAt?: string | null;
+  brokenUntil?: string | null;
+  lastResolvedAt?: string | null;
 }
 
 export type DestructionState = 'intact' | 'damaged' | 'disabled' | 'destroyed';
@@ -86,6 +95,11 @@ export function effectiveDpsAgainst(
   return Math.max(1, profile.dps - armorReduction);
 }
 
+export function effectiveShieldDpsAgainst(profile: DamageProfile | undefined): number {
+  if (!profile) return 0;
+  return Math.max(0, profile.dps * profile.shieldMultiplier);
+}
+
 /** True when the unit can engage another ship (i.e. its weapon is not surface-only). */
 export function canTargetShips(stats: CombatStats | undefined): boolean {
   const hasSustainedShipWeapon = Boolean(
@@ -109,4 +123,9 @@ export function isShipTargetClass(targetClass: DamageTargetClass): boolean {
 export function missilePayloadSustainedDps(payload: MissilePayloadProfile | undefined): number {
   if (!payload || payload.reloadSec <= 0) return 0;
   return payload.alphaDamage / payload.reloadSec;
+}
+
+export function missilePayloadShieldDps(payload: MissilePayloadProfile | undefined): number {
+  if (!payload) return 0;
+  return missilePayloadSustainedDps(payload) * payload.shieldMultiplier;
 }

@@ -76,14 +76,17 @@ export const SHIP_ENTITY_LABELS: Record<string, EntityLabels> = {
   light_fighter: { en: 'Light Fighter', ru: 'Лёгкий истребитель' },
   light_bomber: { en: 'Light Bomber', ru: 'Лёгкий бомбардировщик' },
   light_laser: { en: 'Light Laser Ship', ru: 'Лёгкий лазерный корабль' },
+  small_shield_ship: { en: 'Small Shield Ship', ru: 'Малый щитовой корабль' },
   cruiser: { en: 'Cruiser', ru: 'Крейсер' },
   battleship: { en: 'Battleship', ru: 'Линкор' },
   medium_fighter: { en: 'Medium Fighter', ru: 'Средний истребитель' },
   medium_bomber: { en: 'Medium Bomber', ru: 'Средний бомбардировщик' },
   medium_laser: { en: 'Medium Laser Ship', ru: 'Средний лазерный корабль' },
+  medium_shield_ship: { en: 'Medium Shield Ship', ru: 'Средний щитовой корабль' },
   heavy_fighter: { en: 'Heavy Fighter', ru: 'Тяжёлый истребитель' },
   heavy_bomber: { en: 'Heavy Bomber', ru: 'Тяжёлый бомбардировщик' },
   heavy_laser: { en: 'Heavy Laser Ship', ru: 'Тяжёлый лазерный корабль' },
+  large_shield_ship: { en: 'Large Shield Ship', ru: 'Большой щитовой корабль' },
   rocket_carrier: { en: 'Rocket Carrier', ru: 'Ракетный носитель' },
   heavy_rocket_carrier: { en: 'Heavy Rocket Carrier', ru: 'Тяжёлый ракетный носитель' },
 };
@@ -129,6 +132,10 @@ export const SHIP_ENTITY_DESCRIPTIONS: Record<string, EntityLabels> = {
     en: 'Long-range light beam ship with strong armor penetration.',
     ru: 'Лёгкий дальнобойный лучевой корабль с высоким пробитием брони.',
   },
+  small_shield_ship: {
+    en: 'Compact defensive hull that projects a short-range shield over nearby allied ships.',
+    ru: 'Компактный оборонительный корпус с ближним щитовым полем для соседних союзных кораблей.',
+  },
   cruiser: {
     en: 'Medium combat hull with stronger armor and sustained fire.',
     ru: 'Средний боевой корпус с усиленной бронёй и стабильным огнём.',
@@ -149,6 +156,10 @@ export const SHIP_ENTITY_DESCRIPTIONS: Record<string, EntityLabels> = {
     en: 'Common Pool laser hull using advanced cooling and components for long-range pressure.',
     ru: 'Лазерный корпус Common Pool с продвинутым охлаждением и компонентами для дальнего давления.',
   },
+  medium_shield_ship: {
+    en: 'Fleet defender with a wider recoverable shield field for grouped formations.',
+    ru: 'Флотский защитник с расширенным восстанавливаемым щитовым полем для групповых построений.',
+  },
   heavy_fighter: {
     en: 'Heavy interceptor built from advanced alloys for line-breaking ship combat.',
     ru: 'Тяжёлый перехватчик из продвинутых сплавов для прорыва боевой линии.',
@@ -160,6 +171,10 @@ export const SHIP_ENTITY_DESCRIPTIONS: Record<string, EntityLabels> = {
   heavy_laser: {
     en: 'Late laser hull with rare components and high armor penetration.',
     ru: 'Поздний лазерный корпус с редкими компонентами и высоким пробитием брони.',
+  },
+  large_shield_ship: {
+    en: 'Heavy defensive platform that covers wide allied formations with a deep shield reserve.',
+    ru: 'Тяжёлая оборонительная платформа с широким щитовым покрытием и большим запасом прочности.',
   },
   rocket_carrier: {
     en: 'Long-range payload carrier that pressures medium and heavy ships but struggles against light evasive hulls.',

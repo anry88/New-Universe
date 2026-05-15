@@ -627,7 +627,11 @@ describe('Ship Building - POST /ships/build', () => {
       fuelCapacity: number;
       jumpFuelCapacity: number;
       requiredBuildings: { typeId: string; level: number }[];
-      combatStats: { targetClass: string; missilePayload?: { alphaDamage: number; validTargetClasses: string[] } };
+      combatStats: {
+        targetClass: string;
+        missilePayload?: { alphaDamage: number; validTargetClasses: string[] };
+        shields?: { capacity: number; radius: number; rechargeRate: number; downtimeSec: number };
+      };
     }> = res.json();
 
     const lightFighter = types.find((t) => t.id === 'light_fighter');
@@ -674,6 +678,14 @@ describe('Ship Building - POST /ships/build', () => {
       alphaDamage: 3300,
       validTargetClasses: ['military_medium', 'military_heavy'],
     });
+
+    const smallShield = types.find((t) => t.id === 'small_shield_ship');
+    const mediumShield = types.find((t) => t.id === 'medium_shield_ship');
+    const largeShield = types.find((t) => t.id === 'large_shield_ship');
+    expect(smallShield!.combatStats.shields).toMatchObject({ capacity: 700, radius: 1.5 });
+    expect(mediumShield!.combatStats.shields).toMatchObject({ capacity: 1800, radius: 3.5 });
+    expect(largeShield!.combatStats.shields).toMatchObject({ capacity: 4200, radius: 6 });
+    expect(largeShield!.requiredBuildings).toEqual([{ typeId: 'military_shipyard', level: 6 }]);
   });
 
   it('should return 401 without authorization', async () => {

@@ -121,12 +121,15 @@ describe('catalog seed audit (P2-POL-002)', () => {
       'light_fighter',
       'light_bomber',
       'light_laser',
+      'small_shield_ship',
       'medium_fighter',
       'medium_bomber',
       'medium_laser',
+      'medium_shield_ship',
       'heavy_fighter',
       'heavy_bomber',
       'heavy_laser',
+      'large_shield_ship',
       'rocket_carrier',
       'heavy_rocket_carrier',
     ]);
@@ -144,6 +147,7 @@ describe('catalog seed audit (P2-POL-002)', () => {
     const byId = new Map(SHIP_TYPE_CATALOG_ROWS.map((ship) => [ship.id, ship]));
     const mediumIds = ['medium_fighter', 'medium_bomber', 'medium_laser'];
     const heavyIds = ['heavy_fighter', 'heavy_bomber', 'heavy_laser'];
+    const shieldIds = ['small_shield_ship', 'medium_shield_ship', 'large_shield_ship'];
 
     for (const id of mediumIds) {
       const ship = byId.get(id);
@@ -166,6 +170,18 @@ describe('catalog seed audit (P2-POL-002)', () => {
     expect(byId.get('medium_laser')!.buildCost).toHaveProperty('cobalt');
     expect(byId.get('heavy_bomber')!.buildCost).toHaveProperty('iridium');
     expect(byId.get('heavy_rocket_carrier')!.buildCost).toHaveProperty('antimatter');
+
+    for (const id of shieldIds) {
+      const ship = byId.get(id);
+      expect(ship, id).toBeDefined();
+      expect(ship!.role).toBe('shield');
+      const shield = ship!.combatStats!.shields!;
+      expect(shield.capacity).toBeGreaterThan(0);
+      expect(shield.radius).toBeGreaterThan(0);
+      expect(Object.keys(ship!.buildCost)).toEqual(
+        expect.arrayContaining(['steel', 'electronics']),
+      );
+    }
   });
 
   it('keeps rocket carriers as limited missile-payload hulls', () => {
