@@ -112,6 +112,57 @@ describe('resolveBuildBlockedReason', () => {
     expect(formatBuildBlockedMessage(reason!, 'ru')).toBe('Требуется здание «Командный центр» уровня 1.');
     expect(formatBuildBlockedMessage(reason!, 'en')).not.toContain('command_center');
   });
+
+  it('gates military_shipyard behind Weapons I research', () => {
+    expect(BUILDING_RESEARCH_GATES.military_shipyard).toEqual({ branch: 'weapons', level: 1 });
+  });
+
+  it('blocks military_shipyard when Weapons research is not completed', () => {
+    const reason = resolveBuildBlockedReason({
+      typeId: 'military_shipyard',
+      deps: [{ typeId: 'shipyard', level: 2 }],
+      maxPerPlanet: 1,
+      maxGlobal: null,
+      planetBuildings: [{ typeId: 'shipyard', level: 2 }],
+      globalCountForType: 0,
+      researchLevels: new Map([['weapons', 0]]),
+      researchGate: BUILDING_RESEARCH_GATES.military_shipyard,
+    });
+    expect(reason?.code).toBe('building_blocked_research');
+    expect(formatBuildBlockedMessage(reason!, 'en')).toContain('Weapons research level 1');
+    expect(formatBuildBlockedMessage(reason!, 'ru')).toContain('«Вооружение» уровня 1');
+    expect(formatBuildBlockedMessage(reason!, 'en')).not.toContain('military_shipyard');
+  });
+
+  it('blocks military_shipyard when shipyard L2 dependency is missing', () => {
+    const reason = resolveBuildBlockedReason({
+      typeId: 'military_shipyard',
+      deps: [{ typeId: 'shipyard', level: 2 }],
+      maxPerPlanet: 1,
+      maxGlobal: null,
+      planetBuildings: [{ typeId: 'shipyard', level: 1 }],
+      globalCountForType: 0,
+      researchLevels: new Map([['weapons', 1]]),
+      researchGate: BUILDING_RESEARCH_GATES.military_shipyard,
+    });
+    expect(reason?.code).toBe('building_blocked_dependency');
+    expect(formatBuildBlockedMessage(reason!, 'en')).toContain('Shipyard level 2');
+    expect(formatBuildBlockedMessage(reason!, 'ru')).toContain('«Верфь» уровня 2');
+  });
+
+  it('allows military_shipyard when Weapons I and Shipyard L2 are present', () => {
+    const reason = resolveBuildBlockedReason({
+      typeId: 'military_shipyard',
+      deps: [{ typeId: 'shipyard', level: 2 }],
+      maxPerPlanet: 1,
+      maxGlobal: null,
+      planetBuildings: [{ typeId: 'shipyard', level: 2 }],
+      globalCountForType: 0,
+      researchLevels: new Map([['weapons', 1]]),
+      researchGate: BUILDING_RESEARCH_GATES.military_shipyard,
+    });
+    expect(reason).toBeNull();
+  });
 });
 
 describe('planet resource construction rules', () => {

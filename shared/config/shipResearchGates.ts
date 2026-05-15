@@ -5,4 +5,7 @@ export const SHIP_RESEARCH_GATES: Partial<Record<string, ResearchUnlockRequireme
   cargo_light: { branch: 'logistics', level: 1 },
   colonizer: { branch: 'engineering', level: 2 },
   recon_probe: { branch: 'jump_drive', level: 1 },
+  fighter: { branch: 'weapons', level: 1 },
+  cruiser: { branch: 'weapons', level: 2 },
+  battleship: { branch: 'weapons', level: 3 },
 };

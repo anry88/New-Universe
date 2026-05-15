@@ -26,6 +26,7 @@ export const HIGH_TIER_UPGRADE_COSTS_BY_BUILDING = {
   solar_plant: { aluminum: 14, copper: 10 },
   wind_turbine: { aluminum: 18, titanium: 8 },
   fuel_generator: { copper: 10, steel: 18, titanium: 8 },
+  military_shipyard: { steel: 30, military_alloy: 14, military_composite: 8 },
 } as const satisfies Record<string, Record<string, number>>;
 
 export function scaleResourceCostMap(
