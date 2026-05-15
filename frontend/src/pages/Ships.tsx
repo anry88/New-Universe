@@ -156,6 +156,7 @@ export function ShipsPage() {
   const { locale, t } = useI18n();
   const [selectedShip, setSelectedShip] = useState<Ship | null>(null);
   const [refuelingShip, setRefuelingShip] = useState<Ship | null>(null);
+  const [refuelTargetShipId, setRefuelTargetShipId] = useState<string | null>(null);
   const [selectedPlanetId, setSelectedPlanetId] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
 
@@ -169,6 +170,8 @@ export function ShipsPage() {
   const activeTab =
     new URLSearchParams(location.search).get("tab") === "shipyard"
       ? "shipyard"
+      : new URLSearchParams(location.search).get("tab") === "military_shipyard"
+      ? "military_shipyard"
       : "fleet";
   const jumpGateDestinationSystemId =
     new URLSearchParams(location.search).get("destinationSystemId");
@@ -183,8 +186,13 @@ export function ShipsPage() {
   const planets = meData?.planets ?? [];
   const colonizationSummary = meData?.colonization;
   const buildableShipTypes = useMemo(
-    () => (shipTypes ?? []).filter((type) => isShipTypeVisibleInShipyard(type.id)),
-    [shipTypes],
+    () => (shipTypes ?? []).filter((type) => {
+      if (!isShipTypeVisibleInShipyard(type.id)) return false;
+      const isMilitary = type.requiredBuildings.some(b => b.typeId === "military_shipyard");
+      if (activeTab === "military_shipyard") return isMilitary;
+      return !isMilitary;
+    }),
+    [shipTypes, activeTab],
   );
 
   const shipyardPlanets = useMemo(() => {
@@ -195,11 +203,21 @@ export function ShipsPage() {
     );
   }, [planets]);
 
+  const militaryShipyardPlanets = useMemo(() => {
+    return planets.filter((planet) =>
+      (planet.buildings ?? []).some(
+        (building) => building.typeId === "military_shipyard",
+      ),
+    );
+  }, [planets]);
+
+  const currentTabPlanets = activeTab === "military_shipyard" ? militaryShipyardPlanets : shipyardPlanets;
+
   const resolvedPlanetId =
-    selectedPlanetId ?? shipyardPlanets[0]?.id ?? homePlanetId ?? null;
+    selectedPlanetId ?? currentTabPlanets[0]?.id ?? homePlanetId ?? null;
 
   const selectedPlanet =
-    shipyardPlanets.find((planet) => planet.id === resolvedPlanetId) ?? null;
+    currentTabPlanets.find((planet) => planet.id === resolvedPlanetId) ?? null;
 
   const buildingLevel = (planetBuildings: Building[], typeId: string) => {
     const level =
@@ -305,16 +323,16 @@ export function ShipsPage() {
           <div>
             <div className="page-tag">{t("ships.command").toUpperCase()}</div>
             <div className="page-title">
-              {activeTab === "shipyard" ? t("ships.shipyard") : t("ships.fleetRoster")}
+              {activeTab === "shipyard" ? t("ships.shipyard") : activeTab === "military_shipyard" ? t("ships.militaryShipyard") : t("ships.fleetRoster")}
             </div>
           </div>
         </div>
         <div className="page-stat">
           <div className="ps-v">
-            {activeTab === "shipyard" ? shipyardPlanets.length : visibleShips.length}
+            {activeTab === "fleet" ? visibleShips.length : currentTabPlanets.length}
           </div>
           <div className="ps-l">
-            {activeTab === "shipyard" ? t("ships.shipyards").toUpperCase() : t("ships.vessels").toUpperCase()}
+            {activeTab === "fleet" ? t("ships.vessels").toUpperCase() : activeTab === "military_shipyard" ? t("ships.militaryShipyards").toUpperCase() : t("ships.shipyards").toUpperCase()}
           </div>
         </div>
       </div>
@@ -344,12 +362,20 @@ export function ShipsPage() {
         >
           {t("ships.shipyard")}
         </button>
+        <button
+          type="button"
+          className="cosmic-cta"
+          style={{ flex: 1, opacity: activeTab === "military_shipyard" ? 1 : 0.65 }}
+          onClick={() => navigate("/ships?tab=military_shipyard")}
+        >
+          {t("ships.militaryShipyard")}
+        </button>
       </div>
 
       <div className="cosmic-scroll">
-        {activeTab === "shipyard" ? (
+        {activeTab === "shipyard" || activeTab === "military_shipyard" ? (
           <div className="ship-list">
-            {shipyardPlanets.length === 0 ? (
+            {currentTabPlanets.length === 0 ? (
               <div
                 style={{
                   padding: "40px 20px",
@@ -362,7 +388,7 @@ export function ShipsPage() {
                   borderRadius: 12,
                 }}
               >
-                {t("ships.noShipyard").toUpperCase()}
+                {activeTab === "military_shipyard" ? t("ships.noMilitaryShipyard").toUpperCase() : t("ships.noShipyard").toUpperCase()}
               </div>
             ) : (
               <>
@@ -374,7 +400,7 @@ export function ShipsPage() {
                     overflowX: "auto",
                   }}
                 >
-                  {shipyardPlanets.map((planet) => (
+                  {currentTabPlanets.map((planet) => (
                     <button
                       key={planet.id}
                       type="button"
@@ -392,7 +418,7 @@ export function ShipsPage() {
                   ))}
                 </div>
 
-                <CombatShipMenu research={meData?.research} />
+                {activeTab === "military_shipyard" && <CombatShipMenu research={meData?.research} />}
 
                 {buildableShipTypes.map((type) => {
                   const isColonizerHull =
@@ -569,6 +595,7 @@ export function ShipsPage() {
               const effectiveStatus = ship.status;
               const isIdle = isShipReadyForOrders(ship);
               const isBuilding = effectiveStatus === "building";
+              const localRefueler = isIdle && ship.locationPlanetId ? ships.find(s => s.typeId === 'refueler' && s.status === 'idle' && s.locationPlanetId === ship.locationPlanetId) : null;
               const activeExpedition = activeExpeditionByShipId.get(ship.id);
               const buildTimer = queueItem
                 ? timerSnapshot({
@@ -691,6 +718,24 @@ export function ShipsPage() {
                         {t("refuel_dialog_title").toUpperCase()}
                       </button>
                     )}
+                    {ship.typeId !== "refueler" && isIdle && localRefueler && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRefuelingShip(localRefueler);
+                          setRefuelTargetShipId(ship.id);
+                        }}
+                        className="cosmic-cta"
+                        style={{
+                          marginTop: 6,
+                          padding: "6px 12px",
+                          fontSize: 11,
+                          marginLeft: 8,
+                        }}
+                      >
+                        {t("refuel_dialog_title").toUpperCase()}
+                      </button>
+                    )}
                     {isBuilding && buildTimer ? (
                       <div className="qstrip-bar" style={{ marginTop: 8 }}>
                         <div
@@ -704,19 +749,45 @@ export function ShipsPage() {
                       </div>
                     ) : null}
                   </div>
-                  <div className="ship-stats">
+                  <div className="ship-stats" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                     <div className="ship-stat">
                       <span>{t("ships.hp")}</span>
-                      <b>{type?.hp ?? ship.maxHp ?? 0}</b>
+                      <b style={{ color: ship.status === 'destroyed' ? '#ef4444' : ship.hp < ship.maxHp ? '#fcd34d' : 'inherit' }}>
+                        {ship.status === 'destroyed' 
+                          ? t("common.destroyed").toUpperCase() 
+                          : `${Math.max(0, ship.hp)} / ${ship.maxHp}`}
+                      </b>
                     </div>
                     <div className="ship-stat">
-                      <span>{t("ships.dps")}</span>
-                      <b>{type?.dps ?? 0}</b>
+                      <span>{t("expedition.fuel")}</span>
+                      <b>{ship.fuel} / {type?.fuelCapacity ?? 0}</b>
                     </div>
                     <div className="ship-stat">
-                      <span>{t("ships.speed")}</span>
-                      <b>{type?.speed ?? 0}</b>
+                      <span>{t("expedition.jumpFuel")}</span>
+                      <b>{ship.jumpFuel} / {type?.jumpFuelCapacity ?? 0}</b>
                     </div>
+                    <div className="ship-stat">
+                      <span>{t("ships.combatRole")}</span>
+                      <b>{getShipClassTag(ship.typeId, locale)}</b>
+                    </div>
+                    {type?.combatStats?.engagementRange === 'orbital' && (
+                      <div className="ship-stat" style={{ gridColumn: 'span 2' }}>
+                        <span>{t("ships.attackState")}</span>
+                        <b style={{ color: '#f87171' }}>{t("ships.state.bombing")}</b>
+                      </div>
+                    )}
+                    {type?.combatStats?.engagementRange && type.combatStats.engagementRange !== 'orbital' && (
+                      <div className="ship-stat" style={{ gridColumn: 'span 2' }}>
+                        <span>{t("ships.attackState")}</span>
+                        <b style={{ color: '#f87171' }}>{t("ships.state.combat")}</b>
+                      </div>
+                    )}
+                    {ship.hp < ship.maxHp && ship.status !== 'destroyed' && (
+                      <div className="ship-stat" style={{ gridColumn: 'span 2', color: '#fcd34d' }}>
+                        <span>{t("common.status")}</span>
+                        <b>{t("ships.damaged").toUpperCase()}</b>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -763,7 +834,11 @@ export function ShipsPage() {
           sourceType={getShipType(refuelingShip.typeId)!}
           allShips={ships}
           allShipTypes={shipTypes ?? []}
-          onClose={() => setRefuelingShip(null)}
+          initialTargetShipId={refuelTargetShipId ?? undefined}
+          onClose={() => {
+            setRefuelingShip(null);
+            setRefuelTargetShipId(null);
+          }}
         />
       )}
     </div>

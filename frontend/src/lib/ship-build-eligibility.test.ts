@@ -112,4 +112,18 @@ describe("resolveShipBuildBlockedReason", () => {
     expect(insufficientResource).toBe("Не хватает ресурса: Метан.");
     expect(insufficientResource).not.toContain("methane");
   });
+
+  it("blocks combat ships requiring military_shipyard", () => {
+    const fighter: ShipType = {
+      ...cargoLight,
+      id: "medium_fighter",
+      requiredBuildings: [{ typeId: "military_shipyard", level: 1 }],
+    };
+    expect(resolveShipBuildBlockedReason(basePlanet, fighter)).toEqual({
+      type: "missingBuilding",
+      typeId: "military_shipyard",
+      requiredLevel: 1,
+      currentLevel: 0,
+    });
+  });
 });
