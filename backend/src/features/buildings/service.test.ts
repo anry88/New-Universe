@@ -363,9 +363,14 @@ describe('Buildings Service - POST /buildings/build', () => {
     const syncedResources = await db.query.planetResources.findMany({
       where: eq(planetResources.planetId, orePlanet.id),
     });
+    const syncedAmountByResource = Object.fromEntries(
+      syncedResources.map((resource) => [resource.resourceId, Number(resource.amount)]),
+    );
     const regenByResource = Object.fromEntries(
       syncedResources.map((resource) => [resource.resourceId, Number(resource.regenRate)]),
     );
+    expect(syncedAmountByResource.iron).toBe(1000);
+    expect(syncedAmountByResource.carbon).toBe(1000);
     expect(regenByResource.iron).toBe(0);
     expect(regenByResource.carbon).toBeGreaterThan(0);
 
