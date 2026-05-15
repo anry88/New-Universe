@@ -179,6 +179,7 @@ Server-authoritative ship-vs-ship combat ticks.
 
 - **`durability.ts`** — `deriveBuildingMaxHp(baseHp, level)` and `deriveShipMaxHp(baseHp)` baseline HP helpers, plus `durability.test.ts` validating the catalog combat stats. Buildings scale HP by level; ships use type baseline.
 - **`missiles.ts`** — abstract missile payload helpers for rocket carriers. It validates allowed target classes, evasion counter thresholds, and armor-adjusted sustained pressure derived from alpha/reload gameplay values while staying at game-stat level.
+- **`nuclear.ts`** — late-tier abstract nuclear payload rule resolver gated by Weapons V, advanced resource cost, cooldown, visibility, ownership, protected-home, settlement and shield-interaction rules. It intentionally exposes only game stats and blockers.
 - **`shields.ts`** — pure shield-coverage and shield-HP resolver. Same-owner shield ships in the same combat space protect allied hulls while `currentHp > 0`; overlapping shields absorb by smallest radius, then nearest center, then ship id; broken shields enter downtime and recharge idempotently from persisted shield timestamps.
 - **`engine.ts`** — pure (DB-free) target acquisition.
   - `resolveAttackerHits(actors)` enumerates valid (attacker, defender) ship pairs after filtering by owner, status, target class, planar engagement-range distance, and `isDefenderProtectedFromAttacker` (mirrors `world/visibility.ts` — foreign home systems hide ships from outside attackers).
@@ -191,6 +192,7 @@ Server-authoritative ship-vs-ship combat ticks.
   - Runs on a 10 s interval worker plus once per active-session `/me` call.
 - **`engine.test.ts`** — pure tests for engagement range, effective DPS, protection rules, ship-vs-ship target selection, rocket-carrier payload target/counter behavior, elapsed-time idempotency math, plus bomber target priority (CC last) and aggregation across multiple bombers.
 - **`missiles.test.ts`** — pure tests for abstract payload alpha/reload math, medium/heavy target class allowance, and light/evasive counter limits.
+- **`nuclear.test.ts`** — pure tests for Weapons V gating, advanced resource/cooldown requirements, allowed use, shield absorption/spillover, and blocked hidden/own/neutral/protected/unsettled targets.
 - **`shields.test.ts`** — pure tests for shield coverage, overlap priority, overflow, downtime/recharge idempotency, and ownership/combat-space isolation.
 - **`tick-combat.test.ts`** — integration tests covering: first-contact stamps `lastCombatTickAt` without damage, scouts die within seconds, military light hulls survive materially longer, shield ships absorbing and recharging allied coverage, tick idempotency, destroyed ships stay destroyed, in-flight expeditions cancelled on destruction, foreign-home protection, bombers skip ship targeting, **bombers gradually damage non-CC buildings**, **bombing idempotency**, **non-CC must be destroyed before CC takes any damage**, **CC destruction wipes the colony plus every building on the planet**, **no-target bombing is a no-op**, and **colonization gate switches between `colony_blocked_hostile_buildings` and the next gate after cleanup**.
 

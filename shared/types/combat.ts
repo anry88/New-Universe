@@ -1,3 +1,5 @@
+import type { ResearchRequirementRef, ResourceId } from './research.js';
+
 export type DamageTargetClass = 
   | 'civilian'
   | 'military_light'
@@ -30,6 +32,47 @@ export interface MissilePayloadProfile {
   evasionCounterThreshold: number;
   maxRange: Exclude<EngagementRange, 'orbital'>;
 }
+
+export interface NuclearPayloadProfile {
+  payloadClass: 'nuclear';
+  damageType: Extract<DamageType, 'thermal'>;
+  baseDamage: number;
+  armorPenetration: number;
+  shieldMultiplier: number;
+  cooldownSec: number;
+  resourceCost: Partial<Record<ResourceId, number>>;
+  requiredResearch: ResearchRequirementRef;
+  validTargetClasses: readonly DamageTargetClass[];
+}
+
+export const NUCLEAR_PAYLOAD_RESEARCH_GATE = {
+  branch: 'weapons',
+  level: 5,
+} satisfies ResearchRequirementRef;
+
+export const NUCLEAR_PAYLOAD_RESOURCE_COST = {
+  fuel: 5000,
+  jump_fuel: 80,
+  uranium: 260,
+  tritium: 140,
+  antimatter: 12,
+  military_alloy: 520,
+  military_composite: 360,
+} satisfies Partial<Record<ResourceId, number>>;
+
+export const NUCLEAR_PAYLOAD_COOLDOWN_SEC = 6 * 60 * 60;
+
+export const NUCLEAR_PAYLOAD_PROFILE = {
+  payloadClass: 'nuclear',
+  damageType: 'thermal',
+  baseDamage: 12000,
+  armorPenetration: 0.55,
+  shieldMultiplier: 1.35,
+  cooldownSec: NUCLEAR_PAYLOAD_COOLDOWN_SEC,
+  resourceCost: NUCLEAR_PAYLOAD_RESOURCE_COST,
+  requiredResearch: NUCLEAR_PAYLOAD_RESEARCH_GATE,
+  validTargetClasses: ['military_heavy', 'building', 'command_center'],
+} satisfies NuclearPayloadProfile;
 
 export type ShieldRuntimeState = 'active' | 'downtime' | 'recharging';
 

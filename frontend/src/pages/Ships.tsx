@@ -10,6 +10,7 @@ import { ExpeditionDialog } from "../components/ExpeditionDialog";
 import { RefuelDialog } from "../components/RefuelDialog";
 import { ResourceBar } from "../components/ResourceBar";
 import { ShieldStatus } from "../components/ShieldStatus";
+import { CombatShipMenu } from "../components/CombatShipMenu";
 import { CosmicBackground, CosmicBottomNav, QueueStrip } from "../components/cosmic/atoms";
 import { ChevronLeft } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -390,6 +391,8 @@ export function ShipsPage() {
                     </button>
                   ))}
                 </div>
+
+                <CombatShipMenu research={meData?.research} />
 
                 {buildableShipTypes.map((type) => {
                   const isColonizerHull =

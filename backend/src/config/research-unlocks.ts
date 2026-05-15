@@ -4,6 +4,7 @@
  */
 
 import type { ResearchUnlockRequirement } from '@shared/config/buildingResearchGates.js';
+import { NUCLEAR_PAYLOAD_RESEARCH_GATE as SHARED_NUCLEAR_PAYLOAD_RESEARCH_GATE } from '@shared/types/combat.js';
 
 export type { ResearchUnlockRequirement };
 export { BUILDING_RESEARCH_GATES } from '@shared/config/buildingResearchGates.js';
@@ -26,3 +27,7 @@ export const JUMP_DRIVE_RESEARCH_GATE: ResearchUnlockRequirement = {
   branch: 'jump_drive',
   level: 1,
 };
+
+/** Late-tier abstract nuclear payload use */
+export const NUCLEAR_PAYLOAD_RESEARCH_GATE: ResearchUnlockRequirement =
+  SHARED_NUCLEAR_PAYLOAD_RESEARCH_GATE;
