@@ -232,6 +232,13 @@
       "when": 1778834268839,
       "tag": "0034_aspiring_tattoo",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1778837881886,
+      "tag": "0035_woozy_mongoose",
+      "breakpoints": true
     }
   ]
 }

@@ -35,6 +35,8 @@ export const ships = pgTable('ships', {
   hp: integer('hp').notNull().default(100),
   maxHp: integer('max_hp').notNull().default(100),
   combatStats: jsonb('combat_stats').$type<CombatStats>().notNull().default({ targetClass: 'civilian' } as CombatStats),
+  lastCombatTickAt: timestamp('last_combat_tick_at'),
+  destroyedAt: timestamp('destroyed_at'),
 });
 
 import { relations } from 'drizzle-orm';

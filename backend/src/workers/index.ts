@@ -24,6 +24,9 @@ async function main() {
   const { createProductionOrdersWorker } = await import('./production-orders.js');
   const productionOrdersWorker = await createProductionOrdersWorker();
 
+  const { createCombatWorker } = await import('./tick-combat.js');
+  const combatWorker = await createCombatWorker();
+
   logger.info('All workers started');
 
 
@@ -37,6 +40,7 @@ async function main() {
       cargoRoutesWorker.close(),
       researchWorker.close(),
       productionOrdersWorker.close(),
+      combatWorker.close(),
     ]);
 
     logger.info('Workers shut down');

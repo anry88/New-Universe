@@ -473,6 +473,7 @@ describe('Ship Building - POST /ships/build', () => {
     const { app, token, userId } = await createTestUser();
     const planetId = await getHomePlanetId(userId);
 
+    await db.insert(buildings).values({ planetId, typeId: 'shipyard', slotIndex: 0, level: 2 });
     await ensureSpaceport(planetId);
     await ensureResource(planetId, 'iron', 500);
     await ensureResource(planetId, 'silicon', 500);
@@ -486,6 +487,7 @@ describe('Ship Building - POST /ships/build', () => {
       payload: { planetId, typeSlug: 'light_fighter' },
     });
     expect(noYardRes.statusCode).toBe(400);
+    expect(noYardRes.json().error.toLowerCase()).toContain('military shipyard');
 
     await db.insert(buildings).values({ planetId, typeId: 'military_shipyard', slotIndex: 3, level: 1 });
 
@@ -516,6 +518,7 @@ describe('Ship Building - POST /ships/build', () => {
     const { app, token, userId } = await createTestUser();
     const planetId = await getHomePlanetId(userId);
 
+    await db.insert(buildings).values({ planetId, typeId: 'shipyard', slotIndex: 0, level: 2 });
     await ensureSpaceport(planetId);
     await ensureResource(planetId, 'steel', 2000);
     await ensureResource(planetId, 'military_alloy', 500);
@@ -550,7 +553,10 @@ describe('Ship Building - POST /ships/build', () => {
     expect(researchBlockRes.statusCode).toBe(400);
     expect(researchBlockRes.json().error).toMatch(/weapons/i);
 
-    await db.insert(researchProgress).values({ userId, branch: 'weapons', level: 2 });
+    await db
+      .update(researchProgress)
+      .set({ level: 2 })
+      .where(and(eq(researchProgress.userId, userId), eq(researchProgress.branch, 'weapons')));
 
     // Allowed
     const okRes = await app.inject({
@@ -567,6 +573,7 @@ describe('Ship Building - POST /ships/build', () => {
     const { app, token, userId } = await createTestUser();
     const planetId = await getHomePlanetId(userId);
 
+    await db.insert(buildings).values({ planetId, typeId: 'shipyard', slotIndex: 0, level: 2 });
     await ensureSpaceport(planetId);
     await ensureResource(planetId, 'steel', 1000);
     await ensureResource(planetId, 'silicon', 500);

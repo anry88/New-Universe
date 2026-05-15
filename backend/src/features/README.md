@@ -172,6 +172,16 @@ Ship construction and fleet queue helpers.
 - **`routes.ts`** — registers `GET /types`, JSON-schema-validated `POST /build`, `GET /queue`, and JSON-schema-validated `POST /rush`; ship mutations declare rate-limit/security metadata. Queue reads run user-scoped `syncReadyShips(..., { skipNotifications: true })` before returning the current queue.
 - **`build.test.ts`** — integration coverage for ship construction gates and active-session ready-ship sync.
 
+## `combat/`
+
+Server-authoritative ship-vs-ship combat ticks.
+
+- **`durability.ts`** — `deriveBuildingMaxHp(baseHp, level)` and `deriveShipMaxHp(baseHp)` baseline HP helpers, plus `durability.test.ts` validating the catalog combat stats. Buildings scale HP by level; ships use type baseline.
+- **`engine.ts`** — pure (DB-free) target acquisition. `resolveAttackerHits(actors)` enumerates valid (attacker, defender) pairs after filtering by owner, status, target class, planar engagement-range distance, and `isDefenderProtectedFromAttacker` (mirrors `world/visibility.ts` — foreign home systems hide ships from outside attackers). `computeTickDamage(defender, totalDps, nowMs)` returns elapsed-time damage capped by `COMBAT_TICK_MAX_DT_SEC` so re-engagement bursts cannot one-shot drifting targets.
+- **`tick-combat.ts`** — `processDueCombat({ userId?, skipNotifications?, now? })` is the orchestrator: loads alive (`status != 'destroyed'`) ships joined with their host system, computes positions (planet coordinates at rest, `calculateExpeditionPosition` for `'moving'` ships), runs the engine, applies damage transactionally, marks destroyed hulls (`status='destroyed'`, `hp=0`, `destroyedAt`, drops in-flight expeditions), stamps `lastCombatTickAt` for idempotency, and emits `ship_destroyed` notifications for the loser (suppressed when called from `/me` online sync). Runs on a 10 s interval worker plus once per active-session `/me` call.
+- **`engine.test.ts`** — 21 pure tests for engagement range, effective DPS, protection rules, target selection, and elapsed-time idempotency math.
+- **`tick-combat.test.ts`** — 8 integration tests: first-contact stamps `lastCombatTickAt` without damage, scouts die within seconds under light_fighter fire, light_fighter vs light_fighter survives materially longer, running the tick twice in succession does not double damage, destroyed ships stay destroyed across subsequent ticks, in-flight expeditions are cancelled when a ship is destroyed, foreign home systems shield civilian targets, and bombers (orbital range) skip ship targeting entirely.
+
 ## Shared feature helpers
 
 - **`timers.ts`** — server-side derivation helpers for timer metadata (`queueStartedAt` / `startedAt`) from catalog durations and completion timestamps, used by `/me`, `/buildings/queue`, and `/ships/queue`.
