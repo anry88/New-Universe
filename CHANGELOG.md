@@ -5,6 +5,7 @@ All notable changes to New Universe will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- `P3-COM-010`: добавлены абстрактные правила ядерного payload-протокола, Weapons V gate, поздние advanced/Common Pool costs, cooldown, серверные проверки видимости/владения/нейтралов/protected-home/поселённых целей, shield-first damage resolution и локализованный warning-блок в верфи.
 - `P3-COM-013` (issue #355): добавлен late-tier `atomic_reactor` с Energy IV gate, one-per-planet limit, abstract sealed-cell energy recipes на advanced Common Pool resources, backend production/audit/sector tests, Cosmic Atlas icon/labels и balance-sim mirror.
 - `P3-COM-009` (issue #351): добавлены малый/средний/большой щитовые корабли с RU/EN метаданными, Cosmic Atlas иконками, advanced build costs, Energy gates, shield HP/radius/recharge/downtime hooks, серверной механикой покрытия/перекрытия/пробития/восстановления и UI-строкой статуса щита.
 - `P3-COM-008` (issue #350): добавлены средние/тяжёлые линии истребителей, бомбардировщиков и лазерных кораблей, а также ракетные носители с абстрактными missile payload rules, Common Pool материалами, Weapons/Military Shipyard gates, RU/EN описаниями, Cosmic Atlas иконками и audit/combat покрытием.
