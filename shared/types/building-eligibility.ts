@@ -400,6 +400,21 @@ export function formatBuildBlockedMessage(reason: BuildBlockedReason, lang: 'en'
       return lang === 'ru'
         ? `Для апгрейда до уровня ${reason.details.requiredLevel} нужен командный центр уровня ${reason.details.requiredLevel} на этой планете. Сейчас: ${reason.details.commandCenterLevel}.`
         : `Command Center level ${reason.details.requiredLevel} is required on this planet before upgrading to level ${reason.details.requiredLevel}. Current: ${reason.details.commandCenterLevel}.`;
+    case 'building_blocked_insufficient_resources': {
+      const parts = reason.details.missing.map((row) => {
+        const label = resourceLabel(row.resourceId, lang);
+        return lang === 'ru'
+          ? `${label}: нужно ${row.required}, есть ${row.available}`
+          : `${label}: need ${row.required}, have ${row.available}`;
+      });
+      return lang === 'ru'
+        ? `Недостаточно ресурсов${parts.length ? `: ${parts.join(', ')}` : '.'}`
+        : `Insufficient resources${parts.length ? `: ${parts.join(', ')}` : '.'}`;
+    }
+    case 'building_blocked_queue_full':
+      return lang === 'ru'
+        ? 'Очередь строительства этой планеты уже занята. Дождитесь завершения или ускорьте текущую работу.'
+        : 'This planet already has a building under construction. Wait for it to finish or rush it.';
     default:
       return lang === 'en' ? 'Cannot build.' : 'Строительство недоступно.';
   }

@@ -114,10 +114,12 @@ The folders above are reserved by `AGENTS.md` (`Engineering Rules` → "Keep fro
 - **`fleet.test.ts`** — Vitest coverage for logistics-only cargo filtering and mapped cargo-transfer server errors.
 - **`ship-queue.ts`** — merges `/ships/queue` rows with `/me.ships` fallback rows so a `building` ship is never treated as idle during queue refetch gaps.
 - **`ship-queue.test.ts`** — regression coverage for the building-ship fallback and authoritative queue-row precedence.
-- **`ship-build-eligibility.ts`** — local planner helper that returns the first ship build blocker (`missingBuilding`, `missingResearch`, or `insufficientResource`) for localized shipyard rows with entity labels instead of raw ids.
-- **`ship-build-eligibility.test.ts`** — Vitest coverage for lightweight-transporter L2 shipyard, Logistics L1, and resource availability checks.
+- **`ship-build-eligibility.ts`** — local planner helper that returns the first ship build blocker (`missingBuilding`, `missingResearch`, `insufficientResource`, `queueFull`, or `spaceportCapacityFull`) for localized shipyard rows with entity labels instead of raw ids. `estimateLandingSlotUsage()` mirrors the backend's `loadLandingSlotUsage` against the `/me` snapshot to compute spaceport capacity vs docked ships and active expedition reservations.
+- **`ship-build-eligibility.test.ts`** — Vitest coverage for lightweight-transporter L2 shipyard, Logistics L1, resource availability, single-lane shipyard queue, spaceport capacity, queued spaceport, and landing-slot reservations.
 - **`production.ts`** — `defaultProductionRecipeId`, `canStartProduction`, and `productionBlockedText` keep production dialog controls deterministic and translate structured server block reasons.
 - **`production.test.ts`** — Vitest coverage for production helper selection, disabled state, and localized block messages.
+- **`build-eligibility.ts`** — `resolveQueueFullBlockedReason` and `resolveInsufficientResourcesBlockedReason` mirror the backend's single-lane build queue and `spendResources` cost check so BuildDialog/UpgradeDialog can refuse a doomed request before it reaches the server.
+- **`build-eligibility.test.ts`** — Vitest coverage for queue-full detection, missing-resource enumeration, zero-cost short-circuit, and empty planet inventory.
 - **`timers.ts`** — pure local timer helpers for countdown/progress snapshots and compact duration labels. Network synchronization stays in hooks (`useMe`, `useShipQueue`) and fires at due timestamps, not every UI tick.
 - **`timers.test.ts`** — Vitest coverage for exact timestamp progress, derived start fallback, and due-state clamping.
 - **`api.ts`** — Unified fetch client. Automatically injects `X-Telegram-Init-Data` from the SDK, `Authorization: Bearer <token>` when a session is active, and `Accept-Language` from the persisted UI locale.

@@ -27,6 +27,12 @@ interface UpgradeDialogProps {
   resourceChoices?: BuildDialogResourceChoice[];
   resourceSwitchBlockedReason?: (resourceId: string) => BuildBlockedReason | null;
   upgradeBlockedReason?: BuildBlockedReason | null;
+  /**
+   * Pre-localized message that disables the demolish button. Use when the
+   * action would be rejected by the backend (queued building, spaceport with
+   * docked ships or active reservations).
+   */
+  demolishBlockedMessage?: string | null;
   onChangeResource?: (buildingId: string, resourceId: string) => void;
   isProcessing: boolean;
   /** Biome accent override; defaults to Atlas cyan. */
@@ -52,6 +58,7 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
   resourceChoices = [],
   resourceSwitchBlockedReason,
   upgradeBlockedReason = null,
+  demolishBlockedMessage = null,
   onChangeResource,
   isProcessing,
   accent = '#5BD7FF',
@@ -297,10 +304,21 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
             </button>
           )}
 
+          {demolishBlockedMessage ? (
+            <div
+              className="bd-block-hint"
+              role="status"
+              data-testid="demolish-block-reason"
+              style={{ marginTop: 12 }}
+            >
+              <div className="bd-block-hint-text">{demolishBlockedMessage}</div>
+            </div>
+          ) : null}
+
           <button
             type="button"
             onClick={() => onDemolish(building.id)}
-            disabled={isProcessing}
+            disabled={isProcessing || Boolean(demolishBlockedMessage)}
             className="cosmic-cta"
             style={{
               width: '100%',

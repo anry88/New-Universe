@@ -256,6 +256,18 @@ export function ShipsPage() {
       });
     }
 
+    if (reason.type === "queueFull") {
+      return t("ships.blocked.queueFull");
+    }
+
+    if (reason.type === "spaceportCapacityFull") {
+      return t("ships.blocked.spaceportFull", {
+        capacity: reason.capacity,
+        occupied: reason.occupied,
+        reserved: reason.reserved,
+      });
+    }
+
     return t("ships.blocked.resource", {
       resource: getResourceLabel(reason.resourceId, locale),
       required: reason.required,
@@ -430,7 +442,15 @@ export function ShipsPage() {
                     )
                     .join(", ");
                   const blockedReason = selectedPlanet
-                    ? resolveShipBuildBlockedReason(selectedPlanet, type, meData?.research)
+                    ? resolveShipBuildBlockedReason(
+                        selectedPlanet,
+                        type,
+                        meData?.research,
+                        {
+                          ships: meData?.ships,
+                          expeditions: meData?.expeditions,
+                        },
+                      )
                     : null;
                   const canBuild = selectedPlanet ? blockedReason === null : false;
                   const blockedText = blockedReason

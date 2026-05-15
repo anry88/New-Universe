@@ -1,9 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import type { ResearchProgress } from "@shared/types/research";
-import { formatShipBuildErrorMessage, type ShipType } from "@shared/types/ships";
+import {
+  formatShipBuildErrorMessage,
+  type Ship,
+  type ShipType,
+} from "@shared/types/ships";
+import type { Expedition } from "@shared/types/expeditions";
 import type { Planet } from "@shared/types/world";
-import { resolveShipBuildBlockedReason } from "./ship-build-eligibility";
+import {
+  estimateLandingSlotUsage,
+  resolveShipBuildBlockedReason,
+} from "./ship-build-eligibility";
 
 const cargoLight: ShipType = {
   id: "cargo_light",
@@ -125,5 +133,171 @@ describe("resolveShipBuildBlockedReason", () => {
       requiredLevel: 1,
       currentLevel: 0,
     });
+  });
+
+  it("blocks when another ship is already building on the planet", () => {
+    const planet = {
+      ...basePlanet,
+      buildings: [
+        { id: "yard-1", planetId: "planet-1", typeId: "shipyard", level: 2, slotIndex: 2 },
+        { id: "port-1", planetId: "planet-1", typeId: "spaceport", level: 4, slotIndex: 3 },
+      ],
+    };
+    const buildingShip: Ship = {
+      id: "ship-1",
+      ownerId: "user-1",
+      typeId: "cargo_light",
+      locationPlanetId: "planet-1",
+      status: "building",
+      queueCompletesAt: new Date(Date.now() + 60_000).toISOString(),
+      cargoJson: {},
+      fuel: "0",
+      jumpFuel: "0",
+      hp: 60,
+      maxHp: 60,
+      combatStats: { targetClass: "military_light" },
+    };
+    expect(
+      resolveShipBuildBlockedReason(planet, cargoLight, logisticsResearch, {
+        ships: [buildingShip],
+      }),
+    ).toEqual({ type: "queueFull", maxQueuedShips: 1 });
+  });
+
+  it("blocks when spaceport landing slots are fully occupied", () => {
+    const planet = {
+      ...basePlanet,
+      buildings: [
+        { id: "yard-1", planetId: "planet-1", typeId: "shipyard", level: 2, slotIndex: 2 },
+        { id: "port-1", planetId: "planet-1", typeId: "spaceport", level: 2, slotIndex: 3 },
+      ],
+    };
+    const ship: Ship = {
+      id: "ship-x",
+      ownerId: "user-1",
+      typeId: "cargo_light",
+      locationPlanetId: "planet-1",
+      status: "idle",
+      queueCompletesAt: null,
+      cargoJson: {},
+      fuel: "0",
+      jumpFuel: "0",
+      hp: 60,
+      maxHp: 60,
+      combatStats: { targetClass: "military_light" },
+    };
+    const ship2: Ship = { ...ship, id: "ship-y" };
+    expect(
+      resolveShipBuildBlockedReason(planet, cargoLight, logisticsResearch, {
+        ships: [ship, ship2],
+      }),
+    ).toEqual({
+      type: "spaceportCapacityFull",
+      capacity: 2,
+      occupied: 2,
+      reserved: 0,
+    });
+  });
+});
+
+describe("estimateLandingSlotUsage", () => {
+  const planet: Planet = {
+    id: "planet-1",
+    systemId: "system-1",
+    biome: "green",
+    size: 20,
+    slotCount: 20,
+    name: "home",
+    buildings: [
+      { id: "port-1", planetId: "planet-1", typeId: "spaceport", level: 3, slotIndex: 1 },
+    ],
+  };
+
+  it("treats a queued spaceport build as zero capacity", () => {
+    const usage = estimateLandingSlotUsage({
+      planet: {
+        ...planet,
+        buildings: [
+          {
+            id: "port-1",
+            planetId: "planet-1",
+            typeId: "spaceport",
+            level: 3,
+            slotIndex: 1,
+            queueAction: "build",
+          },
+        ],
+      },
+      ships: [],
+      expeditions: [],
+    });
+    expect(usage.capacity).toBe(0);
+    expect(usage.used).toBe(0);
+  });
+
+  it("counts idle/building ships at the planet as occupied", () => {
+    const ship = (id: string, status: Ship["status"]): Ship => ({
+      id,
+      ownerId: "u",
+      typeId: "cargo_light",
+      locationPlanetId: "planet-1",
+      status,
+      queueCompletesAt: null,
+      cargoJson: {},
+      fuel: "0",
+      jumpFuel: "0",
+      hp: 1,
+      maxHp: 1,
+      combatStats: { targetClass: "civilian" },
+    });
+    const usage = estimateLandingSlotUsage({
+      planet,
+      ships: [
+        ship("a", "idle"),
+        ship("b", "building"),
+        ship("c", "in_flight"),
+        { ...ship("d", "idle"), locationPlanetId: "elsewhere" },
+      ],
+      expeditions: [],
+    });
+    expect(usage.occupied).toBe(2);
+    expect(usage.reserved).toBe(0);
+    expect(usage.used).toBe(2);
+  });
+
+  it("adds spaceport reservations from active expeditions", () => {
+    const expedition: Expedition = {
+      id: "e1",
+      shipId: "s1",
+      type: "survey",
+      originPlanetId: "planet-1",
+      targetX: 0,
+      targetY: 0,
+      targetZ: 0,
+      targetPlanetId: null,
+      status: "in_flight",
+      eta: new Date().toISOString(),
+      returnedAt: null,
+      result: {
+        returnTrip: true,
+        spaceportReservation: { originPlanetId: "planet-1" },
+      },
+    };
+    const inboundExpedition: Expedition = {
+      ...expedition,
+      id: "e2",
+      originPlanetId: "elsewhere",
+      targetPlanetId: "planet-1",
+      result: {
+        spaceportReservation: { targetPlanetId: "planet-1" },
+      },
+    };
+    const usage = estimateLandingSlotUsage({
+      planet,
+      ships: [],
+      expeditions: [expedition, inboundExpedition],
+    });
+    expect(usage.reserved).toBe(2);
+    expect(usage.used).toBe(2);
   });
 });

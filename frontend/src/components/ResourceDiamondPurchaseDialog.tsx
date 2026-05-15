@@ -118,14 +118,29 @@ export function ResourceDiamondPurchaseDialog({
                   })
                 : t('resources.priceUnavailable')}
           </div>
-          <button
-            type="button"
-            className="resource-buy-confirm-btn"
-            disabled={busy || parsedAmount <= 0 || !quote || maxAmount === 0}
-            onClick={() => onConfirm(parsedAmount)}
-          >
-            {busy ? t('common.processing') : t('resources.buyWithDiamonds')}
-          </button>
+          {(() => {
+            const cantAfford = Boolean(quote && quote.diamondsNeeded > diamondBalance);
+            return (
+              <>
+                {cantAfford && quote ? (
+                  <div className="resource-inv-hint" style={{ color: '#fca5a5' }}>
+                    {t('resources.notEnoughDiamonds', {
+                      diamonds: quote.diamondsNeeded.toLocaleString(),
+                      balance: diamondBalance.toLocaleString(),
+                    })}
+                  </div>
+                ) : null}
+                <button
+                  type="button"
+                  className="resource-buy-confirm-btn"
+                  disabled={busy || parsedAmount <= 0 || !quote || maxAmount === 0 || cantAfford}
+                  onClick={() => onConfirm(parsedAmount)}
+                >
+                  {busy ? t('common.processing') : t('resources.buyWithDiamonds')}
+                </button>
+              </>
+            );
+          })()}
         </section>
       </div>
     </div>

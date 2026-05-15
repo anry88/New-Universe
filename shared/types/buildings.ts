@@ -73,6 +73,27 @@ export type BuildBlockedReason =
   | {
       code: 'building_blocked_command_center_level';
       details: { commandCenterLevel: number; requiredLevel: number };
+    }
+  | {
+      /**
+       * Client-side gate: the planet does not currently hold every resource
+       * required by the prospective build/upgrade. Backend rejects the same
+       * case with `insufficient_resource`; this code keeps the UX message
+       * consistent without firing a doomed request.
+       */
+      code: 'building_blocked_insufficient_resources';
+      details: {
+        missing: { resourceId: string; required: number; available: number }[];
+      };
+    }
+  | {
+      /**
+       * Client-side gate: the planet's single construction lane is busy with
+       * another build or upgrade. Mirrors the backend's `Build queue is full`
+       * error so the player never sees the request fail.
+       */
+      code: 'building_blocked_queue_full';
+      details: { planetId?: string };
     };
 
 export interface BuildRequest {
