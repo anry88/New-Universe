@@ -26,6 +26,20 @@ const lightLaserStats = {
   engagementRange: 'long' as const,
 };
 
+const rocketCarrierStats = {
+  targetClass: 'military_medium' as const,
+  missilePayload: {
+    damageType: 'explosive' as const,
+    alphaDamage: 1500,
+    reloadSec: 30,
+    armorPenetration: 0.35,
+    shieldMultiplier: 0.8,
+    validTargetClasses: ['military_medium' as const, 'military_heavy' as const],
+    evasionCounterThreshold: 0.3,
+    maxRange: 'long' as const,
+  },
+};
+
 const lightBomberStats = {
   targetClass: 'building' as const,
   damageProfile: { damageType: 'explosive' as const, dps: 100, armorPenetration: 0.1, shieldMultiplier: 0.5 },
@@ -191,6 +205,38 @@ describe('combat engine — resolveAttackerHits', () => {
     const hits = resolveAttackerHits([a, b, t]);
     const dps = sumDpsPerDefender(hits);
     expect(dps.get('T')).toBe(60);
+  });
+
+  it('applies rocket-carrier payload pressure at long range against medium/heavy hulls', () => {
+    const carrier = makeActor({ id: 'RC', ownerId: 'A', combatStats: rocketCarrierStats, position: { x: 0, y: 0 } });
+    const cruiser = makeActor({
+      id: 'C',
+      ownerId: 'B',
+      combatStats: { targetClass: 'military_medium', evasion: 0.1 },
+      defenderArmor: 20,
+      position: { x: 7, y: 0 },
+    });
+    const hits = resolveAttackerHits([carrier, cruiser]);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]).toMatchObject({ attackerId: 'RC', defenderId: 'C' });
+    expect(hits[0].effectiveDps).toBe(37);
+  });
+
+  it('keeps rocket carriers countered by light or evasive hulls', () => {
+    const carrier = makeActor({ id: 'RC', ownerId: 'A', combatStats: rocketCarrierStats, position: { x: 0, y: 0 } });
+    const light = makeActor({
+      id: 'LF',
+      ownerId: 'B',
+      combatStats: { targetClass: 'military_light', evasion: 0.1 },
+      position: { x: 0, y: 0 },
+    });
+    const evasiveMedium = makeActor({
+      id: 'EM',
+      ownerId: 'B',
+      combatStats: { targetClass: 'military_medium', evasion: 0.3 },
+      position: { x: 0, y: 0 },
+    });
+    expect(resolveAttackerHits([carrier, light, evasiveMedium])).toHaveLength(0);
   });
 });
 

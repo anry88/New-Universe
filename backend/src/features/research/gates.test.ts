@@ -46,6 +46,10 @@ describe('research gates', () => {
     expect(SHIP_RESEARCH_GATES.fighter).toEqual({ branch: 'weapons', level: 1 });
     expect(SHIP_RESEARCH_GATES.cruiser).toEqual({ branch: 'weapons', level: 2 });
     expect(SHIP_RESEARCH_GATES.battleship).toEqual({ branch: 'weapons', level: 3 });
+    expect(SHIP_RESEARCH_GATES.medium_fighter).toEqual({ branch: 'weapons', level: 3 });
+    expect(SHIP_RESEARCH_GATES.heavy_fighter).toEqual({ branch: 'weapons', level: 4 });
+    expect(SHIP_RESEARCH_GATES.rocket_carrier).toEqual({ branch: 'weapons', level: 4 });
+    expect(SHIP_RESEARCH_GATES.heavy_rocket_carrier).toEqual({ branch: 'weapons', level: 5 });
   });
 
   it('blocks fighter build when Weapons I is not researched', () => {
@@ -74,5 +78,13 @@ describe('research gates', () => {
     const gate = SHIP_RESEARCH_GATES.battleship!;
     expect(meetsResearchRequirement(mapL2, gate)).toBe(false);
     expect(meetsResearchRequirement(mapL3, gate)).toBe(true);
+  });
+
+  it('blocks heavy rocket carriers until Weapons V', () => {
+    const mapL4 = levelsMapFromRows([{ branch: 'weapons', level: 4 }]);
+    const mapL5 = levelsMapFromRows([{ branch: 'weapons', level: 5 }]);
+    const gate = SHIP_RESEARCH_GATES.heavy_rocket_carrier!;
+    expect(meetsResearchRequirement(mapL4, gate)).toBe(false);
+    expect(meetsResearchRequirement(mapL5, gate)).toBe(true);
   });
 });

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { SHIP_ENTITY_LABELS } from '@shared/types/entity-labels';
 import {
   getShipClassTag,
   isShipTypeVisible,
@@ -9,12 +10,21 @@ import {
 } from './ships';
 
 describe('ship icon resolver', () => {
+  it('keeps every shared ship label backed by a Cosmic Atlas hull entry', () => {
+    expect(Object.keys(SHIP_BY_TYPE).sort()).toEqual(Object.keys(SHIP_ENTITY_LABELS).sort());
+  });
+
   it('resolves active catalog ids to unique Cosmic Atlas hull entries', () => {
     expect(resolveShipType('scout')).toBe(SHIP_BY_TYPE.scout);
     expect(resolveShipType('cargo_light')).toBe(SHIP_BY_TYPE.cargo_light);
     expect(resolveShipType('colonizer')).toBe(SHIP_BY_TYPE.colonizer);
     expect(resolveShipType('recon_probe')).toBe(SHIP_BY_TYPE.recon_probe);
+    expect(resolveShipType('medium_fighter')).toBe(SHIP_BY_TYPE.medium_fighter);
+    expect(resolveShipType('heavy_bomber')).toBe(SHIP_BY_TYPE.heavy_bomber);
+    expect(resolveShipType('rocket_carrier')).toBe(SHIP_BY_TYPE.rocket_carrier);
+    expect(resolveShipType('heavy_rocket_carrier')).toBe(SHIP_BY_TYPE.heavy_rocket_carrier);
     expect(getShipClassTag('recon_probe', 'ru')).toBe('ЗОНД');
+    expect(getShipClassTag('rocket_carrier', 'en')).toBe('CARRIER');
   });
 
   it('keeps recon probes visible for random Jump Gate discovery', () => {

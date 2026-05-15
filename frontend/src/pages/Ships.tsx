@@ -15,7 +15,9 @@ import { useLocation, useNavigate } from "react-router-dom";
 import type { Ship, ShipQueueItem, ShipType } from "@shared/types/ships";
 import type { RushPricing } from "@shared/types/diamonds";
 import { estimateRushDiamondCost } from "@shared/types/diamonds";
+import type { CombatStats, EngagementRange } from "@shared/types/combat";
 import type { Building, Planet } from "@shared/types/world";
+import { shipDescription } from "@shared/types/entity-labels";
 import { getResourceLabel, getResourceSymbol } from "../components/cosmic/resources";
 import { timerSnapshot } from "../lib/timers";
 import {
@@ -45,6 +47,32 @@ function formatDuration(totalSeconds: number): string {
   const seconds = Math.max(0, Math.ceil(totalSeconds));
   const minutes = Math.floor(seconds / 60);
   return `${minutes}m ${String(seconds % 60).padStart(2, "0")}s`;
+}
+
+function combatRangeLabel(
+  stats: CombatStats | undefined,
+  t: (key: string, params?: Record<string, string | number>) => string,
+): string {
+  const range = stats?.missilePayload?.maxRange ?? stats?.engagementRange;
+  const keyByRange: Partial<Record<EngagementRange, string>> = {
+    close: "ships.range.close",
+    medium: "ships.range.medium",
+    long: "ships.range.long",
+    orbital: "ships.range.orbital",
+  };
+  return range ? t(keyByRange[range] ?? "common.none") : t("common.none");
+}
+
+function missilePayloadLabel(
+  stats: CombatStats | undefined,
+  t: (key: string, params?: Record<string, string | number>) => string,
+): string | null {
+  const payload = stats?.missilePayload;
+  if (!payload) return null;
+  return t("ships.payload", {
+    alpha: payload.alphaDamage,
+    reload: payload.reloadSec,
+  });
 }
 
 function ShipBuildQueue({
@@ -365,6 +393,7 @@ export function ShipsPage() {
                 {buildableShipTypes.map((type) => {
                   const isColonizerHull =
                     type.role === "colonization" || type.id === "colonizer";
+                  const payloadText = missilePayloadLabel(type.combatStats, t);
                   const requirements = type.requiredBuildings
                     .map((req) =>
                       formatRequirement(selectedPlanet, req.typeId, req.level),
@@ -400,6 +429,9 @@ export function ShipsPage() {
                       <div>
                         <div className="ship-name">{type.name[locale]}</div>
                         <div className="ship-loc">
+                          {shipDescription(type.id, locale)}
+                        </div>
+                        <div className="ship-loc">
                           {t("ships.buildTime")}: {Math.floor(type.buildTimeSec / 60)}m{" "}
                           {type.buildTimeSec % 60}s
                         </div>
@@ -415,6 +447,17 @@ export function ShipsPage() {
                         <div className="ship-loc">
                           {t("ships.requires")}: {requirements || t("common.none")}
                         </div>
+                        <div className="ship-loc">
+                          {t("ships.combatStats", {
+                            hp: type.hp,
+                            dps: type.dps,
+                            range: combatRangeLabel(type.combatStats, t),
+                            fuel: type.fuelCapacity,
+                          })}
+                        </div>
+                        {payloadText ? (
+                          <div className="ship-loc">{payloadText}</div>
+                        ) : null}
                         {blockedText ? (
                           <div className="ship-loc" style={{ color: "#fca5a5" }}>
                             {blockedText}
@@ -477,7 +520,11 @@ export function ShipsPage() {
                       <div className="ship-stats">
                         <div className="ship-stat">
                           <span>{t("ships.hp")}</span>
-                          <b>{type.armor}</b>
+                          <b>{type.hp}</b>
+                        </div>
+                        <div className="ship-stat">
+                          <span>{t("ships.dps")}</span>
+                          <b>{type.dps}</b>
                         </div>
                         <div className="ship-stat">
                           <span>{t("ships.speed")}</span>
@@ -569,6 +616,11 @@ export function ShipsPage() {
                     <div className="ship-name">
                       {type?.name?.[locale] ?? getShipLabel(ship.typeId, locale)}
                     </div>
+                    {type ? (
+                      <div className="ship-loc">
+                        {shipDescription(type.id, locale)}
+                      </div>
+                    ) : null}
                     <div className="ship-loc">{shipLocation}</div>
                     <button
                       type="button"
@@ -649,7 +701,11 @@ export function ShipsPage() {
                   <div className="ship-stats">
                     <div className="ship-stat">
                       <span>{t("ships.hp")}</span>
-                      <b>{type?.armor ?? 0}</b>
+                      <b>{type?.hp ?? ship.maxHp ?? 0}</b>
+                    </div>
+                    <div className="ship-stat">
+                      <span>{t("ships.dps")}</span>
+                      <b>{type?.dps ?? 0}</b>
                     </div>
                     <div className="ship-stat">
                       <span>{t("ships.speed")}</span>

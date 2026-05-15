@@ -13,6 +13,7 @@ import {
   engagementRangeToSectorDistance,
   isShipTargetClass,
 } from '@shared/types/combat.js';
+import { resolveMissilePayloadDps } from './missiles.js';
 
 /**
  * Upper bound on the elapsed-time window applied to a single combat tick.
@@ -76,7 +77,6 @@ export function resolveAttackerHits(actors: CombatActor[]): AttackerHit[] {
     const range = engagementRangeToSectorDistance(
       attacker.combatStats.engagementRange as EngagementRange | undefined,
     );
-    if (range <= 0) continue;
 
     for (const defender of actors) {
       if (defender.id === attacker.id) continue;
@@ -85,19 +85,51 @@ export function resolveAttackerHits(actors: CombatActor[]): AttackerHit[] {
       if (isDefenderProtectedFromAttacker(attacker, defender)) continue;
 
       const dist = planarDistance(attacker.position, defender.position);
-      if (dist === null || dist > range) continue;
+      if (dist === null) continue;
 
-      const eff = effectiveDpsAgainst(
-        attacker.combatStats.damageProfile,
-        defender.defenderArmor,
-      );
-      if (eff <= 0) continue;
+      const sustainedEff = resolveSustainedShipWeaponDps(attacker, defender, dist, range);
+      if (sustainedEff > 0) {
+        hits.push({ attackerId: attacker.id, defenderId: defender.id, effectiveDps: sustainedEff });
+      }
 
-      hits.push({ attackerId: attacker.id, defenderId: defender.id, effectiveDps: eff });
+      const missileEff = resolveMissileShipWeaponDps(attacker, defender, dist);
+      if (missileEff > 0) {
+        hits.push({ attackerId: attacker.id, defenderId: defender.id, effectiveDps: missileEff });
+      }
     }
   }
 
   return hits;
+}
+
+function resolveSustainedShipWeaponDps(
+  attacker: CombatActor,
+  defender: CombatActor,
+  dist: number,
+  range: number,
+): number {
+  if (range <= 0 || dist > range) return 0;
+  if (!attacker.combatStats.damageProfile) return 0;
+  if (attacker.combatStats.engagementRange === 'orbital') return 0;
+  return effectiveDpsAgainst(
+    attacker.combatStats.damageProfile,
+    defender.defenderArmor,
+  );
+}
+
+function resolveMissileShipWeaponDps(
+  attacker: CombatActor,
+  defender: CombatActor,
+  dist: number,
+): number {
+  const payload = attacker.combatStats.missilePayload;
+  if (!payload) return 0;
+  const range = engagementRangeToSectorDistance(payload.maxRange);
+  if (range <= 0 || dist > range) return 0;
+  return resolveMissilePayloadDps(attacker.combatStats, {
+    combatStats: defender.combatStats,
+    defenderArmor: defender.defenderArmor,
+  });
 }
 
 function isAttackerActive(actor: CombatActor): boolean {

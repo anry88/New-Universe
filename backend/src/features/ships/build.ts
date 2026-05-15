@@ -174,6 +174,10 @@ export async function buildShip(
         queueCompletesAt,
         cargoJson: {},
         fuel: '0',
+        jumpFuel: '0',
+        hp: type.hp,
+        maxHp: type.hp,
+        combatStats: type.combatStats,
       })
       .returning();
 
