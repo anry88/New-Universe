@@ -5,6 +5,7 @@ import { processCompletedResearch } from '../research/completion.js';
 import { productionService } from '../resources/production.js';
 import { syncReadyShips } from '../ships/build.js';
 import { processExpeditions } from '../../workers/tick-expeditions.js';
+import { processDueCombat } from '../combat/tick-combat.js';
 import { colonies, notifications, planets, systems } from '../../db/schema.js';
 
 const ONLINE_SYNC_NOTIFICATION_TYPES = [
@@ -13,6 +14,7 @@ const ONLINE_SYNC_NOTIFICATION_TYPES = [
   'ship_done',
   'expedition_returned',
   'colony_founded',
+  'ship_destroyed',
 ];
 
 async function playerPlanetIds(userId: string): Promise<string[]> {
@@ -54,5 +56,6 @@ export async function syncDuePlayerState(userId: string): Promise<void> {
   await syncReadyShips(userId, { skipNotifications: true });
   await processCompletedResearch(db, { userId, skipNotification: true });
   await processExpeditions({ userId, skipNotifications: true });
+  await processDueCombat({ userId, skipNotifications: true });
   await suppressPendingOnlineCompletionNotifications(userId);
 }

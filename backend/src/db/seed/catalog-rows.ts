@@ -570,7 +570,12 @@ export const SHIP_TYPE_CATALOG_ROWS: ShipCatalogRow[] = [
     requiredBuildings: [{ typeId: 'military_shipyard', level: 2 }],
     sensorRange: 12,
     combatStats: {
-      targetClass: 'building',
+      // `targetClass` describes what this hull looks like *as a defender* — a
+      // bomber is a military_light ship, so other ships can attack it. Its
+      // own ground-attack payload is described by damageProfile + orbital
+      // engagementRange, which `combat/engine.ts` routes to surface targets
+      // instead of opposing ships.
+      targetClass: 'military_light',
       damageProfile: { damageType: 'explosive', dps: 100, armorPenetration: 0.1, shieldMultiplier: 0.5 },
       engagementRange: 'orbital',
     } as CombatStats,

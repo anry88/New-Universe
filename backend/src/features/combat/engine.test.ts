@@ -1,0 +1,213 @@
+import { describe, expect, it } from 'vitest';
+import {
+  COMBAT_TICK_MAX_DT_SEC,
+  computeTickDamage,
+  isDefenderProtectedFromAttacker,
+  resolveAttackerHits,
+  sumDpsPerDefender,
+  type CombatActor,
+} from './engine.js';
+import { engagementRangeToSectorDistance, effectiveDpsAgainst } from '@shared/types/combat.js';
+
+const lightFighterStats = {
+  targetClass: 'military_light' as const,
+  damageProfile: { damageType: 'kinetic' as const, dps: 30, armorPenetration: 0.2, shieldMultiplier: 1.0 },
+  engagementRange: 'close' as const,
+};
+
+const lightLaserStats = {
+  targetClass: 'military_light' as const,
+  damageProfile: { damageType: 'energy' as const, dps: 60, armorPenetration: 0.4, shieldMultiplier: 1.5 },
+  engagementRange: 'long' as const,
+};
+
+const lightBomberStats = {
+  targetClass: 'building' as const,
+  damageProfile: { damageType: 'explosive' as const, dps: 100, armorPenetration: 0.1, shieldMultiplier: 0.5 },
+  engagementRange: 'orbital' as const,
+};
+
+const civilianStats = { targetClass: 'civilian' as const };
+
+function makeActor(overrides: Partial<CombatActor>): CombatActor {
+  return {
+    id: 'ship-' + Math.random().toString(36).slice(2, 8),
+    ownerId: 'owner-a',
+    status: 'idle',
+    hp: 100,
+    combatStats: civilianStats,
+    defenderArmor: 0,
+    position: { x: 0, y: 0 },
+    hostSystem: null,
+    lastCombatTickAtMs: null,
+    ...overrides,
+  };
+}
+
+describe('combat engine — engagement range', () => {
+  it('maps engagement ranges to sector distances', () => {
+    expect(engagementRangeToSectorDistance('close')).toBe(1);
+    expect(engagementRangeToSectorDistance('medium')).toBe(3);
+    expect(engagementRangeToSectorDistance('long')).toBe(8);
+    expect(engagementRangeToSectorDistance('orbital')).toBe(0);
+    expect(engagementRangeToSectorDistance(undefined)).toBe(0);
+  });
+});
+
+describe('combat engine — effectiveDpsAgainst', () => {
+  it('reduces dps by armor scaled by (1 - armorPenetration)', () => {
+    expect(effectiveDpsAgainst(lightFighterStats.damageProfile, 0)).toBe(30);
+    // armor=5, armorPenetration=0.2 → reduction = 5*0.8 = 4 → 30-4 = 26
+    expect(effectiveDpsAgainst(lightFighterStats.damageProfile, 5)).toBe(26);
+    // laser armor=5, ap=0.4 → reduction = 5*0.6 = 3 → 60-3 = 57
+    expect(effectiveDpsAgainst(lightLaserStats.damageProfile, 5)).toBe(57);
+  });
+
+  it('clamps to a positive floor for heavy armor', () => {
+    expect(effectiveDpsAgainst(lightFighterStats.damageProfile, 9999)).toBe(1);
+  });
+
+  it('returns 0 when no damage profile', () => {
+    expect(effectiveDpsAgainst(undefined, 0)).toBe(0);
+  });
+});
+
+describe('combat engine — isDefenderProtectedFromAttacker', () => {
+  it('protects ships in a foreign home system from outside attackers', () => {
+    const attacker = { ownerId: 'A', hostSystem: { id: 'sys1', isHome: false, ownerId: null } };
+    const defender = { hostSystem: { id: 'sys-home-B', isHome: true, ownerId: 'B' } };
+    expect(isDefenderProtectedFromAttacker(attacker, defender)).toBe(true);
+  });
+
+  it('does NOT protect when attacker is inside the same home system', () => {
+    const attacker = { ownerId: 'A', hostSystem: { id: 'sys-home-B', isHome: true, ownerId: 'B' } };
+    const defender = { hostSystem: { id: 'sys-home-B', isHome: true, ownerId: 'B' } };
+    expect(isDefenderProtectedFromAttacker(attacker, defender)).toBe(false);
+  });
+
+  it('does NOT protect when defender is in their OWN home (i.e. attacker IS the home owner)', () => {
+    const attacker = { ownerId: 'B', hostSystem: null };
+    const defender = { hostSystem: { id: 'sys-home-B', isHome: true, ownerId: 'B' } };
+    expect(isDefenderProtectedFromAttacker(attacker, defender)).toBe(false);
+  });
+
+  it('does NOT protect non-home systems', () => {
+    const attacker = { ownerId: 'A', hostSystem: null };
+    const defender = { hostSystem: { id: 'sys-neutral', isHome: false, ownerId: null } };
+    expect(isDefenderProtectedFromAttacker(attacker, defender)).toBe(false);
+  });
+
+  it('does NOT protect in-flight defenders (no host system)', () => {
+    const attacker = { ownerId: 'A', hostSystem: null };
+    const defender = { hostSystem: null };
+    expect(isDefenderProtectedFromAttacker(attacker, defender)).toBe(false);
+  });
+});
+
+describe('combat engine — resolveAttackerHits', () => {
+  it('matches a close-range fighter with an enemy civilian in same system', () => {
+    const fighter = makeActor({
+      id: 'F', ownerId: 'A', combatStats: lightFighterStats, position: { x: 10, y: 10 },
+    });
+    const scout = makeActor({
+      id: 'S', ownerId: 'B', combatStats: civilianStats, position: { x: 10, y: 10 }, defenderArmor: 0,
+    });
+    const hits = resolveAttackerHits([fighter, scout]);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]).toMatchObject({ attackerId: 'F', defenderId: 'S' });
+    expect(hits[0].effectiveDps).toBe(30);
+  });
+
+  it('does NOT match attackers and defenders of the same owner', () => {
+    const a = makeActor({ id: 'F', ownerId: 'A', combatStats: lightFighterStats, position: { x: 0, y: 0 } });
+    const b = makeActor({ id: 'S', ownerId: 'A', combatStats: civilianStats, position: { x: 0, y: 0 } });
+    expect(resolveAttackerHits([a, b])).toHaveLength(0);
+  });
+
+  it('does NOT match when defender is out of range', () => {
+    const a = makeActor({ id: 'F', ownerId: 'A', combatStats: lightFighterStats, position: { x: 0, y: 0 } });
+    const b = makeActor({ id: 'S', ownerId: 'B', combatStats: civilianStats, position: { x: 5, y: 0 } });
+    // close range = 1 sector, defender at 5 sectors
+    expect(resolveAttackerHits([a, b])).toHaveLength(0);
+  });
+
+  it('a light laser reaches further than a fighter (long > close)', () => {
+    const laser = makeActor({ id: 'L', ownerId: 'A', combatStats: lightLaserStats, position: { x: 0, y: 0 } });
+    const defender = makeActor({
+      id: 'X', ownerId: 'B', combatStats: civilianStats, position: { x: 5, y: 0 },
+    });
+    expect(resolveAttackerHits([laser, defender])).toHaveLength(1);
+  });
+
+  it('skips bombers (orbital range) — they cannot target ships', () => {
+    const bomber = makeActor({ id: 'B', ownerId: 'A', combatStats: lightBomberStats, position: { x: 0, y: 0 } });
+    const defender = makeActor({ id: 'S', ownerId: 'B', combatStats: civilianStats, position: { x: 0, y: 0 } });
+    expect(resolveAttackerHits([bomber, defender])).toHaveLength(0);
+  });
+
+  it('skips destroyed attackers and defenders', () => {
+    const dead = makeActor({
+      id: 'D', ownerId: 'A', combatStats: lightFighterStats, status: 'destroyed', hp: 0, position: { x: 0, y: 0 },
+    });
+    const target = makeActor({ id: 'T', ownerId: 'B', combatStats: civilianStats, position: { x: 0, y: 0 } });
+    expect(resolveAttackerHits([dead, target])).toHaveLength(0);
+
+    const live = makeActor({ id: 'L', ownerId: 'A', combatStats: lightFighterStats, position: { x: 0, y: 0 } });
+    const deadDef = makeActor({
+      id: 'X', ownerId: 'B', combatStats: civilianStats, status: 'destroyed', hp: 0, position: { x: 0, y: 0 },
+    });
+    expect(resolveAttackerHits([live, deadDef])).toHaveLength(0);
+  });
+
+  it('respects foreign-home-system protection', () => {
+    const homeSys = { id: 'sys-home-B', isHome: true, ownerId: 'B' as string | null };
+    const attacker = makeActor({
+      id: 'F', ownerId: 'A', combatStats: lightLaserStats, position: { x: 0, y: 0 },
+      hostSystem: { id: 'sys-neutral', isHome: false, ownerId: null },
+    });
+    const defender = makeActor({
+      id: 'S', ownerId: 'B', combatStats: civilianStats, position: { x: 1, y: 0 },
+      hostSystem: homeSys,
+    });
+    expect(resolveAttackerHits([attacker, defender])).toHaveLength(0);
+
+    // But attacker INSIDE the home system can hit.
+    const insideAttacker = makeActor({
+      id: 'I', ownerId: 'A', combatStats: lightLaserStats, position: { x: 0, y: 0 },
+      hostSystem: homeSys,
+    });
+    expect(resolveAttackerHits([insideAttacker, defender])).toHaveLength(1);
+  });
+
+  it('aggregates hits from multiple attackers on one defender', () => {
+    const a = makeActor({ id: 'A', ownerId: 'OA', combatStats: lightFighterStats, position: { x: 0, y: 0 } });
+    const b = makeActor({ id: 'B', ownerId: 'OA', combatStats: lightFighterStats, position: { x: 0, y: 0 } });
+    const t = makeActor({ id: 'T', ownerId: 'OB', combatStats: civilianStats, position: { x: 0, y: 0 } });
+    const hits = resolveAttackerHits([a, b, t]);
+    const dps = sumDpsPerDefender(hits);
+    expect(dps.get('T')).toBe(60);
+  });
+});
+
+describe('combat engine — computeTickDamage', () => {
+  it('returns 0 on first touch (no prior lastCombatTickAt)', () => {
+    const defender = { lastCombatTickAtMs: null };
+    expect(computeTickDamage(defender, 30, 10_000)).toBe(0);
+  });
+
+  it('applies dps * dt seconds otherwise', () => {
+    const defender = { lastCombatTickAtMs: 10_000 };
+    // 10s elapsed, 30 dps → 300 damage
+    expect(computeTickDamage(defender, 30, 20_000)).toBe(300);
+  });
+
+  it('caps elapsed time at COMBAT_TICK_MAX_DT_SEC', () => {
+    const defender = { lastCombatTickAtMs: 0 };
+    // 1 hour elapsed, capped to 30s, 30 dps → 900 damage
+    expect(computeTickDamage(defender, 30, 3_600_000)).toBe(30 * COMBAT_TICK_MAX_DT_SEC);
+  });
+
+  it('returns 0 when totalDps is 0', () => {
+    expect(computeTickDamage({ lastCombatTickAtMs: 0 }, 0, 10_000)).toBe(0);
+  });
+});
