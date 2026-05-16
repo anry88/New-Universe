@@ -53,9 +53,9 @@ Telegram Bot logic and webhook handling.
 Telegram Stars diamond-pack monetization.
 
 - **`README.md`** — [Detailed monetization documentation](./monetization/README.md).
-- **`routes.ts`** — `monetizationRoutes(app)` registers authenticated `GET /monetization/stars/packs` and mutation-rate-limited `POST /monetization/stars/invoice` for Stars invoice-link creation.
-- **`service.ts`** — shared Stars logic for pack listing, invoice payloads, pre-checkout validation, idempotent successful-payment delivery, transaction-history reconciliation for missed payments, `/paysupport` request storage, admin refund/reject/ask operations, Bot API `refundStarPayment`, and refund diamond reversal.
-- **`monetization.test.ts`** — pack-ladder, invoice, payment idempotency, missed-payment reconciliation, support request, and refund coverage.
+- **`routes.ts`** — `monetizationRoutes(app)` registers authenticated `GET /monetization/stars/packs`, mutation-rate-limited `POST /monetization/stars/invoice` for Stars invoice-link creation, and `POST /monetization/stars/checkout-result` so the Mini App can confirm a specific paid checkout and receive the delivered diamond balance.
+- **`service.ts`** — shared Stars logic for pack listing, invoice payloads with checkout ids, pre-checkout validation, idempotent successful-payment delivery, explicit checkout confirmation/recovery from Telegram transaction history, transaction-history reconciliation for missed payments, `/paysupport` request storage, admin refund/reject/ask operations, Bot API `refundStarPayment`, and refund diamond reversal.
+- **`monetization.test.ts`** — pack-ladder, invoice, payment idempotency, checkout confirmation/recovery, missed-payment reconciliation, support request, and refund coverage.
 
 
 ## `multiplayer/`

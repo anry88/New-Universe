@@ -4,6 +4,7 @@ import { TelegramUpdate } from '../../lib/telegram.js';
 import { db } from '../../db/index.js';
 import { starPaymentSupportRequests, starPayments, users } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
+import { buildStarsInvoicePayload } from '../monetization/service.js';
 
 const fetchMock = vi.fn();
 global.fetch = fetchMock;
@@ -308,6 +309,139 @@ describe('Bot Feature', () => {
 
     await db.delete(starPaymentSupportRequests).where(eq(starPaymentSupportRequests.id, supportRequest!.id));
     await db.delete(starPayments).where(eq(starPayments.id, payment.id));
+    await db.delete(users).where(eq(users.id, buyer.id));
+  });
+
+  it('should list refundable payments with Telegram HTML-safe command hints', async () => {
+    const now = Date.now();
+    const buyerTgId = 910000 + now;
+
+    const [buyer] = await db
+      .insert(users)
+      .values({
+        tgId: BigInt(buyerTgId),
+        tgUsername: `support_list_buyer_${now}`,
+        tgFirstName: 'Buyer',
+        diamonds: 100,
+      })
+      .returning({ id: users.id });
+
+    const [payment] = await db
+      .insert(starPayments)
+      .values({
+        userId: buyer.id,
+        packId: 'diamonds_100',
+        diamonds: 100,
+        priceStars: 20,
+        currency: 'XTR',
+        invoicePayload: `pack=diamonds_100;user=${buyer.id}`,
+        telegramPaymentChargeId: `charge-support-list-${now}`,
+      })
+      .returning({ id: starPayments.id });
+
+    const update: TelegramUpdate = {
+      update_id: 10,
+      message: {
+        message_id: 110,
+        chat: { id: buyerTgId, type: 'private' },
+        text: '/paysupport',
+        from: { id: buyerTgId, first_name: 'Buyer', language_code: 'en' },
+      },
+    };
+
+    await handleTelegramUpdate(update);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, options] = fetchMock.mock.calls[0];
+    const body = JSON.parse(options.body);
+    expect(body.chat_id).toBe(buyerTgId);
+    expect(body.text).toContain('/paysupport &lt;ID&gt; &lt;reason&gt;');
+    expect(body.text).not.toContain('/paysupport <ID> <reason>');
+    expect(body.text).toContain(`<code>${payment.id}</code>`);
+
+    await db.delete(starPayments).where(eq(starPayments.id, payment.id));
+    await db.delete(users).where(eq(users.id, buyer.id));
+  });
+
+  it('should report recovered Stars delivery without creating a refund request in the same paysupport command', async () => {
+    const now = Date.now();
+    const buyerTgId = 920000 + now;
+
+    const [buyer] = await db
+      .insert(users)
+      .values({
+        tgId: BigInt(buyerTgId),
+        tgUsername: `support_recovery_buyer_${now}`,
+        tgFirstName: 'Buyer',
+        diamonds: 0,
+      })
+      .returning({ id: users.id, diamonds: users.diamonds });
+
+    const payload = buildStarsInvoicePayload(buyer.id, 'diamonds_100');
+
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          ok: true,
+          result: {
+            transactions: [
+              {
+                id: `charge-support-recovery-${now}`,
+                amount: 20,
+                date: Math.floor(now / 1000),
+                source: {
+                  type: 'user',
+                  transaction_type: 'invoice_payment',
+                  user: { id: buyerTgId, first_name: 'Buyer' },
+                  invoice_payload: payload,
+                },
+              },
+            ],
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true, result: {} }),
+      });
+
+    const update: TelegramUpdate = {
+      update_id: 11,
+      message: {
+        message_id: 111,
+        chat: { id: buyerTgId, type: 'private' },
+        text: '/paysupport 1 accidental purchase',
+        from: { id: buyerTgId, first_name: 'Buyer', language_code: 'en' },
+      },
+    };
+
+    await handleTelegramUpdate(update);
+
+    const fetched = await db.query.users.findFirst({
+      where: eq(users.id, buyer.id),
+      columns: { diamonds: true },
+    });
+    const recoveredPayment = await db.query.starPayments.findFirst({
+      where: eq(starPayments.userId, buyer.id),
+    });
+    const supportRequest = await db.query.starPaymentSupportRequests.findFirst({
+      where: eq(starPaymentSupportRequests.userId, buyer.id),
+    });
+
+    expect(fetched?.diamonds).toBe(100);
+    expect(recoveredPayment?.telegramPaymentChargeId).toBe(`charge-support-recovery-${now}`);
+    expect(supportRequest).toBeUndefined();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    const [historyUrl] = fetchMock.mock.calls[0];
+    expect(historyUrl).toContain('/getStarTransactions');
+    const [, userReplyOptions] = fetchMock.mock.calls[1];
+    const body = JSON.parse(userReplyOptions.body);
+    expect(body.text).toContain('found and delivered');
+    expect(body.text).toContain('/paysupport &lt;ID&gt; &lt;reason&gt;');
+
+    await db.delete(starPayments).where(eq(starPayments.id, recoveredPayment!.id));
     await db.delete(users).where(eq(users.id, buyer.id));
   });
 });

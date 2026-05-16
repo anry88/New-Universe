@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { ChevronLeft, Gem, ShoppingBag, Sparkles } from 'lucide-react';
+import { ChevronLeft, Gem, Sparkles } from 'lucide-react';
+import type { ConfirmStarsCheckoutResponse } from '@shared/types/monetization';
 import { CosmicBackground, CosmicBottomNav } from '../components/cosmic/atoms';
-import { useCreateStarsInvoice, useStarsDiamondPacks } from '../hooks/useMonetization';
+import { useConfirmStarsCheckout, useCreateStarsInvoice, useStarsDiamondPacks } from '../hooks/useMonetization';
 import { useMe } from '../hooks/useMe';
 import { useI18n } from '../lib/i18n';
 import { trackFrontendEvent } from '../lib/analytics';
@@ -17,20 +18,64 @@ declare global {
   }
 }
 
-function openInvoiceUrl(url: string, onStatus: (status: string) => void) {
+const CHECKOUT_CONFIRM_ATTEMPTS = 5;
+const CHECKOUT_CONFIRM_DELAY_MS = 1_000;
+
+type CheckoutReference = {
+  packId: string;
+  checkoutId: string;
+};
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function openInvoiceUrl(url: string, onStatus: (status: string) => void): boolean {
   const openInvoice = window.Telegram?.WebApp?.openInvoice;
   if (typeof openInvoice === 'function') {
     openInvoice(url, onStatus);
-    return;
+    return true;
   }
 
   window.location.href = url;
+  return false;
 }
 
 function checkoutStatusKey(status: string): string {
-  return ['paid', 'cancelled', 'failed', 'pending'].includes(status)
+  return [
+    'paid',
+    'cancelled',
+    'failed',
+    'pending',
+    'confirming',
+    'delivered',
+    'pendingDelivery',
+    'failedDelivery',
+  ].includes(status)
     ? `shop.checkout.${status}`
     : 'shop.checkout.unknown';
+}
+
+function TelegramStarIcon({ size = 16 }: { size?: number }) {
+  return (
+    <span
+      aria-hidden
+      style={{
+        width: size,
+        height: size,
+        display: 'inline-grid',
+        placeItems: 'center',
+        borderRadius: '50%',
+        color: '#fff8d1',
+        background: 'linear-gradient(145deg, #fef08a 0%, #fbbf24 45%, #f59e0b 100%)',
+        boxShadow: '0 0 0 1px rgba(180, 83, 9, 0.32), inset 0 1px 1px rgba(255, 255, 255, 0.55)',
+        fontSize: Math.max(10, Math.round(size * 0.76)),
+        lineHeight: 1,
+      }}
+    >
+      ★
+    </span>
+  );
 }
 
 export function ShopPage() {
@@ -39,7 +84,10 @@ export function ShopPage() {
   const { data: meData } = useMe();
   const packsQuery = useStarsDiamondPacks();
   const invoiceMutation = useCreateStarsInvoice();
+  const confirmMutation = useConfirmStarsCheckout();
   const [checkoutStatus, setCheckoutStatus] = useState<string | null>(null);
+  const [lastCheckout, setLastCheckout] = useState<CheckoutReference | null>(null);
+  const [confirmation, setConfirmation] = useState<ConfirmStarsCheckoutResponse | null>(null);
 
   useEffect(() => {
     packsQuery.data?.packs.forEach((pack) => {
@@ -51,16 +99,80 @@ export function ShopPage() {
     });
   }, [packsQuery.data]);
 
+  const confirmCheckout = async (checkout: CheckoutReference) => {
+    setLastCheckout(checkout);
+    setCheckoutStatus('confirming');
+
+    try {
+      let latest: ConfirmStarsCheckoutResponse | null = null;
+      for (let attempt = 0; attempt < CHECKOUT_CONFIRM_ATTEMPTS; attempt += 1) {
+        latest = await confirmMutation.mutateAsync(checkout);
+        setConfirmation(latest);
+
+        if (latest.status === 'delivered') {
+          setCheckoutStatus('delivered');
+          return;
+        }
+
+        if (latest.status === 'failed') {
+          setCheckoutStatus('failedDelivery');
+          return;
+        }
+
+        if (attempt < CHECKOUT_CONFIRM_ATTEMPTS - 1) {
+          await delay(CHECKOUT_CONFIRM_DELAY_MS);
+        }
+      }
+
+      setCheckoutStatus(latest?.status === 'failed' ? 'failedDelivery' : 'pendingDelivery');
+    } catch {
+      setCheckoutStatus('failedDelivery');
+    }
+  };
+
   const startCheckout = async (packId: string) => {
     setCheckoutStatus(null);
-    const response = await invoiceMutation.mutateAsync(packId);
-    trackFrontendEvent('stars_checkout_started', {
-      packDiamonds: response.pack.diamonds,
-      priceStars: response.pack.priceStars,
-    });
-    openInvoiceUrl(response.invoiceUrl, (status) => {
-      setCheckoutStatus(status);
-    });
+    setConfirmation(null);
+
+    try {
+      const response = await invoiceMutation.mutateAsync(packId);
+      const checkout = {
+        packId: response.pack.id,
+        checkoutId: response.checkoutId,
+      };
+
+      setLastCheckout(checkout);
+      trackFrontendEvent('stars_checkout_started', {
+        packDiamonds: response.pack.diamonds,
+        priceStars: response.pack.priceStars,
+      });
+
+      const handlesStatus = openInvoiceUrl(response.invoiceUrl, (status) => {
+        if (status === 'paid') {
+          void confirmCheckout(checkout);
+          return;
+        }
+
+        setCheckoutStatus(status);
+      });
+
+      if (!handlesStatus) {
+        setCheckoutStatus('pending');
+      }
+    } catch {
+      setCheckoutStatus(null);
+    }
+  };
+
+  const checkoutBusy = invoiceMutation.isPending || confirmMutation.isPending;
+  const canRetryCheckout = Boolean(
+    lastCheckout &&
+    (checkoutStatus === 'pendingDelivery' || checkoutStatus === 'failedDelivery') &&
+    !checkoutBusy,
+  );
+  const checkoutStatusParams = {
+    diamonds: String(confirmation?.pack.diamonds ?? ''),
+    balance: String(confirmation?.diamondsRemaining ?? meData?.diamonds ?? 0),
   };
 
   return (
@@ -115,7 +227,7 @@ export function ShopPage() {
                 textAlign: 'left',
                 borderColor: 'rgba(125, 211, 252, 0.24)',
               }}
-              disabled={invoiceMutation.isPending}
+              disabled={checkoutBusy}
               onClick={() => void startCheckout(pack.id)}
             >
               <span
@@ -157,7 +269,7 @@ export function ShopPage() {
                   whiteSpace: 'nowrap',
                 }}
               >
-                <ShoppingBag size={15} />
+                <TelegramStarIcon size={16} />
                 {pack.priceStars}
               </span>
             </button>
@@ -170,9 +282,25 @@ export function ShopPage() {
           </p>
         )}
         {checkoutStatus && (
-          <p style={{ marginTop: 14, color: 'var(--text-dim)', fontSize: 13 }}>
-            {t(checkoutStatusKey(checkoutStatus))}
-          </p>
+          <div style={{ marginTop: 14 }}>
+            <p style={{ margin: 0, color: 'var(--text-dim)', fontSize: 13 }}>
+              {t(checkoutStatusKey(checkoutStatus), checkoutStatusParams)}
+            </p>
+            {canRetryCheckout && (
+              <button
+                type="button"
+                className="rounded-md border border-sky-300/40 bg-sky-400/10 px-3 py-2 text-sm font-semibold text-sky-100"
+                style={{ marginTop: 10 }}
+                onClick={() => {
+                  if (lastCheckout) {
+                    void confirmCheckout(lastCheckout);
+                  }
+                }}
+              >
+                {t('shop.checkout.retry')}
+              </button>
+            )}
+          </div>
         )}
       </div>
       <CosmicBottomNav />

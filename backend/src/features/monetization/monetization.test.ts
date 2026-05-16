@@ -13,6 +13,7 @@ import {
 import {
   answerStarsPreCheckout,
   buildStarsInvoicePayload,
+  confirmStarsCheckoutForUser,
   createPaymentSupportRequest,
   createStarsInvoiceLinkForUser,
   listStarsDiamondPacks,
@@ -89,10 +90,11 @@ describe('Telegram Stars monetization', () => {
     });
 
     expect(result.invoiceUrl).toBe('https://t.me/$test-invoice');
+    expect(result.checkoutId).toEqual(expect.any(String));
     expect(createTelegramInvoiceLink).toHaveBeenCalledWith({
       title: '500 Diamonds',
       description: 'New Universe balance top-up: 500 diamonds.',
-      payload: buildStarsInvoicePayload(user.id, 'diamonds_500'),
+      payload: buildStarsInvoicePayload(user.id, 'diamonds_500', result.checkoutId),
       currency: TELEGRAM_STARS_CURRENCY,
       prices: [{ label: '500 Diamonds', amount: 85 }],
     });
@@ -169,6 +171,79 @@ describe('Telegram Stars monetization', () => {
     expect(duplicate.duplicate).toBe(true);
     expect(fetched?.diamonds).toBe(510);
     expect(paymentRows).toHaveLength(1);
+  });
+
+  it('confirms an already delivered Stars checkout with current diamond balance', async () => {
+    const user = await createBuyer(6, 40);
+    const checkoutId = 'checkout-already-delivered';
+    const payload = buildStarsInvoicePayload(user.id, 'diamonds_100', checkoutId);
+    const recorded = await recordSuccessfulStarsPayment({
+      actor: { id: Number(user.tgId), first_name: 'Buyer' },
+      payment: {
+        currency: TELEGRAM_STARS_CURRENCY,
+        total_amount: 20,
+        invoice_payload: payload,
+        telegram_payment_charge_id: 'charge-confirm-existing',
+      },
+    });
+
+    const result = await confirmStarsCheckoutForUser({
+      userId: user.id,
+      packId: 'diamonds_100',
+      checkoutId,
+    });
+
+    expect(result).toMatchObject({
+      status: 'delivered',
+      credited: false,
+      paymentId: recorded.paymentId,
+      diamondsRemaining: 140,
+    });
+    expect(getStarTransactions).not.toHaveBeenCalled();
+  });
+
+  it('confirms and records a paid checkout when the webhook delivery was missed', async () => {
+    const user = await createBuyer(7, 25);
+    const checkoutId = 'checkout-missed-webhook';
+    const payload = buildStarsInvoicePayload(user.id, 'diamonds_100', checkoutId);
+
+    vi.mocked(getStarTransactions).mockResolvedValueOnce({
+      transactions: [
+        {
+          id: 'charge-confirm-recovered',
+          amount: 20,
+          date: Math.floor(Date.now() / 1000),
+          source: {
+            type: 'user',
+            transaction_type: 'invoice_payment',
+            user: { id: Number(user.tgId), first_name: 'Buyer' },
+            invoice_payload: payload,
+          },
+        },
+      ],
+    });
+
+    const result = await confirmStarsCheckoutForUser({
+      userId: user.id,
+      packId: 'diamonds_100',
+      checkoutId,
+    });
+
+    const fetched = await db.query.users.findFirst({
+      where: eq(users.id, user.id),
+      columns: { diamonds: true },
+    });
+    const payment = await db.query.starPayments.findFirst({
+      where: eq(starPayments.telegramPaymentChargeId, 'charge-confirm-recovered'),
+    });
+
+    expect(result).toMatchObject({
+      status: 'delivered',
+      credited: true,
+      diamondsRemaining: 125,
+    });
+    expect(fetched?.diamonds).toBe(125);
+    expect(payment?.invoicePayload).toBe(payload);
   });
 
   it('refunds through support request and reverses delivered diamonds', async () => {

@@ -16,6 +16,7 @@ import {
   reconcileMissingStarPaymentsForUser,
   refundPaymentSupportRequest,
   rejectPaymentSupportRequest,
+  type UserStarPayment,
 } from '../monetization/service.js';
 
 type BotLocale = 'en' | 'ru';
@@ -46,13 +47,15 @@ const LOCALE_MESSAGES = {
     noAccount: 'Игровой аккаунт не найден. Откройте Mini App и войдите в игру, затем повторите команду.',
     noPurchases: 'Покупок за Stars для возврата не найдено.',
     supportList: (list: string) =>
-      `Выберите покупку для возврата: /paysupport <ID> <причина>\n${list}`,
-    supportInvalid: 'Неверный формат. Используйте /paysupport <ID> <причина>.',
+      `Выберите покупку для возврата: /paysupport &lt;ID&gt; &lt;причина&gt;\n${list}`,
+    supportRecovered: (list: string) =>
+      `Мы нашли и начислили пропущенную оплату Stars. Баланс обновлен.\nЕсли нужен возврат, отправьте команду еще раз: /paysupport &lt;ID&gt; &lt;причина&gt;\n${list}`,
+    supportInvalid: 'Неверный формат. Используйте /paysupport &lt;ID&gt; &lt;причина&gt;.',
     supportReasonRequired: 'Добавьте причину возврата после ID покупки.',
     supportDuplicate: 'По этой покупке уже есть открытый запрос.',
     supportNotFound: 'Покупка не найдена или уже возвращена.',
     supportSubmitted: (id: number) => `Запрос возврата #${id} отправлен администрации.`,
-    answerInvalid: 'Укажите запрос и ответ: /answer <ID> <ответ>.',
+    answerInvalid: 'Укажите запрос и ответ: /answer &lt;ID&gt; &lt;ответ&gt;.',
     answerSent: 'Ответ отправлен администрации.',
     requestNotFound: 'Запрос не найден.',
     adminUnauthorized: 'Эта команда доступна только в админском чате или администраторам.',
@@ -63,7 +66,7 @@ const LOCALE_MESSAGES = {
     adminAsked: (id: number) => `Вопрос по запросу #${id} отправлен игроку.`,
     playerRefunded: (id: number) => `Ваш запрос возврата #${id} одобрен. Stars вернутся через Telegram, купленные алмазы списаны с баланса.`,
     playerRejected: (id: number, reason: string) => `Запрос возврата #${id} отклонен: ${reason}`,
-    playerAsked: (id: number, question: string) => `Администратор уточняет по запросу #${id}: ${question}\nОтветьте командой /answer ${id} <ответ>.`,
+    playerAsked: (id: number, question: string) => `Администратор уточняет по запросу #${id}: ${question}\nОтветьте командой /answer ${id} &lt;ответ&gt;.`,
   },
   en: {
     invalidAmount: 'Amount must be an integer >= 0.',
@@ -77,13 +80,15 @@ const LOCALE_MESSAGES = {
     noAccount: 'Game account was not found. Open the Mini App and log in, then run the command again.',
     noPurchases: 'No refundable Stars purchases found.',
     supportList: (list: string) =>
-      `Choose a purchase for refund: /paysupport <ID> <reason>\n${list}`,
-    supportInvalid: 'Invalid format. Use /paysupport <ID> <reason>.',
+      `Choose a purchase for refund: /paysupport &lt;ID&gt; &lt;reason&gt;\n${list}`,
+    supportRecovered: (list: string) =>
+      `We found and delivered a missing Stars purchase. Your balance is updated.\nIf you still need a refund, send the command again: /paysupport &lt;ID&gt; &lt;reason&gt;\n${list}`,
+    supportInvalid: 'Invalid format. Use /paysupport &lt;ID&gt; &lt;reason&gt;.',
     supportReasonRequired: 'Add a refund reason after the purchase ID.',
     supportDuplicate: 'This purchase already has an open support request.',
     supportNotFound: 'Purchase was not found or is already refunded.',
     supportSubmitted: (id: number) => `Refund request #${id} has been sent to the admins.`,
-    answerInvalid: 'Provide a request and reply: /answer <ID> <message>.',
+    answerInvalid: 'Provide a request and reply: /answer &lt;ID&gt; &lt;message&gt;.',
     answerSent: 'Your reply has been sent to the admins.',
     requestNotFound: 'Request was not found.',
     adminUnauthorized: 'This command is only available in the admin chat or to administrators.',
@@ -94,7 +99,7 @@ const LOCALE_MESSAGES = {
     adminAsked: (id: number) => `Question for request #${id} has been sent to the player.`,
     playerRefunded: (id: number) => `Your refund request #${id} was approved. Telegram will return the Stars, and purchased diamonds were removed from your balance.`,
     playerRejected: (id: number, reason: string) => `Refund request #${id} was rejected: ${reason}`,
-    playerAsked: (id: number, question: string) => `Admin asks about request #${id}: ${question}\nReply with /answer ${id} <message>.`,
+    playerAsked: (id: number, question: string) => `Admin asks about request #${id}: ${question}\nReply with /answer ${id} &lt;message&gt;.`,
   },
 } as const;
 
@@ -144,6 +149,15 @@ function escapeHtml(value: string): string {
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;');
+}
+
+function formatRefundablePaymentList(payments: UserStarPayment[], locale: BotLocale): string {
+  return payments
+    .map((payment) => {
+      const label = `${payment.diamonds} ${locale === 'ru' ? 'алмазов' : 'diamonds'}`;
+      return `<code>${payment.id}</code>: ${label} — ${payment.priceStars} Stars`;
+    })
+    .join('\n');
 }
 
 async function findUserByTelegramActor(actor?: TelegramUser) {
@@ -319,15 +333,28 @@ export async function handlePaySupportCommand(
     return;
   }
 
+  const trimmedArgs = argsText.trim();
   let payments = await listRefundableStarPayments(user.id);
+  let recoveredMissingPayment = false;
   if (payments.length === 0) {
-    await reconcileMissingStarPaymentsForUser({
+    const reconciliation = await reconcileMissingStarPaymentsForUser({
       userId: user.id,
       telegramUserId: user.tgId,
     });
     payments = await listRefundableStarPayments(user.id);
+    recoveredMissingPayment = reconciliation.recorded > 0;
   }
-  const trimmedArgs = argsText.trim();
+
+  if (recoveredMissingPayment) {
+    if (payments.length === 0) {
+      await sendTelegramMessage(chatId, messages.noPurchases);
+      return;
+    }
+
+    const list = formatRefundablePaymentList(payments, locale);
+    await sendTelegramMessage(chatId, messages.supportRecovered(list));
+    return;
+  }
 
   if (!trimmedArgs) {
     if (payments.length === 0) {
@@ -335,12 +362,7 @@ export async function handlePaySupportCommand(
       return;
     }
 
-    const list = payments
-      .map((payment) => {
-        const label = `${payment.diamonds} ${locale === 'ru' ? 'алмазов' : 'diamonds'}`;
-        return `<code>${payment.id}</code>: ${label} — ${payment.priceStars} Stars`;
-      })
-      .join('\n');
+    const list = formatRefundablePaymentList(payments, locale);
     await sendTelegramMessage(chatId, messages.supportList(list));
     return;
   }
