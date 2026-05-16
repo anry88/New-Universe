@@ -13,6 +13,7 @@ import {
   latestInfoSupportRequest,
   listRefundableStarPayments,
   notifyAdminsAboutSupportRequest,
+  reconcileMissingStarPaymentsForUser,
   refundPaymentSupportRequest,
   rejectPaymentSupportRequest,
 } from '../monetization/service.js';
@@ -154,6 +155,7 @@ async function findUserByTelegramActor(actor?: TelegramUser) {
     where: eq(users.tgId, BigInt(actor.id)),
     columns: {
       id: true,
+      tgId: true,
       preferredLocale: true,
     },
   });
@@ -317,7 +319,14 @@ export async function handlePaySupportCommand(
     return;
   }
 
-  const payments = await listRefundableStarPayments(user.id);
+  let payments = await listRefundableStarPayments(user.id);
+  if (payments.length === 0) {
+    await reconcileMissingStarPaymentsForUser({
+      userId: user.id,
+      telegramUserId: user.tgId,
+    });
+    payments = await listRefundableStarPayments(user.id);
+  }
   const trimmedArgs = argsText.trim();
 
   if (!trimmedArgs) {

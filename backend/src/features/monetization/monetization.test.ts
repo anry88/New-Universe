@@ -6,6 +6,7 @@ import { starPayments, users } from '../../db/schema.js';
 import {
   answerPreCheckoutQuery,
   createTelegramInvoiceLink,
+  getStarTransactions,
   refundStarPayment,
   sendTelegramMessage,
 } from '../../lib/telegram.js';
@@ -16,6 +17,7 @@ import {
   createStarsInvoiceLinkForUser,
   listStarsDiamondPacks,
   recordSuccessfulStarsPayment,
+  reconcileMissingStarPaymentsForUser,
   refundPaymentSupportRequest,
 } from './service.js';
 
@@ -25,6 +27,7 @@ vi.mock('../../lib/telegram.js', async (importOriginal) => {
     ...actual,
     answerPreCheckoutQuery: vi.fn(async () => true),
     createTelegramInvoiceLink: vi.fn(async () => 'https://t.me/$test-invoice'),
+    getStarTransactions: vi.fn(async () => ({ transactions: [] })),
     refundStarPayment: vi.fn(async () => true),
     sendTelegramMessage: vi.fn(async () => ({ ok: true })),
   };
@@ -210,5 +213,43 @@ describe('Telegram Stars monetization', () => {
     expect(fetched?.diamonds).toBe(30);
     expect(payment?.refunded).toBe(true);
     expect(sendTelegramMessage).not.toHaveBeenCalled();
+  });
+
+  it('reconciles missing Stars payments from Telegram transaction history', async () => {
+    const user = await createBuyer(5, 25);
+    const payload = buildStarsInvoicePayload(user.id, 'diamonds_100');
+
+    vi.mocked(getStarTransactions).mockResolvedValueOnce({
+      transactions: [
+        {
+          id: 'lost-charge-100',
+          amount: 20,
+          date: Math.floor(Date.now() / 1000),
+          source: {
+            type: 'user',
+            transaction_type: 'invoice_payment',
+            user: { id: Number(user.tgId), first_name: 'Buyer' },
+            invoice_payload: payload,
+          },
+        },
+      ],
+    });
+
+    const result = await reconcileMissingStarPaymentsForUser({
+      userId: user.id,
+      telegramUserId: user.tgId,
+    });
+
+    const fetched = await db.query.users.findFirst({
+      where: eq(users.id, user.id),
+      columns: { diamonds: true },
+    });
+    const payment = await db.query.starPayments.findFirst({
+      where: eq(starPayments.telegramPaymentChargeId, 'lost-charge-100'),
+    });
+
+    expect(result).toEqual({ scanned: 1, recorded: 1 });
+    expect(fetched?.diamonds).toBe(125);
+    expect(payment?.priceStars).toBe(20);
   });
 });

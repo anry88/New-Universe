@@ -54,8 +54,8 @@ Telegram Stars diamond-pack monetization.
 
 - **`README.md`** — [Detailed monetization documentation](./monetization/README.md).
 - **`routes.ts`** — `monetizationRoutes(app)` registers authenticated `GET /monetization/stars/packs` and mutation-rate-limited `POST /monetization/stars/invoice` for Stars invoice-link creation.
-- **`service.ts`** — shared Stars logic for pack listing, invoice payloads, pre-checkout validation, idempotent successful-payment delivery, `/paysupport` request storage, admin refund/reject/ask operations, Bot API `refundStarPayment`, and refund diamond reversal.
-- **`monetization.test.ts`** — pack-ladder, invoice, payment idempotency, support request, and refund coverage.
+- **`service.ts`** — shared Stars logic for pack listing, invoice payloads, pre-checkout validation, idempotent successful-payment delivery, transaction-history reconciliation for missed payments, `/paysupport` request storage, admin refund/reject/ask operations, Bot API `refundStarPayment`, and refund diamond reversal.
+- **`monetization.test.ts`** — pack-ladder, invoice, payment idempotency, missed-payment reconciliation, support request, and refund coverage.
 
 
 ## `multiplayer/`
