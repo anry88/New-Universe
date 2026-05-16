@@ -36,6 +36,7 @@ export type ShipTypeId =
   | 'large_shield_ship'
   | 'rocket_carrier'
   | 'heavy_rocket_carrier'
+  | 'nuclear_carrier'
   | 'cruiser'
   | 'battleship';
 
@@ -329,6 +330,22 @@ export const IconHeavyRocketCarrier: React.FC<ShipIconProps> = ({ size, tone }) 
   </HullIcon>
 );
 
+/** Nuclear carrier — heavy hull with central warhead bay and surface drop fins */
+export const IconNuclearCarrier: React.FC<ShipIconProps> = ({ size, tone }) => (
+  <HullIcon size={size} tone={tone}>
+    <path d="M56 32 L34 6 L8 18 L8 46 L34 58 Z" fill={tone ?? '#5BD7FF'} fillOpacity="0.18" />
+    <path d="M12 22 L46 32 L12 42" />
+    <circle cx="32" cy="32" r="9" fill={tone ?? '#5BD7FF'} fillOpacity="0.32" />
+    <circle cx="32" cy="32" r="4" fill={tone ?? '#5BD7FF'} fillOpacity="0.55" />
+    <path d="M32 24 L32 18" />
+    <path d="M32 40 L32 46" />
+    <path d="M24 32 L18 32" />
+    <path d="M40 32 L46 32" />
+    <path d="M34 6 L30 0" />
+    <path d="M34 58 L30 62" />
+  </HullIcon>
+);
+
 /** Medium combat cruiser — wider hull with side turrets */
 export const IconCruiser: React.FC<ShipIconProps> = ({ size, tone }) => (
   <HullIcon size={size} tone={tone}>
@@ -503,6 +520,13 @@ export const SHIP_BY_TYPE: Record<ShipTypeId, ShipDef> = {
     labels: { en: 'Heavy Rocket Carrier', ru: 'Тяжёлый ракетный носитель' },
     tag: 'CARRIER',
     tags: { en: 'CARRIER', ru: 'НОСИТЕЛЬ' },
+  },
+  nuclear_carrier: {
+    Icon: IconNuclearCarrier,
+    label: 'Nuclear Carrier',
+    labels: { en: 'Nuclear Carrier', ru: 'Ядерный носитель' },
+    tag: 'NUCLEAR',
+    tags: { en: 'NUCLEAR', ru: 'ЯДЕРНЫЙ' },
   },
   cruiser: {
     Icon: IconCruiser,

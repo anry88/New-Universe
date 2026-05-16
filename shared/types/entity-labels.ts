@@ -90,6 +90,7 @@ export const SHIP_ENTITY_LABELS: Record<string, EntityLabels> = {
   large_shield_ship: { en: 'Large Shield Ship', ru: 'Большой щитовой корабль' },
   rocket_carrier: { en: 'Rocket Carrier', ru: 'Ракетный носитель' },
   heavy_rocket_carrier: { en: 'Heavy Rocket Carrier', ru: 'Тяжёлый ракетный носитель' },
+  nuclear_carrier: { en: 'Nuclear Carrier', ru: 'Ядерный носитель' },
 };
 
 export const SHIP_ENTITY_DESCRIPTIONS: Record<string, EntityLabels> = {
@@ -184,6 +185,10 @@ export const SHIP_ENTITY_DESCRIPTIONS: Record<string, EntityLabels> = {
   heavy_rocket_carrier: {
     en: 'Heavy payload carrier with stronger bursts, high cost, and the same light-hull counterplay.',
     ru: 'Тяжёлый носитель зарядов с мощными залпами, высокой ценой и тем же контрплеем лёгких корпусов.',
+  },
+  nuclear_carrier: {
+    en: 'Late-tier strike ship that strikes hostile heavies with nuclear missiles and drops orbital nuclear bombs on enemy colonies.',
+    ru: 'Поздний ударный корабль: бьёт тяжёлые вражеские корпуса ядерными ракетами и проводит орбитальную ядерную бомбардировку вражеских колоний.',
   },
 };
 

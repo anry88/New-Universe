@@ -22,4 +22,8 @@ export const SHIP_RESEARCH_GATES: Partial<Record<string, ResearchUnlockRequireme
   heavy_laser: { branch: 'weapons', level: 4 },
   large_shield_ship: { branch: 'energy', level: 4 },
   heavy_rocket_carrier: { branch: 'weapons', level: 5 },
+  // Mirrors the nuclear payload research gate (`shared/types/combat`):
+  // Weapons V is required before the strike platform that delivers nuclear
+  // ordnance against ships or surface targets becomes buildable.
+  nuclear_carrier: { branch: 'weapons', level: 5 },
 };
