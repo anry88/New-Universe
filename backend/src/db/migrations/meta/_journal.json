@@ -246,13 +246,6 @@
       "when": 1779500000005,
       "tag": "0036_hard_punisher",
       "breakpoints": true
-    },
-    {
-      "idx": 37,
-      "version": "7",
-      "when": 1779500000006,
-      "tag": "0037_cleanup_duplicate_warships",
-      "breakpoints": true
     }
   ]
 }
