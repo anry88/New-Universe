@@ -57,6 +57,7 @@ Backend and worker runtime values live in the backend/worker provider secret sto
 - `PUBLIC_FRONTEND_URL`
 - `TELEGRAM_APP_URL`
 - `ADMIN_TELEGRAM_IDS`
+- `ADMIN_TELEGRAM_CHAT_IDS`
 - `RATE_LIMIT_WINDOW`
 - `RATE_LIMIT_GLOBAL_MAX`
 - `RATE_LIMIT_AUTH_MAX`

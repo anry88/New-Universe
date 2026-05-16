@@ -9,6 +9,7 @@ import { ResearchPage } from './pages/Research';
 import { ShipsPage } from './pages/Ships';
 import { ProfilePage } from './pages/Profile';
 import { ColoniesPage } from './pages/Colonies';
+import { ShopPage } from './pages/Shop';
 import { OnboardingPage } from './pages/onboarding/Onboarding';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
@@ -137,6 +138,7 @@ function AppContent() {
       <Route path="/ships" element={<ShipsPage />} />
       <Route path="/profile" element={<ProfilePage />} />
       <Route path="/colonies" element={<ColoniesPage />} />
+      <Route path="/shop" element={<ShopPage />} />
     </Routes>
   );
 }

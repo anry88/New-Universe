@@ -17,6 +17,7 @@ import { coloniesRoutes } from './routes/colonies.js';
 import { cargoRoutes } from './routes/cargo.js';
 import { multiplayerRoutes } from './routes/multiplayer.js';
 import { jumpGateRoutes } from './features/jump-gate/routes.js';
+import { monetizationRoutes } from './features/monetization/routes.js';
 import { closeBuildingCompletionQueueProducer, warmBuildingCompletionQueueProducer } from './features/buildings/completion-queue.js';
 import { registerRateLimit } from './lib/rate-limit.js';
 import cors from '@fastify/cors';
@@ -57,6 +58,7 @@ await fastify.register(coloniesRoutes, { prefix: '/colonies' });
 await fastify.register(cargoRoutes, { prefix: '/cargo' });
 await fastify.register(multiplayerRoutes, { prefix: '/multiplayer' });
 await fastify.register(jumpGateRoutes, { prefix: '/jump-gate' });
+await fastify.register(monetizationRoutes, { prefix: '/monetization' });
 
 warmBuildingCompletionQueueProducer();
 

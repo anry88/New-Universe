@@ -53,10 +53,10 @@ All event properties pass through `sanitizeAnalyticsEventProperties()` from `sha
 | `market_order_created` | market | backend | `resourceId`, `orderType`, `amountBand`, `priceBand` | Reserved; no runtime market exists today. |
 | `market_order_filled` | market | backend | `resourceId`, `orderType`, `amountBand`, `priceBand` | Reserved until escrowed market settlement is implemented. |
 | `market_order_cancelled` | market | backend | `resourceId`, `orderType`, `amountBand` | Reserved until market cancellation/refund rules exist. |
-| `stars_diamond_pack_viewed` | monetization | frontend | `packDiamonds`, `priceStars`, `bonusPercentVsPrevious` | Reserved for P4-MON-001 after policy approval. |
-| `stars_checkout_started` | monetization | frontend, backend | `packDiamonds`, `priceStars` | Reserved for P4-MON-001 after policy approval. |
-| `stars_checkout_completed` | monetization | backend | `packDiamonds`, `priceStars` | Reserved for P4-MON-001 after payment verification design. |
-| `stars_refund_issued` | monetization | backend | `packDiamonds`, `priceStars`, `reasonCode` | Reserved for P4-MON-001 refund policy. |
+| `stars_diamond_pack_viewed` | monetization | frontend | `packDiamonds`, `priceStars`, `bonusPercentVsPrevious` | Fired when the Stars shop displays configured diamond packs. |
+| `stars_checkout_started` | monetization | frontend, backend | `packDiamonds`, `priceStars` | Fired when a Stars invoice is requested/opened. |
+| `stars_checkout_completed` | monetization | backend | `packDiamonds`, `priceStars` | Fired after Telegram sends `successful_payment` and diamonds are credited once. |
+| `stars_refund_issued` | monetization | backend | `packDiamonds`, `priceStars`, `reasonCode` | Fired after admin-approved `refundStarPayment` succeeds and diamonds are reversed. |
 
 ## Local Verification
 
@@ -93,11 +93,10 @@ Repository-wide verification remains `./scripts/ci-verify.sh` when Docker is ava
 
 ## Monetization Readiness Boundary
 
-This taxonomy deliberately defines future market and Telegram Stars events without implementing either surface. No player-market route, table, escrow, or settlement worker exists in this repository snapshot, so market events are reserved taxonomy only. P4-MON-001 remains the approval gate for:
+This taxonomy still reserves market events only. No player-market route, table, escrow, or settlement worker exists in this repository snapshot.
 
-- Telegram policy checklist and refund handling.
-- Invoice/payment verification design.
-- Abuse controls around diamond grants, duplicate payment updates, and refund reversals.
-- Final Stars pack ladder.
+P4-MON-001 implemented the Telegram Stars subset:
 
-Current user preference captured in `tasks/tasks.json`: later P4-MON-001 design should evaluate 100, 500, 2500, 5000, and 10000 diamond packs; 100 diamonds start at 20 Stars; every larger pack should improve diamonds-per-Star value by 10-25% versus the previous pack.
+- Policy/readiness docs live in `docs/product/monetization.md` and `docs/product/telegram-policy-checklist.md`.
+- The final diamond pack ladder is 100, 500, 2500, 5000, and 10000 diamonds for 20, 85, 350, 600, and 1000 Stars.
+- Runtime purchase/refund telemetry uses the Stars events above with safe aggregate properties only.

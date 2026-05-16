@@ -111,7 +111,8 @@ export function isInitDataExpired(
 export interface TelegramUpdate {
   update_id: number;
   message?: TelegramMessage;
-  callback_query?: any;
+  pre_checkout_query?: TelegramPreCheckoutQuery;
+  callback_query?: TelegramCallbackQuery;
 }
 
 export interface TelegramMessage {
@@ -122,11 +123,35 @@ export interface TelegramMessage {
     type: 'private' | 'group' | 'supergroup' | 'channel';
   };
   text?: string;
+  successful_payment?: TelegramSuccessfulPayment;
   entities?: Array<{
     type: 'bot_command' | 'url' | 'mention' | string;
     offset: number;
     length: number;
   }>;
+}
+
+export interface TelegramPreCheckoutQuery {
+  id: string;
+  from: TelegramUser;
+  currency: string;
+  total_amount: number;
+  invoice_payload: string;
+}
+
+export interface TelegramSuccessfulPayment {
+  currency: string;
+  total_amount: number;
+  invoice_payload: string;
+  telegram_payment_charge_id: string;
+  provider_payment_charge_id?: string;
+}
+
+export interface TelegramCallbackQuery {
+  id: string;
+  from: TelegramUser;
+  message?: TelegramMessage;
+  data?: string;
 }
 
 export interface InlineKeyboardButton {
@@ -138,37 +163,98 @@ export interface InlineKeyboardButton {
   callback_data?: string;
 }
 
-export async function sendTelegramMessage(chatId: number, text: string, options?: {
-  reply_markup?: {
-    inline_keyboard: InlineKeyboardButton[][];
-  };
-}) {
-  const url = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`;
-  
+interface TelegramBotApiResponse<T> {
+  ok: boolean;
+  result?: T;
+  error_code?: number;
+  description?: string;
+}
+
+export async function callTelegramBotApi<T>(
+  method: string,
+  body: Record<string, unknown>,
+): Promise<T | null> {
+  const url = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`;
+
   try {
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text,
-        reply_markup: options?.reply_markup,
-        parse_mode: 'HTML',
-      }),
+      body: JSON.stringify(body),
     });
 
-    const data = await response.json();
-    
-    if (!response.ok) {
-      logger.error({ data, chatId }, 'Failed to send Telegram message');
+    const data = await response.json().catch(() => null) as TelegramBotApiResponse<T> | null;
+
+    if (!response.ok || data?.ok === false) {
+      logger.error(
+        {
+          method,
+          status: response.status,
+          errorCode: data?.error_code,
+          description: data?.description,
+        },
+        'Telegram Bot API call failed',
+      );
       return null;
     }
 
-    return data;
+    return data?.result ?? null;
   } catch (error) {
-    logger.error({ error, chatId }, 'Error calling Telegram Bot API');
+    logger.error({ error, method }, 'Error calling Telegram Bot API');
     return null;
   }
+}
+
+export async function sendTelegramMessage(chatId: number, text: string, options?: {
+  reply_markup?: {
+    inline_keyboard: InlineKeyboardButton[][];
+  };
+}) {
+  return callTelegramBotApi('sendMessage', {
+    chat_id: chatId,
+    text,
+    reply_markup: options?.reply_markup,
+    parse_mode: 'HTML',
+  });
+}
+
+export async function answerPreCheckoutQuery(
+  preCheckoutQueryId: string,
+  ok: boolean,
+  errorMessage?: string,
+) {
+  return callTelegramBotApi<boolean>('answerPreCheckoutQuery', {
+    pre_checkout_query_id: preCheckoutQueryId,
+    ok,
+    error_message: ok ? undefined : errorMessage,
+  });
+}
+
+export async function createTelegramInvoiceLink(input: {
+  title: string;
+  description: string;
+  payload: string;
+  currency: string;
+  prices: Array<{ label: string; amount: number }>;
+}) {
+  return callTelegramBotApi<string>('createInvoiceLink', {
+    title: input.title,
+    description: input.description,
+    payload: input.payload,
+    provider_token: '',
+    currency: input.currency,
+    prices: input.prices,
+  });
+}
+
+export async function refundStarPayment(input: {
+  userId: number;
+  telegramPaymentChargeId: string;
+}) {
+  return callTelegramBotApi<boolean>('refundStarPayment', {
+    user_id: input.userId,
+    telegram_payment_charge_id: input.telegramPaymentChargeId,
+  });
 }

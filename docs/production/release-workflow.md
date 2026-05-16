@@ -44,6 +44,7 @@ Set these values on both `staging` and `production`, with separate provider reso
 | `TELEGRAM_APP_URL` | variable, optional | Fly runtime sync | Telegram Mini App launch URL. Defaults to `PUBLIC_FRONTEND_URL` when unset. |
 | `SENTRY_DSN` | secret, optional | Fly runtime sync | Backend Sentry DSN. Leave empty to keep backend Sentry disabled. |
 | `ADMIN_TELEGRAM_IDS` | secret, optional | Fly runtime sync | Comma-separated Telegram admin user IDs. |
+| `ADMIN_TELEGRAM_CHAT_IDS` | secret, optional | Fly runtime sync | Comma-separated chat IDs that receive `/paysupport` refund confirmations. |
 | `CLOUDFLARE_API_TOKEN` | secret | Cloudflare Pages deploy | Token with Pages deployment permission for the chosen project. |
 | `CLOUDFLARE_ACCOUNT_ID` | secret | Cloudflare Pages deploy | Cloudflare account id. |
 | `CLOUDFLARE_PAGES_PROJECT` | variable | Cloudflare Pages deploy | Pages project name. |

@@ -2,7 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { handleTelegramUpdate } from './webhook.js';
 import { TelegramUpdate } from '../../lib/telegram.js';
 import { db } from '../../db/index.js';
-import { users } from '../../db/schema.js';
+import { starPaymentSupportRequests, starPayments, users } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 
 const fetchMock = vi.fn();
@@ -11,6 +11,7 @@ global.fetch = fetchMock;
 vi.mock('../../lib/env.js', () => ({
   env: {
     ADMIN_TELEGRAM_IDS: [12345n],
+    ADMIN_TELEGRAM_CHAT_IDS: [12345n],
     PUBLIC_FRONTEND_URL: 'https://test-app.nu',
   },
 }));
@@ -248,5 +249,65 @@ describe('Bot Feature', () => {
     expect(body.text).toContain('Access denied');
 
     await db.delete(users).where(eq(users.id, target.id));
+  });
+
+  it('should create refund support request via paysupport command', async () => {
+    const now = Date.now();
+    const buyerTgId = 900000 + now;
+
+    const [buyer] = await db
+      .insert(users)
+      .values({
+        tgId: BigInt(buyerTgId),
+        tgUsername: `support_buyer_${now}`,
+        tgFirstName: 'Buyer',
+        diamonds: 500,
+      })
+      .returning({ id: users.id });
+
+    const [payment] = await db
+      .insert(starPayments)
+      .values({
+        userId: buyer.id,
+        packId: 'diamonds_500',
+        diamonds: 500,
+        priceStars: 85,
+        currency: 'XTR',
+        invoicePayload: `pack=diamonds_500;user=${buyer.id}`,
+        telegramPaymentChargeId: `charge-support-${now}`,
+      })
+      .returning({ id: starPayments.id });
+
+    const update: TelegramUpdate = {
+      update_id: 9,
+      message: {
+        message_id: 109,
+        chat: { id: buyerTgId, type: 'private' },
+        text: `/paysupport ${payment.id} accidental purchase`,
+        from: { id: buyerTgId, first_name: 'Buyer', language_code: 'en' },
+      },
+    };
+
+    await handleTelegramUpdate(update);
+
+    const supportRequest = await db.query.starPaymentSupportRequests.findFirst({
+      where: eq(starPaymentSupportRequests.paymentId, payment.id),
+    });
+
+    expect(supportRequest?.status).toBe('pending');
+    expect(supportRequest?.reason).toBe('accidental purchase');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    const [, userReplyOptions] = fetchMock.mock.calls[0];
+    expect(JSON.parse(userReplyOptions.body).text).toContain('Refund request');
+
+    const [, adminOptions] = fetchMock.mock.calls[1];
+    const adminBody = JSON.parse(adminOptions.body);
+    expect(adminBody.chat_id).toBe(12345);
+    expect(adminBody.text).toContain('/refund');
+
+    await db.delete(starPaymentSupportRequests).where(eq(starPaymentSupportRequests.id, supportRequest!.id));
+    await db.delete(starPayments).where(eq(starPayments.id, payment.id));
+    await db.delete(users).where(eq(users.id, buyer.id));
   });
 });

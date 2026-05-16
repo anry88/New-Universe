@@ -14,6 +14,7 @@ Shared infrastructure used across features, middleware, and routes. Anything in 
   - `TELEGRAM_BOT_SECRET` (default `'dev-secret-change-me'`; production must provide a 32+ character non-placeholder secret for Telegram webhook verification).
   - `TELEGRAM_APP_URL` / `PUBLIC_FRONTEND_URL` (optional outside production; production security validation requires both).
   - `ADMIN_TELEGRAM_IDS` (comma-separated list of allowed Telegram user IDs for admin actions, e.g. `111,222`).
+  - `ADMIN_TELEGRAM_CHAT_IDS` (comma-separated Telegram chat IDs that receive `/paysupport` refund requests; accepts private, group, or supergroup IDs, including negative supergroup IDs).
   - `JWT_SECRET` (≥ 8 chars everywhere; production security validation requires 32+ characters and rejects placeholder text).
   - `SERVER_SECRET` (default dev-only secret used to derive deterministic home-system seeds; production security validation requires 32+ characters and rejects placeholder text).
   - `SENTRY_DSN` (URL or empty, normalized to `undefined` when empty).
@@ -60,6 +61,7 @@ Shared infrastructure used across features, middleware, and routes. Anything in 
     - Rejects missing, malformed, zero, or unsafe `auth_date` values.
     - Returns `null` on any mismatch or missing hash; otherwise returns the parsed `TelegramInitData` (with `user` JSON-decoded and parse errors swallowed).
   - `isInitDataExpired(authDate, maxAgeInSeconds = 3600, maxFutureSkewInSeconds = 60)` — boolean check that the auth timestamp stays inside the accepted replay window. Used by `middleware/telegram-auth.ts` to reject stale or future-dated replays.
+  - `callTelegramBotApi`, `sendTelegramMessage`, `answerPreCheckoutQuery`, `createTelegramInvoiceLink`, and `refundStarPayment` wrap Bot API calls used by notifications, `/start`, Telegram Stars invoices, Stars pre-checkout, and refund support.
 
 ## Conventions
 

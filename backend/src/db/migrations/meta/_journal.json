@@ -267,6 +267,13 @@
       "when": 1779500000008,
       "tag": "0039_steep_hellcat",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1778949055074,
+      "tag": "0040_left_senator_kelly",
+      "breakpoints": true
     }
   ]
 }
