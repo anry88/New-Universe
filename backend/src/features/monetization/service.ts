@@ -11,9 +11,11 @@ import { starPayments, starPaymentSupportRequests, users } from '../../db/schema
 import {
   answerPreCheckoutQuery,
   createTelegramInvoiceLink,
+  getStarTransactions,
   refundStarPayment,
   sendTelegramMessage,
   type TelegramPreCheckoutQuery,
+  type TelegramStarTransaction,
   type TelegramSuccessfulPayment,
   type TelegramUser,
 } from '../../lib/telegram.js';
@@ -282,6 +284,92 @@ export async function listRefundableStarPayments(userId: string): Promise<UserSt
     .orderBy(desc(starPayments.createdAt));
 
   return rows;
+}
+
+function isInvoicePaymentFromTelegramUser(
+  transaction: TelegramStarTransaction,
+): transaction is TelegramStarTransaction & {
+  source: {
+    type: 'user';
+    transaction_type?: string;
+    user: TelegramUser;
+    invoice_payload?: string;
+  };
+} {
+  const source = transaction.source as Partial<{
+    type: string;
+    transaction_type: string;
+    user: TelegramUser;
+    invoice_payload: string;
+  }> | undefined;
+
+  return (
+    transaction.amount > 0 &&
+    source?.type === 'user' &&
+    source.transaction_type === 'invoice_payment' &&
+    typeof source.user?.id === 'number' &&
+    typeof source.invoice_payload === 'string' &&
+    source.invoice_payload.length > 0
+  );
+}
+
+export async function reconcileMissingStarPaymentsForUser(input: {
+  userId: string;
+  telegramUserId: bigint;
+  limit?: number;
+}): Promise<{ scanned: number; recorded: number }> {
+  const history = await getStarTransactions({ limit: input.limit ?? 100 });
+  const transactions = history?.transactions ?? [];
+  const telegramUserId = Number(input.telegramUserId);
+  let recorded = 0;
+
+  for (const transaction of transactions) {
+    if (!isInvoicePaymentFromTelegramUser(transaction)) {
+      continue;
+    }
+
+    const payload = transaction.source.invoice_payload!;
+    const parsed = parseStarsInvoicePayload(payload);
+    const pack = parsed ? findStarsDiamondPack(parsed.packId) : null;
+
+    if (
+      !parsed ||
+      !pack ||
+      parsed.userId !== input.userId ||
+      transaction.amount !== pack.priceStars ||
+      transaction.source.user.id !== telegramUserId
+    ) {
+      continue;
+    }
+
+    const result = await recordSuccessfulStarsPayment({
+      actor: transaction.source.user,
+      payment: {
+        currency: TELEGRAM_STARS_CURRENCY,
+        total_amount: transaction.amount,
+        invoice_payload: payload,
+        telegram_payment_charge_id: transaction.id,
+      },
+    });
+
+    if (result.success && !result.duplicate) {
+      recorded += 1;
+    }
+  }
+
+  if (recorded > 0) {
+    logger.info(
+      {
+        event: 'stars.reconcile.recorded',
+        userId: input.userId,
+        scanned: transactions.length,
+        recorded,
+      },
+      'Recorded missing Telegram Stars payments from transaction history',
+    );
+  }
+
+  return { scanned: transactions.length, recorded };
 }
 
 export async function createPaymentSupportRequest(input: {

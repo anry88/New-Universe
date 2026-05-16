@@ -147,6 +147,34 @@ export interface TelegramSuccessfulPayment {
   provider_payment_charge_id?: string;
 }
 
+export interface TelegramTransactionPartnerUser {
+  type: 'user';
+  transaction_type?: string;
+  user: TelegramUser;
+  invoice_payload?: string;
+}
+
+export interface TelegramTransactionPartnerOther {
+  type: string;
+}
+
+export type TelegramTransactionPartner =
+  | TelegramTransactionPartnerUser
+  | TelegramTransactionPartnerOther;
+
+export interface TelegramStarTransaction {
+  id: string;
+  amount: number;
+  nanostar_amount?: number;
+  date: number;
+  source?: TelegramTransactionPartner;
+  receiver?: TelegramTransactionPartner;
+}
+
+export interface TelegramStarTransactions {
+  transactions: TelegramStarTransaction[];
+}
+
 export interface TelegramCallbackQuery {
   id: string;
   from: TelegramUser;
@@ -256,5 +284,15 @@ export async function refundStarPayment(input: {
   return callTelegramBotApi<boolean>('refundStarPayment', {
     user_id: input.userId,
     telegram_payment_charge_id: input.telegramPaymentChargeId,
+  });
+}
+
+export async function getStarTransactions(input?: {
+  offset?: number;
+  limit?: number;
+}) {
+  return callTelegramBotApi<TelegramStarTransactions>('getStarTransactions', {
+    offset: input?.offset,
+    limit: input?.limit,
   });
 }

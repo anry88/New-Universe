@@ -55,9 +55,12 @@ export async function botRoutes(fastify: FastifyInstance) {
     const logContext = telegramUpdateLogContext(update);
     fastify.log.info(logContext, 'Received Telegram update');
     
-    botService.processUpdate(update).catch((err) => {
+    try {
+      await botService.processUpdate(update);
+    } catch (err) {
       fastify.log.error({ err, ...logContext }, 'Error processing Telegram update');
-    });
+      throw err;
+    }
 
     return reply.status(200).send({ ok: true });
   });
