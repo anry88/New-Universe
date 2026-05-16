@@ -49,11 +49,12 @@ export function estimateLandingSlotUsage(input: {
   ships: Ship[] | undefined;
   expeditions: Expedition[] | undefined;
 }): { capacity: number; occupied: number; reserved: number; used: number } {
-  const spaceport = (input.planet.buildings ?? []).find(
-    (building) =>
-      building.typeId === "spaceport" && building.queueAction !== "build",
-  );
-  const capacity = spaceport?.level ?? 0;
+  const capacity = (input.planet.buildings ?? [])
+    .filter(
+      (building) =>
+        building.typeId === "spaceport" && building.queueAction !== "build",
+    )
+    .reduce((sum, building) => sum + (building.level ?? 0), 0);
 
   const occupied = (input.ships ?? []).filter(
     (ship) =>

@@ -2,9 +2,11 @@ import { db } from '../../db/index.js';
 import { colonies } from '../../db/schema/colonies.js';
 import { planets, systems } from '../../db/schema/world.js';
 import { buildings } from '../../db/schema/buildings.js';
+import { expeditions } from '../../db/schema/expeditions.js';
+import { ships, shipTypes } from '../../db/schema/ships.js';
 import { discoveredPlanets } from '../../db/schema/discovery.js';
 import { researchProgress } from '../../db/schema/research.js';
-import { eq, and, asc, isNull, sql } from 'drizzle-orm';
+import { eq, and, asc, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import {
   COLONIZATION_RULES,
   maxColoniesForLogisticsLevel,
@@ -83,6 +85,28 @@ export async function loadExpansionColonies(userId: string): Promise<ExpansionCo
       planetId: row.planetId,
       foundedAt: row.foundedAt,
     }));
+}
+
+async function loadActiveColonizerDeployment(userId: string): Promise<{ eta: Date } | null> {
+  const [activeDeployment] = await db
+    .select({
+      eta: expeditions.eta,
+    })
+    .from(expeditions)
+    .innerJoin(ships, eq(expeditions.shipId, ships.id))
+    .innerJoin(shipTypes, eq(ships.typeId, shipTypes.id))
+    .where(
+      and(
+        eq(ships.ownerId, userId),
+        eq(shipTypes.role, 'colonization'),
+        inArray(expeditions.status, ['queued', 'in_flight']),
+        isNotNull(expeditions.targetPlanetId),
+      ),
+    )
+    .orderBy(asc(expeditions.eta))
+    .limit(1);
+
+  return activeDeployment ?? null;
 }
 
 /**
@@ -219,6 +243,21 @@ export async function checkColonizationGates(
       allowed: false,
       reason: `Colony limit reached (${currentColonies}/${maxColonies})`,
       code: 'colony_limit_reached',
+      details,
+    };
+  }
+
+  const activeDeployment = await loadActiveColonizerDeployment(userId);
+  if (activeDeployment) {
+    const arrivalRemainingSec = Math.max(
+      0,
+      Math.ceil((activeDeployment.eta.getTime() - Date.now()) / 1000),
+    );
+    details.cooldownRemainingSec = arrivalRemainingSec + COLONIZATION_RULES.cooldownSec;
+    return {
+      allowed: false,
+      reason: 'Colonization on cooldown',
+      code: 'colony_cooldown',
       details,
     };
   }

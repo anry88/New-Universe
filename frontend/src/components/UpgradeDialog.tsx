@@ -39,6 +39,14 @@ interface UpgradeDialogProps {
   accent?: string;
   /** Energy anomaly worlds waive operational energy demand. */
   energyFree?: boolean;
+  /** Current planet energy state, shown only for battery installations. */
+  currentEnergy?: {
+    produced: number;
+    consumed: number;
+    stored?: number;
+    capacity?: number;
+    net?: number;
+  };
 }
 
 /**
@@ -63,6 +71,7 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
   isProcessing,
   accent = '#5BD7FF',
   energyFree = false,
+  currentEnergy,
 }) => {
   const [explainedReason, setExplainedReason] = React.useState<BuildBlockedReason | null>(null);
   const { locale, t } = useI18n();
@@ -80,6 +89,9 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
   const buildTime = buildingUpgradeTimeSeconds(typeInfo.baseTimeSec, building.level);
   const minutes = Math.floor(buildTime / 60);
   const seconds = buildTime % 60;
+  const producedNow = currentEnergy?.produced ?? 0;
+  const consumedNow = currentEnergy?.consumed ?? 0;
+  const netNow = currentEnergy?.net ?? producedNow - consumedNow;
 
   return (
     <div
@@ -131,6 +143,26 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
                 <span className="bopt-locked">{getBuildingCategory(typeInfo.id, locale).toUpperCase()}</span>
               </div>
               <div className="bopt-desc">{typeInfo.description[locale]}</div>
+
+              {typeInfo.id === 'battery' && currentEnergy ? (
+                <div className="bopt-energy-panel" role="status">
+                  <span>
+                    {t('build.energyNow', {
+                      produced: producedNow,
+                      consumed: consumedNow,
+                      net: `${netNow >= 0 ? '+' : ''}${netNow}`,
+                    })}
+                  </span>
+                  {typeof currentEnergy.stored === 'number' && typeof currentEnergy.capacity === 'number' ? (
+                    <span>
+                      {t('build.energyStored', {
+                        stored: currentEnergy.stored,
+                        capacity: currentEnergy.capacity,
+                      })}
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
 
               {resourceChoices.length > 0 && onChangeResource ? (
                 <div className="bopt-resource-row" aria-label={t('build.depositChoice')} style={{ marginTop: 10 }}>

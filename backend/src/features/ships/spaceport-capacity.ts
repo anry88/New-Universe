@@ -56,7 +56,7 @@ async function lockPlanet(tx: any, planetId: string): Promise<void> {
 async function loadSpaceportCapacity(tx: any, planetId: string): Promise<number> {
   const rows = await tx
     .select({
-      capacity: sql<number>`COALESCE(MAX(${buildings.level}), 0)`,
+      capacity: sql<number>`COALESCE(SUM(${buildings.level}), 0)`,
     })
     .from(buildings)
     .where(

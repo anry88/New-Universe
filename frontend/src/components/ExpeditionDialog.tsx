@@ -26,7 +26,7 @@ import {
   AlertTriangle,
   Zap,
 } from "lucide-react";
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { CosmicBackground } from "./cosmic/atoms";
 import {
   CosmicSystemRenderer,
@@ -350,8 +350,55 @@ export function ExpeditionDialog({
   const recommendedFuel = preview.fuelRequired;
   const jumpFuelRequired = preview.jumpFuelRequired;
 
-  const totalFuelAtLaunch = Number(ship.fuel) + fuelLoaded;
-  const totalJumpFuelAtLaunch = Number(ship.jumpFuel) + jumpFuelLoaded;
+  const currentFuel = Number(ship.fuel);
+  const currentJumpFuel = Number(ship.jumpFuel);
+  const fuelLoadMax = Math.max(
+    0,
+    Math.floor(
+      Math.min(fuelAvailable, Math.max(0, shipType.fuelCapacity - currentFuel)),
+    ),
+  );
+  const fuelLoadMin = Math.min(
+    fuelLoadMax,
+    Math.max(0, Math.ceil(recommendedFuel - currentFuel)),
+  );
+  const jumpFuelLoadMax = Math.max(
+    0,
+    Math.floor(
+      Math.min(
+        jumpFuelAvailable,
+        Math.max(0, shipType.jumpFuelCapacity - currentJumpFuel),
+      ),
+    ),
+  );
+  const jumpFuelLoadMin = Math.min(
+    jumpFuelLoadMax,
+    Math.max(0, Math.ceil(jumpFuelRequired - currentJumpFuel)),
+  );
+
+  useEffect(() => {
+    setFuelLoaded((value) =>
+      Math.min(fuelLoadMax, Math.max(fuelLoadMin, value)),
+    );
+  }, [fuelLoadMax, fuelLoadMin]);
+
+  useEffect(() => {
+    setJumpFuelLoaded((value) =>
+      Math.min(jumpFuelLoadMax, Math.max(jumpFuelLoadMin, value)),
+    );
+  }, [jumpFuelLoadMax, jumpFuelLoadMin]);
+
+  const clampedFuelLoaded = Math.min(
+    fuelLoadMax,
+    Math.max(fuelLoadMin, fuelLoaded),
+  );
+  const clampedJumpFuelLoaded = Math.min(
+    jumpFuelLoadMax,
+    Math.max(jumpFuelLoadMin, jumpFuelLoaded),
+  );
+
+  const totalFuelAtLaunch = currentFuel + clampedFuelLoaded;
+  const totalJumpFuelAtLaunch = currentJumpFuel + clampedJumpFuelLoaded;
 
   const shortOnFuel = totalFuelAtLaunch < recommendedFuel;
   const shortOnJumpFuel =
@@ -488,8 +535,8 @@ export function ExpeditionDialog({
             : undefined,
         destinationSystemId:
           routeMode === "jump_gate" ? selectedDestination?.systemId : undefined,
-        fuelLoaded: fuelLoaded > 0 ? fuelLoaded : undefined,
-        jumpFuelLoaded: jumpFuelLoaded > 0 ? jumpFuelLoaded : undefined,
+        fuelLoaded: clampedFuelLoaded > 0 ? clampedFuelLoaded : undefined,
+        jumpFuelLoaded: clampedJumpFuelLoaded > 0 ? clampedJumpFuelLoaded : undefined,
         cargoLoaded: cargo,
         targetPlanetId: targetPlanetId ?? undefined,
       });
@@ -1186,7 +1233,7 @@ export function ExpeditionDialog({
                     }}
                   >
                     {t("expedition_dialog_tank_status", {
-                      current: Number(ship.fuel).toFixed(0),
+                      current: currentFuel.toFixed(0),
                       capacity: shipType.fuelCapacity,
                     })}
                   </div>
@@ -1197,14 +1244,14 @@ export function ExpeditionDialog({
               <div style={{ marginTop: 4 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                    <div style={{ fontSize: 11, color: "var(--text-dim)" }}>{t("expedition_dialog_load_fuel")}</div>
-                   <div style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--accent)" }}>+{fuelLoaded}</div>
+                   <div style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--accent)" }}>+{clampedFuelLoaded}</div>
                 </div>
                 <input 
                   type="range"
                   className="cosmic-range"
-                  min={0}
-                  max={Math.min(fuelAvailable, Math.max(0, shipType.fuelCapacity - Number(ship.fuel)))}
-                  value={fuelLoaded}
+                  min={fuelLoadMin}
+                  max={fuelLoadMax}
+                  value={clampedFuelLoaded}
                   onChange={(e) => setFuelLoaded(Number(e.target.value))}
                 />
               </div>
@@ -1248,7 +1295,7 @@ export function ExpeditionDialog({
                         }}
                       >
                         {t("expedition_dialog_tank_status", {
-                          current: Number(ship.jumpFuel).toFixed(0),
+                          current: currentJumpFuel.toFixed(0),
                           capacity: shipType.jumpFuelCapacity,
                         })}
                       </div>
@@ -1259,14 +1306,14 @@ export function ExpeditionDialog({
                   <div style={{ marginTop: 4 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                        <div style={{ fontSize: 11, color: "var(--text-dim)" }}>{t("expedition_dialog_load_jump_fuel")}</div>
-                       <div style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--accent)" }}>+{jumpFuelLoaded}</div>
+                       <div style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--accent)" }}>+{clampedJumpFuelLoaded}</div>
                     </div>
                     <input 
                       type="range"
                       className="cosmic-range"
-                      min={0}
-                      max={Math.min(jumpFuelAvailable, Math.max(0, shipType.jumpFuelCapacity - Number(ship.jumpFuel)))}
-                      value={jumpFuelLoaded}
+                      min={jumpFuelLoadMin}
+                      max={jumpFuelLoadMax}
+                      value={clampedJumpFuelLoaded}
                       onChange={(e) => setJumpFuelLoaded(Number(e.target.value))}
                     />
                   </div>

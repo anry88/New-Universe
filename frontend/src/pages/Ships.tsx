@@ -20,7 +20,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 import type { Ship, ShipQueueItem, ShipType } from "@shared/types/ships";
 import type { RushPricing } from "@shared/types/diamonds";
 import { estimateRushDiamondCost } from "@shared/types/diamonds";
-import type { CombatStats, EngagementRange } from "@shared/types/combat";
 import type { Building, Planet } from "@shared/types/world";
 import { shipDescription } from "@shared/types/entity-labels";
 import {
@@ -55,32 +54,6 @@ function formatDuration(totalSeconds: number): string {
   const seconds = Math.max(0, Math.ceil(totalSeconds));
   const minutes = Math.floor(seconds / 60);
   return `${minutes}m ${String(seconds % 60).padStart(2, "0")}s`;
-}
-
-function combatRangeLabel(
-  stats: CombatStats | undefined,
-  t: (key: string, params?: Record<string, string | number>) => string,
-): string {
-  const range = stats?.missilePayload?.maxRange ?? stats?.engagementRange;
-  const keyByRange: Partial<Record<EngagementRange, string>> = {
-    close: "ships.range.close",
-    medium: "ships.range.medium",
-    long: "ships.range.long",
-    orbital: "ships.range.orbital",
-  };
-  return range ? t(keyByRange[range] ?? "common.none") : t("common.none");
-}
-
-function missilePayloadLabel(
-  stats: CombatStats | undefined,
-  t: (key: string, params?: Record<string, string | number>) => string,
-): string | null {
-  const payload = stats?.missilePayload;
-  if (!payload) return null;
-  return t("ships.payload", {
-    alpha: payload.alphaDamage,
-    reload: payload.reloadSec,
-  });
 }
 
 function ShipBuildQueue({
@@ -167,6 +140,7 @@ export function ShipsPage() {
   );
   const [selectedPlanetId, setSelectedPlanetId] = useState<string | null>(null);
   const [expandedShipId, setExpandedShipId] = useState<string | null>(null);
+  const [expandedShipyardTypeId, setExpandedShipyardTypeId] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
 
   const ships = meData?.ships || [];
@@ -473,7 +447,6 @@ export function ShipsPage() {
                 {buildableShipTypes.map((type) => {
                   const isColonizerHull =
                     type.role === "colonization" || type.id === "colonizer";
-                  const payloadText = missilePayloadLabel(type.combatStats, t);
                   const requirements = type.requiredBuildings
                     .map((req) =>
                       formatRequirement(selectedPlanet, req.typeId, req.level),
@@ -502,136 +475,150 @@ export function ShipsPage() {
                     colonizationSummary.currentColonies >=
                       colonizationSummary.maxColonies,
                   );
+                  const expanded = expandedShipyardTypeId === type.id;
+                  const buildTime = formatDuration(type.buildTimeSec);
+                  const statusLabel = canBuild
+                    ? t("common.ready")
+                    : t("common.locked");
 
                   return (
-                    <div key={type.id} className="ship-row">
-                      <div className="ship-visual">
+                    <div
+                      key={type.id}
+                      className={`ship-row ship-row-collapsible shipyard-build-row${expanded ? " is-expanded" : ""}`}
+                    >
+                      <button
+                        type="button"
+                        className="ship-row-header shipyard-build-header"
+                        aria-expanded={expanded}
+                        onClick={() =>
+                          setExpandedShipyardTypeId(expanded ? null : type.id)
+                        }
+                      >
                         <ShipIconBadge
                           typeId={type.id}
                           status={canBuild ? "idle" : "building"}
                           size={36}
                           title={type.name[locale]}
                         />
-                        <div className="ship-cls">
-                          {getShipClassTag(type.id, locale)}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="ship-name">{type.name[locale]}</div>
-                        <div className="ship-loc">
-                          {shipDescription(type.id, locale)}
-                        </div>
-                        <div className="ship-loc">
-                          {t("ships.buildTime")}:{" "}
-                          {Math.floor(type.buildTimeSec / 60)}m{" "}
-                          {type.buildTimeSec % 60}s
-                        </div>
-                        <div className="ship-loc">
-                          {t("common.cost")}:{" "}
-                          <ResourceAmountList
-                            items={Object.entries(type.buildCost).map(
-                              ([resourceId, amount]) => ({
-                                resourceId,
-                                amount,
-                              }),
-                            )}
-                            locale={locale}
-                          />
-                        </div>
-                        <div className="ship-loc">
-                          {t("ships.requires")}:{" "}
-                          {requirements || t("common.none")}
-                        </div>
-                        <div className="ship-loc">
-                          {t("ships.combatStats", {
-                            hp: type.hp,
-                            dps: type.dps,
-                            range: combatRangeLabel(type.combatStats, t),
-                            fuel: type.fuelCapacity,
-                          })}
-                        </div>
-                        {payloadText ? (
-                          <div className="ship-loc">{payloadText}</div>
-                        ) : null}
-                        <ShieldStatus shields={type.combatStats?.shields} />
-                        {blockedText ? (
-                          <div
-                            className="ship-loc"
-                            style={{ color: "#fca5a5" }}
-                          >
-                            {blockedText}
+                        <div className="ship-row-summary">
+                          <div className="ship-name">{type.name[locale]}</div>
+                          <div className="ship-loc">
+                            {getShipClassTag(type.id, locale)} · {buildTime}
                           </div>
-                        ) : null}
-                        {isColonizerHull && colonizationSummary ? (
-                          <div
-                            className="ship-loc"
+                        </div>
+                        <div
+                          className={`shipyard-row-status${canBuild ? "" : " locked"}`}
+                        >
+                          {statusLabel}
+                        </div>
+                        <ChevronDown
+                          size={18}
+                          className="ship-row-chevron"
+                          style={{
+                            transform: expanded
+                              ? "rotate(180deg)"
+                              : "rotate(0deg)",
+                            transition: "transform 0.15s ease",
+                            color: "var(--text-faint)",
+                          }}
+                        />
+                      </button>
+                      {expanded ? (
+                        <div className="ship-row-details shipyard-build-details">
+                          <div className="shipyard-build-copy">
+                            {shipDescription(type.id, locale)}
+                          </div>
+                          <div className="shipyard-detail-list">
+                            <div className="shipyard-detail-line">
+                              <span>{t("common.cost")}</span>
+                              <ResourceAmountList
+                                items={Object.entries(type.buildCost).map(
+                                  ([resourceId, amount]) => ({
+                                    resourceId,
+                                    amount,
+                                  }),
+                                )}
+                                locale={locale}
+                              />
+                            </div>
+                            <div className="shipyard-detail-line">
+                              <span>{t("ships.requires")}</span>
+                              <b>{requirements || t("common.none")}</b>
+                            </div>
+                            <div className="shipyard-detail-line">
+                              <span>{t("ships.buildTime")}</span>
+                              <b>{buildTime}</b>
+                            </div>
+                          </div>
+                          <ShieldStatus shields={type.combatStats?.shields} />
+                          {blockedText ? (
+                            <div
+                              className="ship-loc"
+                              style={{ color: "#fca5a5" }}
+                            >
+                              {blockedText}
+                            </div>
+                          ) : null}
+                          {isColonizerHull && colonizationSummary ? (
+                            <div
+                              className="ship-loc"
+                              style={{
+                                color: colonizerAtCurrentLimit
+                                  ? "#fcd34d"
+                                  : "var(--text-dim)",
+                              }}
+                            >
+                              {colonizerAtCurrentLimit
+                                ? t("ships.colonizerLimitWarning", {
+                                    current:
+                                      colonizationSummary.currentColonies,
+                                    max: colonizationSummary.maxColonies,
+                                    count:
+                                      colonizationSummary.maxColoniesPerLogisticsLevel,
+                                  })
+                                : t("colonize.logisticsLimitHint", {
+                                    count:
+                                      colonizationSummary.maxColoniesPerLogisticsLevel,
+                                  })}
+                            </div>
+                          ) : null}
+                          <button
+                            type="button"
+                            disabled={
+                              !selectedPlanet ||
+                              !canBuild ||
+                              buildShip.isPending
+                            }
+                            onClick={() =>
+                              handleBuildShip(type.id, type.buildTimeSec)
+                            }
+                            className="cosmic-cta"
                             style={{
-                              color: colonizerAtCurrentLimit
-                                ? "#fcd34d"
-                                : "var(--text-dim)",
+                              alignSelf: "flex-start",
+                              padding: "7px 14px",
+                              fontSize: 11,
+                              opacity:
+                                !selectedPlanet ||
+                                !canBuild ||
+                                buildShip.isPending
+                                  ? 0.45
+                                  : 1,
+                              cursor:
+                                !selectedPlanet ||
+                                !canBuild ||
+                                buildShip.isPending
+                                  ? "not-allowed"
+                                  : "pointer",
                             }}
                           >
-                            {colonizerAtCurrentLimit
-                              ? t("ships.colonizerLimitWarning", {
-                                  current: colonizationSummary.currentColonies,
-                                  max: colonizationSummary.maxColonies,
-                                  count:
-                                    colonizationSummary.maxColoniesPerLogisticsLevel,
-                                })
-                              : t("colonize.logisticsLimitHint", {
-                                  count:
-                                    colonizationSummary.maxColoniesPerLogisticsLevel,
-                                })}
-                          </div>
-                        ) : null}
-                        <button
-                          type="button"
-                          disabled={
-                            !selectedPlanet || !canBuild || buildShip.isPending
-                          }
-                          onClick={() =>
-                            handleBuildShip(type.id, type.buildTimeSec)
-                          }
-                          className="cosmic-cta"
-                          style={{
-                            marginTop: 6,
-                            padding: "6px 12px",
-                            fontSize: 11,
-                            opacity:
-                              !selectedPlanet ||
-                              !canBuild ||
-                              buildShip.isPending
-                                ? 0.45
-                                : 1,
-                            cursor:
-                              !selectedPlanet ||
-                              !canBuild ||
-                              buildShip.isPending
-                                ? "not-allowed"
-                                : "pointer",
-                          }}
-                        >
-                          {buildShip.isPending
-                            ? t("ships.queuing").toUpperCase()
-                            : canBuild
-                              ? t("ships.buildShip").toUpperCase()
-                              : t("common.locked").toUpperCase()}
-                        </button>
-                      </div>
-                      <div className="ship-stats">
-                        <div className="ship-stat">
-                          <span>{t("ships.hp")}</span>
-                          <b>{type.hp}</b>
+                            {buildShip.isPending
+                              ? t("ships.queuing").toUpperCase()
+                              : canBuild
+                                ? t("ships.buildShip").toUpperCase()
+                                : t("common.locked").toUpperCase()}
+                          </button>
                         </div>
-                        <div className="ship-stat">
-                          <span>{t("ships.dps")}</span>
-                          <b>{type.dps}</b>
-                        </div>
-                        <div className="ship-stat">
-                          <span>{t("ships.speed")}</span>
-                          <b>{type.speed}</b>
-                        </div>
-                      </div>
+                      ) : null}
                     </div>
                   );
                 })}

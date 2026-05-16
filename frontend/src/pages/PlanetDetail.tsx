@@ -94,6 +94,14 @@ export function PlanetDetailPage() {
     if (!planetId || !allPlanets.length) return null;
     return allPlanets.find((p) => p.id === planetId) ?? null;
   }, [allPlanets, planetId]);
+  const railPlanets = useMemo(
+    () =>
+      allPlanets.filter(
+        (candidate) =>
+          candidate.isColonized === true || candidate.id === planet?.id,
+      ),
+    [allPlanets, planet?.id],
+  );
 
   // Handle deep-link to a specific slot. We consume the `slot` query param exactly
   // once per URL change and strip it afterwards so refetches of `/me` (which give
@@ -678,7 +686,7 @@ export function PlanetDetailPage() {
               {sectorTag ? ` · ${sectorTag}` : ''}
             </div>
             <PlanetRail
-              planets={allPlanets.map((p) => ({ id: p.id, name: p.name, biome: p.biome }))}
+              planets={railPlanets.map((p) => ({ id: p.id, name: p.name, biome: p.biome }))}
               current={planet.id}
               onSelect={(id) => navigate(`/planet/${id}`)}
             />
@@ -773,6 +781,7 @@ export function PlanetDetailPage() {
         isProcessing={isProcessing}
         accent={accent}
         energyFree={planet.biome === 'energy'}
+        currentEnergy={currentEnergy}
       />
 
       <ProductionDialog
