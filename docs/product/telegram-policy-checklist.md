@@ -11,7 +11,7 @@ Reference: https://core.telegram.org/bots/payments-stars
 | Use Telegram Stars currency | Done | Invoices use `currency: "XTR"` from `shared/config/monetization.ts`. |
 | Do not use a third-party provider token for Stars | Done | `createInvoiceLink` sends `provider_token: ""`. |
 | Validate pre-checkout before accepting payment | Done | `answerStarsPreCheckout()` verifies payload, user, buyer id, currency, and amount. |
-| Deliver value only after successful payment | Done | Diamonds are credited only from `successful_payment`, never from invoice creation. |
+| Deliver value only after successful payment | Done | Diamonds are credited from `successful_payment`, or from Telegram transaction history after the Mini App reports a paid checkout; invoice creation never credits value. |
 | Keep payment delivery idempotent | Done | `star_payments.telegram_payment_charge_id` has a unique index and duplicate updates do not credit twice. |
 | Support Stars refunds | Done | `/paysupport` starts the support flow and admin `/refund` calls `refundStarPayment`. |
 | Avoid leaking payment data | Done | Logs and analytics avoid raw invoice payloads, charge ids, Telegram ids, auth data, and user-generated chat text. |
@@ -23,6 +23,7 @@ Reference: https://core.telegram.org/bots/payments-stars
 - The backend rejects an invoice request for an unknown pack.
 - Telegram pre-checkout rejects stale or tampered payloads.
 - The successful-payment handler rejects amount/currency mismatches and user mismatches.
+- After Telegram returns `paid`, the shop calls checkout confirmation and displays delivered/pending/failed delivery status with the updated diamond balance when available.
 - The player can start refund support with `/paysupport`.
 - The player can provide follow-up information through `/answer`.
 
@@ -42,6 +43,7 @@ Reference: https://core.telegram.org/bots/payments-stars
 - Purchased diamonds are added in one transaction after the payment row is created.
 - Refunded diamonds are subtracted in the same transaction that marks the payment and support request resolved.
 - Duplicate open support requests for the same payment are rejected.
+- If `/paysupport` recovers a missed Stars delivery first, it reports the recovered credit and does not create a refund request in the same command call.
 - Refunded payments are excluded from `/paysupport` lists.
 - Refund failure from Telegram is recorded as `refund_failed` without locally marking the payment refunded.
 - Stars pack telemetry uses the shared analytics sanitizer and safe properties only.
@@ -56,4 +58,3 @@ Before enabling real Stars sales in production:
 - Run database migrations so `star_payments` and `star_payment_support_requests` exist.
 - Complete a manual test purchase and refund with a Telegram test account or a controlled private production account.
 - Confirm support admins can receive requests and issue `/refund`, `/reject`, and `/ask`.
-

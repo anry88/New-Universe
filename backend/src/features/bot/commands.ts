@@ -16,6 +16,7 @@ import {
   reconcileMissingStarPaymentsForUser,
   refundPaymentSupportRequest,
   rejectPaymentSupportRequest,
+  type UserStarPayment,
 } from '../monetization/service.js';
 
 type BotLocale = 'en' | 'ru';
@@ -47,6 +48,8 @@ const LOCALE_MESSAGES = {
     noPurchases: 'Покупок за Stars для возврата не найдено.',
     supportList: (list: string) =>
       `Выберите покупку для возврата: /paysupport &lt;ID&gt; &lt;причина&gt;\n${list}`,
+    supportRecovered: (list: string) =>
+      `Мы нашли и начислили пропущенную оплату Stars. Баланс обновлен.\nЕсли нужен возврат, отправьте команду еще раз: /paysupport &lt;ID&gt; &lt;причина&gt;\n${list}`,
     supportInvalid: 'Неверный формат. Используйте /paysupport &lt;ID&gt; &lt;причина&gt;.',
     supportReasonRequired: 'Добавьте причину возврата после ID покупки.',
     supportDuplicate: 'По этой покупке уже есть открытый запрос.',
@@ -78,6 +81,8 @@ const LOCALE_MESSAGES = {
     noPurchases: 'No refundable Stars purchases found.',
     supportList: (list: string) =>
       `Choose a purchase for refund: /paysupport &lt;ID&gt; &lt;reason&gt;\n${list}`,
+    supportRecovered: (list: string) =>
+      `We found and delivered a missing Stars purchase. Your balance is updated.\nIf you still need a refund, send the command again: /paysupport &lt;ID&gt; &lt;reason&gt;\n${list}`,
     supportInvalid: 'Invalid format. Use /paysupport &lt;ID&gt; &lt;reason&gt;.',
     supportReasonRequired: 'Add a refund reason after the purchase ID.',
     supportDuplicate: 'This purchase already has an open support request.',
@@ -144,6 +149,15 @@ function escapeHtml(value: string): string {
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;');
+}
+
+function formatRefundablePaymentList(payments: UserStarPayment[], locale: BotLocale): string {
+  return payments
+    .map((payment) => {
+      const label = `${payment.diamonds} ${locale === 'ru' ? 'алмазов' : 'diamonds'}`;
+      return `<code>${payment.id}</code>: ${label} — ${payment.priceStars} Stars`;
+    })
+    .join('\n');
 }
 
 async function findUserByTelegramActor(actor?: TelegramUser) {
@@ -319,15 +333,28 @@ export async function handlePaySupportCommand(
     return;
   }
 
+  const trimmedArgs = argsText.trim();
   let payments = await listRefundableStarPayments(user.id);
+  let recoveredMissingPayment = false;
   if (payments.length === 0) {
-    await reconcileMissingStarPaymentsForUser({
+    const reconciliation = await reconcileMissingStarPaymentsForUser({
       userId: user.id,
       telegramUserId: user.tgId,
     });
     payments = await listRefundableStarPayments(user.id);
+    recoveredMissingPayment = reconciliation.recorded > 0;
   }
-  const trimmedArgs = argsText.trim();
+
+  if (recoveredMissingPayment) {
+    if (payments.length === 0) {
+      await sendTelegramMessage(chatId, messages.noPurchases);
+      return;
+    }
+
+    const list = formatRefundablePaymentList(payments, locale);
+    await sendTelegramMessage(chatId, messages.supportRecovered(list));
+    return;
+  }
 
   if (!trimmedArgs) {
     if (payments.length === 0) {
@@ -335,12 +362,7 @@ export async function handlePaySupportCommand(
       return;
     }
 
-    const list = payments
-      .map((payment) => {
-        const label = `${payment.diamonds} ${locale === 'ru' ? 'алмазов' : 'diamonds'}`;
-        return `<code>${payment.id}</code>: ${label} — ${payment.priceStars} Stars`;
-      })
-      .join('\n');
+    const list = formatRefundablePaymentList(payments, locale);
     await sendTelegramMessage(chatId, messages.supportList(list));
     return;
   }

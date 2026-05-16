@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import {
   STARS_DIAMOND_PACKS,
@@ -6,6 +7,7 @@ import {
   type StarsDiamondPack,
 } from '@shared/config/monetization.js';
 import type { Locale } from '@shared/types/locale.js';
+import type { ConfirmStarsCheckoutResponse } from '@shared/types/monetization.js';
 import { db as defaultDb } from '../../db/index.js';
 import { starPayments, starPaymentSupportRequests, users } from '../../db/schema.js';
 import {
@@ -35,6 +37,7 @@ export type SupportRequestStatus =
 export interface ParsedStarsPayload {
   packId: string;
   userId: string;
+  checkoutId?: string;
 }
 
 export interface UserStarPayment {
@@ -50,8 +53,12 @@ export function listStarsDiamondPacks(): StarsDiamondPack[] {
   return STARS_DIAMOND_PACKS.map((pack) => ({ ...pack }));
 }
 
-export function buildStarsInvoicePayload(userId: string, packId: string): string {
-  return `pack=${packId};user=${userId}`;
+export function buildStarsInvoicePayload(userId: string, packId: string, checkoutId?: string): string {
+  return [
+    `pack=${packId}`,
+    `user=${userId}`,
+    checkoutId ? `checkout=${checkoutId}` : null,
+  ].filter((part): part is string => part !== null).join(';');
 }
 
 export function parseStarsInvoicePayload(payload: string): ParsedStarsPayload | null {
@@ -71,6 +78,7 @@ export function parseStarsInvoicePayload(payload: string): ParsedStarsPayload | 
   return {
     packId: parts.pack,
     userId: parts.user,
+    checkoutId: parts.checkout,
   };
 }
 
@@ -128,7 +136,7 @@ export async function createStarsInvoiceLinkForUser(input: {
   userId: string;
   packId: string;
   locale: Locale;
-}): Promise<{ invoiceUrl: string; pack: StarsDiamondPack }> {
+}): Promise<{ invoiceUrl: string; pack: StarsDiamondPack; checkoutId: string }> {
   const pack = findStarsDiamondPack(input.packId);
   if (!pack) {
     throw new Error('Unknown Stars diamond pack.');
@@ -143,10 +151,11 @@ export async function createStarsInvoiceLinkForUser(input: {
     throw new Error('User not found.');
   }
 
+  const checkoutId = randomUUID();
   const invoiceUrl = await createTelegramInvoiceLink({
     title: packTitle(pack, input.locale),
     description: packDescription(pack, input.locale),
-    payload: buildStarsInvoicePayload(input.userId, pack.id),
+    payload: buildStarsInvoicePayload(input.userId, pack.id, checkoutId),
     currency: TELEGRAM_STARS_CURRENCY,
     prices: [{ label: packTitle(pack, input.locale), amount: pack.priceStars }],
   });
@@ -155,7 +164,7 @@ export async function createStarsInvoiceLinkForUser(input: {
     throw new Error('Failed to create Stars invoice.');
   }
 
-  return { invoiceUrl, pack };
+  return { invoiceUrl, pack, checkoutId };
 }
 
 export async function answerStarsPreCheckout(query: TelegramPreCheckoutQuery): Promise<boolean> {
@@ -267,6 +276,111 @@ export async function recordSuccessfulStarsPayment(input: {
       diamondsRemaining: Number(updatedUser!.diamonds),
     };
   });
+}
+
+export async function confirmStarsCheckoutForUser(input: {
+  userId: string;
+  packId: string;
+  checkoutId: string;
+}): Promise<ConfirmStarsCheckoutResponse> {
+  const pack = findStarsDiamondPack(input.packId);
+  if (!pack) {
+    throw new Error('Unknown Stars diamond pack.');
+  }
+
+  const user = await defaultDb.query.users.findFirst({
+    where: eq(users.id, input.userId),
+    columns: { id: true, tgId: true, diamonds: true },
+  });
+
+  if (!user) {
+    throw new Error('User not found.');
+  }
+
+  const invoicePayload = buildStarsInvoicePayload(user.id, pack.id, input.checkoutId);
+  const existing = await defaultDb.query.starPayments.findFirst({
+    where: and(
+      eq(starPayments.userId, user.id),
+      eq(starPayments.invoicePayload, invoicePayload),
+      eq(starPayments.refunded, false),
+    ),
+    columns: { id: true },
+  });
+
+  if (existing) {
+    return {
+      status: 'delivered',
+      pack,
+      credited: false,
+      paymentId: existing.id,
+      diamondsRemaining: Number(user.diamonds),
+    };
+  }
+
+  const history = await getStarTransactions({ limit: 100 });
+  if (!history) {
+    return {
+      status: 'failed',
+      pack,
+      credited: false,
+    };
+  }
+
+  const telegramUserId = Number(user.tgId);
+  const transaction = history.transactions.find((candidate) => (
+    isInvoicePaymentFromTelegramUser(candidate) &&
+    candidate.source.user.id === telegramUserId &&
+    candidate.source.invoice_payload === invoicePayload &&
+    candidate.amount === pack.priceStars
+  ));
+
+  if (!transaction || !isInvoicePaymentFromTelegramUser(transaction)) {
+    return {
+      status: 'pending',
+      pack,
+      credited: false,
+    };
+  }
+
+  const recorded = await recordSuccessfulStarsPayment({
+    actor: transaction.source.user,
+    payment: {
+      currency: TELEGRAM_STARS_CURRENCY,
+      total_amount: transaction.amount,
+      invoice_payload: invoicePayload,
+      telegram_payment_charge_id: transaction.id,
+    },
+  });
+
+  if (!recorded.success) {
+    return {
+      status: 'failed',
+      pack,
+      credited: false,
+    };
+  }
+
+  if (!recorded.duplicate) {
+    trackBackendEvent('stars_checkout_completed', {
+      packDiamonds: pack.diamonds,
+      priceStars: pack.priceStars,
+    }, {
+      userId: user.id,
+    });
+  }
+
+  const deliveredUser = await defaultDb.query.users.findFirst({
+    where: eq(users.id, user.id),
+    columns: { diamonds: true },
+  });
+
+  return {
+    status: 'delivered',
+    pack,
+    credited: !recorded.duplicate,
+    paymentId: recorded.paymentId,
+    diamondsRemaining: Number(recorded.diamondsRemaining ?? deliveredUser?.diamonds ?? user.diamonds),
+  };
 }
 
 export async function listRefundableStarPayments(userId: string): Promise<UserStarPayment[]> {

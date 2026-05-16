@@ -1,6 +1,8 @@
 import { FastifyInstance, type FastifyRequest } from 'fastify';
 import jwt from 'jsonwebtoken';
 import type {
+  ConfirmStarsCheckoutRequest,
+  ConfirmStarsCheckoutResponse,
   CreateStarsInvoiceRequest,
   CreateStarsInvoiceResponse,
   StarsDiamondPacksResponse,
@@ -15,6 +17,7 @@ import {
   securityRouteConfig,
 } from '../../lib/security.js';
 import {
+  confirmStarsCheckoutForUser,
   createStarsInvoiceLinkForUser,
   listStarsDiamondPacks,
 } from './service.js';
@@ -90,12 +93,50 @@ export async function monetizationRoutes(app: FastifyInstance) {
       return reply.send({
         invoiceUrl: result.invoiceUrl,
         pack: result.pack,
+        checkoutId: result.checkoutId,
       } satisfies CreateStarsInvoiceResponse);
     } catch (error) {
       request.log.warn({ err: error, packId: body.packId }, 'Failed to create Stars invoice');
       return reply.status(400).send({
         error: 'Bad Request',
         message: error instanceof Error ? error.message : 'Failed to create Stars invoice.',
+      });
+    }
+  });
+
+  app.post('/stars/checkout-result', {
+    config: securityRouteConfig(mutationRateLimit, 'body'),
+    schema: {
+      body: objectBodySchema({
+        packId: nonEmptyStringSchema,
+        checkoutId: nonEmptyStringSchema,
+      }, ['packId', 'checkoutId']),
+    },
+  }, async (request, reply) => {
+    const auth = readUserIdFromRequest(request);
+    if (auth.error) return reply.status(auth.error.status).send(auth.error.body);
+
+    const body = request.body as Partial<ConfirmStarsCheckoutRequest> | null;
+    if (!body?.packId || !body.checkoutId) {
+      return reply.status(400).send({
+        error: 'Bad Request',
+        message: 'packId and checkoutId are required',
+      });
+    }
+
+    try {
+      const result = await confirmStarsCheckoutForUser({
+        userId: auth.userId!,
+        packId: body.packId,
+        checkoutId: body.checkoutId,
+      });
+
+      return reply.send(result satisfies ConfirmStarsCheckoutResponse);
+    } catch (error) {
+      request.log.warn({ err: error, packId: body.packId }, 'Failed to confirm Stars checkout');
+      return reply.status(400).send({
+        error: 'Bad Request',
+        message: error instanceof Error ? error.message : 'Failed to confirm Stars checkout.',
       });
     }
   });
