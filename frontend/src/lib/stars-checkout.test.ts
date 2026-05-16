@@ -3,6 +3,7 @@ import {
   CHECKOUT_AUTO_CONFIRM_MAX_ATTEMPTS,
   checkoutStatusKey,
   checkoutStatusTone,
+  shouldConfirmInvoiceStatus,
   shouldAutoConfirmCheckout,
 } from './stars-checkout';
 
@@ -19,6 +20,14 @@ describe('stars checkout helpers', () => {
     expect(checkoutStatusTone('delivered')).toBe('success');
     expect(checkoutStatusTone('failedDelivery')).toBe('danger');
     expect(checkoutStatusTone('unknown')).toBe('info');
+  });
+
+  it('confirms invoice statuses that can represent an in-flight paid checkout', () => {
+    expect(shouldConfirmInvoiceStatus('paid')).toBe(true);
+    expect(shouldConfirmInvoiceStatus('pending')).toBe(true);
+    expect(shouldConfirmInvoiceStatus('cancelled')).toBe(false);
+    expect(shouldConfirmInvoiceStatus('failed')).toBe(false);
+    expect(shouldConfirmInvoiceStatus('unknown')).toBe(false);
   });
 
   it('keeps auto-confirm polling active only for pending delivery checkouts', () => {

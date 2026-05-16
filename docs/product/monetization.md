@@ -42,7 +42,7 @@ The canonical source is `shared/config/monetization.ts`; frontend and backend bo
    - total amount equals the configured Stars price,
    - Telegram buyer id matches the stored user `tgId`.
 5. Telegram sends `successful_payment`; the backend stores one `star_payments` row per `telegram_payment_charge_id` and credits diamonds exactly once.
-6. When the Mini App receives `paid` from `window.Telegram.WebApp.openInvoice`, it calls `POST /monetization/stars/checkout-result` with the pack id and checkout id. The endpoint returns `delivered` with the updated diamond balance when the webhook already credited the payment, recovers and credits the specific payment from Telegram transaction history if the webhook was missed, or returns a retryable pending/failed status.
+6. When the Mini App receives `paid` or Telegram's processing `pending` status from `window.Telegram.WebApp.openInvoice`, it calls `POST /monetization/stars/checkout-result` with the pack id and checkout id. The endpoint returns `delivered` with the updated diamond balance when the webhook already credited the payment, recovers and credits the specific payment from Telegram transaction history if the webhook was missed, or returns a retryable pending/failed status.
 
 ## Refund Flow
 
