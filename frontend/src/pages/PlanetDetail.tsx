@@ -95,24 +95,26 @@ export function PlanetDetailPage() {
     return allPlanets.find((p) => p.id === planetId) ?? null;
   }, [allPlanets, planetId]);
 
-  // Handle deep-link to a specific slot
+  // Handle deep-link to a specific slot. We consume the `slot` query param exactly
+  // once per URL change and strip it afterwards so refetches of `/me` (which give
+  // `planet` a new reference) do not re-open the dialog after the player closes it.
   useEffect(() => {
     const slotParam = queryParams.get('slot');
-    if (slotParam !== null && planet && buildingTypes.length > 0) {
-      if (planet.isColonized === false) return;
-      const slotIndex = parseInt(slotParam, 10);
-      if (!isNaN(slotIndex)) {
-        const building = planet.buildings?.find((b) => b.slotIndex === slotIndex);
-        if (building) {
-          if (!building.queueAction) {
-            setSelectedBuilding(building);
-          }
-        } else if (slotIndex < (planet.slotCount ?? 0)) {
-          setSelectedSlot(slotIndex);
+    if (slotParam === null || !planet || buildingTypes.length === 0) return;
+    if (planet.isColonized === false) return;
+    const slotIndex = parseInt(slotParam, 10);
+    if (!isNaN(slotIndex)) {
+      const building = planet.buildings?.find((b) => b.slotIndex === slotIndex);
+      if (building) {
+        if (!building.queueAction) {
+          setSelectedBuilding(building);
         }
+      } else if (slotIndex < (planet.slotCount ?? 0)) {
+        setSelectedSlot(slotIndex);
       }
     }
-  }, [queryParams, planet, buildingTypes]);
+    navigate(`/planet/${planetId}`, { replace: true });
+  }, [queryParams, planet, buildingTypes, navigate, planetId]);
 
   const biome = resolveBiome(planet?.biome);
   const accent = BIOME_META[biome].accent;
