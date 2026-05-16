@@ -569,6 +569,53 @@ describe("Expeditions - POST /expeditions", () => {
     );
   });
 
+  it("blocks a second colonizer launch while another colonizer is already deploying", async () => {
+    const { app, token, userId } = await createTestUser();
+    const { system, planet } = await getHomeContext(userId);
+
+    const targetPlanet = await db.query.planets.findFirst({
+      where: eq(planets.systemId, system.id),
+      orderBy: (p, { desc }) => desc(p.name),
+    });
+    expect(targetPlanet).toBeDefined();
+
+    await db
+      .insert(discoveredPlanets)
+      .values({ userId, planetId: targetPlanet!.id })
+      .onConflictDoNothing();
+    await ensureFuel(planet.id, 500);
+    const firstShip = await createIdleColonizer(userId, planet.id);
+    const secondShip = await createIdleColonizer(userId, planet.id);
+    const payload = (shipId: string) => ({
+      shipId,
+      targetX: system.sectorX,
+      targetY: system.sectorY,
+      targetZ: system.sectorZ,
+      targetPlanetId: targetPlanet!.id,
+      cargoLoaded: 0,
+    });
+
+    const firstResponse = await app.inject({
+      method: "POST",
+      url: "/expeditions",
+      headers: { authorization: `Bearer ${token}` },
+      payload: payload(firstShip.id),
+    });
+    expect(firstResponse.statusCode).toBe(200);
+
+    const secondResponse = await app.inject({
+      method: "POST",
+      url: "/expeditions",
+      headers: { authorization: `Bearer ${token}` },
+      payload: payload(secondShip.id),
+    });
+
+    expect(secondResponse.statusCode).toBe(400);
+    const body = secondResponse.json();
+    expect(body.code).toBe("expedition_colonization_blocked");
+    expect(body.error).toContain("cooldown");
+  });
+
   it("launches a scout through the Jump Gate to a known public destination without trusting client coordinates", async () => {
     const { app, token, userId } = await createTestUser();
     const { planet } = await getHomeContext(userId);

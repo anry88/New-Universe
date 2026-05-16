@@ -67,7 +67,6 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
   blockedReasonFor,
   resourceChoicesFor,
   accent = '#5BD7FF',
-  planetLabel,
   currentEnergy,
   energyFree = false,
 }) => {
@@ -121,19 +120,7 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
       >
         <div className="bd-handle" />
         <div className="bd-head">
-          <div className="bd-tag">{t('build.selectInstallation').toUpperCase()}</div>
           <div className="bd-title">{t('build.constructAria')}</div>
-          <div className="bd-sub">
-            {planetLabel ? t('build.sheetSubtitlePlanet', { planet: planetLabel }) : t('build.sheetSubtitle')}
-          </div>
-          {currentEnergy ? (
-            <div className="bd-sub" style={{ marginTop: 6 }}>
-              {t('build.energyNow', { produced: producedNow, consumed: consumedNow, net: `${netNow >= 0 ? '+' : ''}${netNow}` })}
-              {typeof currentEnergy.stored === 'number' && typeof currentEnergy.capacity === 'number'
-                ? ` · ${t('build.energyStored', { stored: currentEnergy.stored, capacity: currentEnergy.capacity })}`
-                : ''}
-            </div>
-          ) : null}
         </div>
 
         {explainedReason ? (
@@ -222,6 +209,25 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
                           <span className="bopt-locked">{getBuildingCategoryLabel(group.key, locale).toUpperCase()}</span>
                         </div>
                         <div className="bopt-desc">{type.description[locale]}</div>
+                        {type.id === 'battery' && currentEnergy ? (
+                          <div className="bopt-energy-panel">
+                            <span>
+                              {t('build.energyNow', {
+                                produced: producedNow,
+                                consumed: consumedNow,
+                                net: `${netNow >= 0 ? '+' : ''}${netNow}`,
+                              })}
+                            </span>
+                            {typeof currentEnergy.stored === 'number' && typeof currentEnergy.capacity === 'number' ? (
+                              <span>
+                                {t('build.energyStored', {
+                                  stored: currentEnergy.stored,
+                                  capacity: currentEnergy.capacity,
+                                })}
+                              </span>
+                            ) : null}
+                          </div>
+                        ) : null}
                         {resourceChoices.length > 0 ? (
                           <div className="bopt-resource-row" aria-label={t('build.depositChoice')}>
                             {resourceChoices.map((choice) => {

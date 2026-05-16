@@ -343,6 +343,43 @@ describe("estimateLandingSlotUsage", () => {
     expect(usage.used).toBe(0);
   });
 
+  it("adds capacity from multiple completed spaceports", () => {
+    const usage = estimateLandingSlotUsage({
+      planet: {
+        ...planet,
+        buildings: [
+          {
+            id: "port-1",
+            planetId: "planet-1",
+            typeId: "spaceport",
+            level: 2,
+            slotIndex: 1,
+          },
+          {
+            id: "port-2",
+            planetId: "planet-1",
+            typeId: "spaceport",
+            level: 1,
+            slotIndex: 2,
+          },
+          {
+            id: "port-queued",
+            planetId: "planet-1",
+            typeId: "spaceport",
+            level: 4,
+            slotIndex: 3,
+            queueAction: "build",
+          },
+        ],
+      },
+      ships: [],
+      expeditions: [],
+    });
+
+    expect(usage.capacity).toBe(3);
+    expect(usage.used).toBe(0);
+  });
+
   it("counts idle/building ships at the planet as occupied", () => {
     const ship = (id: string, status: Ship["status"]): Ship => ({
       id,
