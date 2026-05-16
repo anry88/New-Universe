@@ -9,7 +9,7 @@ This feature handles the retrieval of the current player's state. It is the prim
   - It requires a valid JWT in the `Authorization: Bearer <token>` header.
   - It validates the token using `JWT_SECRET` from the environment.
   - On success, it first runs `syncDuePlayerState(userId)`, creates request-scoped research/effects snapshots, then tutorial progression sync, then returns the full player state:
-    - `user`: the User object with `tgId` converted to string plus `preferredLocale` and onboarding fields (`tutorialStep`, `tutorialCompletedAt`)
+    - `user`: the User object with `tgId` converted to string plus `preferredLocale` and onboarding fields (`tutorialStep`, `tutorialCompletedAt`, `tutorialRewardsClaimed`)
     - `homeSystem`: the player's home system (includes derived **`shortTag`** from the system UUID for localized titles) with **`planets` filtered to `discovered_planets` rows for this user** (capital plus any bodies surveyed by scout); per-planet resources (lazy-computed amounts, `regenRate`, and `richness` deposit level) and buildings (queue status plus server-derived `queueStartedAt`, energy state, and active/paused production processes) follow that list. Visible planets share one batched resource/richness/production read and one in-memory energy computation per planet instead of calling `computeCurrentResources` / `resolvePlanetEnergyState` separately for every planet.
     - `ships`: list of player's ships with `queueStartedAt` when a build timer is active.
     - `expeditions`: list of active expeditions.

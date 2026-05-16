@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "tutorial_rewards_claimed" integer DEFAULT 0 NOT NULL;

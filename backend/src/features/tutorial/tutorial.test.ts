@@ -1,11 +1,15 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { db } from '../../db/index.js';
-import { buildings, expeditions, planetResources, planets, ships, systems, users } from '../../db/schema.js';
-import { and, eq, sql } from 'drizzle-orm';
-import { syncTutorialProgress } from './service.js';
-import { seedResources } from '../../db/seed/resources.js';
+import { buildings, expeditions, planets, ships, systems, users } from '../../db/schema.js';
+import { eq, sql } from 'drizzle-orm';
+import { claimTutorialReward, syncTutorialProgress } from './service.js';
 import { seedBuildingTypes } from '../../db/seed/building-types.js';
+import { seedResources } from '../../db/seed/resources.js';
 import { seedShipTypes } from '../../db/seed/ship-types.js';
+import {
+  TUTORIAL_ALL_REWARDS_CLAIMED_MASK,
+  TUTORIAL_REWARD_DIAMONDS,
+} from '@shared/config/tutorialRewards.js';
 
 describe('tutorial sync', () => {
   beforeEach(async () => {
@@ -31,13 +35,13 @@ describe('tutorial sync', () => {
     await seedShipTypes();
   });
 
-  it('completes tutorial and applies reward once', async () => {
-    const tgId = BigInt(Math.floor(Math.random() * 10_000_000) + 50_000_000);
+  async function createTutorialUser(seed: number, diamonds = 0) {
     const [user] = await db
       .insert(users)
       .values({
-        tgId,
+        tgId: BigInt(50_000_000 + seed),
         tgFirstName: 'Tutorial',
+        diamonds,
       })
       .returning();
 
@@ -52,8 +56,8 @@ describe('tutorial sync', () => {
         x: '0.00',
         y: '0.00',
         z: '0.00',
-        name: 'Home',
-        seed: 123,
+        name: `Home ${seed}`,
+        seed,
       })
       .returning();
 
@@ -64,24 +68,15 @@ describe('tutorial sync', () => {
         biome: 'rocky',
         size: 12,
         slotCount: 8,
-        name: 'Prime',
+        name: `Prime ${seed}`,
       })
       .returning();
 
-    await db.insert(planetResources).values([
-      {
-        planetId: planet.id,
-        resourceId: 'iron',
-        amount: '1000.0000',
-        regenRate: '0.0000',
-      },
-      {
-        planetId: planet.id,
-        resourceId: 'water',
-        amount: '1000.0000',
-        regenRate: '0.0000',
-      },
-    ]);
+    return { user, system, planet };
+  }
+
+  it('syncs progress without auto-granting and claims five diamond rewards once', async () => {
+    const { user, planet } = await createTutorialUser(1, 10);
 
     await db.insert(buildings).values([
       { planetId: planet.id, typeId: 'mine', level: 1, slotIndex: 0 },
@@ -94,6 +89,7 @@ describe('tutorial sync', () => {
         ownerId: user.id,
         typeId: 'scout',
         locationPlanetId: planet.id,
+        status: 'idle',
       })
       .returning();
 
@@ -101,116 +97,54 @@ describe('tutorial sync', () => {
       shipId: scout.id,
       type: 'scout',
       originPlanetId: planet.id,
-      targetX: "1",
-      targetY: "1",
-      targetZ: "1",
+      targetX: '1',
+      targetY: '1',
+      targetZ: '1',
       eta: new Date(Date.now() + 60_000),
     });
 
-    const firstSync = await syncTutorialProgress(user.id);
-    expect(firstSync.tutorialStepCompleted).toBe(4);
-    expect(firstSync.tutorialCompletedAt).not.toBeNull();
+    const synced = await syncTutorialProgress(user.id);
+    expect(synced.tutorialStepCompleted).toBe(4);
+    expect(synced.tutorialCompletedAt).toBeNull();
+    expect(synced.tutorialRewardsClaimed).toBe(0);
 
-    const [ironAfterFirst] = await db
-      .select({ amount: planetResources.amount })
-      .from(planetResources)
-      .where(and(eq(planetResources.planetId, planet.id), eq(planetResources.resourceId, 'iron')));
-    const [waterAfterFirst] = await db
-      .select({ amount: planetResources.amount })
-      .from(planetResources)
-      .where(and(eq(planetResources.planetId, planet.id), eq(planetResources.resourceId, 'water')));
+    const [afterSync] = await db.select().from(users).where(eq(users.id, user.id));
+    expect(afterSync.diamonds).toBe(10);
 
-    expect(Number(ironAfterFirst.amount)).toBe(1200);
-    expect(Number(waterAfterFirst.amount)).toBe(1100);
+    for (const stepId of [0, 1, 2, 3, 4]) {
+      await claimTutorialReward(user.id, stepId);
+    }
 
-    await syncTutorialProgress(user.id);
+    const [afterClaims] = await db.select().from(users).where(eq(users.id, user.id));
+    expect(afterClaims.diamonds).toBe(10 + TUTORIAL_REWARD_DIAMONDS * 5);
+    expect(afterClaims.tutorialRewardsClaimed).toBe(TUTORIAL_ALL_REWARDS_CLAIMED_MASK);
+    expect(afterClaims.tutorialCompletedAt).not.toBeNull();
 
-    const [ironAfterSecond] = await db
-      .select({ amount: planetResources.amount })
-      .from(planetResources)
-      .where(and(eq(planetResources.planetId, planet.id), eq(planetResources.resourceId, 'iron')));
-    const [waterAfterSecond] = await db
-      .select({ amount: planetResources.amount })
-      .from(planetResources)
-      .where(and(eq(planetResources.planetId, planet.id), eq(planetResources.resourceId, 'water')));
+    const repeatClaim = await claimTutorialReward(user.id, 4);
+    expect(repeatClaim.rewardGranted).toBe(false);
 
-    expect(Number(ironAfterSecond.amount)).toBe(1200);
-    expect(Number(waterAfterSecond.amount)).toBe(1100);
+    const [afterRepeat] = await db.select().from(users).where(eq(users.id, user.id));
+    expect(afterRepeat.diamonds).toBe(afterClaims.diamonds);
   });
 
-  it('grants only step 1 rewards when only the mine milestone exists', async () => {
-    const tgId = BigInt(Math.floor(Math.random() * 10_000_000) + 60_000_000);
-    const [user] = await db
-      .insert(users)
-      .values({
-        tgId,
-        tgFirstName: 'Tutorial',
-      })
-      .returning();
-
-    const [system] = await db
-      .insert(systems)
-      .values({
-        ownerId: user.id,
-        isHome: true,
-        sectorX: 1,
-        sectorY: 1,
-        sectorZ: 1,
-        x: '0.00',
-        y: '0.00',
-        z: '0.00',
-        name: 'Home',
-        seed: 456,
-      })
-      .returning();
-
-    const [planet] = await db
-      .insert(planets)
-      .values({
-        systemId: system.id,
-        biome: 'rocky',
-        size: 12,
-        slotCount: 8,
-        name: 'Prime',
-      })
-      .returning();
-
-    await db.insert(planetResources).values([
-      {
-        planetId: planet.id,
-        resourceId: 'iron',
-        amount: '1000.0000',
-        regenRate: '0.0000',
-      },
-      {
-        planetId: planet.id,
-        resourceId: 'water',
-        amount: '1000.0000',
-        regenRate: '0.0000',
-      },
-    ]);
+  it('keeps queued milestones locked until the task is complete', async () => {
+    const { user, planet } = await createTutorialUser(2);
 
     await db.insert(buildings).values({
       planetId: planet.id,
       typeId: 'mine',
       level: 1,
       slotIndex: 0,
+      queueAction: 'build',
+      queueCompletesAt: new Date(Date.now() + 60_000),
     });
 
-    const progress = await syncTutorialProgress(user.id);
-    expect(progress.tutorialStepCompleted).toBe(1);
-    expect(progress.tutorialCompletedAt).toBeNull();
+    const synced = await syncTutorialProgress(user.id);
+    expect(synced.tutorialStepCompleted).toBe(0);
 
-    const [ironRow] = await db
-      .select({ amount: planetResources.amount })
-      .from(planetResources)
-      .where(and(eq(planetResources.planetId, planet.id), eq(planetResources.resourceId, 'iron')));
-    const [waterRow] = await db
-      .select({ amount: planetResources.amount })
-      .from(planetResources)
-      .where(and(eq(planetResources.planetId, planet.id), eq(planetResources.resourceId, 'water')));
+    const welcomeClaim = await claimTutorialReward(user.id, 0);
+    expect(welcomeClaim.rewardGranted).toBe(true);
 
-    expect(Number(ironRow.amount)).toBe(1010);
-    expect(Number(waterRow.amount)).toBe(1015);
+    await expect(claimTutorialReward(user.id, 1)).rejects.toThrow('not complete');
   });
 });

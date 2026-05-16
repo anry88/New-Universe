@@ -1,9 +1,14 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Tutorial } from '../../components/Tutorial';
 import { useMe } from '../../hooks/useMe';
 import { apiFetch } from '../../lib/api';
 import { useI18n } from '../../lib/i18n';
+import {
+  isTutorialRewardClaimed,
+  type TutorialStepId,
+} from '@shared/config/tutorialRewards';
+import type { TutorialClaimResponse } from '@shared/types/tutorial';
 
 interface OnboardingPageProps {
   onSkip: () => void;
@@ -17,27 +22,58 @@ export function OnboardingPage({ onSkip, onContinueToGame, onEnter }: Onboarding
   const navigate = useNavigate();
   const { data: meData, refetch } = useMe();
   const { t } = useI18n();
+  const [claimingStepId, setClaimingStepId] = useState<TutorialStepId | null>(null);
 
   useEffect(() => {
     onEnter?.();
   }, [onEnter]);
 
   const tutorialStep = meData?.tutorialStep ?? 0;
+  const tutorialRewardsClaimed = meData?.tutorialRewardsClaimed ?? 0;
   const completed = Boolean(meData?.tutorialCompletedAt);
 
   const steps = useMemo(
     () => [
-      { id: 0, title: t('tutorial.welcome'), done: true },
-      { id: 1, title: t('tutorial.firstMine'), done: tutorialStep >= 1 },
-      { id: 2, title: t('tutorial.storage'), done: tutorialStep >= 2 },
-      { id: 3, title: t('tutorial.scout'), done: tutorialStep >= 3 },
-      { id: 4, title: t('tutorial.expedition'), done: tutorialStep >= 4 },
+      {
+        id: 0 as const,
+        title: t('tutorial.welcome'),
+        done: true,
+        rewardClaimed: isTutorialRewardClaimed(tutorialRewardsClaimed, 0),
+      },
+      {
+        id: 1 as const,
+        title: t('tutorial.firstMine'),
+        done: tutorialStep >= 1,
+        rewardClaimed: isTutorialRewardClaimed(tutorialRewardsClaimed, 1),
+      },
+      {
+        id: 2 as const,
+        title: t('tutorial.storage'),
+        done: tutorialStep >= 2,
+        rewardClaimed: isTutorialRewardClaimed(tutorialRewardsClaimed, 2),
+      },
+      {
+        id: 3 as const,
+        title: t('tutorial.scout'),
+        done: tutorialStep >= 3,
+        rewardClaimed: isTutorialRewardClaimed(tutorialRewardsClaimed, 3),
+      },
+      {
+        id: 4 as const,
+        title: t('tutorial.expedition'),
+        done: tutorialStep >= 4,
+        rewardClaimed: isTutorialRewardClaimed(tutorialRewardsClaimed, 4),
+      },
     ],
-    [tutorialStep, t],
+    [tutorialRewardsClaimed, tutorialStep, t],
   );
+  const claimableStep = steps.find((step) => step.done && !step.rewardClaimed);
+  const nextIncompleteStep = steps.find((step) => !step.done);
   const currentHint = completed
     ? t('tutorial.completedHint')
-    : t('tutorial.currentObjective', { objective: steps.find((step) => !step.done)?.title ?? t('tutorial.welcome') });
+    : claimableStep
+      ? t('tutorial.claimObjective', { objective: claimableStep.title })
+      : t('tutorial.currentObjective', { objective: nextIncompleteStep?.title ?? t('tutorial.expedition') });
 
   const closeTutorial = () => {
     navigate('/');
@@ -54,11 +90,28 @@ export function OnboardingPage({ onSkip, onContinueToGame, onEnter }: Onboarding
     return () => window.clearInterval(timer);
   }, [refetch]);
 
+  const claimReward = async (stepId: TutorialStepId) => {
+    setClaimingStepId(stepId);
+    try {
+      await apiFetch<TutorialClaimResponse>('/tutorial/claim', {
+        method: 'POST',
+        body: JSON.stringify({ stepId }),
+      });
+      await refetch();
+    } finally {
+      setClaimingStepId(null);
+    }
+  };
+
   return (
     <Tutorial
       steps={steps}
       completed={completed}
       currentHint={currentHint}
+      claimingStepId={claimingStepId}
+      onClaimReward={(stepId) => {
+        void claimReward(stepId);
+      }}
       onSkip={() => {
         onSkip();
         navigate('/');
