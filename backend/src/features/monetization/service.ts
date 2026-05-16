@@ -308,12 +308,17 @@ export async function confirmStarsCheckoutForUser(input: {
   });
 
   if (existing) {
+    const deliveredUser = await defaultDb.query.users.findFirst({
+      where: eq(users.id, user.id),
+      columns: { diamonds: true },
+    });
+
     return {
       status: 'delivered',
       pack,
       credited: false,
       paymentId: existing.id,
-      diamondsRemaining: Number(user.diamonds),
+      diamondsRemaining: Number(deliveredUser?.diamonds ?? user.diamonds),
     };
   }
 

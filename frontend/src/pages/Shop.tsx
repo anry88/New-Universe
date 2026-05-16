@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { ChevronLeft, Gem, Sparkles } from 'lucide-react';
+import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { AlertTriangle, CheckCircle2, ChevronLeft, Clock3, Gem, LoaderCircle, Sparkles } from 'lucide-react';
 import type { ConfirmStarsCheckoutResponse } from '@shared/types/monetization';
 import { CosmicBackground, CosmicBottomNav } from '../components/cosmic/atoms';
 import { useConfirmStarsCheckout, useCreateStarsInvoice, useStarsDiamondPacks } from '../hooks/useMonetization';
@@ -7,6 +7,14 @@ import { useMe } from '../hooks/useMe';
 import { useI18n } from '../lib/i18n';
 import { trackFrontendEvent } from '../lib/analytics';
 import { useNavigate } from 'react-router-dom';
+import {
+  CHECKOUT_AUTO_CONFIRM_DELAY_MS,
+  CHECKOUT_CONFIRM_ATTEMPTS,
+  CHECKOUT_CONFIRM_DELAY_MS,
+  checkoutStatusKey,
+  checkoutStatusTone,
+  shouldAutoConfirmCheckout,
+} from '../lib/stars-checkout';
 
 declare global {
   interface Window {
@@ -18,12 +26,15 @@ declare global {
   }
 }
 
-const CHECKOUT_CONFIRM_ATTEMPTS = 5;
-const CHECKOUT_CONFIRM_DELAY_MS = 1_000;
-
 type CheckoutReference = {
   packId: string;
   checkoutId: string;
+};
+
+type ConfirmCheckoutOptions = {
+  attempts?: number;
+  keepPendingOnError?: boolean;
+  showConfirming?: boolean;
 };
 
 function delay(ms: number): Promise<void> {
@@ -39,21 +50,6 @@ function openInvoiceUrl(url: string, onStatus: (status: string) => void): boolea
 
   window.location.href = url;
   return false;
-}
-
-function checkoutStatusKey(status: string): string {
-  return [
-    'paid',
-    'cancelled',
-    'failed',
-    'pending',
-    'confirming',
-    'delivered',
-    'pendingDelivery',
-    'failedDelivery',
-  ].includes(status)
-    ? `shop.checkout.${status}`
-    : 'shop.checkout.unknown';
 }
 
 function TelegramStarIcon({ size = 16 }: { size?: number }) {
@@ -78,6 +74,56 @@ function TelegramStarIcon({ size = 16 }: { size?: number }) {
   );
 }
 
+function CheckoutStatusIcon({ status }: { status: string }) {
+  const tone = checkoutStatusTone(status);
+  if (tone === 'success') return <CheckCircle2 size={20} />;
+  if (tone === 'danger') return <AlertTriangle size={20} />;
+  if (status === 'confirming' || status === 'pendingDelivery' || status === 'pending') {
+    return <LoaderCircle size={20} className="animate-spin" />;
+  }
+  return <Clock3 size={20} />;
+}
+
+function checkoutNoticeStyle(status: string): CSSProperties {
+  const tone = checkoutStatusTone(status);
+  const palette = {
+    info: {
+      border: 'rgba(125, 211, 252, 0.38)',
+      background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.18), rgba(15, 23, 42, 0.84))',
+      color: '#bae6fd',
+    },
+    success: {
+      border: 'rgba(74, 222, 128, 0.46)',
+      background: 'linear-gradient(135deg, rgba(22, 163, 74, 0.22), rgba(15, 23, 42, 0.86))',
+      color: '#bbf7d0',
+    },
+    warning: {
+      border: 'rgba(251, 191, 36, 0.62)',
+      background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.26), rgba(15, 23, 42, 0.9))',
+      color: '#fde68a',
+    },
+    danger: {
+      border: 'rgba(248, 113, 113, 0.56)',
+      background: 'linear-gradient(135deg, rgba(220, 38, 38, 0.22), rgba(15, 23, 42, 0.88))',
+      color: '#fecaca',
+    },
+  }[tone];
+
+  return {
+    display: 'grid',
+    gridTemplateColumns: '36px minmax(0, 1fr)',
+    gap: 12,
+    alignItems: 'start',
+    marginTop: 16,
+    padding: 14,
+    borderRadius: 8,
+    border: `1px solid ${palette.border}`,
+    background: palette.background,
+    color: palette.color,
+    boxShadow: tone === 'warning' ? '0 0 24px rgba(245, 158, 11, 0.18)' : undefined,
+  };
+}
+
 export function ShopPage() {
   const navigate = useNavigate();
   const { t } = useI18n();
@@ -85,9 +131,11 @@ export function ShopPage() {
   const packsQuery = useStarsDiamondPacks();
   const invoiceMutation = useCreateStarsInvoice();
   const confirmMutation = useConfirmStarsCheckout();
+  const { mutateAsync: confirmStarsCheckout, isPending: checkoutConfirmPending } = confirmMutation;
   const [checkoutStatus, setCheckoutStatus] = useState<string | null>(null);
   const [lastCheckout, setLastCheckout] = useState<CheckoutReference | null>(null);
   const [confirmation, setConfirmation] = useState<ConfirmStarsCheckoutResponse | null>(null);
+  const [autoConfirmAttempts, setAutoConfirmAttempts] = useState(0);
 
   useEffect(() => {
     packsQuery.data?.packs.forEach((pack) => {
@@ -99,18 +147,22 @@ export function ShopPage() {
     });
   }, [packsQuery.data]);
 
-  const confirmCheckout = async (checkout: CheckoutReference) => {
+  const confirmCheckout = useCallback(async (checkout: CheckoutReference, options: ConfirmCheckoutOptions = {}) => {
+    const attempts = options.attempts ?? CHECKOUT_CONFIRM_ATTEMPTS;
     setLastCheckout(checkout);
-    setCheckoutStatus('confirming');
+    if (options.showConfirming !== false) {
+      setCheckoutStatus('confirming');
+    }
 
     try {
       let latest: ConfirmStarsCheckoutResponse | null = null;
-      for (let attempt = 0; attempt < CHECKOUT_CONFIRM_ATTEMPTS; attempt += 1) {
-        latest = await confirmMutation.mutateAsync(checkout);
+      for (let attempt = 0; attempt < attempts; attempt += 1) {
+        latest = await confirmStarsCheckout(checkout);
         setConfirmation(latest);
 
         if (latest.status === 'delivered') {
           setCheckoutStatus('delivered');
+          setAutoConfirmAttempts(0);
           return;
         }
 
@@ -119,20 +171,40 @@ export function ShopPage() {
           return;
         }
 
-        if (attempt < CHECKOUT_CONFIRM_ATTEMPTS - 1) {
+        if (attempt < attempts - 1) {
           await delay(CHECKOUT_CONFIRM_DELAY_MS);
         }
       }
 
       setCheckoutStatus(latest?.status === 'failed' ? 'failedDelivery' : 'pendingDelivery');
     } catch {
-      setCheckoutStatus('failedDelivery');
+      setCheckoutStatus(options.keepPendingOnError ? 'pendingDelivery' : 'failedDelivery');
     }
-  };
+  }, [confirmStarsCheckout]);
+
+  useEffect(() => {
+    if (!shouldAutoConfirmCheckout({
+      status: checkoutStatus,
+      hasCheckout: Boolean(lastCheckout),
+      checkoutBusy: checkoutConfirmPending,
+      attempts: autoConfirmAttempts,
+    })) {
+      return;
+    }
+
+    const id = window.setTimeout(() => {
+      if (!lastCheckout) return;
+      setAutoConfirmAttempts((current) => current + 1);
+      void confirmCheckout(lastCheckout, { attempts: 1, keepPendingOnError: true, showConfirming: false });
+    }, CHECKOUT_AUTO_CONFIRM_DELAY_MS);
+
+    return () => window.clearTimeout(id);
+  }, [autoConfirmAttempts, checkoutConfirmPending, checkoutStatus, confirmCheckout, lastCheckout]);
 
   const startCheckout = async (packId: string) => {
     setCheckoutStatus(null);
     setConfirmation(null);
+    setAutoConfirmAttempts(0);
 
     try {
       const response = await invoiceMutation.mutateAsync(packId);
@@ -164,7 +236,7 @@ export function ShopPage() {
     }
   };
 
-  const checkoutBusy = invoiceMutation.isPending || confirmMutation.isPending;
+  const checkoutBusy = invoiceMutation.isPending || checkoutConfirmPending;
   const canRetryCheckout = Boolean(
     lastCheckout &&
     (checkoutStatus === 'pendingDelivery' || checkoutStatus === 'failedDelivery') &&
@@ -282,24 +354,46 @@ export function ShopPage() {
           </p>
         )}
         {checkoutStatus && (
-          <div style={{ marginTop: 14 }}>
-            <p style={{ margin: 0, color: 'var(--text-dim)', fontSize: 13 }}>
-              {t(checkoutStatusKey(checkoutStatus), checkoutStatusParams)}
-            </p>
-            {canRetryCheckout && (
-              <button
-                type="button"
-                className="rounded-md border border-sky-300/40 bg-sky-400/10 px-3 py-2 text-sm font-semibold text-sky-100"
-                style={{ marginTop: 10 }}
-                onClick={() => {
-                  if (lastCheckout) {
-                    void confirmCheckout(lastCheckout);
-                  }
-                }}
-              >
-                {t('shop.checkout.retry')}
-              </button>
-            )}
+          <div style={checkoutNoticeStyle(checkoutStatus)} role="status" aria-live="polite" data-testid="shop-checkout-status">
+            <span
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 8,
+                display: 'grid',
+                placeItems: 'center',
+                background: 'rgba(15, 23, 42, 0.58)',
+                border: '1px solid rgba(255, 255, 255, 0.16)',
+              }}
+              aria-hidden
+            >
+              <CheckoutStatusIcon status={checkoutStatus} />
+            </span>
+            <div style={{ minWidth: 0 }}>
+              <p style={{ margin: 0, color: '#fff7ed', fontSize: 14, fontWeight: 800 }}>
+                {t(checkoutStatusKey(checkoutStatus), checkoutStatusParams)}
+              </p>
+              {checkoutStatus === 'pendingDelivery' && (
+                <p style={{ margin: '6px 0 0', color: '#fde68a', fontSize: 12, lineHeight: 1.4 }}>
+                  {t('shop.checkout.pendingDeliveryAuto')}
+                </p>
+              )}
+              {canRetryCheckout && (
+                <button
+                  type="button"
+                  className="rounded-md border border-sky-300/40 bg-sky-400/10 px-3 py-2 text-sm font-semibold text-sky-100"
+                  style={{ marginTop: 10 }}
+                  onClick={() => {
+                    if (lastCheckout) {
+                      setAutoConfirmAttempts(0);
+                      void confirmCheckout(lastCheckout);
+                    }
+                  }}
+                >
+                  {t('shop.checkout.retry')}
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>
