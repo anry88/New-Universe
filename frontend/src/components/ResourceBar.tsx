@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useMe } from '../hooks/useMe';
 import { apiFetch } from '../lib/api';
 import type { PlanetResource } from '@shared/types/world';
@@ -30,6 +31,7 @@ interface ResourceWithAmount extends PlanetResource {
 export function ResourceBar({ planetId, planetLabel }: ResourceBarProps) {
   const { data: meData } = useMe();
   const { t } = useI18n();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const diamondBalance = meData?.diamonds;
   const [resources, setResources] = useState<ResourceWithAmount[]>([]);
@@ -173,6 +175,7 @@ export function ResourceBar({ planetId, planetLabel }: ResourceBarProps) {
         <div className="cosmic-resource-strip">
           <CosmicTopBar
             diamonds={diamondBalance}
+            onDiamondsClick={() => navigate('/shop')}
             onResourceClick={selectedPlanetId ? openPurchase : undefined}
             resources={[
               { resourceId: 'water', amount: 0, cap: 1000, rate: 0 },
@@ -201,6 +204,7 @@ export function ResourceBar({ planetId, planetLabel }: ResourceBarProps) {
         <CosmicTopBar
           resources={data}
           diamonds={diamondBalance}
+          onDiamondsClick={() => navigate('/shop')}
           onResourceClick={selectedPlanetId ? openPurchase : undefined}
         />
         <button

@@ -45,8 +45,17 @@ Telegram Bot logic and webhook handling.
 - **`README.md`** — [Detailed bot documentation](./bot/README.md).
 - **`service.ts`** — `BotService` singleton for processing Telegram updates.
 - **`webhook.ts`** — Dispatcher for incoming Telegram updates.
-- **`commands.ts`** — `handleStartCommand` and admin-only `/add_diamond` command handling (with allowlist and wallet updates).
+- **`commands.ts`** — `handleStartCommand`, admin-only `/add_diamond`, and Telegram Stars support commands (`/paysupport`, `/answer`, `/refund`, `/reject`, `/ask`) with admin-chat authorization and localized player replies.
 - **`push.ts`** — `sendPush(userId, type, payload)` service to queue push notifications in the database.
+
+## `monetization/`
+
+Telegram Stars diamond-pack monetization.
+
+- **`README.md`** — [Detailed monetization documentation](./monetization/README.md).
+- **`routes.ts`** — `monetizationRoutes(app)` registers authenticated `GET /monetization/stars/packs` and mutation-rate-limited `POST /monetization/stars/invoice` for Stars invoice-link creation.
+- **`service.ts`** — shared Stars logic for pack listing, invoice payloads, pre-checkout validation, idempotent successful-payment delivery, `/paysupport` request storage, admin refund/reject/ask operations, Bot API `refundStarPayment`, and refund diamond reversal.
+- **`monetization.test.ts`** — pack-ladder, invoice, payment idempotency, support request, and refund coverage.
 
 
 ## `multiplayer/`

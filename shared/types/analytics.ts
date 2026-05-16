@@ -172,25 +172,25 @@ export const ANALYTICS_EVENT_DEFINITIONS = {
   stars_diamond_pack_viewed: {
     category: 'monetization',
     surfaces: ['frontend'],
-    description: 'A future Telegram Stars diamond pack was displayed to the player.',
+    description: 'A Telegram Stars diamond pack was displayed to the player.',
     safeProperties: ['packDiamonds', 'priceStars', 'bonusPercentVsPrevious'],
   },
   stars_checkout_started: {
     category: 'monetization',
     surfaces: ['frontend', 'backend'],
-    description: 'A future Telegram Stars checkout was initiated after policy approval.',
+    description: 'A Telegram Stars checkout was initiated.',
     safeProperties: ['packDiamonds', 'priceStars'],
   },
   stars_checkout_completed: {
     category: 'monetization',
     surfaces: ['backend'],
-    description: 'A future Telegram Stars payment was confirmed and delivered.',
+    description: 'A Telegram Stars payment was confirmed and delivered.',
     safeProperties: ['packDiamonds', 'priceStars'],
   },
   stars_refund_issued: {
     category: 'monetization',
     surfaces: ['backend'],
-    description: 'A future Telegram Stars payment was refunded.',
+    description: 'A Telegram Stars payment was refunded.',
     safeProperties: ['packDiamonds', 'priceStars', 'reasonCode'],
   },
 } as const satisfies Record<string, AnalyticsEventDefinition>;

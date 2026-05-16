@@ -205,6 +205,7 @@ jobs:
       TELEGRAM_APP_URL: ${{ vars.TELEGRAM_APP_URL }}
       SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
       ADMIN_TELEGRAM_IDS: ${{ secrets.ADMIN_TELEGRAM_IDS }}
+      ADMIN_TELEGRAM_CHAT_IDS: ${{ secrets.ADMIN_TELEGRAM_CHAT_IDS }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       CLOUDFLARE_PAGES_PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT }}
@@ -283,6 +284,9 @@ jobs:
           fi
           if [[ -n "${ADMIN_TELEGRAM_IDS:-}" ]]; then
             optional_secrets+=("ADMIN_TELEGRAM_IDS=$ADMIN_TELEGRAM_IDS")
+          fi
+          if [[ -n "${ADMIN_TELEGRAM_CHAT_IDS:-}" ]]; then
+            optional_secrets+=("ADMIN_TELEGRAM_CHAT_IDS=$ADMIN_TELEGRAM_CHAT_IDS")
           fi
 
           flyctl secrets set --stage --app "$FLY_API_APP" "${common_secrets[@]}" "${optional_secrets[@]}"

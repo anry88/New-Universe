@@ -32,6 +32,25 @@ function parseAdminTelegramIds(value?: string): bigint[] {
     });
 }
 
+function parseTelegramChatIds(value?: string): bigint[] {
+  if (!value) {
+    return [];
+  }
+
+  return value
+    .split(',')
+    .map((raw) => raw.trim())
+    .filter((raw) => raw.length > 0)
+    .map((raw) => {
+      try {
+        return BigInt(raw);
+      } catch {
+        throw new Error(`Invalid ADMIN_TELEGRAM_CHAT_IDS value: ${raw}`);
+      }
+    })
+    .filter((parsed) => parsed !== 0n);
+}
+
 function parseBooleanEnv(value: string | undefined, fallback: boolean): boolean {
   if (value === undefined) {
     return fallback;
@@ -61,6 +80,7 @@ const envSchema = z.object({
   TELEGRAM_APP_URL: z.string().url().optional().or(z.literal('')).transform(v => v === '' ? undefined : v),
   PUBLIC_FRONTEND_URL: z.string().url().optional().or(z.literal('')).transform(v => v === '' ? undefined : v),
   ADMIN_TELEGRAM_IDS: z.string().transform(parseAdminTelegramIds).optional().default(''),
+  ADMIN_TELEGRAM_CHAT_IDS: z.string().transform(parseTelegramChatIds).optional().default(''),
   JWT_SECRET: z.string().min(8),
   SERVER_SECRET: z.string().default(DEFAULT_SERVER_SECRET),
   SENTRY_DSN: z.string().url().optional().or(z.literal('')).transform(v => v === '' ? undefined : v),

@@ -92,6 +92,7 @@ Disallowed stores:
 | `VITE_TG_BOT_NAME` | No, public config | Frontend | Cloudflare Pages env | Embedded in the frontend bundle. |
 | `VITE_SENTRY_DSN` | Public DSN | Frontend | Cloudflare Pages env | Embedded in the frontend bundle. |
 | `ADMIN_TELEGRAM_IDS` | Sensitive config | Backend | Fly.io secrets | Comma-separated Telegram IDs; do not publish. |
+| `ADMIN_TELEGRAM_CHAT_IDS` | Sensitive config | Backend | Fly.io secrets | Optional comma-separated private/group/supergroup chat IDs that receive `/paysupport` refund requests. If empty, admin user IDs are used as direct-message support destinations. |
 
 Production startup already rejects weak `JWT_SECRET`, `SERVER_SECRET`, and `TELEGRAM_BOT_SECRET`, and requires `PUBLIC_FRONTEND_URL` / `TELEGRAM_APP_URL`. Keep that gate aligned with `docs/security/launch-checklist.md`.
 

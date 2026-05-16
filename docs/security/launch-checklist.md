@@ -40,6 +40,7 @@ This checklist is the launch gate for task **P4-SEC-001**. Keep it aligned with 
 ## Manual review before launch
 
 - [ ] Verify production deployment has strong values for `JWT_SECRET`, `SERVER_SECRET`, `TELEGRAM_BOT_SECRET`, `TELEGRAM_BOT_TOKEN`, `PUBLIC_FRONTEND_URL`, and `TELEGRAM_APP_URL`.
+- [ ] Before enabling Telegram Stars purchases, configure `ADMIN_TELEGRAM_IDS` and a reachable `ADMIN_TELEGRAM_CHAT_IDS` support destination for `/paysupport` refunds.
 - [ ] Configure the Telegram webhook with the same `TELEGRAM_BOT_SECRET` value used by the backend.
 - [ ] Confirm branch protection requires both `security` and `check` jobs from `ci.yml`.
 - [ ] Review rate-limit thresholds against production traffic and adjust `RATE_LIMIT_*` values if needed.

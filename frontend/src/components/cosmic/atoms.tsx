@@ -58,10 +58,16 @@ export const ResourceChip: React.FC<{ data: ResourceChipData; onClick?: (resourc
 
 // --- Top bar ---------------------------------------------------------------
 
-export const CosmicTopBar: React.FC<{ resources: ResourceChipData[]; diamonds?: number; onResourceClick?: (resourceId: string) => void }> = ({
+export const CosmicTopBar: React.FC<{
+  resources: ResourceChipData[];
+  diamonds?: number;
+  onResourceClick?: (resourceId: string) => void;
+  onDiamondsClick?: () => void;
+}> = ({
   resources,
   diamonds,
   onResourceClick,
+  onDiamondsClick,
 }) => {
   const { t } = useI18n();
   return (
@@ -72,12 +78,18 @@ export const CosmicTopBar: React.FC<{ resources: ResourceChipData[]; diamonds?: 
       }
     >
       {diamonds !== undefined && (
-        <div className="diamond-chip" data-testid="diamond-balance" title={t('resources.diamonds')}>
+        <button
+          type="button"
+          className="diamond-chip"
+          data-testid="diamond-balance"
+          title={t('shop.open')}
+          onClick={onDiamondsClick}
+        >
           <span className="diamond-chip-sym" aria-hidden>
             ◆
           </span>
           <span className="diamond-chip-amt">{diamonds.toLocaleString()}</span>
-        </div>
+        </button>
       )}
       <div className="cosmic-topbar-grid">
         {resources.slice(0, diamonds !== undefined ? 4 : 5).map((r) => (
