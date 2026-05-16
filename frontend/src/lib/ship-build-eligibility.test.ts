@@ -29,6 +29,8 @@ const cargoLight: ShipType = {
   sensorRange: 8,
   fuelCapacity: 5000,
   jumpFuelCapacity: 100,
+  refuelFuelCapacity: 0,
+  refuelJumpFuelCapacity: 0,
   combatStats: { targetClass: "military_light" },
 };
 
@@ -39,12 +41,48 @@ const basePlanet: Planet = {
   size: 20,
   slotCount: 20,
   name: "home-1",
-  buildings: [{ id: "yard-1", planetId: "planet-1", typeId: "shipyard", level: 1, slotIndex: 2 }],
+  buildings: [
+    {
+      id: "yard-1",
+      planetId: "planet-1",
+      typeId: "shipyard",
+      level: 1,
+      slotIndex: 2,
+    },
+  ],
   resources: [
-    { planetId: "planet-1", resourceId: "iron", amount: "500", regenRate: "0", storageCap: "5000", lastUpdateAt: new Date().toISOString() },
-    { planetId: "planet-1", resourceId: "silicon", amount: "300", regenRate: "0", storageCap: "5000", lastUpdateAt: new Date().toISOString() },
-    { planetId: "planet-1", resourceId: "carbon", amount: "200", regenRate: "0", storageCap: "5000", lastUpdateAt: new Date().toISOString() },
-    { planetId: "planet-1", resourceId: "methane", amount: "100", regenRate: "0", storageCap: "5000", lastUpdateAt: new Date().toISOString() },
+    {
+      planetId: "planet-1",
+      resourceId: "iron",
+      amount: "500",
+      regenRate: "0",
+      storageCap: "5000",
+      lastUpdateAt: new Date().toISOString(),
+    },
+    {
+      planetId: "planet-1",
+      resourceId: "silicon",
+      amount: "300",
+      regenRate: "0",
+      storageCap: "5000",
+      lastUpdateAt: new Date().toISOString(),
+    },
+    {
+      planetId: "planet-1",
+      resourceId: "carbon",
+      amount: "200",
+      regenRate: "0",
+      storageCap: "5000",
+      lastUpdateAt: new Date().toISOString(),
+    },
+    {
+      planetId: "planet-1",
+      resourceId: "methane",
+      amount: "100",
+      regenRate: "0",
+      storageCap: "5000",
+      lastUpdateAt: new Date().toISOString(),
+    },
   ],
 };
 
@@ -65,13 +103,25 @@ describe("resolveShipBuildBlockedReason", () => {
   it("blocks when the selected planet lacks a build-cost resource", () => {
     const planet = {
       ...basePlanet,
-      buildings: [{ id: "yard-1", planetId: "planet-1", typeId: "shipyard", level: 2, slotIndex: 2 }],
+      buildings: [
+        {
+          id: "yard-1",
+          planetId: "planet-1",
+          typeId: "shipyard",
+          level: 2,
+          slotIndex: 2,
+        },
+      ],
       resources: basePlanet.resources?.map((resource) =>
-        resource.resourceId === "methane" ? { ...resource, amount: "90" } : resource,
+        resource.resourceId === "methane"
+          ? { ...resource, amount: "90" }
+          : resource,
       ),
     };
 
-    expect(resolveShipBuildBlockedReason(planet, cargoLight, logisticsResearch)).toEqual({
+    expect(
+      resolveShipBuildBlockedReason(planet, cargoLight, logisticsResearch),
+    ).toEqual({
       type: "insufficientResource",
       resourceId: "methane",
       required: 100,
@@ -82,16 +132,34 @@ describe("resolveShipBuildBlockedReason", () => {
   it("allows cargo_light at shipyard level 2 with enough capital resources", () => {
     const planet = {
       ...basePlanet,
-      buildings: [{ id: "yard-1", planetId: "planet-1", typeId: "shipyard", level: 2, slotIndex: 2 }],
+      buildings: [
+        {
+          id: "yard-1",
+          planetId: "planet-1",
+          typeId: "shipyard",
+          level: 2,
+          slotIndex: 2,
+        },
+      ],
     };
 
-    expect(resolveShipBuildBlockedReason(planet, cargoLight, logisticsResearch)).toBeNull();
+    expect(
+      resolveShipBuildBlockedReason(planet, cargoLight, logisticsResearch),
+    ).toBeNull();
   });
 
   it("blocks cargo_light at shipyard level 2 until Logistics research level 1", () => {
     const planet = {
       ...basePlanet,
-      buildings: [{ id: "yard-1", planetId: "planet-1", typeId: "shipyard", level: 2, slotIndex: 2 }],
+      buildings: [
+        {
+          id: "yard-1",
+          planetId: "planet-1",
+          typeId: "shipyard",
+          level: 2,
+          slotIndex: 2,
+        },
+      ],
     };
 
     expect(resolveShipBuildBlockedReason(planet, cargoLight)).toEqual({
@@ -103,17 +171,23 @@ describe("resolveShipBuildBlockedReason", () => {
   });
 
   it("formats shipyard API blockers with localized entity names", () => {
-    const missingBuilding = formatShipBuildErrorMessage({
-      code: "ship_build_missing_building",
-      typeId: "shipyard",
-      requiredLevel: 2,
-    }, "en");
-    const insufficientResource = formatShipBuildErrorMessage({
-      code: "insufficient_resource",
-      resourceId: "methane",
-      required: 100,
-      available: 90,
-    }, "ru");
+    const missingBuilding = formatShipBuildErrorMessage(
+      {
+        code: "ship_build_missing_building",
+        typeId: "shipyard",
+        requiredLevel: 2,
+      },
+      "en",
+    );
+    const insufficientResource = formatShipBuildErrorMessage(
+      {
+        code: "insufficient_resource",
+        resourceId: "methane",
+        required: 100,
+        available: 90,
+      },
+      "ru",
+    );
 
     expect(missingBuilding).toBe("Requires Shipyard level 2.");
     expect(missingBuilding).not.toContain("shipyard");
@@ -139,8 +213,20 @@ describe("resolveShipBuildBlockedReason", () => {
     const planet = {
       ...basePlanet,
       buildings: [
-        { id: "yard-1", planetId: "planet-1", typeId: "shipyard", level: 2, slotIndex: 2 },
-        { id: "port-1", planetId: "planet-1", typeId: "spaceport", level: 4, slotIndex: 3 },
+        {
+          id: "yard-1",
+          planetId: "planet-1",
+          typeId: "shipyard",
+          level: 2,
+          slotIndex: 2,
+        },
+        {
+          id: "port-1",
+          planetId: "planet-1",
+          typeId: "spaceport",
+          level: 4,
+          slotIndex: 3,
+        },
       ],
     };
     const buildingShip: Ship = {
@@ -153,6 +239,8 @@ describe("resolveShipBuildBlockedReason", () => {
       cargoJson: {},
       fuel: "0",
       jumpFuel: "0",
+      refuelFuel: "0",
+      refuelJumpFuel: "0",
       hp: 60,
       maxHp: 60,
       combatStats: { targetClass: "military_light" },
@@ -168,8 +256,20 @@ describe("resolveShipBuildBlockedReason", () => {
     const planet = {
       ...basePlanet,
       buildings: [
-        { id: "yard-1", planetId: "planet-1", typeId: "shipyard", level: 2, slotIndex: 2 },
-        { id: "port-1", planetId: "planet-1", typeId: "spaceport", level: 2, slotIndex: 3 },
+        {
+          id: "yard-1",
+          planetId: "planet-1",
+          typeId: "shipyard",
+          level: 2,
+          slotIndex: 2,
+        },
+        {
+          id: "port-1",
+          planetId: "planet-1",
+          typeId: "spaceport",
+          level: 2,
+          slotIndex: 3,
+        },
       ],
     };
     const ship: Ship = {
@@ -182,6 +282,8 @@ describe("resolveShipBuildBlockedReason", () => {
       cargoJson: {},
       fuel: "0",
       jumpFuel: "0",
+      refuelFuel: "0",
+      refuelJumpFuel: "0",
       hp: 60,
       maxHp: 60,
       combatStats: { targetClass: "military_light" },
@@ -209,7 +311,13 @@ describe("estimateLandingSlotUsage", () => {
     slotCount: 20,
     name: "home",
     buildings: [
-      { id: "port-1", planetId: "planet-1", typeId: "spaceport", level: 3, slotIndex: 1 },
+      {
+        id: "port-1",
+        planetId: "planet-1",
+        typeId: "spaceport",
+        level: 3,
+        slotIndex: 1,
+      },
     ],
   };
 
@@ -246,6 +354,8 @@ describe("estimateLandingSlotUsage", () => {
       cargoJson: {},
       fuel: "0",
       jumpFuel: "0",
+      refuelFuel: "0",
+      refuelJumpFuel: "0",
       hp: 1,
       maxHp: 1,
       combatStats: { targetClass: "civilian" },

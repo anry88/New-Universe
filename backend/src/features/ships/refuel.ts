@@ -1,13 +1,16 @@
-import { and, eq, inArray } from 'drizzle-orm';
-import { db as defaultDb } from '../../db/index.js';
-import { ships, shipTypes } from '../../db/schema.js';
+import { and, eq, inArray } from "drizzle-orm";
+import { db as defaultDb } from "../../db/index.js";
+import { ships, shipTypes } from "../../db/schema.js";
+import { getPlayerPlanetSettlement } from "../colonies/ownership.js";
+import { spendResources } from "../resources/transactions.js";
+import { JUMP_FUEL_RESOURCE_ID } from "@shared/config/expeditionRouting.js";
 import {
   type RefuelErrorCode,
   type RefuelErrorDetails,
   type RefuelRequest,
   type RefuelResponse,
   formatRefuelErrorMessage,
-} from '@shared/types/refuel.js';
+} from "@shared/types/refuel.js";
 
 export interface RefuelResult {
   success: boolean;
@@ -15,15 +18,18 @@ export interface RefuelResult {
   data?: RefuelResponse;
   error?: string;
   code?: RefuelErrorCode;
-  details?: Omit<RefuelErrorDetails, 'code'>;
+  details?: Omit<RefuelErrorDetails, "code">;
 }
 
-function refuelFailure(status: number, details: RefuelErrorDetails): RefuelResult {
+function refuelFailure(
+  status: number,
+  details: RefuelErrorDetails,
+): RefuelResult {
   const { code, ...rest } = details;
   return {
     success: false,
     status,
-    error: formatRefuelErrorMessage(details, 'en'),
+    error: formatRefuelErrorMessage(details, "en"),
     code,
     details: rest,
   };
@@ -37,7 +43,7 @@ export async function refuelShip(
   const db = defaultDb;
 
   if (targetShipId === sourceShipId) {
-    return refuelFailure(400, { code: 'refuel_same_ship' });
+    return refuelFailure(400, { code: "refuel_same_ship" });
   }
 
   if (
@@ -47,7 +53,7 @@ export async function refuelShip(
     jumpFuel < 0 ||
     (fuel <= 0 && jumpFuel <= 0)
   ) {
-    return refuelFailure(400, { code: 'refuel_no_fuel_requested' });
+    return refuelFailure(400, { code: "refuel_no_fuel_requested" });
   }
 
   return await db.transaction(async (tx) => {
@@ -60,59 +66,70 @@ export async function refuelShip(
         locationPlanetId: ships.locationPlanetId,
         fuel: ships.fuel,
         jumpFuel: ships.jumpFuel,
+        refuelFuel: ships.refuelFuel,
+        refuelJumpFuel: ships.refuelJumpFuel,
         fuelCapacity: shipTypes.fuelCapacity,
         jumpFuelCapacity: shipTypes.jumpFuelCapacity,
+        refuelFuelCapacity: shipTypes.refuelFuelCapacity,
+        refuelJumpFuelCapacity: shipTypes.refuelJumpFuelCapacity,
       })
       .from(ships)
       .innerJoin(shipTypes, eq(shipTypes.id, ships.typeId))
-      .where(and(eq(ships.ownerId, userId), inArray(ships.id, [targetShipId, sourceShipId])))
+      .where(
+        and(
+          eq(ships.ownerId, userId),
+          inArray(ships.id, [targetShipId, sourceShipId]),
+        ),
+      )
       .orderBy(ships.id)
-      .for('update');
+      .for("update");
 
     const targetShipRow = lockedRows.find((ship) => ship.id === targetShipId);
     const sourceShipRow = lockedRows.find((ship) => ship.id === sourceShipId);
 
     if (!targetShipRow) {
-      return refuelFailure(404, { code: 'refuel_target_not_found' });
+      return refuelFailure(404, { code: "refuel_target_not_found" });
     }
 
     if (!sourceShipRow) {
-      return refuelFailure(404, { code: 'refuel_source_not_found' });
+      return refuelFailure(404, { code: "refuel_source_not_found" });
     }
 
-    if (sourceShipRow.typeId !== 'refueler') {
-      return refuelFailure(400, { code: 'refuel_source_not_refueler' });
+    if (sourceShipRow.typeId !== "refueler") {
+      return refuelFailure(400, { code: "refuel_source_not_refueler" });
     }
 
-    if (targetShipRow.status !== 'idle' || sourceShipRow.status !== 'idle') {
-      return refuelFailure(400, { code: 'refuel_ship_not_idle' });
+    if (targetShipRow.status !== "idle" || sourceShipRow.status !== "idle") {
+      return refuelFailure(400, { code: "refuel_ship_not_idle" });
     }
 
     if (
       targetShipRow.locationPlanetId !== sourceShipRow.locationPlanetId ||
       !targetShipRow.locationPlanetId
     ) {
-      return refuelFailure(400, { code: 'refuel_not_same_planet' });
+      return refuelFailure(400, { code: "refuel_not_same_planet" });
     }
 
-    const sourceShipCurrentFuel = Number(sourceShipRow.fuel);
-    const sourceShipCurrentJumpFuel = Number(sourceShipRow.jumpFuel);
+    const sourceShipCurrentRefuelFuel = Number(sourceShipRow.refuelFuel);
+    const sourceShipCurrentRefuelJumpFuel = Number(
+      sourceShipRow.refuelJumpFuel,
+    );
     const targetShipCurrentFuel = Number(targetShipRow.fuel);
     const targetShipCurrentJumpFuel = Number(targetShipRow.jumpFuel);
 
     if (fuel > 0) {
-      if (fuel > sourceShipCurrentFuel) {
+      if (fuel > sourceShipRow.refuelFuelCapacity) {
         return refuelFailure(400, {
-          code: 'refuel_source_insufficient',
-          fuelType: 'fuel',
-          available: sourceShipCurrentFuel,
+          code: "refuel_source_insufficient",
+          fuelType: "fuel",
+          available: Math.max(0, sourceShipRow.refuelFuelCapacity),
           requested: fuel,
         });
       }
       if (targetShipCurrentFuel + fuel > targetShipRow.fuelCapacity) {
         return refuelFailure(400, {
-          code: 'refuel_exceeds_tank',
-          fuelType: 'fuel',
+          code: "refuel_exceeds_tank",
+          fuelType: "fuel",
           capacity: targetShipRow.fuelCapacity,
           current: targetShipCurrentFuel,
           requested: fuel,
@@ -121,18 +138,21 @@ export async function refuelShip(
     }
 
     if (jumpFuel > 0) {
-      if (jumpFuel > sourceShipCurrentJumpFuel) {
+      if (jumpFuel > sourceShipRow.refuelJumpFuelCapacity) {
         return refuelFailure(400, {
-          code: 'refuel_source_insufficient',
-          fuelType: 'jump_fuel',
-          available: sourceShipCurrentJumpFuel,
+          code: "refuel_source_insufficient",
+          fuelType: "jump_fuel",
+          available: Math.max(0, sourceShipRow.refuelJumpFuelCapacity),
           requested: jumpFuel,
         });
       }
-      if (targetShipCurrentJumpFuel + jumpFuel > targetShipRow.jumpFuelCapacity) {
+      if (
+        targetShipCurrentJumpFuel + jumpFuel >
+        targetShipRow.jumpFuelCapacity
+      ) {
         return refuelFailure(400, {
-          code: 'refuel_exceeds_tank',
-          fuelType: 'jump_fuel',
+          code: "refuel_exceeds_tank",
+          fuelType: "jump_fuel",
           capacity: targetShipRow.jumpFuelCapacity,
           current: targetShipCurrentJumpFuel,
           requested: jumpFuel,
@@ -140,10 +160,77 @@ export async function refuelShip(
       }
     }
 
+    const fuelNeededFromPlanet = Math.max(
+      0,
+      fuel - sourceShipCurrentRefuelFuel,
+    );
+    const jumpFuelNeededFromPlanet = Math.max(
+      0,
+      jumpFuel - sourceShipCurrentRefuelJumpFuel,
+    );
+
+    if (fuelNeededFromPlanet > 0 || jumpFuelNeededFromPlanet > 0) {
+      const settlement = await getPlayerPlanetSettlement(
+        userId,
+        sourceShipRow.locationPlanetId!,
+        tx,
+      );
+      if (!settlement?.isSettled) {
+        const missingFuelType = fuelNeededFromPlanet > 0 ? "fuel" : "jump_fuel";
+        return refuelFailure(400, {
+          code: "refuel_source_insufficient",
+          fuelType: missingFuelType,
+          available:
+            missingFuelType === "fuel"
+              ? sourceShipCurrentRefuelFuel
+              : sourceShipCurrentRefuelJumpFuel,
+          requested: missingFuelType === "fuel" ? fuel : jumpFuel,
+        });
+      }
+
+      const fuelLoadCosts = [];
+      if (fuelNeededFromPlanet > 0) {
+        fuelLoadCosts.push({
+          resourceId: "fuel",
+          amount: fuelNeededFromPlanet,
+        });
+      }
+      if (jumpFuelNeededFromPlanet > 0) {
+        fuelLoadCosts.push({
+          resourceId: JUMP_FUEL_RESOURCE_ID,
+          amount: jumpFuelNeededFromPlanet,
+        });
+      }
+
+      const spendResult = await spendResources(
+        sourceShipRow.locationPlanetId!,
+        fuelLoadCosts,
+        tx,
+      );
+      if (!spendResult.success) {
+        const resourceId = spendResult.details?.resourceId;
+        const fuelType =
+          resourceId === JUMP_FUEL_RESOURCE_ID ? "jump_fuel" : "fuel";
+        const reserveAvailable =
+          fuelType === "jump_fuel"
+            ? sourceShipCurrentRefuelJumpFuel
+            : sourceShipCurrentRefuelFuel;
+        return refuelFailure(400, {
+          code: "refuel_source_insufficient",
+          fuelType,
+          available:
+            reserveAvailable + Number(spendResult.details?.available ?? 0),
+          requested: fuelType === "jump_fuel" ? jumpFuel : fuel,
+        });
+      }
+    }
+
     const targetFuelAfter = targetShipCurrentFuel + fuel;
     const targetJumpFuelAfter = targetShipCurrentJumpFuel + jumpFuel;
-    const sourceFuelAfter = sourceShipCurrentFuel - fuel;
-    const sourceJumpFuelAfter = sourceShipCurrentJumpFuel - jumpFuel;
+    const sourceRefuelFuelAfter =
+      sourceShipCurrentRefuelFuel + fuelNeededFromPlanet - fuel;
+    const sourceRefuelJumpFuelAfter =
+      sourceShipCurrentRefuelJumpFuel + jumpFuelNeededFromPlanet - jumpFuel;
 
     const [updatedTarget] = await tx
       .update(ships)
@@ -157,8 +244,8 @@ export async function refuelShip(
     const [updatedSource] = await tx
       .update(ships)
       .set({
-        fuel: sourceFuelAfter.toFixed(2),
-        jumpFuel: sourceJumpFuelAfter.toFixed(2),
+        refuelFuel: sourceRefuelFuelAfter.toFixed(2),
+        refuelJumpFuel: sourceRefuelJumpFuelAfter.toFixed(2),
       })
       .where(eq(ships.id, sourceShipId))
       .returning();
@@ -177,6 +264,8 @@ export async function refuelShip(
           id: updatedSource.id,
           fuel: updatedSource.fuel,
           jumpFuel: updatedSource.jumpFuel,
+          refuelFuel: updatedSource.refuelFuel,
+          refuelJumpFuel: updatedSource.refuelJumpFuel,
         },
       },
     };

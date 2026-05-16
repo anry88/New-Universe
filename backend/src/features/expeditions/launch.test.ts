@@ -75,13 +75,17 @@ describe("Expeditions - POST /expeditions", () => {
     });
     const planet = await db.query.planets.findFirst({
       where: eq(planets.systemId, system!.id),
-    
+
       orderBy: (p, { asc }) => asc(p.name),
     });
     return { system: system!, planet: planet! };
   }
 
-  async function ensureResource(planetId: string, resourceId: string, amount: number) {
+  async function ensureResource(
+    planetId: string,
+    resourceId: string,
+    amount: number,
+  ) {
     const existing = await db.query.planetResources.findFirst({
       where: and(
         eq(planetResources.planetId, planetId),
@@ -210,7 +214,11 @@ describe("Expeditions - POST /expeditions", () => {
     return ship;
   }
 
-  async function createIdleColonizer(userId: string, planetId: string, fuel = "0") {
+  async function createIdleColonizer(
+    userId: string,
+    planetId: string,
+    fuel = "0",
+  ) {
     await db
       .insert(shipTypes)
       .values({
@@ -323,11 +331,17 @@ describe("Expeditions - POST /expeditions", () => {
     return { system, planets: insertedPlanets };
   }
 
-  async function distanceFromGateToPlanet(systemId: string, seed: number, planetId: string) {
+  async function distanceFromGateToPlanet(
+    systemId: string,
+    seed: number,
+    planetId: string,
+  ) {
     const systemPlanets = await db.query.planets.findMany({
       where: eq(planets.systemId, systemId),
     });
-    const layout = buildSystemMapLayouts(systemPlanets, seed).find((entry) => entry.id === planetId);
+    const layout = buildSystemMapLayouts(systemPlanets, seed).find(
+      (entry) => entry.id === planetId,
+    );
     expect(layout).toBeDefined();
     return systemMapPointDistanceLy(systemMapJumpGatePoint(), layout!);
   }
@@ -574,7 +588,11 @@ describe("Expeditions - POST /expeditions", () => {
     });
     expect(originSystem).toBeDefined();
     const expectedDistance =
-      (await distanceFromGateToPlanet(planet.systemId, Number(originSystem!.seed), planet.id)) +
+      (await distanceFromGateToPlanet(
+        planet.systemId,
+        Number(originSystem!.seed),
+        planet.id,
+      )) +
       systemMapPointDistanceLy(systemMapJumpGatePoint(), targetSystemPoint);
     const expectedFuel = Math.ceil(expectedDistance * 2 * 0.3);
 
@@ -602,15 +620,21 @@ describe("Expeditions - POST /expeditions", () => {
     expect(Number(body.expedition.targetZ)).toBe(destination.system.sectorZ);
     expect(body.expedition.targetPlanetId).toBeNull();
     expect(body.expedition.result.routeMode).toBe("jump_gate");
-    expect(body.expedition.result.destinationSystemId).toBe(destination.system.id);
-    expect(body.expedition.result.jumpFuelRequired).toBe(1);
+    expect(body.expedition.result.destinationSystemId).toBe(
+      destination.system.id,
+    );
+    expect(body.expedition.result.jumpFuelRequired).toBe(
+      JUMP_GATE_JUMP_FUEL_COST,
+    );
     expect(body.expedition.result.distance).toBeCloseTo(expectedDistance, 5);
     expect(body.expedition.result.fuelRequired).toBe(expectedFuel);
     expect(body.expedition.result.targetSystemPoint).toEqual(targetSystemPoint);
     expect(body.expedition.result.spaceportReservation).toMatchObject({
       originPlanetId: planet.id,
     });
-    expect(body.expedition.result.spaceportReservation.targetPlanetId).toBeUndefined();
+    expect(
+      body.expedition.result.spaceportReservation.targetPlanetId,
+    ).toBeUndefined();
     const jumpFuel = await db.query.planetResources.findFirst({
       where: and(
         eq(planetResources.planetId, planet.id),
@@ -670,8 +694,16 @@ describe("Expeditions - POST /expeditions", () => {
     });
     expect(originSystem).toBeDefined();
     const expectedDistance =
-      (await distanceFromGateToPlanet(planet.systemId, Number(originSystem!.seed), planet.id)) +
-      (await distanceFromGateToPlanet(destination.system.id, Number(destination.system.seed), targetPlanet.id));
+      (await distanceFromGateToPlanet(
+        planet.systemId,
+        Number(originSystem!.seed),
+        planet.id,
+      )) +
+      (await distanceFromGateToPlanet(
+        destination.system.id,
+        Number(destination.system.seed),
+        targetPlanet.id,
+      ));
     const expectedFuel = Math.ceil(expectedDistance * 1.5);
 
     const response = await app.inject({
@@ -712,7 +744,10 @@ describe("Expeditions - POST /expeditions", () => {
     expect(storedShip).toBeUndefined();
 
     const colony = await db.query.colonies.findFirst({
-      where: and(eq(colonies.ownerId, userId), eq(colonies.planetId, targetPlanet.id)),
+      where: and(
+        eq(colonies.ownerId, userId),
+        eq(colonies.planetId, targetPlanet.id),
+      ),
     });
     expect(colony).toBeDefined();
 
@@ -944,7 +979,9 @@ describe("Expeditions - POST /expeditions", () => {
       Math.ceil(body.expedition.result.distance * 2 * 0.3) + 1,
     );
     // Origin landing slot is not reserved for the (non-existent) return leg.
-    expect(body.expedition.result.spaceportReservation.originPlanetId).toBeUndefined();
+    expect(
+      body.expedition.result.spaceportReservation.originPlanetId,
+    ).toBeUndefined();
     expect(body.expedition.result.spaceportReservation.targetPlanetId).toBe(
       targetPlanet!.id,
     );

@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
-import { X, Droplets } from 'lucide-react';
-import { useI18n } from '../lib/i18n';
-import { useRefuel } from '../hooks/useShips';
-import { getShipLabel, ShipIconBadge } from './cosmic/ships';
-import type { Ship, ShipType } from '@shared/types/ships';
-import { ResourceAmount } from './cosmic/resources';
+import React, { useState } from "react";
+import { X, Droplets } from "lucide-react";
+import { useI18n } from "../lib/i18n";
+import { useRefuel } from "../hooks/useShips";
+import { getShipLabel, ShipIconBadge } from "./cosmic/ships";
+import type { Ship, ShipType } from "@shared/types/ships";
+import type { Planet } from "@shared/types/world";
+import { ResourceAmount } from "./cosmic/resources";
 
 interface RefuelDialogProps {
   sourceShip: Ship;
   sourceType: ShipType;
+  sourcePlanet?: Planet | null;
   allShips: Ship[];
   allShipTypes: ShipType[];
   initialTargetShipId?: string;
@@ -18,6 +20,7 @@ interface RefuelDialogProps {
 export function RefuelDialog({
   sourceShip,
   sourceType,
+  sourcePlanet,
   allShips,
   allShipTypes,
   initialTargetShipId,
@@ -26,33 +29,68 @@ export function RefuelDialog({
   const { t, locale } = useI18n();
   const refuel = useRefuel();
 
-  const [targetShipId, setTargetShipId] = useState<string>(initialTargetShipId ?? '');
+  const [targetShipId, setTargetShipId] = useState<string>(
+    initialTargetShipId ?? "",
+  );
   const [fuelAmount, setFuelAmount] = useState<number>(0);
   const [jumpFuelAmount, setJumpFuelAmount] = useState<number>(0);
 
   const idleShipsOnSamePlanet = allShips.filter(
     (s) =>
       s.id !== sourceShip.id &&
-      s.status === 'idle' &&
+      s.status === "idle" &&
       s.locationPlanetId === sourceShip.locationPlanetId &&
-      sourceShip.locationPlanetId !== null
+      sourceShip.locationPlanetId !== null,
   );
 
   const targetShip = idleShipsOnSamePlanet.find((s) => s.id === targetShipId);
-  const targetType = targetShip ? allShipTypes.find((st) => st.id === targetShip.typeId) : null;
-
-  const maxFuel = Math.max(
-    0,
+  const targetType = targetShip
+    ? allShipTypes.find((st) => st.id === targetShip.typeId)
+    : null;
+  const sourcePlanetFuel = Number(
+    sourcePlanet?.resources?.find((resource) => resource.resourceId === "fuel")
+      ?.amount ?? 0,
+  );
+  const sourcePlanetJumpFuel = Number(
+    sourcePlanet?.resources?.find(
+      (resource) => resource.resourceId === "jump_fuel",
+    )?.amount ?? 0,
+  );
+  const sourceRefuelFuel = Number(sourceShip.refuelFuel ?? 0);
+  const sourceRefuelJumpFuel = Number(sourceShip.refuelJumpFuel ?? 0);
+  const sourceFuelTransferAvailable =
+    sourceRefuelFuel +
     Math.min(
-      Number(sourceShip.fuel),
-      targetType ? targetType.fuelCapacity - Number(targetShip?.fuel ?? 0) : 0,
+      Math.max(0, sourceType.refuelFuelCapacity - sourceRefuelFuel),
+      sourcePlanetFuel,
+    );
+  const sourceJumpFuelTransferAvailable =
+    sourceRefuelJumpFuel +
+    Math.min(
+      Math.max(0, sourceType.refuelJumpFuelCapacity - sourceRefuelJumpFuel),
+      sourcePlanetJumpFuel,
+    );
+
+  const maxFuel = Math.floor(
+    Math.max(
+      0,
+      Math.min(
+        sourceFuelTransferAvailable,
+        targetType
+          ? targetType.fuelCapacity - Number(targetShip?.fuel ?? 0)
+          : 0,
+      ),
     ),
   );
-  const maxJumpFuel = Math.max(
-    0,
-    Math.min(
-      Number(sourceShip.jumpFuel),
-      targetType ? targetType.jumpFuelCapacity - Number(targetShip?.jumpFuel ?? 0) : 0,
+  const maxJumpFuel = Math.floor(
+    Math.max(
+      0,
+      Math.min(
+        sourceJumpFuelTransferAvailable,
+        targetType
+          ? targetType.jumpFuelCapacity - Number(targetShip?.jumpFuel ?? 0)
+          : 0,
+      ),
     ),
   );
 
@@ -70,7 +108,7 @@ export function RefuelDialog({
       });
       onClose();
     } catch (err: unknown) {
-      setError((err as Error).message || t('refuel.error.generic'));
+      setError((err as Error).message || t("refuel.error.generic"));
     }
   };
 
@@ -79,8 +117,8 @@ export function RefuelDialog({
       <div className="cosmic-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <div className="modal-title">
-            <Droplets size={18} style={{ color: '#5BD7FF' }} />
-            {t('refuel_dialog_title')}
+            <Droplets size={18} style={{ color: "#5BD7FF" }} />
+            {t("refuel_dialog_title")}
           </div>
           <button type="button" className="modal-close" onClick={onClose}>
             <X size={20} />
@@ -89,27 +127,36 @@ export function RefuelDialog({
 
         <div className="modal-body scrollable">
           {error && (
-            <div style={{
-              color: '#f87171',
-              fontSize: 12,
-              marginBottom: 16,
-              padding: '10px 12px',
-              background: 'rgba(248, 113, 113, 0.08)',
-              border: '1px solid rgba(248, 113, 113, 0.2)',
-              borderRadius: 8,
-              fontFamily: 'var(--font-mono)',
-              lineHeight: 1.4
-            }}>
+            <div
+              style={{
+                color: "#f87171",
+                fontSize: 12,
+                marginBottom: 16,
+                padding: "10px 12px",
+                background: "rgba(248, 113, 113, 0.08)",
+                border: "1px solid rgba(248, 113, 113, 0.2)",
+                borderRadius: 8,
+                fontFamily: "var(--font-mono)",
+                lineHeight: 1.4,
+              }}
+            >
               {error}
             </div>
           )}
           <div className="refuel-source-info">
-            <div className="refuel-label">{t('refuel_dialog_source')}</div>
+            <div className="refuel-label">{t("refuel_dialog_source")}</div>
             <div className="ship-row mini">
-              <ShipIconBadge typeId={sourceShip.typeId} status={sourceShip.status} size={28} />
+              <ShipIconBadge
+                typeId={sourceShip.typeId}
+                status={sourceShip.status}
+                size={28}
+              />
               <div className="ship-info">
                 <div className="ship-name">{sourceType.name[locale]}</div>
                 <div className="ship-stats-row">
+                  <span className="ship-stat-group-label">
+                    {t("refuel_dialog_ship_tanks")}
+                  </span>
                   <span className="ship-stat-mini">
                     <ResourceAmount
                       resourceId="fuel"
@@ -127,14 +174,56 @@ export function RefuelDialog({
                     />
                   </span>
                 </div>
+                <div className="ship-stats-row">
+                  <span className="ship-stat-group-label">
+                    {t("refuel_dialog_reserve")}
+                  </span>
+                  <span className="ship-stat-mini">
+                    <ResourceAmount
+                      resourceId="fuel"
+                      amount={`${sourceRefuelFuel.toFixed(0)} / ${sourceType.refuelFuelCapacity}`}
+                      iconSize={12}
+                      locale={locale}
+                    />
+                  </span>
+                  <span className="ship-stat-mini">
+                    <ResourceAmount
+                      resourceId="jump_fuel"
+                      amount={`${sourceRefuelJumpFuel.toFixed(0)} / ${sourceType.refuelJumpFuelCapacity}`}
+                      iconSize={12}
+                      locale={locale}
+                    />
+                  </span>
+                </div>
+                <div className="ship-stats-row">
+                  <span className="ship-stat-group-label">
+                    {t("refuel_dialog_planet_stockpile")}
+                  </span>
+                  <span className="ship-stat-mini">
+                    <ResourceAmount
+                      resourceId="fuel"
+                      amount={sourcePlanetFuel.toFixed(0)}
+                      iconSize={12}
+                      locale={locale}
+                    />
+                  </span>
+                  <span className="ship-stat-mini">
+                    <ResourceAmount
+                      resourceId="jump_fuel"
+                      amount={sourcePlanetJumpFuel.toFixed(0)}
+                      iconSize={12}
+                      locale={locale}
+                    />
+                  </span>
+                </div>
               </div>
             </div>
           </div>
 
           <div className="refuel-target-select">
-            <div className="refuel-label">{t('refuel_dialog_target')}</div>
+            <div className="refuel-label">{t("refuel_dialog_target")}</div>
             {idleShipsOnSamePlanet.length === 0 ? (
-              <div className="empty-hint">{t('refuel.no_targets')}</div>
+              <div className="empty-hint">{t("refuel.no_targets")}</div>
             ) : (
               <div className="target-list">
                 {idleShipsOnSamePlanet.map((s) => {
@@ -143,19 +232,34 @@ export function RefuelDialog({
                     <button
                       key={s.id}
                       type="button"
-                      className={`target-btn ${targetShipId === s.id ? 'active' : ''}`}
+                      className={`target-btn ${targetShipId === s.id ? "active" : ""}`}
                       onClick={() => {
                         setTargetShipId(s.id);
                         setFuelAmount(0);
                         setJumpFuelAmount(0);
                       }}
                     >
-                      <ShipIconBadge typeId={s.typeId} status={s.status} size={24} />
+                      <ShipIconBadge
+                        typeId={s.typeId}
+                        status={s.status}
+                        size={24}
+                      />
                       <div className="target-name">
                         {st?.name[locale] ?? getShipLabel(s.typeId, locale)}
                       </div>
                       <div className="target-fuel">
-                        {Number(s.fuel).toFixed(0)} / {st?.fuelCapacity}
+                        <ResourceAmount
+                          resourceId="fuel"
+                          amount={`${Number(s.fuel).toFixed(0)} / ${st?.fuelCapacity ?? 0}`}
+                          iconSize={12}
+                          locale={locale}
+                        />
+                        <ResourceAmount
+                          resourceId="jump_fuel"
+                          amount={`${Number(s.jumpFuel).toFixed(0)} / ${st?.jumpFuelCapacity ?? 0}`}
+                          iconSize={12}
+                          locale={locale}
+                        />
                       </div>
                     </button>
                   );
@@ -168,7 +272,9 @@ export function RefuelDialog({
             <div className="refuel-controls">
               <div className="refuel-control">
                 <div className="control-header">
-                  <div className="refuel-label">{t('refuel_dialog_fuel_label')}</div>
+                  <div className="refuel-label">
+                    {t("refuel_dialog_fuel_label")}
+                  </div>
                   <div className="control-value">{fuelAmount}</div>
                 </div>
                 <input
@@ -188,7 +294,9 @@ export function RefuelDialog({
 
               <div className="refuel-control">
                 <div className="control-header">
-                  <div className="refuel-label">{t('refuel_dialog_jump_fuel_label')}</div>
+                  <div className="refuel-label">
+                    {t("refuel_dialog_jump_fuel_label")}
+                  </div>
                   <div className="control-value">{jumpFuelAmount}</div>
                 </div>
                 <input
@@ -204,7 +312,6 @@ export function RefuelDialog({
                   <span>0</span>
                   <span>{maxJumpFuel}</span>
                 </div>
-
               </div>
             </div>
           )}
@@ -214,11 +321,17 @@ export function RefuelDialog({
           <button
             type="button"
             className="cosmic-cta primary"
-            disabled={!targetShipId || (fuelAmount === 0 && jumpFuelAmount === 0) || refuel.isPending}
+            disabled={
+              !targetShipId ||
+              (fuelAmount === 0 && jumpFuelAmount === 0) ||
+              refuel.isPending
+            }
             onClick={handleRefuel}
-            style={{ width: '100%' }}
+            style={{ width: "100%" }}
           >
-            {refuel.isPending ? t('common.loading') : t('refuel_dialog_transfer_button').toUpperCase()}
+            {refuel.isPending
+              ? t("common.loading")
+              : t("refuel_dialog_transfer_button").toUpperCase()}
           </button>
         </div>
       </div>
@@ -254,8 +367,17 @@ export function RefuelDialog({
         }
         .ship-stats-row {
           display: flex;
+          flex-wrap: wrap;
+          align-items: center;
           gap: 12px;
           margin-top: 2px;
+        }
+        .ship-stat-group-label {
+          min-width: 84px;
+          font-family: var(--font-mono);
+          font-size: 9px;
+          color: var(--text-faint);
+          text-transform: uppercase;
         }
         .ship-stat-mini {
           font-family: var(--font-mono);
@@ -297,6 +419,10 @@ export function RefuelDialog({
           font-size: 13px;
         }
         .target-fuel {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+          gap: 8px;
           font-family: var(--font-mono);
           font-size: 11px;
           color: var(--text-dim);

@@ -475,7 +475,7 @@ async function jumpToSystem(params: {
       } satisfies JumpResult;
     }
 
-    const fuelToLoad = Math.max(0, jumpFuelCapacity - currentJumpFuel);
+    const fuelToLoad = Math.max(0, JUMP_GATE_JUMP_FUEL_COST - currentJumpFuel);
     
     const jumpFuelRow = await tx.query.planetResources.findFirst({
       where: and(

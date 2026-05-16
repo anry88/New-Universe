@@ -1,7 +1,10 @@
-import type { Locale } from './locale.js';
-import { buildingLabel, formatInsufficientResourceMessage } from './entity-labels.js';
-import { researchBranchLabel } from './research.js';
-import type { CombatStats } from './combat.js';
+import type { Locale } from "./locale.js";
+import {
+  buildingLabel,
+  formatInsufficientResourceMessage,
+} from "./entity-labels.js";
+import { researchBranchLabel } from "./research.js";
+import type { CombatStats } from "./combat.js";
 
 export interface Ship {
   id: string;
@@ -14,6 +17,8 @@ export interface Ship {
   cargoJson: Record<string, number>;
   fuel: string;
   jumpFuel: string;
+  refuelFuel: string;
+  refuelJumpFuel: string;
   hp: number;
   maxHp: number;
   combatStats: CombatStats;
@@ -56,6 +61,8 @@ export interface ShipType {
   fuelConsumption: string;
   fuelCapacity: number;
   jumpFuelCapacity: number;
+  refuelFuelCapacity: number;
+  refuelJumpFuelCapacity: number;
   buildTimeSec: number;
   buildCost: Record<string, number>;
   requiredBuildings: { typeId: string; level: number }[];
@@ -64,71 +71,92 @@ export interface ShipType {
 }
 
 export type ShipBuildErrorCode =
-  | 'ship_build_planet_not_found'
-  | 'ship_build_planet_not_owned'
-  | 'ship_build_shipyard_required'
-  | 'ship_build_spaceport_required'
-  | 'ship_build_spaceport_capacity_full'
-  | 'ship_build_unknown_type'
-  | 'ship_build_missing_building'
-  | 'ship_build_missing_research'
-  | 'ship_build_queue_full'
-  | 'insufficient_resource';
+  | "ship_build_planet_not_found"
+  | "ship_build_planet_not_owned"
+  | "ship_build_shipyard_required"
+  | "ship_build_spaceport_required"
+  | "ship_build_spaceport_capacity_full"
+  | "ship_build_unknown_type"
+  | "ship_build_missing_building"
+  | "ship_build_missing_research"
+  | "ship_build_queue_full"
+  | "insufficient_resource";
 
 export type ShipBuildErrorDetails =
-  | { code: 'ship_build_planet_not_found' }
-  | { code: 'ship_build_planet_not_owned' }
-  | { code: 'ship_build_shipyard_required' }
-  | { code: 'ship_build_spaceport_required' }
+  | { code: "ship_build_planet_not_found" }
+  | { code: "ship_build_planet_not_owned" }
+  | { code: "ship_build_shipyard_required" }
+  | { code: "ship_build_spaceport_required" }
   | {
-      code: 'ship_build_spaceport_capacity_full';
+      code: "ship_build_spaceport_capacity_full";
       capacity?: number;
       occupied?: number;
       reserved?: number;
     }
-  | { code: 'ship_build_unknown_type'; typeId?: string }
-  | { code: 'ship_build_missing_building'; typeId: string; requiredLevel: number }
-  | { code: 'ship_build_missing_research'; branch: string; requiredLevel: number; currentLevel: number }
-  | { code: 'ship_build_queue_full'; maxQueuedShips: number }
-  | { code: 'insufficient_resource'; resourceId: string; required?: number; available?: number };
+  | { code: "ship_build_unknown_type"; typeId?: string }
+  | {
+      code: "ship_build_missing_building";
+      typeId: string;
+      requiredLevel: number;
+    }
+  | {
+      code: "ship_build_missing_research";
+      branch: string;
+      requiredLevel: number;
+      currentLevel: number;
+    }
+  | { code: "ship_build_queue_full"; maxQueuedShips: number }
+  | {
+      code: "insufficient_resource";
+      resourceId: string;
+      required?: number;
+      available?: number;
+    };
 
-export function formatShipBuildErrorMessage(error: ShipBuildErrorDetails, locale: Locale = 'en'): string {
+export function formatShipBuildErrorMessage(
+  error: ShipBuildErrorDetails,
+  locale: Locale = "en",
+): string {
   switch (error.code) {
-    case 'ship_build_planet_not_found':
-      return locale === 'ru' ? 'Планета не найдена.' : 'Planet not found.';
-    case 'ship_build_planet_not_owned':
-      return locale === 'ru'
-        ? 'Строительство кораблей доступно только в ваших поселениях.'
-        : 'Ship construction is available only in your settlements.';
-    case 'ship_build_shipyard_required':
-      return locale === 'ru'
-        ? `Для строительства кораблей нужна «${buildingLabel('shipyard', locale)}».`
-        : `${buildingLabel('shipyard', locale)} is required to build ships.`;
-    case 'ship_build_spaceport_required':
-      return locale === 'ru'
-        ? `Для размещения кораблей на планете нужен «${buildingLabel('spaceport', locale)}».`
-        : `${buildingLabel('spaceport', locale)} is required before ships can be stationed on this planet.`;
-    case 'ship_build_spaceport_capacity_full':
-      return locale === 'ru'
-        ? `Все посадочные места «${buildingLabel('spaceport', locale)}» заняты: доступно ${error.capacity ?? 0}, занято ${error.occupied ?? 0}, зарезервировано ${error.reserved ?? 0}.`
-        : `${buildingLabel('spaceport', locale)} landing capacity is full: capacity ${error.capacity ?? 0}, ${error.occupied ?? 0} occupied, ${error.reserved ?? 0} reserved.`;
-    case 'ship_build_unknown_type':
-      return locale === 'ru' ? 'Такой тип корабля не найден.' : 'Ship type not found.';
-    case 'ship_build_missing_building':
-      return locale === 'ru'
+    case "ship_build_planet_not_found":
+      return locale === "ru" ? "Планета не найдена." : "Planet not found.";
+    case "ship_build_planet_not_owned":
+      return locale === "ru"
+        ? "Строительство кораблей доступно только в ваших поселениях."
+        : "Ship construction is available only in your settlements.";
+    case "ship_build_shipyard_required":
+      return locale === "ru"
+        ? `Для строительства кораблей нужна «${buildingLabel("shipyard", locale)}».`
+        : `${buildingLabel("shipyard", locale)} is required to build ships.`;
+    case "ship_build_spaceport_required":
+      return locale === "ru"
+        ? `Для размещения кораблей на планете нужен «${buildingLabel("spaceport", locale)}».`
+        : `${buildingLabel("spaceport", locale)} is required before ships can be stationed on this planet.`;
+    case "ship_build_spaceport_capacity_full":
+      return locale === "ru"
+        ? `Все посадочные места «${buildingLabel("spaceport", locale)}» заняты: доступно ${error.capacity ?? 0}, занято ${error.occupied ?? 0}, зарезервировано ${error.reserved ?? 0}.`
+        : `${buildingLabel("spaceport", locale)} landing capacity is full: capacity ${error.capacity ?? 0}, ${error.occupied ?? 0} occupied, ${error.reserved ?? 0} reserved.`;
+    case "ship_build_unknown_type":
+      return locale === "ru"
+        ? "Такой тип корабля не найден."
+        : "Ship type not found.";
+    case "ship_build_missing_building":
+      return locale === "ru"
         ? `Требуется здание «${buildingLabel(error.typeId, locale)}» уровня ${error.requiredLevel}.`
         : `Requires ${buildingLabel(error.typeId, locale)} level ${error.requiredLevel}.`;
-    case 'ship_build_missing_research':
-      return locale === 'ru'
+    case "ship_build_missing_research":
+      return locale === "ru"
         ? `Требуется исследование «${researchBranchLabel(error.branch, locale)}» уровня ${error.requiredLevel}.`
         : `Requires ${researchBranchLabel(error.branch, locale)} research level ${error.requiredLevel}.`;
-    case 'ship_build_queue_full':
-      return locale === 'ru'
-        ? `Очередь верфи заполнена: одновременно доступно ${error.maxQueuedShips} ${error.maxQueuedShips === 1 ? 'корабль' : 'корабля'}.`
+    case "ship_build_queue_full":
+      return locale === "ru"
+        ? `Очередь верфи заполнена: одновременно доступно ${error.maxQueuedShips} ${error.maxQueuedShips === 1 ? "корабль" : "корабля"}.`
         : `Shipyard queue is full: ${error.maxQueuedShips} ship build can be queued at a time.`;
-    case 'insufficient_resource':
+    case "insufficient_resource":
       return formatInsufficientResourceMessage(error.resourceId, locale);
     default:
-      return locale === 'ru' ? 'Корабль нельзя поставить в очередь.' : 'Ship cannot be queued.';
+      return locale === "ru"
+        ? "Корабль нельзя поставить в очередь."
+        : "Ship cannot be queued.";
   }
 }

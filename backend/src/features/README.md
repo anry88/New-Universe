@@ -169,11 +169,11 @@ Ship construction and fleet queue helpers.
   - `ENABLE_BULLMQ=true` keeps the historical BullMQ delayed-job enqueue path.
   - `ENABLE_BULLMQ=false` relies on periodic database polling in the worker and active-session `/me` sync.
   - New ship instances copy catalog HP/max HP and combat stats at construction so medium/heavy durability and rocket-carrier payload metadata are present before the ship leaves the queue.
-- **`refuel.ts`** — `refuelShip(userId, request)` validates owned idle ships on the same planet, requires the source hull to be `refueler`, then locks both ship rows inside the transfer transaction before checking source fuel and target tank capacity. This prevents concurrent refuel requests from overdrawing the source or overfilling the receiver.
+- **`refuel.ts`** — `refuelShip(userId, request)` validates owned idle ships on the same planet, requires the source hull to be `refueler`, then locks both ship rows inside the transfer transaction before checking the target's own tanks and the refueler's separate support reserves. Missing reserve can be loaded atomically from the owned planet stockpile up to the refueler reserve capacity, while the refueler's own travel tanks (`fuel` / `jumpFuel`) are not drained by support transfers. This prevents concurrent refuel requests from overdrawing the source or overfilling the receiver.
 - **`spaceport-capacity.ts`** — shared landing-slot dispatcher for ship construction, expedition launch, and spaceport demolition. It locks the planet row, treats `level(spaceport)` as capacity, counts docked/building ships, active target-landing reservations, and return-trip origin reservations, and returns occupied/reserved/available counts for localized blockers.
 - **`routes.ts`** — registers `GET /types`, JSON-schema-validated `POST /build`, `GET /queue`, JSON-schema-validated `POST /rush`, and JSON-schema-validated `POST /refuel`; ship mutations declare rate-limit/security metadata. Queue reads run user-scoped `syncReadyShips(..., { skipNotifications: true })` before returning the current queue.
 - **`build.test.ts`** — integration coverage for ship construction gates and active-session ready-ship sync.
-- **`refuel.test.ts`** — integration coverage for refuel transfers, same-planet/idle validation, tank overfill/source-insufficient rollback, and concurrent transfer serialization.
+- **`refuel.test.ts`** — integration coverage for refuel transfers, owned-planet reserve loading, same-planet/idle validation, tank overfill/source-insufficient rollback, and concurrent transfer serialization.
 
 ## `combat/`
 

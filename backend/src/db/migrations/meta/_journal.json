@@ -253,6 +253,13 @@
       "when": 1779500000006,
       "tag": "0037_tutorial_rewards_claimed",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1779500000007,
+      "tag": "0038_wet_leech",
+      "breakpoints": true
     }
   ]
 }

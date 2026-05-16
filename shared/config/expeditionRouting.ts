@@ -1,7 +1,7 @@
-export type ExpeditionRouteMode = 'local' | 'jump_gate';
+export type ExpeditionRouteMode = "local" | "jump_gate";
 
-export const JUMP_FUEL_RESOURCE_ID = 'jump_fuel';
-export const JUMP_GATE_JUMP_FUEL_COST = 1;
+export const JUMP_FUEL_RESOURCE_ID = "jump_fuel";
+export const JUMP_GATE_JUMP_FUEL_COST = 50;
 /** @deprecated Use `JUMP_GATE_JUMP_FUEL_COST`; Jump Fuel is stored in planet inventory or ship tanks. */
 export const JUMP_GATE_SHIP_FUEL_COST = JUMP_GATE_JUMP_FUEL_COST;
 
@@ -12,10 +12,10 @@ export const JUMP_GATE_SHIP_FUEL_COST = JUMP_GATE_JUMP_FUEL_COST;
  * automatically come home like a scout's recon trip.
  */
 const ONE_WAY_SHIP_ROLES: ReadonlySet<string> = new Set([
-  'combat',
-  'support',
-  'shield',
-  'missile',
+  "combat",
+  "support",
+  "shield",
+  "missile",
 ]);
 
 export function isOneWayShipRole(role: string | null | undefined): boolean {
