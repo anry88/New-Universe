@@ -12,7 +12,7 @@ import { ResourceBar } from "../components/ResourceBar";
 import { ShieldStatus } from "../components/ShieldStatus";
 import { CombatShipMenu } from "../components/CombatShipMenu";
 import { CosmicBackground, CosmicBottomNav, QueueStrip } from "../components/cosmic/atoms";
-import { ChevronLeft } from "lucide-react";
+import { ChevronDown, ChevronLeft } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { Ship, ShipQueueItem, ShipType } from "@shared/types/ships";
 import type { RushPricing } from "@shared/types/diamonds";
@@ -39,7 +39,6 @@ import {
   isShipTypeVisible,
   isShipTypeVisibleInShipyard,
   ShipIconBadge,
-  shipStatusTone,
 } from "../components/cosmic/ships";
 import { isCargoTransferShip, isCargoTransferShipType } from "../lib/fleet";
 import type { ExpeditionRouteMode } from "@shared/config/expeditionRouting";
@@ -158,6 +157,7 @@ export function ShipsPage() {
   const [refuelingShip, setRefuelingShip] = useState<Ship | null>(null);
   const [refuelTargetShipId, setRefuelTargetShipId] = useState<string | null>(null);
   const [selectedPlanetId, setSelectedPlanetId] = useState<string | null>(null);
+  const [expandedShipId, setExpandedShipId] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
 
   const ships = meData?.ships || [];
@@ -616,7 +616,9 @@ export function ShipsPage() {
               const effectiveStatus = ship.status;
               const isIdle = isShipReadyForOrders(ship);
               const isBuilding = effectiveStatus === "building";
-              const localRefueler = isIdle && ship.locationPlanetId ? ships.find(s => s.typeId === 'refueler' && s.status === 'idle' && s.locationPlanetId === ship.locationPlanetId) : null;
+              const localRefueler = isIdle && ship.locationPlanetId
+                ? ships.find((s) => s.typeId === 'refueler' && s.status === 'idle' && s.locationPlanetId === ship.locationPlanetId)
+                : null;
               const activeExpedition = activeExpeditionByShipId.get(ship.id);
               const buildTimer = queueItem
                 ? timerSnapshot({
@@ -634,14 +636,10 @@ export function ShipsPage() {
                     ),
                   )
                 : null;
-              const expeditionLeg =
-                activeExpedition?.status === "returning"
-                  ? "Returning"
-                  : t("ships.outbound");
               const expeditionLegLabel =
                 activeExpedition?.status === "returning"
                   ? t("ships.returning")
-                  : expeditionLeg;
+                  : t("ships.outbound");
               const shipLocation = isIdle
                 ? `${t("ships.orbit")} · ${origin.sectorX}:${origin.sectorY}:${origin.sectorZ}`
                 : isBuilding
@@ -649,167 +647,164 @@ export function ShipsPage() {
                   : activeExpedition && expeditionEtaSec != null
                     ? `${t("ships.inTransit")} · ${expeditionLegLabel} · ETA ${formatDuration(expeditionEtaSec)}`
                     : `${t("ships.inTransit")} · ${t("ships.syncingRoute")}`;
+              const shipName = type?.name?.[locale] ?? getShipLabel(ship.typeId, locale);
+              const isDestroyed = ship.status === 'destroyed';
+              const isDamaged = !isDestroyed && ship.hp < ship.maxHp;
+              const expanded = expandedShipId === ship.id;
+              const primaryAction = isIdle
+                ? isCargoShip
+                  ? t("ships.openCargo").toUpperCase()
+                  : isDiscoveryProbe
+                    ? t("ships.openJumpGate").toUpperCase()
+                    : ship.typeId === "refueler"
+                      ? t("refuel_dialog_transfer_button").toUpperCase()
+                      : t("ships.sendMission").toUpperCase()
+                : isBuilding
+                  ? t("ships.building").toUpperCase()
+                  : expeditionEtaSec != null
+                    ? `ETA ${formatDuration(expeditionEtaSec)}`
+                    : t("ships.inTransit").toUpperCase();
+              const handlePrimaryAction = () => {
+                if (isCargoShip) {
+                  if (!ship.locationPlanetId) return;
+                  const params = new URLSearchParams({
+                    cargoOrigin: ship.locationPlanetId,
+                    cargoShip: ship.id,
+                  });
+                  navigate(`/colonies?${params.toString()}`);
+                  return;
+                }
+                if (isDiscoveryProbe) {
+                  navigate("/map");
+                  return;
+                }
+                setSelectedShip(ship);
+              };
               return (
-                <div key={ship.id} className="ship-row">
-                  <div className="ship-visual">
+                <div
+                  key={ship.id}
+                  className={`ship-row ship-row-collapsible${expanded ? ' is-expanded' : ''}`}
+                >
+                  <button
+                    type="button"
+                    className="ship-row-header"
+                    aria-expanded={expanded}
+                    onClick={() => setExpandedShipId(expanded ? null : ship.id)}
+                  >
                     <ShipIconBadge
                       typeId={ship.typeId}
                       status={effectiveStatus}
                       size={36}
-                      title={type?.name?.[locale] ?? getShipLabel(ship.typeId, locale)}
+                      title={shipName}
                     />
-                    <div
-                      className="ship-cls"
-                      style={{ color: shipStatusTone(effectiveStatus) }}
-                    >
-                      {getShipClassTag(ship.typeId, locale)}
+                    <div className="ship-row-summary">
+                      <div className="ship-name">{shipName}</div>
+                      <div className="ship-loc">{shipLocation}</div>
                     </div>
-                  </div>
-                  <div>
-                    <div className="ship-name">
-                      {type?.name?.[locale] ?? getShipLabel(ship.typeId, locale)}
-                    </div>
-                    {type ? (
-                      <div className="ship-loc">
-                        {shipDescription(type.id, locale)}
-                      </div>
-                    ) : null}
-                    <ShieldStatus shields={ship.combatStats?.shields ?? type?.combatStats?.shields} />
-                    <div className="ship-loc">{shipLocation}</div>
-                    <button
-                      type="button"
-                      disabled={!isIdle || (isCargoShip && !ship.locationPlanetId)}
-                      onClick={() => {
-                        if (isCargoShip) {
-                          if (!ship.locationPlanetId) return;
-                          const params = new URLSearchParams({
-                            cargoOrigin: ship.locationPlanetId,
-                            cargoShip: ship.id,
-                          });
-                          navigate(`/colonies?${params.toString()}`);
-                          return;
-                        }
-                        if (isDiscoveryProbe) {
-                          navigate("/map");
-                          return;
-                        }
-                        setSelectedShip(ship);
-                      }}
-                      className="cosmic-cta"
+                    <ChevronDown
+                      size={18}
+                      className="ship-row-chevron"
                       style={{
-                        marginTop: 6,
-                        padding: "6px 12px",
-                        fontSize: 11,
-                        opacity:
-                          isIdle && (!isCargoShip || ship.locationPlanetId)
-                            ? 1
-                            : 0.4,
-                        cursor:
-                          isIdle && (!isCargoShip || ship.locationPlanetId)
-                            ? "pointer"
-                            : "not-allowed",
+                        transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                        transition: 'transform 0.15s ease',
+                        color: 'var(--text-faint)',
                       }}
-                    >
-                      {isIdle
-                        ? isCargoShip
-                          ? t("ships.openCargo").toUpperCase()
-                          : isDiscoveryProbe
-                            ? t("ships.openJumpGate").toUpperCase()
-                            : ship.typeId === "refueler"
-                              ? t("refuel_dialog_transfer_button").toUpperCase()
-                              : t("ships.sendMission").toUpperCase()
-                        : isBuilding
-                          ? t("ships.building").toUpperCase()
-                          : expeditionEtaSec != null
-                            ? `ETA ${formatDuration(expeditionEtaSec)}`
-                            : t("ships.inTransit").toUpperCase()}
-                    </button>
-                    {ship.typeId === "refueler" && isIdle && (
-                      <button
-                        type="button"
-                        onClick={() => setRefuelingShip(ship)}
-                        className="cosmic-cta"
+                    />
+                  </button>
+                  {expanded ? (
+                    <div className="ship-row-details">
+                      <div
+                        className="ship-stats"
                         style={{
-                          marginTop: 6,
-                          padding: "6px 12px",
-                          fontSize: 11,
-                          marginLeft: 8,
+                          display: 'grid',
+                          gridTemplateColumns: '1fr 1fr',
+                          gap: '8px',
+                          justifyContent: 'stretch',
                         }}
                       >
-                        {t("refuel_dialog_title").toUpperCase()}
-                      </button>
-                    )}
-                    {ship.typeId !== "refueler" && isIdle && localRefueler && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setRefuelingShip(localRefueler);
-                          setRefuelTargetShipId(ship.id);
-                        }}
-                        className="cosmic-cta"
-                        style={{
-                          marginTop: 6,
-                          padding: "6px 12px",
-                          fontSize: 11,
-                          marginLeft: 8,
-                        }}
-                      >
-                        {t("refuel_dialog_title").toUpperCase()}
-                      </button>
-                    )}
-                    {isBuilding && buildTimer ? (
-                      <div className="qstrip-bar" style={{ marginTop: 8 }}>
-                        <div
-                          className="qstrip-fill"
+                        <div className="ship-stat">
+                          <span>{t("ships.hp")}</span>
+                          <b style={{ color: isDestroyed ? '#ef4444' : isDamaged ? '#fcd34d' : 'inherit' }}>
+                            {isDestroyed
+                              ? t("common.destroyed").toUpperCase()
+                              : `${Math.max(0, ship.hp)} / ${ship.maxHp}`}
+                          </b>
+                        </div>
+                        <div className="ship-stat">
+                          <span>{t("expedition.fuel")}</span>
+                          <b>{ship.fuel} / {type?.fuelCapacity ?? 0}</b>
+                        </div>
+                        <div className="ship-stat">
+                          <span>{t("expedition.jumpFuel")}</span>
+                          <b>{ship.jumpFuel} / {type?.jumpFuelCapacity ?? 0}</b>
+                        </div>
+                        {isDamaged ? (
+                          <div className="ship-stat" style={{ color: '#fcd34d' }}>
+                            <span>{t("common.status")}</span>
+                            <b>{t("ships.damaged").toUpperCase()}</b>
+                          </div>
+                        ) : null}
+                      </div>
+                      <ShieldStatus shields={ship.combatStats?.shields ?? type?.combatStats?.shields} />
+                      {isBuilding && buildTimer ? (
+                        <div className="qstrip-bar" style={{ marginTop: 8 }}>
+                          <div
+                            className="qstrip-fill"
+                            style={{
+                              width: `${buildTimer.progressPct}%`,
+                              background: "#5BD7FF",
+                              boxShadow: "0 0 6px #5BD7FF",
+                            }}
+                          />
+                        </div>
+                      ) : null}
+                      <div className="ship-row-actions">
+                        <button
+                          type="button"
+                          disabled={!isIdle || (isCargoShip && !ship.locationPlanetId)}
+                          onClick={handlePrimaryAction}
+                          className="cosmic-cta"
                           style={{
-                            width: `${buildTimer.progressPct}%`,
-                            background: "#5BD7FF",
-                            boxShadow: "0 0 6px #5BD7FF",
+                            padding: "6px 12px",
+                            fontSize: 11,
+                            opacity:
+                              isIdle && (!isCargoShip || ship.locationPlanetId)
+                                ? 1
+                                : 0.4,
+                            cursor:
+                              isIdle && (!isCargoShip || ship.locationPlanetId)
+                                ? "pointer"
+                                : "not-allowed",
                           }}
-                        />
+                        >
+                          {primaryAction}
+                        </button>
+                        {ship.typeId === "refueler" && isIdle && (
+                          <button
+                            type="button"
+                            onClick={() => setRefuelingShip(ship)}
+                            className="cosmic-cta"
+                            style={{ padding: "6px 12px", fontSize: 11 }}
+                          >
+                            {t("refuel_dialog_title").toUpperCase()}
+                          </button>
+                        )}
+                        {ship.typeId !== "refueler" && isIdle && localRefueler && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRefuelingShip(localRefueler);
+                              setRefuelTargetShipId(ship.id);
+                            }}
+                            className="cosmic-cta"
+                            style={{ padding: "6px 12px", fontSize: 11 }}
+                          >
+                            {t("refuel_dialog_title").toUpperCase()}
+                          </button>
+                        )}
                       </div>
-                    ) : null}
-                  </div>
-                  <div className="ship-stats" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                    <div className="ship-stat">
-                      <span>{t("ships.hp")}</span>
-                      <b style={{ color: ship.status === 'destroyed' ? '#ef4444' : ship.hp < ship.maxHp ? '#fcd34d' : 'inherit' }}>
-                        {ship.status === 'destroyed' 
-                          ? t("common.destroyed").toUpperCase() 
-                          : `${Math.max(0, ship.hp)} / ${ship.maxHp}`}
-                      </b>
                     </div>
-                    <div className="ship-stat">
-                      <span>{t("expedition.fuel")}</span>
-                      <b>{ship.fuel} / {type?.fuelCapacity ?? 0}</b>
-                    </div>
-                    <div className="ship-stat">
-                      <span>{t("expedition.jumpFuel")}</span>
-                      <b>{ship.jumpFuel} / {type?.jumpFuelCapacity ?? 0}</b>
-                    </div>
-                    <div className="ship-stat">
-                      <span>{t("ships.combatRole")}</span>
-                      <b>{getShipClassTag(ship.typeId, locale)}</b>
-                    </div>
-                    {type?.combatStats?.engagementRange === 'orbital' && (
-                      <div className="ship-stat" style={{ gridColumn: 'span 2' }}>
-                        <span>{t("ships.attackState")}</span>
-                        <b style={{ color: '#f87171' }}>{t("ships.state.bombing")}</b>
-                      </div>
-                    )}
-                    {type?.combatStats?.engagementRange && type.combatStats.engagementRange !== 'orbital' && (
-                      <div className="ship-stat" style={{ gridColumn: 'span 2' }}>
-                        <span>{t("ships.attackState")}</span>
-                        <b style={{ color: '#f87171' }}>{t("ships.state.combat")}</b>
-                      </div>
-                    )}
-                    {ship.hp < ship.maxHp && ship.status !== 'destroyed' && (
-                      <div className="ship-stat" style={{ gridColumn: 'span 2', color: '#fcd34d' }}>
-                        <span>{t("common.status")}</span>
-                        <b>{t("ships.damaged").toUpperCase()}</b>
-                      </div>
-                    )}
-                  </div>
+                  ) : null}
                 </div>
               );
             })}
