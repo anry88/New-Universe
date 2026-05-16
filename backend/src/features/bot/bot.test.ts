@@ -310,4 +310,55 @@ describe('Bot Feature', () => {
     await db.delete(starPayments).where(eq(starPayments.id, payment.id));
     await db.delete(users).where(eq(users.id, buyer.id));
   });
+
+  it('should list refundable payments with Telegram HTML-safe command hints', async () => {
+    const now = Date.now();
+    const buyerTgId = 910000 + now;
+
+    const [buyer] = await db
+      .insert(users)
+      .values({
+        tgId: BigInt(buyerTgId),
+        tgUsername: `support_list_buyer_${now}`,
+        tgFirstName: 'Buyer',
+        diamonds: 100,
+      })
+      .returning({ id: users.id });
+
+    const [payment] = await db
+      .insert(starPayments)
+      .values({
+        userId: buyer.id,
+        packId: 'diamonds_100',
+        diamonds: 100,
+        priceStars: 20,
+        currency: 'XTR',
+        invoicePayload: `pack=diamonds_100;user=${buyer.id}`,
+        telegramPaymentChargeId: `charge-support-list-${now}`,
+      })
+      .returning({ id: starPayments.id });
+
+    const update: TelegramUpdate = {
+      update_id: 10,
+      message: {
+        message_id: 110,
+        chat: { id: buyerTgId, type: 'private' },
+        text: '/paysupport',
+        from: { id: buyerTgId, first_name: 'Buyer', language_code: 'en' },
+      },
+    };
+
+    await handleTelegramUpdate(update);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, options] = fetchMock.mock.calls[0];
+    const body = JSON.parse(options.body);
+    expect(body.chat_id).toBe(buyerTgId);
+    expect(body.text).toContain('/paysupport &lt;ID&gt; &lt;reason&gt;');
+    expect(body.text).not.toContain('/paysupport <ID> <reason>');
+    expect(body.text).toContain(`<code>${payment.id}</code>`);
+
+    await db.delete(starPayments).where(eq(starPayments.id, payment.id));
+    await db.delete(users).where(eq(users.id, buyer.id));
+  });
 });
