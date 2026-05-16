@@ -11,10 +11,14 @@ import {
   CHECKOUT_AUTO_CONFIRM_DELAY_MS,
   CHECKOUT_CONFIRM_ATTEMPTS,
   CHECKOUT_CONFIRM_DELAY_MS,
+  ACTIVE_STARS_CHECKOUT_STORAGE_KEY,
   checkoutStatusKey,
   checkoutStatusTone,
+  encodeStoredStarsCheckout,
+  parseStoredStarsCheckout,
   shouldConfirmInvoiceStatus,
   shouldAutoConfirmCheckout,
+  type StarsCheckoutReference,
 } from '../lib/stars-checkout';
 
 declare global {
@@ -26,11 +30,6 @@ declare global {
     };
   }
 }
-
-type CheckoutReference = {
-  packId: string;
-  checkoutId: string;
-};
 
 type ConfirmCheckoutOptions = {
   attempts?: number;
@@ -51,6 +50,22 @@ function openInvoiceUrl(url: string, onStatus: (status: string) => void): boolea
 
   window.location.href = url;
   return false;
+}
+
+function saveActiveCheckout(checkout: StarsCheckoutReference) {
+  window.localStorage.setItem(ACTIVE_STARS_CHECKOUT_STORAGE_KEY, encodeStoredStarsCheckout(checkout));
+}
+
+function clearActiveCheckout() {
+  window.localStorage.removeItem(ACTIVE_STARS_CHECKOUT_STORAGE_KEY);
+}
+
+function readActiveCheckout(): StarsCheckoutReference | null {
+  const checkout = parseStoredStarsCheckout(window.localStorage.getItem(ACTIVE_STARS_CHECKOUT_STORAGE_KEY));
+  if (!checkout) {
+    clearActiveCheckout();
+  }
+  return checkout;
 }
 
 function TelegramStarIcon({ size = 16 }: { size?: number }) {
@@ -134,7 +149,7 @@ export function ShopPage() {
   const confirmMutation = useConfirmStarsCheckout();
   const { mutateAsync: confirmStarsCheckout, isPending: checkoutConfirmPending } = confirmMutation;
   const [checkoutStatus, setCheckoutStatus] = useState<string | null>(null);
-  const [lastCheckout, setLastCheckout] = useState<CheckoutReference | null>(null);
+  const [lastCheckout, setLastCheckout] = useState<StarsCheckoutReference | null>(null);
   const [confirmation, setConfirmation] = useState<ConfirmStarsCheckoutResponse | null>(null);
   const [autoConfirmAttempts, setAutoConfirmAttempts] = useState(0);
 
@@ -148,7 +163,7 @@ export function ShopPage() {
     });
   }, [packsQuery.data]);
 
-  const confirmCheckout = useCallback(async (checkout: CheckoutReference, options: ConfirmCheckoutOptions = {}) => {
+  const confirmCheckout = useCallback(async (checkout: StarsCheckoutReference, options: ConfirmCheckoutOptions = {}) => {
     const attempts = options.attempts ?? CHECKOUT_CONFIRM_ATTEMPTS;
     setLastCheckout(checkout);
     if (options.showConfirming !== false) {
@@ -162,12 +177,14 @@ export function ShopPage() {
         setConfirmation(latest);
 
         if (latest.status === 'delivered') {
+          clearActiveCheckout();
           setCheckoutStatus('delivered');
           setAutoConfirmAttempts(0);
           return;
         }
 
         if (latest.status === 'failed') {
+          clearActiveCheckout();
           setCheckoutStatus('failedDelivery');
           return;
         }
@@ -179,9 +196,20 @@ export function ShopPage() {
 
       setCheckoutStatus(latest?.status === 'failed' ? 'failedDelivery' : 'pendingDelivery');
     } catch {
-      setCheckoutStatus(options.keepPendingOnError ? 'pendingDelivery' : 'failedDelivery');
+      setCheckoutStatus(options.keepPendingOnError === false ? 'failedDelivery' : 'pendingDelivery');
     }
   }, [confirmStarsCheckout]);
+
+  useEffect(() => {
+    if (lastCheckout || checkoutStatus === 'delivered') return;
+    const restoredCheckout = readActiveCheckout();
+    if (!restoredCheckout) return;
+
+    setLastCheckout(restoredCheckout);
+    setCheckoutStatus('pending');
+    setAutoConfirmAttempts(0);
+    void confirmCheckout(restoredCheckout, { attempts: 1, keepPendingOnError: true, showConfirming: false });
+  }, [checkoutStatus, confirmCheckout, lastCheckout]);
 
   useEffect(() => {
     if (!shouldAutoConfirmCheckout({
@@ -214,6 +242,7 @@ export function ShopPage() {
         checkoutId: response.checkoutId,
       };
 
+      saveActiveCheckout(checkout);
       setLastCheckout(checkout);
       trackFrontendEvent('stars_checkout_started', {
         packDiamonds: response.pack.diamonds,
@@ -226,6 +255,9 @@ export function ShopPage() {
           return;
         }
 
+        if (status === 'cancelled' || status === 'failed') {
+          clearActiveCheckout();
+        }
         setCheckoutStatus(status);
       });
 
@@ -238,11 +270,6 @@ export function ShopPage() {
   };
 
   const checkoutBusy = invoiceMutation.isPending || checkoutConfirmPending;
-  const canRetryCheckout = Boolean(
-    lastCheckout &&
-    (checkoutStatus === 'pendingDelivery' || checkoutStatus === 'failedDelivery') &&
-    !checkoutBusy,
-  );
   const checkoutStatusParams = {
     diamonds: String(confirmation?.pack.diamonds ?? ''),
     balance: String(confirmation?.diamondsRemaining ?? meData?.diamonds ?? 0),
@@ -374,25 +401,10 @@ export function ShopPage() {
               <p style={{ margin: 0, color: '#fff7ed', fontSize: 14, fontWeight: 800 }}>
                 {t(checkoutStatusKey(checkoutStatus), checkoutStatusParams)}
               </p>
-              {checkoutStatus === 'pendingDelivery' && (
+              {(checkoutStatus === 'pending' || checkoutStatus === 'pendingDelivery') && (
                 <p style={{ margin: '6px 0 0', color: '#fde68a', fontSize: 12, lineHeight: 1.4 }}>
                   {t('shop.checkout.pendingDeliveryAuto')}
                 </p>
-              )}
-              {canRetryCheckout && (
-                <button
-                  type="button"
-                  className="rounded-md border border-sky-300/40 bg-sky-400/10 px-3 py-2 text-sm font-semibold text-sky-100"
-                  style={{ marginTop: 10 }}
-                  onClick={() => {
-                    if (lastCheckout) {
-                      setAutoConfirmAttempts(0);
-                      void confirmCheckout(lastCheckout);
-                    }
-                  }}
-                >
-                  {t('shop.checkout.retry')}
-                </button>
               )}
             </div>
           </div>
