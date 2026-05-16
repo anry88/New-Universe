@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ACTIVE_STARS_CHECKOUT_MAX_AGE_MS,
   CHECKOUT_AUTO_CONFIRM_MAX_ATTEMPTS,
   checkoutStatusKey,
   checkoutStatusTone,
+  encodeStoredStarsCheckout,
+  parseStoredStarsCheckout,
   shouldConfirmInvoiceStatus,
   shouldAutoConfirmCheckout,
 } from './stars-checkout';
@@ -30,7 +33,14 @@ describe('stars checkout helpers', () => {
     expect(shouldConfirmInvoiceStatus('unknown')).toBe(false);
   });
 
-  it('keeps auto-confirm polling active only for pending delivery checkouts', () => {
+  it('keeps auto-confirm polling active for pending checkout states', () => {
+    expect(shouldAutoConfirmCheckout({
+      status: 'pending',
+      hasCheckout: true,
+      checkoutBusy: false,
+      attempts: 0,
+    })).toBe(true);
+
     expect(shouldAutoConfirmCheckout({
       status: 'pendingDelivery',
       hasCheckout: true,
@@ -65,5 +75,29 @@ describe('stars checkout helpers', () => {
       checkoutBusy: true,
       attempts: 0,
     })).toBe(false);
+  });
+
+  it('encodes and restores active checkout references while they are fresh', () => {
+    const stored = encodeStoredStarsCheckout({
+      packId: 'diamonds_100',
+      checkoutId: 'checkout-1',
+    }, 10_000);
+
+    expect(parseStoredStarsCheckout(stored, 11_000)).toEqual({
+      packId: 'diamonds_100',
+      checkoutId: 'checkout-1',
+    });
+  });
+
+  it('drops invalid or stale active checkout references', () => {
+    const fresh = encodeStoredStarsCheckout({
+      packId: 'diamonds_100',
+      checkoutId: 'checkout-1',
+    }, 10_000);
+
+    expect(parseStoredStarsCheckout(null, 11_000)).toBeNull();
+    expect(parseStoredStarsCheckout('{bad-json', 11_000)).toBeNull();
+    expect(parseStoredStarsCheckout('{"packId":"","checkoutId":"checkout-1","createdAtMs":10000}', 11_000)).toBeNull();
+    expect(parseStoredStarsCheckout(fresh, 10_000 + ACTIVE_STARS_CHECKOUT_MAX_AGE_MS + 1)).toBeNull();
   });
 });
