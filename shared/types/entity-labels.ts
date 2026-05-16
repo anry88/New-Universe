@@ -73,13 +73,10 @@ export const SHIP_ENTITY_LABELS: Record<string, EntityLabels> = {
   colonizer: { en: 'Colonizer', ru: 'Колонизатор' },
   recon_probe: { en: 'Recon Probe', ru: 'Разведывательный зонд' },
   refueler: { en: 'Refueler', ru: 'Заправщик' },
-  fighter: { en: 'Fighter', ru: 'Истребитель' },
   light_fighter: { en: 'Light Fighter', ru: 'Лёгкий истребитель' },
   light_bomber: { en: 'Light Bomber', ru: 'Лёгкий бомбардировщик' },
   light_laser: { en: 'Light Laser Ship', ru: 'Лёгкий лазерный корабль' },
   small_shield_ship: { en: 'Small Shield Ship', ru: 'Малый щитовой корабль' },
-  cruiser: { en: 'Cruiser', ru: 'Крейсер' },
-  battleship: { en: 'Battleship', ru: 'Линкор' },
   medium_fighter: { en: 'Medium Fighter', ru: 'Средний истребитель' },
   medium_bomber: { en: 'Medium Bomber', ru: 'Средний бомбардировщик' },
   medium_laser: { en: 'Medium Laser Ship', ru: 'Средний лазерный корабль' },
@@ -118,10 +115,6 @@ export const SHIP_ENTITY_DESCRIPTIONS: Record<string, EntityLabels> = {
     en: 'Support tanker that transfers ordinary and Jump Fuel to idle ships.',
     ru: 'Корабль поддержки, передающий обычное и прыжковое топливо свободным кораблям.',
   },
-  fighter: {
-    en: 'General-purpose combat ship with medium-range kinetic fire.',
-    ru: 'Универсальный боевой корабль со средней дистанцией кинетического огня.',
-  },
   light_fighter: {
     en: 'Fast close-range interceptor that counters heavier payload carriers with evasion.',
     ru: 'Быстрый ближний перехватчик, который уклонением сдерживает носители тяжёлых зарядов.',
@@ -137,14 +130,6 @@ export const SHIP_ENTITY_DESCRIPTIONS: Record<string, EntityLabels> = {
   small_shield_ship: {
     en: 'Compact defensive hull that projects a short-range shield over nearby allied ships.',
     ru: 'Компактный оборонительный корпус с ближним щитовым полем для соседних союзных кораблей.',
-  },
-  cruiser: {
-    en: 'Medium combat hull with stronger armor and sustained fire.',
-    ru: 'Средний боевой корпус с усиленной бронёй и стабильным огнём.',
-  },
-  battleship: {
-    en: 'Heavy capital hull for slow long-range line combat.',
-    ru: 'Тяжёлый линейный корпус для медленного дальнего боя.',
   },
   medium_fighter: {
     en: 'Up-armored fighter line that trades speed for stronger sustained damage.',

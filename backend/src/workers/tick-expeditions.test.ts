@@ -198,7 +198,7 @@ describe("Tick Expeditions Worker", () => {
     await db
       .insert(shipTypes)
       .values({
-        id: "fighter",
+        id: "test_combat_hull",
         name: { ru: "Истребитель", en: "Fighter" },
         role: "combat",
         hp: 100,
@@ -225,13 +225,13 @@ describe("Tick Expeditions Worker", () => {
       })
       .returning();
 
-    await db.update(ships).set({ typeId: "fighter" }).where(eq(ships.id, ship.id));
+    await db.update(ships).set({ typeId: "test_combat_hull" }).where(eq(ships.id, ship.id));
 
     const [expedition] = await db
       .insert(expeditions)
       .values({
         shipId: ship.id,
-        type: "fighter",
+        type: "test_combat_hull",
         originPlanetId: originPlanet.id,
         targetPlanetId: targetPlanet.id,
         targetX: originSystem.sectorX.toString(),
@@ -347,7 +347,7 @@ describe("Tick Expeditions Worker", () => {
     await db
       .insert(shipTypes)
       .values({
-        id: "fighter",
+        id: "test_combat_hull",
         name: { ru: "Истребитель", en: "Fighter" },
         role: "combat",
         hp: 100,
@@ -363,14 +363,14 @@ describe("Tick Expeditions Worker", () => {
       })
       .onConflictDoNothing();
 
-    await db.update(ships).set({ typeId: "fighter" }).where(eq(ships.id, ship.id));
+    await db.update(ships).set({ typeId: "test_combat_hull" }).where(eq(ships.id, ship.id));
 
     const pastEta = new Date(Date.now() - 1000);
     const [expedition] = await db
       .insert(expeditions)
       .values({
         shipId: ship.id,
-        type: "fighter",
+        type: "test_combat_hull",
         originPlanetId: originPlanet.id,
         targetX: (originSystem.sectorX + 5).toString(),
         targetY: originSystem.sectorY.toString(),

@@ -179,7 +179,7 @@ describe("Expeditions - POST /expeditions", () => {
     await db
       .insert(shipTypes)
       .values({
-        id: "fighter",
+        id: "test_combat_hull",
         name: { ru: "Перехватчик", en: "Fighter" },
         role: "combat",
         hp: 80,
@@ -199,7 +199,7 @@ describe("Expeditions - POST /expeditions", () => {
       .insert(ships)
       .values({
         ownerId: userId,
-        typeId: "fighter",
+        typeId: "test_combat_hull",
         locationPlanetId: planetId,
         status: "idle",
         cargoJson: {},
