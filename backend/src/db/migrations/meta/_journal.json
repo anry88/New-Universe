@@ -260,6 +260,13 @@
       "when": 1779500000007,
       "tag": "0038_wet_leech",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1779500000008,
+      "tag": "0039_steep_hellcat",
+      "breakpoints": true
     }
   ]
 }

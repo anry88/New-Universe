@@ -1,5 +1,5 @@
 import { db } from '../db/index.js';
-import { ships, notifications } from '../db/schema.js';
+import { ships, notifications, planets } from '../db/schema.js';
 
 import { and, eq, isNotNull, lte } from 'drizzle-orm';
 
@@ -40,6 +40,10 @@ export async function completeShipBuildJob(
     return false;
   }
 
+  const planet = planetId
+    ? await db.query.planets.findFirst({ where: eq(planets.id, planetId) })
+    : null;
+
   await db.insert(notifications).values({
     userId: completedShip.ownerId,
     type: 'ship_done',
@@ -47,6 +51,7 @@ export async function completeShipBuildJob(
       shipId,
       typeId: completedShip.typeId,
       planetId,
+      planetName: planet?.name,
     },
   });
 

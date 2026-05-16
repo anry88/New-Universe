@@ -50,6 +50,7 @@ type CargoTransferResultPayload = {
   eta?: string;
   originSystemId?: string;
   targetSystemId?: string;
+  targetPlanetName?: string;
 };
 
 type CargoTransferShip = {
@@ -294,6 +295,7 @@ async function buildCargoTransferPlan(
       eta: eta.toISOString(),
       originSystemId: originSystem.id,
       targetSystemId: targetSystem.id,
+      targetPlanetName: targetSettlement.planet.name,
     },
   };
 }
@@ -455,6 +457,11 @@ export async function completeCargoTransfer(
         expeditionId: expedition.id,
         shipId,
         targetPlanetId: expedition.targetPlanetId,
+        targetPlanetName: claimedExpedition.result &&
+          typeof claimedExpedition.result === 'object' &&
+          'targetPlanetName' in claimedExpedition.result
+          ? (claimedExpedition.result as Record<string, unknown>).targetPlanetName
+          : undefined,
         resources: deliveryResources,
       },
     });

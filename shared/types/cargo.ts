@@ -37,6 +37,7 @@ export interface CargoTransferRoutePreview {
   eta: string;
   originSystemId: string;
   targetSystemId: string;
+  targetPlanetName?: string;
 }
 
 export interface CargoTransferPreviewResponse {

@@ -1,4 +1,5 @@
-import { pgTable, uuid, bigint, text, timestamp, integer } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, bigint, text, timestamp, integer, jsonb } from 'drizzle-orm/pg-core';
+import type { NotificationPreferences } from '@shared/types/notifications.js';
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -6,6 +7,10 @@ export const users = pgTable('users', {
   tgUsername: text('tg_username'),
   tgFirstName: text('tg_first_name'),
   preferredLocale: text('preferred_locale', { enum: ['en', 'ru'] }).notNull().default('en'),
+  notificationPreferences: jsonb('notification_preferences')
+    .$type<Partial<NotificationPreferences>>()
+    .notNull()
+    .default({}),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   premiumUntil: timestamp('premium_until'),
   powerScore: integer('power_score').default(0).notNull(),

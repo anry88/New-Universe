@@ -2,6 +2,7 @@ import { db } from '../../db/index.js';
 import { colonies } from '../../db/schema/colonies.js';
 import { ships, shipTypes } from '../../db/schema/ships.js';
 import { buildings } from '../../db/schema/buildings.js';
+import { notifications, planets } from '../../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import { colonyService } from './colonies.js';
 import { bootstrapColony } from './bootstrap.js';
@@ -99,6 +100,19 @@ export async function foundColony(userId: string, shipId: string, planetId: stri
 
     // 7. Bootstrap economy (starting stock, storage caps, regen rates)
     await bootstrapColony(planetId, tx);
+
+    const targetPlanet = await tx.query.planets.findFirst({
+      where: eq(planets.id, planetId),
+    });
+    await tx.insert(notifications).values({
+      userId,
+      type: 'colony_founded',
+      payload: {
+        planetId,
+        planetName: targetPlanet?.name,
+        shipId,
+      },
+    });
 
     return newColony;
   });

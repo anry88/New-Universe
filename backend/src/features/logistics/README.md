@@ -16,7 +16,7 @@ Interplanetary logistics — cargo transfers between player-owned colonies.
   - Sets ship status to `moving` and populates `cargoJson`.
   - Optionally enqueues a BullMQ `arrive_cargo` job for delivery processing when `ENABLE_BULLMQ=true`; otherwise the expedition poller and online sync complete the transfer from Postgres.
   - Exports `completeCargoTransfer(expedition, shipId, tx, options?)`, used by both the cargo worker and active-session expedition sync to finish one-way delivery without a return phase.
-  - `completeCargoTransfer` conditionally claims only `in_flight` / `returning` cargo expeditions before applying target gains, so repeated or concurrent worker jobs settle the cargo once. Delivery uses `gainResources`, which creates a zero-regen target stockpile row if the destination has never stored that resource.
+  - `completeCargoTransfer` conditionally claims only `in_flight` / `returning` cargo expeditions before applying target gains, so repeated or concurrent worker jobs settle the cargo once. Delivery uses `gainResources`, which creates a zero-regen target stockpile row if the destination has never stored that resource, then queues a localized `cargo_transfer_delivered` notification with the target planet name and resource list unless the caller suppresses notifications for online sync.
 - **`cargo-transfer.test.ts`** — Integration tests for Logistics gating, cargo transfer previews, Home ↔ common-colony Jump Gate routes, insufficient route fuel / Jump Fuel, discovered-only target rejection, and idempotent worker delivery.
 
 ## Transfer Rules
