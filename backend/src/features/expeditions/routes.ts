@@ -20,6 +20,7 @@ import {
   safeIntegerSchema,
   securityRouteConfig,
 } from "../../lib/security.js";
+import { trackBackendEvent } from "../../lib/analytics.js";
 
 export async function expeditionsRoutes(app: FastifyInstance) {
   app.post("/jump", {
@@ -83,6 +84,10 @@ export async function expeditionsRoutes(app: FastifyInstance) {
       return reply.status(result.status).send({ error: result.error });
     }
 
+    trackBackendEvent("expedition_jump_requested", {
+      mode: body.mode ?? "random",
+      jumpFuelRequired: result.jumpFuelRequired ?? null,
+    }, { userId: payload.userId, requestId: request.id });
     return reply.send({
       targetSystem: result.targetSystem,
       arrivalPlanetId: result.arrivalPlanetId,
@@ -201,6 +206,17 @@ export async function expeditionsRoutes(app: FastifyInstance) {
       });
     }
 
+    const expeditionResult = (result.expedition?.result ?? {}) as {
+      fuelRequired?: number;
+      jumpFuelRequired?: number;
+      routeMode?: string;
+    };
+    trackBackendEvent("expedition_launched", {
+      routeMode: expeditionResult.routeMode ?? routeMode ?? "local",
+      hasTargetPlanet: Boolean(targetPlanetId),
+      fuelRequired: expeditionResult.fuelRequired ?? null,
+      jumpFuelRequired: expeditionResult.jumpFuelRequired ?? null,
+    }, { userId: payload.userId, requestId: request.id });
     return reply.send({
       expedition: result.expedition,
       ship: result.ship,

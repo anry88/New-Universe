@@ -4,6 +4,7 @@ import { claimTutorialReward, syncTutorialProgress } from './service.js';
 import { mutationRateLimit } from '../../lib/rate-limit.js';
 import { objectBodySchema, requireSessionUserId, securityRouteConfig } from '../../lib/security.js';
 import { isTutorialStepId, TUTORIAL_FINAL_STEP } from '@shared/config/tutorialRewards.js';
+import { trackBackendEvent } from '../../lib/analytics.js';
 import type {
   TutorialClaimRequest,
   TutorialClaimResponse,
@@ -27,6 +28,11 @@ export async function tutorialRoutes(app: FastifyInstance) {
     if (!userId) return;
 
     const progress = await syncTutorialProgress(userId);
+    trackBackendEvent('tutorial_synced', {
+      tutorialStep: progress.tutorialStepCompleted,
+      tutorialCompleted: Boolean(progress.tutorialCompletedAt),
+      claimedRewardCount: progress.tutorialRewardsClaimed.toString(2).replace(/0/g, '').length,
+    }, { userId, requestId: request.id });
     return reply.send(serializeProgress(progress));
   });
 
@@ -59,6 +65,12 @@ export async function tutorialRoutes(app: FastifyInstance) {
 
     try {
       const result = await claimTutorialReward(userId, stepId);
+      trackBackendEvent('tutorial_reward_claimed', {
+        stepId,
+        rewardGranted: result.rewardGranted,
+        rewardDiamonds: result.rewardDiamonds,
+        tutorialCompleted: Boolean(result.tutorialCompletedAt),
+      }, { userId, requestId: request.id });
       return reply.send({
         ...serializeProgress(result),
         diamonds: result.diamonds,

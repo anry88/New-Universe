@@ -10,6 +10,7 @@ import { createResearchEffectsRequestCache } from '../research/effects.js';
 import { productionService, ProductionOperationError } from './production.js';
 import type { ProductionPreviewRequest, ProductionStartRequest } from '@shared/types/production.js';
 import { mutationRateLimit } from '../../lib/rate-limit.js';
+import { trackBackendEvent } from '../../lib/analytics.js';
 import {
   nonEmptyStringSchema,
   objectBodySchema,
@@ -121,6 +122,14 @@ export async function resourcesRoutes(app: FastifyInstance) {
         recipeId: body.recipeId,
         quantity: body.quantity,
       });
+      trackBackendEvent('production_started', {
+        recipeId: order.recipeId,
+        quantity: order.quantity,
+        durationSeconds: Math.max(
+          0,
+          Math.round((new Date(order.completesAt).getTime() - new Date(order.startedAt).getTime()) / 1000),
+        ),
+      }, { userId: auth.userId!, requestId: request.id });
       return reply.send({ success: true, order });
     } catch (err: unknown) {
       if (err instanceof ProductionOperationError) {
@@ -216,6 +225,11 @@ export async function resourcesRoutes(app: FastifyInstance) {
       return reply.status(result.status).send({ error: result.error });
     }
 
+    trackBackendEvent('resource_conversion_completed', {
+      fromResourceId: result.data?.from ?? from,
+      toResourceId: result.data?.to ?? to,
+      amount: result.data?.toAmount ?? amount,
+    }, { userId: payload.userId, requestId: request.id });
     return reply.send(result.data);
   });
 
@@ -266,6 +280,12 @@ export async function resourcesRoutes(app: FastifyInstance) {
       return reply.status(result.status).send({ error: result.error });
     }
 
+    trackBackendEvent('diamond_resource_purchase_completed', {
+      resourceId: result.data?.resourceId ?? resourceId,
+      amount: result.data?.amount ?? amount,
+      diamondsSpent: result.data?.diamondsSpent ?? null,
+      diamondsRemaining: result.data?.diamondsRemaining ?? null,
+    }, { userId: payload.userId, requestId: request.id });
     return reply.send(result.data);
   });
 
@@ -316,6 +336,12 @@ export async function resourcesRoutes(app: FastifyInstance) {
       return reply.status(result.status).send({ error: result.error });
     }
 
+    trackBackendEvent('diamond_resource_purchase_quoted', {
+      resourceId: result.data?.resourceId ?? resourceId,
+      amount: result.data?.amount ?? amount,
+      diamondsNeeded: result.data?.diamondsNeeded ?? null,
+      unitsPerDiamond: result.data?.unitsPerDiamond ?? null,
+    }, { userId: payload.userId, requestId: request.id });
     return reply.send(result.data);
   });
 

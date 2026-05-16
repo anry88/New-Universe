@@ -4,6 +4,7 @@ import { env } from '../lib/env.js';
 import { launchCargoTransfer, previewCargoTransfer } from '../features/logistics/cargo-transfer.js';
 import type { CargoTransferRequest, CargoTransferRouteMode } from '@shared/types/cargo.js';
 import { mutationRateLimit } from '../lib/rate-limit.js';
+import { trackBackendEvent } from '../lib/analytics.js';
 import {
   nonEmptyStringSchema,
   objectBodySchema,
@@ -139,6 +140,10 @@ export async function cargoRoutes(app: FastifyInstance) {
         routeMode,
         resources,
       });
+      trackBackendEvent('cargo_transfer_started', {
+        routeMode: routeMode ?? 'standard',
+        resourceLineCount: resources.length,
+      }, { userId, requestId: request.id });
       return reply.send(result);
     } catch (err: any) {
       return reply.status(400).send({

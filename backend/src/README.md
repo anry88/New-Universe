@@ -7,7 +7,7 @@ This is the backend application source. It is a Fastify v5 + TypeScript project 
 - [`db/`](db/README.md) — Drizzle ORM client, schema (per-domain table modules), generated migrations, and seed scripts.
 - [`config/`](config/README.md) — static balancing/config constants used by backend subsystems.
 - [`features/`](features/README.md) — feature modules (`auth`, `bot`, `me`, `world`, `buildings`, `resources`, `ships`, `combat`, `expeditions`, `jump-gate`, `research`, `tutorial`, `multiplayer`). Each feature owns its own route handlers, service logic, and tests.
-- [`lib/`](lib/README.md) — shared infrastructure: env validation, logger, Sentry, Telegram `initData` validation, production security checks, and Fastify rate limits.
+- [`lib/`](lib/README.md) — shared infrastructure: env validation, logger, Sentry, local-first analytics, Telegram `initData` validation, production security checks, and Fastify rate limits.
 - [`middleware/`](middleware/README.md) — Fastify hooks: request ID generator, Telegram auth `preHandler`.
 - [`routes/`](routes/README.md) — top-level routes that are not feature-scoped (`/health`, `/webhook/telegram`, `/cargo/*`, `/colonies/*`, `/multiplayer/*`).
 - [`workers/`](workers/README.md) — background workers for periodic ticks and delayed completion jobs (ships/buildings/research/production/notifications/expeditions/cargo).

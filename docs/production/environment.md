@@ -138,7 +138,7 @@ Prices are public-plan estimates checked on 2026-05-13. Real bills depend on pro
 | Redis | Upstash Redis Free | $0 | Free plan has 256MB and 500K commands/month ([Upstash pricing](https://upstash.com/pricing/redis)). BullMQ may exceed this; upgrade to Fixed 250MB ($10/mo) if command volume is high. |
 | Object backups | Cloudflare R2 Free | $0 | R2 Free includes 10GB-month storage and free egress ([R2 pricing](https://developers.cloudflare.com/r2/pricing/)). Use for encrypted logical backup artifacts only after backup automation exists. |
 | Error tracking | Sentry Developer/Free | $0 | Use until event volume/team access requires Team ($26/mo listed by Sentry). Backend/frontend DSNs are configured separately. |
-| Analytics | None initially | $0 | PostHog is in dependencies but not wired. Do not spend or collect analytics until product instrumentation is intentionally added. |
+| Analytics | Local structured logs + optional PostHog key | $0 | P4-ANA-001 adds local-first taxonomy and emitters. Backend logs `analytics.event`; frontend dispatches `nu:analytics`. PostHog remains disabled unless `VITE_POSTHOG_KEY` is intentionally configured. |
 | Domain | Provider of choice | about $10-20/year | Optional for internal closed alpha, required before public branding and stable BotFather config. |
 
 Expected first bill:

@@ -5,6 +5,8 @@ This is the Telegram Mini App client. It is a Vite + React 18 + TypeScript proje
 ## Layout
 
 - `lib/` — shared infrastructure (API client, store, Sentry init, helpers).
+  - **`analytics.ts`** — local-first frontend analytics emitter for task `P4-ANA-001`. It uses shared event definitions and property sanitization from `@shared/types/analytics`, emits `CustomEvent("nu:analytics")` for local checks, and only mirrors to PostHog when `VITE_POSTHOG_KEY` is configured.
+  - **`analytics.test.ts`** — unit coverage for frontend envelope creation and unsafe property filtering.
   - **`api.ts`** — `apiFetch` wrapper for authenticated JSON calls; sends `Accept-Language` from the persisted UI locale.
   - **`expedition-routing.ts`** — `buildExpeditionPreview()` wraps shared expedition route math for local and Jump Gate mission previews, including one-way colonizer fuel, one-way deployment fuel for combat/support/shield/missile hulls (`shipRole` input feeds `isOneWayExpedition`), ETA, stored Jump Fuel requirements, and caller-supplied gate-leg route distance when the UI is plotting Home Gate -> destination Gate -> selected target point.
   - **`expedition-routing.test.ts`** — unit coverage that keeps frontend Jump Gate scout/colonizer preview math aligned with backend launch results.
@@ -122,6 +124,7 @@ The folders above are reserved by `AGENTS.md` (`Engineering Rules` → "Keep fro
 - **`timers.ts`** — pure local timer helpers for countdown/progress snapshots and compact duration labels. Network synchronization stays in hooks (`useMe`, `useShipQueue`) and fires at due timestamps, not every UI tick.
 - **`timers.test.ts`** — Vitest coverage for exact timestamp progress, derived start fallback, and due-state clamping.
 - **`api.ts`** — Unified fetch client. Automatically injects `X-Telegram-Init-Data` from the SDK, `Authorization: Bearer <token>` when a session is active, and `Accept-Language` from the persisted UI locale.
+- **`analytics.ts`** — Shared browser analytics helper. `trackFrontendEvent()` records `client_session_started`, `session_authenticated`, and routed `page_viewed` events from the app shell/auth flow, filters unsafe Telegram/auth/user properties through the shared taxonomy, dispatches `nu:analytics` for local verification, and keeps external PostHog capture disabled until `VITE_POSTHOG_KEY` is present.
 - **`i18n.tsx`** — React locale context/provider over the EN/RU JSON dictionaries, with persisted locale switching and `t(key, params?)`.
 - **`locale.ts`** — reads/writes the persisted UI locale (`nu_preferred_locale`, plus legacy `ui_locale`) and normalizes Telegram/header values through the shared locale contract.
 - **`locale.test.ts`** — Vitest coverage for `normalizeLocale`.

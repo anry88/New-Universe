@@ -11,6 +11,7 @@ import { processCompletedResearch } from './completion.js';
 import type { RushResearchRequest, StartResearchRequest } from '@shared/types/research.js';
 import { mutationRateLimit } from '../../lib/rate-limit.js';
 import { nonEmptyStringSchema, objectBodySchema, securityRouteConfig } from '../../lib/security.js';
+import { trackBackendEvent } from '../../lib/analytics.js';
 
 export async function researchRoutes(app: FastifyInstance) {
   app.post('/start', {
@@ -187,6 +188,14 @@ export async function researchRoutes(app: FastifyInstance) {
       return reply.status(result.status).send(result.body);
     }
 
+    trackBackendEvent('research_started', {
+      branch: result.body.branch,
+      level: result.body.level,
+      durationSeconds: Math.max(
+        0,
+        Math.round((result.body.completesAt.getTime() - result.body.startedAt.getTime()) / 1000),
+      ),
+    }, { userId, requestId: request.id });
     return reply.send(result.body);
   });
 
@@ -218,6 +227,12 @@ export async function researchRoutes(app: FastifyInstance) {
 
     try {
       const result = await rushActiveResearch(userId, branch);
+      trackBackendEvent('research_rushed', {
+        branch: result.branch,
+        level: result.level,
+        diamondsSpent: result.cost,
+        diamondsRemaining: result.diamondsRemaining,
+      }, { userId, requestId: request.id });
       return reply.send(result);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Bad Request';

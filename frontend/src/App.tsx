@@ -13,6 +13,7 @@ import { OnboardingPage } from './pages/onboarding/Onboarding';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { I18nProvider, useI18n } from './lib/i18n';
+import { trackFrontendEvent } from './lib/analytics';
 
 const queryClient = new QueryClient();
 
@@ -37,6 +38,18 @@ function AppContent() {
   useEffect(() => {
     login().catch(console.error);
   }, [login]);
+
+  useEffect(() => {
+    trackFrontendEvent('client_session_started', {
+      path: location.pathname,
+    });
+  }, []);
+
+  useEffect(() => {
+    trackFrontendEvent('page_viewed', {
+      path: location.pathname,
+    });
+  }, [location.pathname]);
 
   useEffect(() => {
     const preferredLocale = meData?.preferredLocale ?? authUser?.preferredLocale;

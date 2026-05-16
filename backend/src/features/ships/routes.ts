@@ -9,6 +9,7 @@ import { type RefuelRequest, type RefuelErrorDetails, formatRefuelErrorMessage }
 import { resolveRequestLocale } from '../../lib/i18n.js';
 import { mutationRateLimit } from '../../lib/rate-limit.js';
 import { nonEmptyStringSchema, objectBodySchema, securityRouteConfig } from '../../lib/security.js';
+import { trackBackendEvent } from '../../lib/analytics.js';
 
 export async function shipsRoutes(app: FastifyInstance) {
   const resolveUserId = (request: any, reply: any): { ok: true; userId: string } | { ok: false } => {
@@ -81,6 +82,10 @@ export async function shipsRoutes(app: FastifyInstance) {
       });
     }
 
+    trackBackendEvent('ship_build_started', {
+      shipTypeId: result.queueItem?.typeId ?? typeSlug,
+      rushCost: result.queueItem?.rushCost ?? null,
+    }, { userId: auth.userId, requestId: request.id });
     return reply.send({ ship: result.ship, queueItem: result.queueItem });
   });
 
@@ -106,6 +111,10 @@ export async function shipsRoutes(app: FastifyInstance) {
     }
     try {
       const result = await rushShipBuild(auth.userId, shipId);
+      trackBackendEvent('ship_build_rushed', {
+        diamondsSpent: result.cost,
+        diamondsRemaining: result.diamondsRemaining,
+      }, { userId: auth.userId, requestId: request.id });
       return reply.send(result);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Bad Request';
@@ -145,6 +154,10 @@ export async function shipsRoutes(app: FastifyInstance) {
       });
     }
 
+    trackBackendEvent('ship_refueled', {
+      fuel: req.fuel ?? 0,
+      jumpFuel: req.jumpFuel ?? 0,
+    }, { userId: auth.userId, requestId: request.id });
     return reply.send(result.data);
   });
 }
