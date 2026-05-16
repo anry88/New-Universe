@@ -47,9 +47,9 @@ describe('research gates', () => {
   });
 
   it('gates combat ship hulls behind Weapons research branch', () => {
-    expect(SHIP_RESEARCH_GATES.fighter).toEqual({ branch: 'weapons', level: 1 });
-    expect(SHIP_RESEARCH_GATES.cruiser).toEqual({ branch: 'weapons', level: 2 });
-    expect(SHIP_RESEARCH_GATES.battleship).toEqual({ branch: 'weapons', level: 3 });
+    expect(SHIP_RESEARCH_GATES.light_fighter).toEqual({ branch: 'weapons', level: 1 });
+    expect(SHIP_RESEARCH_GATES.light_bomber).toEqual({ branch: 'weapons', level: 2 });
+    expect(SHIP_RESEARCH_GATES.light_laser).toEqual({ branch: 'weapons', level: 2 });
     expect(SHIP_RESEARCH_GATES.medium_fighter).toEqual({ branch: 'weapons', level: 3 });
     expect(SHIP_RESEARCH_GATES.heavy_fighter).toEqual({ branch: 'weapons', level: 4 });
     expect(SHIP_RESEARCH_GATES.rocket_carrier).toEqual({ branch: 'weapons', level: 4 });
@@ -66,30 +66,30 @@ describe('research gates', () => {
     expect(BUILDING_RESEARCH_GATES.atomic_reactor).toEqual({ branch: 'energy', level: 4 });
   });
 
-  it('blocks fighter build when Weapons I is not researched', () => {
+  it('blocks light_fighter build when Weapons I is not researched', () => {
     const map = levelsMapFromRows([]);
-    const gate = SHIP_RESEARCH_GATES.fighter!;
+    const gate = SHIP_RESEARCH_GATES.light_fighter!;
     expect(meetsResearchRequirement(map, gate)).toBe(false);
   });
 
-  it('allows fighter build after Weapons I is researched', () => {
+  it('allows light_fighter build after Weapons I is researched', () => {
     const map = levelsMapFromRows([{ branch: 'weapons', level: 1 }]);
-    const gate = SHIP_RESEARCH_GATES.fighter!;
+    const gate = SHIP_RESEARCH_GATES.light_fighter!;
     expect(meetsResearchRequirement(map, gate)).toBe(true);
   });
 
-  it('blocks cruiser build until Weapons II', () => {
+  it('blocks light_bomber build until Weapons II', () => {
     const mapL1 = levelsMapFromRows([{ branch: 'weapons', level: 1 }]);
     const mapL2 = levelsMapFromRows([{ branch: 'weapons', level: 2 }]);
-    const gate = SHIP_RESEARCH_GATES.cruiser!;
+    const gate = SHIP_RESEARCH_GATES.light_bomber!;
     expect(meetsResearchRequirement(mapL1, gate)).toBe(false);
     expect(meetsResearchRequirement(mapL2, gate)).toBe(true);
   });
 
-  it('blocks battleship build until Weapons III', () => {
+  it('blocks medium_fighter build until Weapons III', () => {
     const mapL2 = levelsMapFromRows([{ branch: 'weapons', level: 2 }]);
     const mapL3 = levelsMapFromRows([{ branch: 'weapons', level: 3 }]);
-    const gate = SHIP_RESEARCH_GATES.battleship!;
+    const gate = SHIP_RESEARCH_GATES.medium_fighter!;
     expect(meetsResearchRequirement(mapL2, gate)).toBe(false);
     expect(meetsResearchRequirement(mapL3, gate)).toBe(true);
   });
