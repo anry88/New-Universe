@@ -4,6 +4,7 @@ import type { Expedition } from './expeditions.js';
 import type { ResearchProgress } from './research.js';
 import type { RushPricing } from './diamonds.js';
 import type { Locale } from './locale.js';
+import type { NotificationPreferences } from './notifications.js';
 
 export interface ColonizationSummary {
   currentColonies: number;
@@ -21,6 +22,7 @@ export interface User {
   tgUsername: string | null;
   tgFirstName: string | null;
   preferredLocale: Locale;
+  notificationPreferences: NotificationPreferences;
   createdAt: string;
   premiumUntil: string | null;
   powerScore: number;

@@ -172,6 +172,9 @@ async function discoverHomePlanetsAlongRoute(
   );
 
   const layouts = buildSystemMapLayouts(homePlanets, Number(originSystem.seed));
+  const planetById = new Map<string, { name: string }>(
+    homePlanets.map((planet: any) => [planet.id, { name: planet.name }]),
+  );
   const layoutByPlanetId = new Map(
     layouts.map((layout) => [layout.id, layout]),
   );
@@ -224,7 +227,7 @@ async function discoverHomePlanetsAlongRoute(
   return newlyVisiblePlanets.map((layout) => ({
     type: "planet" as const,
     id: layout.id,
-    name: "Home planet",
+    name: planetById.get(layout.id)?.name ?? "Home planet",
   }));
 }
 
@@ -265,6 +268,9 @@ async function discoverJumpGateDestinationPlanetsAlongRoute(
   if (destinationPlanets.length === 0) return [];
 
   const layouts = buildSystemMapLayouts(destinationPlanets, Number(destinationSystem.seed));
+  const planetById = new Map<string, { name: string }>(
+    destinationPlanets.map((planet: any) => [planet.id, { name: planet.name }]),
+  );
   const routeStart = systemMapJumpGatePoint();
   const targetPlanet = expedition.targetPlanetId
     ? layouts.find((layout) => layout.id === expedition.targetPlanetId)
@@ -327,8 +333,28 @@ async function discoverJumpGateDestinationPlanetsAlongRoute(
   return newlyVisiblePlanets.map((layout) => ({
     type: "planet" as const,
     id: layout.id,
-    name: "Jump Gate planet",
+    name: planetById.get(layout.id)?.name ?? "Jump Gate planet",
   }));
+}
+
+async function insertPlanetDiscoveryNotifications(
+  tx: any,
+  userId: string,
+  discoveries: Array<{ type: "planet" | "system"; id: string; name: string }>,
+) {
+  const planetDiscoveries = discoveries.filter((discovery) => discovery.type === "planet");
+  if (planetDiscoveries.length === 0) return;
+
+  await tx.insert(notifications).values(
+    planetDiscoveries.map((discovery) => ({
+      userId,
+      type: "planet_discovered",
+      payload: {
+        planetId: discovery.id,
+        planetName: discovery.name,
+      },
+    })),
+  );
 }
 
 async function handleArrivalAtTarget(
@@ -376,13 +402,21 @@ async function handleArrivalAtTarget(
   // back home like a scout.
   if (expedition.targetPlanetId) {
     const [shipRow] = await tx
-      .select({ id: ships.id, ownerId: ships.ownerId, role: shipTypes.role })
+      .select({
+        id: ships.id,
+        ownerId: ships.ownerId,
+        typeId: ships.typeId,
+        role: shipTypes.role,
+      })
       .from(ships)
       .innerJoin(shipTypes, eq(shipTypes.id, ships.typeId))
       .where(eq(ships.id, expedition.shipId))
       .limit(1);
 
     if (shipRow && isOneWayShipRole(shipRow.role)) {
+      const targetPlanet = await tx.query.planets.findFirst({
+        where: eq(planets.id, expedition.targetPlanetId),
+      });
       await tx
         .update(ships)
         .set({
@@ -400,7 +434,9 @@ async function handleArrivalAtTarget(
           payload: {
             expeditionId: expedition.id,
             shipId: shipRow.id,
+            typeId: shipRow.typeId,
             planetId: expedition.targetPlanetId,
+            planetName: targetPlanet?.name,
           },
         });
       }
@@ -495,6 +531,7 @@ async function autoColonizeAtTarget(
     .select({
       isHome: systems.isHome,
       ownerId: systems.ownerId,
+      planetName: planets.name,
     })
     .from(planets)
     .innerJoin(systems, eq(systems.id, planets.systemId))
@@ -620,6 +657,7 @@ async function autoColonizeAtTarget(
       payload: {
         expeditionId: expedition.id,
         planetId: expedition.targetPlanetId,
+        planetName: target.planetName,
         shipId: ship.id,
       },
     });
@@ -760,6 +798,13 @@ export async function processExpeditions(
       );
 
       if (discoveries.length + homeDiscoveries.length + jumpGateDiscoveries.length > 0) {
+        if (!options.skipNotifications) {
+          await insertPlanetDiscoveryNotifications(
+            tx,
+            shipOwnerId,
+            [...discoveries, ...homeDiscoveries, ...jumpGateDiscoveries],
+          );
+        }
         logger.info(
           {
             shipId,

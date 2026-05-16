@@ -13,6 +13,7 @@ import {
   systems,
   users,
 } from "../../db/schema.js";
+import { DEFAULT_NOTIFICATION_PREFERENCES } from "@shared/types/notifications.js";
 
 describe("Me Routes", () => {
   const botToken = env.TELEGRAM_BOT_TOKEN;
@@ -73,6 +74,7 @@ describe("Me Routes", () => {
     const body = response.json();
     expect(body.user.tgId).toBe(tgId.toString());
     expect(body.user.preferredLocale).toBe("en");
+    expect(body.user.notificationPreferences).toEqual(DEFAULT_NOTIFICATION_PREFERENCES);
     expect(body.user.ships).toBeDefined();
     expect(Array.isArray(body.user.ships)).toBe(true);
     expect(body.user.expeditions).toBeDefined();
@@ -130,6 +132,7 @@ describe("Me Routes", () => {
 
     expect(updateResponse.statusCode).toBe(200);
     expect(updateResponse.json().preferredLocale).toBe("ru");
+    expect(updateResponse.json().notificationPreferences).toEqual(DEFAULT_NOTIFICATION_PREFERENCES);
 
     const meResponse = await app.inject({
       method: "GET",
@@ -141,6 +144,62 @@ describe("Me Routes", () => {
 
     expect(meResponse.statusCode).toBe(200);
     expect(meResponse.json().user.preferredLocale).toBe("ru");
+  });
+
+  it("updates notification preferences for the active user", async () => {
+    const app = Fastify();
+    await app.register(authRoutes, { prefix: "/auth" });
+    await app.register(meRoutes, { prefix: "/me" });
+
+    const tgId = Math.floor(Math.random() * 100000000);
+    const tgUser = { id: tgId, first_name: "Notify", username: "notifyuser" };
+    const initData = createValidInitData(tgUser);
+
+    const loginResponse = await app.inject({
+      method: "POST",
+      url: "/auth/telegram",
+      headers: {
+        "x-telegram-init-data": initData,
+      },
+    });
+
+    const { token } = loginResponse.json();
+
+    const updateResponse = await app.inject({
+      method: "PATCH",
+      url: "/me/preferences",
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+      payload: {
+        notificationPreferences: {
+          combat: false,
+          cargo: false,
+        },
+      },
+    });
+
+    expect(updateResponse.statusCode).toBe(200);
+    expect(updateResponse.json().preferredLocale).toBe("en");
+    expect(updateResponse.json().notificationPreferences).toMatchObject({
+      ...DEFAULT_NOTIFICATION_PREFERENCES,
+      combat: false,
+      cargo: false,
+    });
+
+    const meResponse = await app.inject({
+      method: "GET",
+      url: "/me",
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    });
+
+    expect(meResponse.statusCode).toBe(200);
+    expect(meResponse.json().user.notificationPreferences).toMatchObject({
+      combat: false,
+      cargo: false,
+    });
   });
 
   it("returns only the current user active expeditions", async () => {

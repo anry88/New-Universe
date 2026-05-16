@@ -14,6 +14,7 @@ Player colony and settlement management. Discovery only reveals a planet; a plan
   - Inserts the `colonies` row.
   - Constructs the initial `command_center` (Level 1).
   - Triggers the colony bootstrap flow.
+  - Queues a `colony_founded` notification with the planet display name.
 - **`bootstrap.ts`** — `bootstrapColony(planetId, tx?)` action module. Initializes the colony's economy:
   - Grants initial resource stock from `config/colony-bootstrap.ts`.
   - Creates `planet_resources` rows for known richness deposits, but leaves `regenRate = 0` until extractor buildings complete.

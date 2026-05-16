@@ -14,7 +14,7 @@
  * Used both by the periodic combat worker (`workers/tick-combat.ts`) and by
  * the per-user online sync (`features/me/online-sync.ts`).
  */
-import { and, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
+import { and, eq, gte, inArray, isNull, ne, sql } from 'drizzle-orm';
 import { db as defaultDb } from '../../db/index.js';
 import {
   ships,
@@ -35,6 +35,7 @@ import {
   type BomberActor,
   type BuildingTarget,
   type CombatActor,
+  type AttackerHit,
   computeTickDamage,
   resolveAttackerHits,
   resolveBomberHits,
@@ -64,6 +65,7 @@ interface ShipRow {
   typeCombatStats: CombatStats;
   hostSystem: {
     id: string;
+    name: string | null;
     isHome: boolean;
     ownerId: string | null;
     sectorX: number;
@@ -158,6 +160,7 @@ export async function processDueCombat(
   }
 
   const actorById = new Map(actors.map((a) => [a.id, a]));
+  const shipRowById = new Map(aliveShips.map((ship) => [ship.id, ship]));
   const destroyed: string[] = [];
   const updates: Array<{
     shipId: string;
@@ -210,6 +213,15 @@ export async function processDueCombat(
   }
 
   await defaultDb.transaction(async (tx) => {
+    if (!options.skipNotifications) {
+      await insertCombatStartedNotifications(tx, {
+        hits,
+        actorById,
+        shipRowById,
+        now,
+      });
+    }
+
     for (const [shipId, shieldHooks] of shieldResult.shieldUpdates) {
       const actor = actorById.get(shipId);
       if (!actor) continue;
@@ -280,6 +292,97 @@ export async function processDueCombat(
   };
 }
 
+async function insertCombatStartedNotifications(
+  tx: any,
+  input: {
+    hits: AttackerHit[];
+    actorById: Map<string, CombatActor>;
+    shipRowById: Map<string, ShipRow>;
+    now: Date;
+  },
+): Promise<void> {
+  const cutoff = new Date(input.now.getTime() - 30 * 60 * 1000);
+  const notificationsByOwnerAndSpace = new Map<
+    string,
+    {
+      userId: string;
+      combatSpaceKey: string;
+      locationName: string;
+      shipId: string;
+      typeId: string;
+    }
+  >();
+
+  for (const hit of input.hits) {
+    const attacker = input.actorById.get(hit.attackerId);
+    const defender = input.actorById.get(hit.defenderId);
+    if (!attacker || !defender || defender.lastCombatTickAtMs != null) continue;
+
+    const combatSpaceKey = combatSpaceKeyForActors(attacker, defender);
+    const locationName = combatLocationName(attacker, defender);
+    for (const participantId of [hit.attackerId, hit.defenderId]) {
+      const ship = input.shipRowById.get(participantId);
+      if (!ship) continue;
+      const key = `${ship.ownerId}:${combatSpaceKey}`;
+      if (notificationsByOwnerAndSpace.has(key)) continue;
+      notificationsByOwnerAndSpace.set(key, {
+        userId: ship.ownerId,
+        combatSpaceKey,
+        locationName,
+        shipId: ship.id,
+        typeId: ship.typeId,
+      });
+    }
+  }
+
+  for (const item of notificationsByOwnerAndSpace.values()) {
+    const [recent] = await tx
+      .select({ id: notifications.id })
+      .from(notifications)
+      .where(
+        and(
+          eq(notifications.userId, item.userId),
+          eq(notifications.type, 'combat_started'),
+          gte(notifications.createdAt, cutoff),
+          sql`${notifications.payload} ->> 'combatSpaceKey' = ${item.combatSpaceKey}`,
+        ),
+      )
+      .limit(1);
+    if (recent) continue;
+
+    await tx.insert(notifications).values({
+      userId: item.userId,
+      type: 'combat_started',
+      payload: {
+        combatSpaceKey: item.combatSpaceKey,
+        locationName: item.locationName,
+        shipId: item.shipId,
+        typeId: item.typeId,
+        startedAt: input.now.toISOString(),
+      },
+    });
+  }
+}
+
+function combatSpaceKeyForActors(
+  attacker: CombatActor,
+  defender: CombatActor,
+): string {
+  const systemId = defender.hostSystem?.id ?? attacker.hostSystem?.id;
+  if (systemId) return `system:${systemId}`;
+  const point = defender.position ?? attacker.position;
+  if (!point) return 'unknown';
+  return `point:${Math.round(point.x)}:${Math.round(point.y)}`;
+}
+
+function combatLocationName(attacker: CombatActor, defender: CombatActor): string {
+  return (
+    (defender.hostSystem as any)?.name ??
+    (attacker.hostSystem as any)?.name ??
+    'your fleet'
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Bomber → building pass.
 // ---------------------------------------------------------------------------
@@ -293,6 +396,7 @@ interface BombingPassResult {
 interface AliveBuildingRow {
   id: string;
   planetId: string;
+  planetName: string;
   systemId: string;
   typeId: string;
   level: number;
@@ -475,6 +579,7 @@ async function runBombingPass(
             type: 'colony_destroyed',
             payload: {
               planetId,
+              planetName: planetBuildings[0]?.planetName,
               colonyId,
               destroyedAt: now.toISOString(),
             },
@@ -493,6 +598,7 @@ async function runBombingPass(
             buildingId: u.buildingId,
             typeId: u.typeId,
             planetId: u.planetId,
+            planetName: aliveBuildings.find((b) => b.id === u.buildingId)?.planetName,
             destroyedAt: now.toISOString(),
           },
         }));
@@ -531,6 +637,7 @@ async function loadAliveBuildingsForSystems(
       destroyedAt: buildings.destroyedAt,
       lastCombatTickAt: buildings.lastCombatTickAt,
       planetSystemId: planets.systemId,
+      planetName: planets.name,
       typeCombatStats: buildingTypes.combatStats,
       colonyOwnerId: colonies.ownerId,
       colonyId: colonies.id,
@@ -553,6 +660,7 @@ async function loadAliveBuildingsForSystems(
   return rows.map((r) => ({
     id: r.id,
     planetId: r.planetId,
+    planetName: r.planetName,
     systemId: r.planetSystemId,
     typeId: r.typeId,
     level: r.level,
@@ -583,6 +691,7 @@ async function loadAliveShips(database: typeof defaultDb): Promise<ShipRow[]> {
       typeArmor: shipTypes.armor,
       typeCombatStats: shipTypes.combatStats,
       sysId: systems.id,
+      sysName: systems.name,
       sysIsHome: systems.isHome,
       sysOwnerId: systems.ownerId,
       sysSectorX: systems.sectorX,
@@ -609,6 +718,7 @@ async function loadAliveShips(database: typeof defaultDb): Promise<ShipRow[]> {
     hostSystem: r.sysId
       ? {
           id: r.sysId,
+          name: r.sysName,
           isHome: !!r.sysIsHome,
           ownerId: r.sysOwnerId,
           sectorX: Number(r.sysSectorX),

@@ -42,6 +42,11 @@ import {
   type UpdatePreferredLocaleResponse,
 } from "@shared/types/locale.js";
 import {
+  NOTIFICATION_CATEGORIES,
+  normalizeNotificationPreferences,
+  type NotificationPreferences,
+} from "@shared/types/notifications.js";
+import {
   ENERGY_RESOURCE_ID,
   resolvePlanetEnergyStateFromSnapshot,
   type EnergyResourceRow,
@@ -56,6 +61,7 @@ import {
 import { loadExpansionColonies } from "../colonies/colonization-rules.js";
 
 type UserRow = typeof users.$inferSelect;
+type UpdatePreferencesRequestBody = Partial<UpdatePreferredLocaleRequest> | null;
 
 function readBearerToken(request: FastifyRequest): string | null {
   const authHeader = request.headers.authorization;
@@ -439,6 +445,9 @@ export async function meRoutes(app: FastifyInstance) {
       const userObj = {
         ...user,
         tgId: user.tgId.toString(),
+        notificationPreferences: normalizeNotificationPreferences(
+          user.notificationPreferences,
+        ),
         tutorialStep: tutorialProgress.tutorialStepCompleted,
         tutorialCompletedAt: tutorialProgress.tutorialCompletedAt?.toISOString() ?? null,
         tutorialRewardsClaimed: tutorialProgress.tutorialRewardsClaimed,
@@ -479,16 +488,31 @@ export async function meRoutes(app: FastifyInstance) {
     config: securityRouteConfig(mutationRateLimit, 'body'),
     schema: {
       body: objectBodySchema(
-        { preferredLocale: { type: 'string', enum: ['en', 'ru'] } },
-        ['preferredLocale'],
+        {
+          preferredLocale: { type: 'string', enum: ['en', 'ru'] },
+          notificationPreferences: {
+            type: 'object',
+            properties: Object.fromEntries(
+              NOTIFICATION_CATEGORIES.map((category) => [
+                category,
+                { type: 'boolean' },
+              ]),
+            ),
+            additionalProperties: false,
+          },
+        },
+        [],
       ),
     },
   }, async (request, reply) => {
     const user = await loadSessionUser(request, reply);
     if (!user) return;
 
-    const body = request.body as Partial<UpdatePreferredLocaleRequest> | null;
-    if (!isSupportedLocale(body?.preferredLocale)) {
+    const body = request.body as UpdatePreferencesRequestBody;
+    if (
+      body?.preferredLocale !== undefined &&
+      !isSupportedLocale(body.preferredLocale)
+    ) {
       return sendLocalizedError(
         reply,
         request,
@@ -498,13 +522,26 @@ export async function meRoutes(app: FastifyInstance) {
       );
     }
 
+    const preferredLocale = body?.preferredLocale ?? user.preferredLocale;
+    const notificationPreferences: NotificationPreferences =
+      body?.notificationPreferences
+        ? normalizeNotificationPreferences({
+            ...normalizeNotificationPreferences(user.notificationPreferences),
+            ...body.notificationPreferences,
+          })
+        : normalizeNotificationPreferences(user.notificationPreferences);
+
     await db
       .update(users)
-      .set({ preferredLocale: body.preferredLocale })
+      .set({
+        preferredLocale,
+        notificationPreferences,
+      })
       .where(eq(users.id, user.id));
 
     return reply.send({
-      preferredLocale: body.preferredLocale,
+      preferredLocale,
+      notificationPreferences,
     } satisfies UpdatePreferredLocaleResponse);
   });
 }

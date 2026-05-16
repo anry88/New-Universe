@@ -7,7 +7,24 @@ import { formatHomeSystemTitleForUser } from '../lib/homeSystemTitle';
 import { CosmicBackground, CosmicBottomNav } from '../components/cosmic/atoms';
 import { useI18n } from '../lib/i18n';
 import type { Locale, UpdatePreferredLocaleResponse } from '@shared/types/locale';
+import {
+  DEFAULT_NOTIFICATION_PREFERENCES,
+  NOTIFICATION_CATEGORIES,
+  type NotificationCategory,
+  type NotificationPreferences,
+} from '@shared/types/notifications';
 import type { User } from '@shared/types/user';
+
+const NOTIFICATION_CATEGORY_LABEL_KEYS: Record<NotificationCategory, string> = {
+  building: 'profile.notifications.building',
+  ship: 'profile.notifications.ship',
+  research: 'profile.notifications.research',
+  expedition: 'profile.notifications.expedition',
+  discovery: 'profile.notifications.discovery',
+  colony: 'profile.notifications.colony',
+  cargo: 'profile.notifications.cargo',
+  combat: 'profile.notifications.combat',
+};
 
 /**
  * ProfilePage — Minimal player profile (Cosmic Atlas P1.1).
@@ -19,7 +36,10 @@ export function ProfilePage() {
   const { locale, setLocale, t } = useI18n();
   const navigate = useNavigate();
   const [isSavingLocale, setIsSavingLocale] = React.useState(false);
+  const [savingNotificationCategory, setSavingNotificationCategory] =
+    React.useState<NotificationCategory | null>(null);
   const [localeError, setLocaleError] = React.useState<string | null>(null);
+  const [notificationError, setNotificationError] = React.useState<string | null>(null);
 
   const homeSystem = user?.homeSystem;
   const sectorTag = homeSystem
@@ -28,6 +48,10 @@ export function ProfilePage() {
 
   const planetsCount =
     user?.planets?.filter((planet) => planet.isColonized !== false).length ?? 0;
+  const notificationPreferences: NotificationPreferences = {
+    ...DEFAULT_NOTIFICATION_PREFERENCES,
+    ...(user?.notificationPreferences ?? {}),
+  };
 
   const updateLocale = async (nextLocale: Locale) => {
     if (nextLocale === locale || isSavingLocale) return;
@@ -52,6 +76,41 @@ export function ProfilePage() {
       setLocaleError(err instanceof Error ? err.message : t('profile.saveFailed'));
     } finally {
       setIsSavingLocale(false);
+    }
+  };
+
+  const updateNotificationPreference = async (
+    category: NotificationCategory,
+    enabled: boolean,
+  ) => {
+    if (savingNotificationCategory) return;
+    setNotificationError(null);
+    setSavingNotificationCategory(category);
+
+    const previous = queryClient.getQueryData<User>(['me']);
+    const nextPreferences = {
+      ...DEFAULT_NOTIFICATION_PREFERENCES,
+      ...(previous?.notificationPreferences ?? user?.notificationPreferences ?? {}),
+      [category]: enabled,
+    };
+    queryClient.setQueryData<User>(['me'], (old) =>
+      old ? { ...old, notificationPreferences: nextPreferences } : old,
+    );
+
+    try {
+      const response = await apiFetch<UpdatePreferredLocaleResponse>('/me/preferences', {
+        method: 'PATCH',
+        body: JSON.stringify({ notificationPreferences: { [category]: enabled } }),
+      });
+      queryClient.setQueryData<User>(['me'], (old) =>
+        old ? { ...old, notificationPreferences: response.notificationPreferences } : old,
+      );
+      await queryClient.invalidateQueries({ queryKey: ['me'] });
+    } catch (err) {
+      if (previous) queryClient.setQueryData(['me'], previous);
+      setNotificationError(err instanceof Error ? err.message : t('profile.notifications.saveFailed'));
+    } finally {
+      setSavingNotificationCategory(null);
     }
   };
 
@@ -146,6 +205,58 @@ export function ProfilePage() {
               {localeError && (
                 <p style={{ margin: 0, color: '#ff8a8a', fontSize: 11 }} role="alert">
                   {localeError}
+                </p>
+              )}
+            </div>
+            <div style={{ display: 'grid', gap: 12, paddingTop: 4 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-dim)', fontSize: '12px', letterSpacing: '0.05em' }}>{t('profile.notifications.title').toUpperCase()}</span>
+                {savingNotificationCategory && (
+                  <span style={{ color: 'var(--accent)', fontSize: 11 }}>
+                    {t('profile.saving')}
+                  </span>
+                )}
+              </div>
+              <div style={{ display: 'grid', gap: 8 }}>
+                {NOTIFICATION_CATEGORIES.map((category) => {
+                  const checked = notificationPreferences[category];
+                  const disabled = savingNotificationCategory !== null;
+                  return (
+                    <label
+                      key={category}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: 14,
+                        padding: '10px 0',
+                        borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+                      }}
+                    >
+                      <span style={{ color: 'var(--text)', fontSize: 13, lineHeight: 1.35 }}>
+                        {t(NOTIFICATION_CATEGORY_LABEL_KEYS[category])}
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={disabled}
+                        aria-label={t(NOTIFICATION_CATEGORY_LABEL_KEYS[category])}
+                        onChange={(event) => void updateNotificationPreference(category, event.currentTarget.checked)}
+                        style={{
+                          width: 42,
+                          height: 22,
+                          flex: '0 0 auto',
+                          accentColor: '#5BD7FF',
+                          cursor: disabled ? 'wait' : 'pointer',
+                        }}
+                      />
+                    </label>
+                  );
+                })}
+              </div>
+              {notificationError && (
+                <p style={{ margin: 0, color: '#ff8a8a', fontSize: 11 }} role="alert">
+                  {notificationError}
                 </p>
               )}
             </div>
