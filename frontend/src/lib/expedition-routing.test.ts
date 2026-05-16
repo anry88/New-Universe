@@ -18,7 +18,7 @@ describe("expedition route preview", () => {
     expect(preview.distance).toBe(12);
     expect(preview.etaSeconds).toBe(360);
     expect(preview.fuelRequired).toBe(8);
-    expect(preview.jumpFuelRequired).toBe(1);
+    expect(preview.jumpFuelRequired).toBe(50);
     expect(preview.returnTrip).toBe(true);
   });
 
@@ -36,7 +36,7 @@ describe("expedition route preview", () => {
     expect(preview.distance).toBe(5);
     expect(preview.etaSeconds).toBe(300);
     expect(preview.fuelRequired).toBe(8);
-    expect(preview.jumpFuelRequired).toBe(1);
+    expect(preview.jumpFuelRequired).toBe(50);
     expect(preview.returnTrip).toBe(false);
   });
 
@@ -105,16 +105,22 @@ describe("expedition route preview", () => {
   });
 
   it("formats launch blockers with localized ship and resource names", () => {
-    const logistics = formatLaunchExpeditionErrorMessage({
-      code: "expedition_logistics_route_required",
-      shipTypeId: "cargo_light",
-    }, "en");
-    const jumpFuel = formatLaunchExpeditionErrorMessage({
-      code: "insufficient_resource",
-      resourceId: "jump_fuel",
-      required: 50,
-      available: 0,
-    }, "ru");
+    const logistics = formatLaunchExpeditionErrorMessage(
+      {
+        code: "expedition_logistics_route_required",
+        shipTypeId: "cargo_light",
+      },
+      "en",
+    );
+    const jumpFuel = formatLaunchExpeditionErrorMessage(
+      {
+        code: "insufficient_resource",
+        resourceId: "jump_fuel",
+        required: 50,
+        available: 0,
+      },
+      "ru",
+    );
 
     expect(logistics).toBe("Lightweight Transporter uses cargo transfer.");
     expect(logistics).not.toContain("cargo_light");

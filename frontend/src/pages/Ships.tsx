@@ -10,7 +10,11 @@ import { ExpeditionDialog } from "../components/ExpeditionDialog";
 import { RefuelDialog } from "../components/RefuelDialog";
 import { ResourceBar } from "../components/ResourceBar";
 import { ShieldStatus } from "../components/ShieldStatus";
-import { CosmicBackground, CosmicBottomNav, QueueStrip } from "../components/cosmic/atoms";
+import {
+  CosmicBackground,
+  CosmicBottomNav,
+  QueueStrip,
+} from "../components/cosmic/atoms";
 import { ChevronDown, ChevronLeft } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { Ship, ShipQueueItem, ShipType } from "@shared/types/ships";
@@ -19,7 +23,11 @@ import { estimateRushDiamondCost } from "@shared/types/diamonds";
 import type { CombatStats, EngagementRange } from "@shared/types/combat";
 import type { Building, Planet } from "@shared/types/world";
 import { shipDescription } from "@shared/types/entity-labels";
-import { getResourceLabel, ResourceAmountList } from "../components/cosmic/resources";
+import {
+  getResourceLabel,
+  ResourceAmount,
+  ResourceAmountList,
+} from "../components/cosmic/resources";
 import { timerSnapshot } from "../lib/timers";
 import {
   isShipReadyForOrders,
@@ -114,7 +122,7 @@ function ShipBuildQueue({
           rushPricing.diamondsPerMinute,
           rushPricing.maxPerAction,
         )
-      : head.rushCost ?? 0;
+      : (head.rushCost ?? 0);
   const title = `${type?.name?.[locale] ?? getShipLabel(head.typeId, locale)} · ${t("ships.building")}`;
   const waitingForServerId = head.id.startsWith("temp-");
 
@@ -154,7 +162,9 @@ export function ShipsPage() {
   const { locale, t } = useI18n();
   const [selectedShip, setSelectedShip] = useState<Ship | null>(null);
   const [refuelingShip, setRefuelingShip] = useState<Ship | null>(null);
-  const [refuelTargetShipId, setRefuelTargetShipId] = useState<string | null>(null);
+  const [refuelTargetShipId, setRefuelTargetShipId] = useState<string | null>(
+    null,
+  );
   const [selectedPlanetId, setSelectedPlanetId] = useState<string | null>(null);
   const [expandedShipId, setExpandedShipId] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -170,10 +180,11 @@ export function ShipsPage() {
     new URLSearchParams(location.search).get("tab") === "shipyard"
       ? "shipyard"
       : new URLSearchParams(location.search).get("tab") === "military_shipyard"
-      ? "military_shipyard"
-      : "fleet";
-  const jumpGateDestinationSystemId =
-    new URLSearchParams(location.search).get("destinationSystemId");
+        ? "military_shipyard"
+        : "fleet";
+  const jumpGateDestinationSystemId = new URLSearchParams(location.search).get(
+    "destinationSystemId",
+  );
   const requestedInitialRouteMode: ExpeditionRouteMode =
     new URLSearchParams(location.search).get("route") === "jump_gate" &&
     jumpGateDestinationSystemId
@@ -185,12 +196,15 @@ export function ShipsPage() {
   const planets = meData?.planets ?? [];
   const colonizationSummary = meData?.colonization;
   const buildableShipTypes = useMemo(
-    () => (shipTypes ?? []).filter((type) => {
-      if (!isShipTypeVisibleInShipyard(type.id)) return false;
-      const isMilitary = type.requiredBuildings.some(b => b.typeId === "military_shipyard");
-      if (activeTab === "military_shipyard") return isMilitary;
-      return !isMilitary;
-    }),
+    () =>
+      (shipTypes ?? []).filter((type) => {
+        if (!isShipTypeVisibleInShipyard(type.id)) return false;
+        const isMilitary = type.requiredBuildings.some(
+          (b) => b.typeId === "military_shipyard",
+        );
+        if (activeTab === "military_shipyard") return isMilitary;
+        return !isMilitary;
+      }),
     [shipTypes, activeTab],
   );
 
@@ -210,7 +224,10 @@ export function ShipsPage() {
     );
   }, [planets]);
 
-  const currentTabPlanets = activeTab === "military_shipyard" ? militaryShipyardPlanets : shipyardPlanets;
+  const currentTabPlanets =
+    activeTab === "military_shipyard"
+      ? militaryShipyardPlanets
+      : shipyardPlanets;
 
   const resolvedPlanetId =
     selectedPlanetId ?? currentTabPlanets[0]?.id ?? homePlanetId ?? null;
@@ -225,7 +242,11 @@ export function ShipsPage() {
     return level;
   };
 
-  const formatRequirement = (planet: Planet | null, typeId: string, level: number) => {
+  const formatRequirement = (
+    planet: Planet | null,
+    typeId: string,
+    level: number,
+  ) => {
     const building = resolveBuildingType(typeId);
     const current = planet ? buildingLevel(planet.buildings ?? [], typeId) : 0;
     return `${building.labels[locale]} L${level} (${t("ships.currentLevel", { level: current })})`;
@@ -274,7 +295,10 @@ export function ShipsPage() {
     });
   };
 
-  const handleBuildShip = async (typeSlug: string, estimatedDurationSec: number) => {
+  const handleBuildShip = async (
+    typeSlug: string,
+    estimatedDurationSec: number,
+  ) => {
     if (!selectedPlanet) return;
     try {
       await buildShip.mutateAsync({
@@ -306,7 +330,9 @@ export function ShipsPage() {
         .map((exp) => [exp.shipId, exp]),
     );
   }, [meData?.expeditions]);
-  const selectedShipType = selectedShip ? getShipType(selectedShip.typeId) : null;
+  const selectedShipType = selectedShip
+    ? getShipType(selectedShip.typeId)
+    : null;
   const selectedShipSupportsJumpGate =
     selectedShipType?.role === "recon" ||
     selectedShipType?.role === "colonization" ||
@@ -334,16 +360,26 @@ export function ShipsPage() {
           <div>
             <div className="page-tag">{t("ships.command").toUpperCase()}</div>
             <div className="page-title">
-              {activeTab === "shipyard" ? t("ships.shipyard") : activeTab === "military_shipyard" ? t("ships.militaryShipyard") : t("ships.fleetRoster")}
+              {activeTab === "shipyard"
+                ? t("ships.shipyard")
+                : activeTab === "military_shipyard"
+                  ? t("ships.militaryShipyard")
+                  : t("ships.fleetRoster")}
             </div>
           </div>
         </div>
         <div className="page-stat">
           <div className="ps-v">
-            {activeTab === "fleet" ? visibleShips.length : currentTabPlanets.length}
+            {activeTab === "fleet"
+              ? visibleShips.length
+              : currentTabPlanets.length}
           </div>
           <div className="ps-l">
-            {activeTab === "fleet" ? t("ships.vessels").toUpperCase() : activeTab === "military_shipyard" ? t("ships.militaryShipyards").toUpperCase() : t("ships.shipyards").toUpperCase()}
+            {activeTab === "fleet"
+              ? t("ships.vessels").toUpperCase()
+              : activeTab === "military_shipyard"
+                ? t("ships.militaryShipyards").toUpperCase()
+                : t("ships.shipyards").toUpperCase()}
           </div>
         </div>
       </div>
@@ -376,7 +412,10 @@ export function ShipsPage() {
         <button
           type="button"
           className="cosmic-cta"
-          style={{ flex: 1, opacity: activeTab === "military_shipyard" ? 1 : 0.65 }}
+          style={{
+            flex: 1,
+            opacity: activeTab === "military_shipyard" ? 1 : 0.65,
+          }}
           onClick={() => navigate("/ships?tab=military_shipyard")}
         >
           {t("ships.militaryShipyard")}
@@ -399,7 +438,9 @@ export function ShipsPage() {
                   borderRadius: 12,
                 }}
               >
-                {activeTab === "military_shipyard" ? t("ships.noMilitaryShipyard").toUpperCase() : t("ships.noShipyard").toUpperCase()}
+                {activeTab === "military_shipyard"
+                  ? t("ships.noMilitaryShipyard").toUpperCase()
+                  : t("ships.noShipyard").toUpperCase()}
               </div>
             ) : (
               <>
@@ -449,15 +490,17 @@ export function ShipsPage() {
                         },
                       )
                     : null;
-                  const canBuild = selectedPlanet ? blockedReason === null : false;
+                  const canBuild = selectedPlanet
+                    ? blockedReason === null
+                    : false;
                   const blockedText = blockedReason
                     ? formatBuildBlock(blockedReason)
                     : null;
                   const colonizerAtCurrentLimit = Boolean(
                     isColonizerHull &&
-                      colonizationSummary &&
-                      colonizationSummary.currentColonies >=
-                        colonizationSummary.maxColonies,
+                    colonizationSummary &&
+                    colonizationSummary.currentColonies >=
+                      colonizationSummary.maxColonies,
                   );
 
                   return (
@@ -479,21 +522,25 @@ export function ShipsPage() {
                           {shipDescription(type.id, locale)}
                         </div>
                         <div className="ship-loc">
-                          {t("ships.buildTime")}: {Math.floor(type.buildTimeSec / 60)}m{" "}
+                          {t("ships.buildTime")}:{" "}
+                          {Math.floor(type.buildTimeSec / 60)}m{" "}
                           {type.buildTimeSec % 60}s
                         </div>
                         <div className="ship-loc">
                           {t("common.cost")}:{" "}
                           <ResourceAmountList
-                            items={Object.entries(type.buildCost).map(([resourceId, amount]) => ({
-                              resourceId,
-                              amount,
-                            }))}
+                            items={Object.entries(type.buildCost).map(
+                              ([resourceId, amount]) => ({
+                                resourceId,
+                                amount,
+                              }),
+                            )}
                             locale={locale}
                           />
                         </div>
                         <div className="ship-loc">
-                          {t("ships.requires")}: {requirements || t("common.none")}
+                          {t("ships.requires")}:{" "}
+                          {requirements || t("common.none")}
                         </div>
                         <div className="ship-loc">
                           {t("ships.combatStats", {
@@ -508,7 +555,10 @@ export function ShipsPage() {
                         ) : null}
                         <ShieldStatus shields={type.combatStats?.shields} />
                         {blockedText ? (
-                          <div className="ship-loc" style={{ color: "#fca5a5" }}>
+                          <div
+                            className="ship-loc"
+                            style={{ color: "#fca5a5" }}
+                          >
                             {blockedText}
                           </div>
                         ) : null}
@@ -539,7 +589,9 @@ export function ShipsPage() {
                           disabled={
                             !selectedPlanet || !canBuild || buildShip.isPending
                           }
-                          onClick={() => handleBuildShip(type.id, type.buildTimeSec)}
+                          onClick={() =>
+                            handleBuildShip(type.id, type.buildTimeSec)
+                          }
                           className="cosmic-cta"
                           style={{
                             marginTop: 6,
@@ -609,13 +661,20 @@ export function ShipsPage() {
               const type = getShipType(ship.typeId);
               const isCargoShip = isCargoTransferShip(ship, shipTypes);
               const isDiscoveryProbe = ship.typeId === "recon_probe";
-              const queueItem = queueByShipId.get(ship.id) ?? queueItemFromBuildingShip(ship);
+              const queueItem =
+                queueByShipId.get(ship.id) ?? queueItemFromBuildingShip(ship);
               const effectiveStatus = ship.status;
               const isIdle = isShipReadyForOrders(ship);
               const isBuilding = effectiveStatus === "building";
-              const localRefueler = isIdle && ship.locationPlanetId
-                ? ships.find((s) => s.typeId === 'refueler' && s.status === 'idle' && s.locationPlanetId === ship.locationPlanetId)
-                : null;
+              const localRefueler =
+                isIdle && ship.locationPlanetId
+                  ? ships.find(
+                      (s) =>
+                        s.typeId === "refueler" &&
+                        s.status === "idle" &&
+                        s.locationPlanetId === ship.locationPlanetId,
+                    )
+                  : null;
               const activeExpedition = activeExpeditionByShipId.get(ship.id);
               const buildTimer = queueItem
                 ? timerSnapshot({
@@ -644,8 +703,9 @@ export function ShipsPage() {
                   : activeExpedition && expeditionEtaSec != null
                     ? `${t("ships.inTransit")} · ${expeditionLegLabel} · ETA ${formatDuration(expeditionEtaSec)}`
                     : `${t("ships.inTransit")} · ${t("ships.syncingRoute")}`;
-              const shipName = type?.name?.[locale] ?? getShipLabel(ship.typeId, locale);
-              const isDestroyed = ship.status === 'destroyed';
+              const shipName =
+                type?.name?.[locale] ?? getShipLabel(ship.typeId, locale);
+              const isDestroyed = ship.status === "destroyed";
               const isDamaged = !isDestroyed && ship.hp < ship.maxHp;
               const expanded = expandedShipId === ship.id;
               const primaryAction = isIdle
@@ -680,7 +740,7 @@ export function ShipsPage() {
               return (
                 <div
                   key={ship.id}
-                  className={`ship-row ship-row-collapsible${expanded ? ' is-expanded' : ''}`}
+                  className={`ship-row ship-row-collapsible${expanded ? " is-expanded" : ""}`}
                 >
                   <button
                     type="button"
@@ -698,13 +758,27 @@ export function ShipsPage() {
                       <div className="ship-name">{shipName}</div>
                       <div className="ship-loc">{shipLocation}</div>
                     </div>
+                    <div className="ship-row-fuel-summary">
+                      <ResourceAmount
+                        resourceId="fuel"
+                        amount={`${Number(ship.fuel).toFixed(0)}/${type?.fuelCapacity ?? 0}`}
+                        iconSize={12}
+                        locale={locale}
+                      />
+                      <ResourceAmount
+                        resourceId="jump_fuel"
+                        amount={`${Number(ship.jumpFuel).toFixed(0)}/${type?.jumpFuelCapacity ?? 0}`}
+                        iconSize={12}
+                        locale={locale}
+                      />
+                    </div>
                     <ChevronDown
                       size={18}
                       className="ship-row-chevron"
                       style={{
-                        transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                        transition: 'transform 0.15s ease',
-                        color: 'var(--text-faint)',
+                        transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
+                        transition: "transform 0.15s ease",
+                        color: "var(--text-faint)",
                       }}
                     />
                   </button>
@@ -713,15 +787,23 @@ export function ShipsPage() {
                       <div
                         className="ship-stats"
                         style={{
-                          display: 'grid',
-                          gridTemplateColumns: '1fr 1fr',
-                          gap: '8px',
-                          justifyContent: 'stretch',
+                          display: "grid",
+                          gridTemplateColumns: "1fr 1fr",
+                          gap: "8px",
+                          justifyContent: "stretch",
                         }}
                       >
                         <div className="ship-stat">
                           <span>{t("ships.hp")}</span>
-                          <b style={{ color: isDestroyed ? '#ef4444' : isDamaged ? '#fcd34d' : 'inherit' }}>
+                          <b
+                            style={{
+                              color: isDestroyed
+                                ? "#ef4444"
+                                : isDamaged
+                                  ? "#fcd34d"
+                                  : "inherit",
+                            }}
+                          >
                             {isDestroyed
                               ? t("common.destroyed").toUpperCase()
                               : `${Math.max(0, ship.hp)} / ${ship.maxHp}`}
@@ -729,20 +811,32 @@ export function ShipsPage() {
                         </div>
                         <div className="ship-stat">
                           <span>{t("expedition.fuel")}</span>
-                          <b>{ship.fuel} / {type?.fuelCapacity ?? 0}</b>
+                          <b>
+                            {ship.fuel} / {type?.fuelCapacity ?? 0}
+                          </b>
                         </div>
                         <div className="ship-stat">
                           <span>{t("expedition.jumpFuel")}</span>
-                          <b>{ship.jumpFuel} / {type?.jumpFuelCapacity ?? 0}</b>
+                          <b>
+                            {ship.jumpFuel} / {type?.jumpFuelCapacity ?? 0}
+                          </b>
                         </div>
                         {isDamaged ? (
-                          <div className="ship-stat" style={{ color: '#fcd34d' }}>
+                          <div
+                            className="ship-stat"
+                            style={{ color: "#fcd34d" }}
+                          >
                             <span>{t("common.status")}</span>
                             <b>{t("ships.damaged").toUpperCase()}</b>
                           </div>
                         ) : null}
                       </div>
-                      <ShieldStatus shields={ship.combatStats?.shields ?? type?.combatStats?.shields} />
+                      <ShieldStatus
+                        shields={
+                          ship.combatStats?.shields ??
+                          type?.combatStats?.shields
+                        }
+                      />
                       {isBuilding && buildTimer ? (
                         <div className="qstrip-bar" style={{ marginTop: 8 }}>
                           <div
@@ -758,7 +852,9 @@ export function ShipsPage() {
                       <div className="ship-row-actions">
                         <button
                           type="button"
-                          disabled={!isIdle || (isCargoShip && !ship.locationPlanetId)}
+                          disabled={
+                            !isIdle || (isCargoShip && !ship.locationPlanetId)
+                          }
                           onClick={handlePrimaryAction}
                           className="cosmic-cta"
                           style={{
@@ -786,19 +882,21 @@ export function ShipsPage() {
                             {t("refuel_dialog_title").toUpperCase()}
                           </button>
                         )}
-                        {ship.typeId !== "refueler" && isIdle && localRefueler && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setRefuelingShip(localRefueler);
-                              setRefuelTargetShipId(ship.id);
-                            }}
-                            className="cosmic-cta"
-                            style={{ padding: "6px 12px", fontSize: 11 }}
-                          >
-                            {t("refuel_dialog_title").toUpperCase()}
-                          </button>
-                        )}
+                        {ship.typeId !== "refueler" &&
+                          isIdle &&
+                          localRefueler && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setRefuelingShip(localRefueler);
+                                setRefuelTargetShipId(ship.id);
+                              }}
+                              className="cosmic-cta"
+                              style={{ padding: "6px 12px", fontSize: 11 }}
+                            >
+                              {t("refuel_dialog_title").toUpperCase()}
+                            </button>
+                          )}
                       </div>
                     </div>
                   ) : null}
@@ -825,26 +923,31 @@ export function ShipsPage() {
       {selectedShip &&
         selectedShipType &&
         !isCargoTransferShipType(selectedShipType) && (
-        <ExpeditionDialog
-          ship={selectedShip}
-          shipType={selectedShipType}
-          originX={Number(origin.sectorX)}
-          originY={Number(origin.sectorY)}
-          originZ={Number(origin.sectorZ)}
-          initialRouteMode={
-            selectedShipSupportsJumpGate ? requestedInitialRouteMode : "local"
-          }
-          initialDestinationSystemId={
-            selectedShipSupportsJumpGate ? jumpGateDestinationSystemId : null
-          }
-          onClose={() => setSelectedShip(null)}
-        />
-      )}
+          <ExpeditionDialog
+            ship={selectedShip}
+            shipType={selectedShipType}
+            originX={Number(origin.sectorX)}
+            originY={Number(origin.sectorY)}
+            originZ={Number(origin.sectorZ)}
+            initialRouteMode={
+              selectedShipSupportsJumpGate ? requestedInitialRouteMode : "local"
+            }
+            initialDestinationSystemId={
+              selectedShipSupportsJumpGate ? jumpGateDestinationSystemId : null
+            }
+            onClose={() => setSelectedShip(null)}
+          />
+        )}
 
       {refuelingShip && (
         <RefuelDialog
           sourceShip={refuelingShip}
           sourceType={getShipType(refuelingShip.typeId)!}
+          sourcePlanet={
+            planets.find(
+              (planet) => planet.id === refuelingShip.locationPlanetId,
+            ) ?? null
+          }
           allShips={ships}
           allShipTypes={shipTypes ?? []}
           initialTargetShipId={refuelTargetShipId ?? undefined}
