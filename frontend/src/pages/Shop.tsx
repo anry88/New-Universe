@@ -13,6 +13,7 @@ import {
   CHECKOUT_CONFIRM_DELAY_MS,
   checkoutStatusKey,
   checkoutStatusTone,
+  shouldConfirmInvoiceStatus,
   shouldAutoConfirmCheckout,
 } from '../lib/stars-checkout';
 
@@ -220,7 +221,7 @@ export function ShopPage() {
       });
 
       const handlesStatus = openInvoiceUrl(response.invoiceUrl, (status) => {
-        if (status === 'paid') {
+        if (shouldConfirmInvoiceStatus(status)) {
           void confirmCheckout(checkout);
           return;
         }

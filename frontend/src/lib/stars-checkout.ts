@@ -31,6 +31,10 @@ export function checkoutStatusTone(status: string): CheckoutDisplayTone {
   return 'info';
 }
 
+export function shouldConfirmInvoiceStatus(status: string): boolean {
+  return status === 'paid' || status === 'pending';
+}
+
 export function shouldAutoConfirmCheckout(input: {
   status: string | null;
   hasCheckout: boolean;
