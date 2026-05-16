@@ -25,9 +25,12 @@ describe('ship icon resolver', () => {
     expect(resolveShipType('large_shield_ship')).toBe(SHIP_BY_TYPE.large_shield_ship);
     expect(resolveShipType('rocket_carrier')).toBe(SHIP_BY_TYPE.rocket_carrier);
     expect(resolveShipType('heavy_rocket_carrier')).toBe(SHIP_BY_TYPE.heavy_rocket_carrier);
+    expect(resolveShipType('nuclear_carrier')).toBe(SHIP_BY_TYPE.nuclear_carrier);
     expect(getShipClassTag('recon_probe', 'ru')).toBe('ЗОНД');
     expect(getShipClassTag('small_shield_ship', 'en')).toBe('SHIELD');
     expect(getShipClassTag('rocket_carrier', 'en')).toBe('CARRIER');
+    expect(getShipClassTag('nuclear_carrier', 'en')).toBe('NUCLEAR');
+    expect(getShipClassTag('nuclear_carrier', 'ru')).toBe('ЯДЕРНЫЙ');
   });
 
   it('keeps recon probes visible for random Jump Gate discovery', () => {

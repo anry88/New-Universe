@@ -1035,4 +1035,67 @@ export const SHIP_TYPE_CATALOG_ROWS: ShipCatalogRow[] = [
       },
     } as CombatStats,
   },
+  {
+    // Late-tier nuclear strike platform. Carries nuclear-grade missiles against
+    // heavy hostile ships AND drops orbital nuclear bombs on hostile colonies,
+    // replacing the previous standalone "nuclear payload" shipyard notice with
+    // an actual buildable hull. Two damage paths are wired through the existing
+    // combat engine: `missilePayload` resolves into ship-vs-ship hits via
+    // `resolveAttackerHits`, and the orbital `damageProfile` is picked up by
+    // `resolveBomberHits` for surface attacks.
+    id: 'nuclear_carrier',
+    name: { ru: 'Ядерный носитель', en: 'Nuclear Carrier' },
+    role: 'missile',
+    hp: 2400,
+    speed: '0.80',
+    cargo: 0,
+    // Mirrors the rounded sustained DPS of the missile payload below
+    // (5400 / 45 = 120). The catalog audit enforces this equality.
+    dps: 120,
+    armor: 150,
+    fuelConsumption: '6.00',
+    fuelCapacity: 900,
+    jumpFuelCapacity: 30,
+    buildTimeSec: 36000,
+    buildCost: {
+      steel: 5400,
+      military_alloy: 720,
+      military_composite: 720,
+      electronics: 1100,
+      uranium: 320,
+      tritium: 180,
+      antimatter: 14,
+      iridium: 80,
+      jump_fuel: 20,
+    },
+    requiredBuildings: [{ typeId: 'military_shipyard', level: 6 }],
+    sensorRange: 55,
+    combatStats: {
+      targetClass: 'military_heavy',
+      armor: 150,
+      evasion: 0.02,
+      // Orbital nuclear bombing — picked up by `resolveBomberHits` against
+      // hostile surface buildings (incl. command centers).
+      damageProfile: {
+        damageType: 'thermal',
+        dps: 600,
+        armorPenetration: 0.55,
+        shieldMultiplier: 1.0,
+      },
+      engagementRange: 'orbital',
+      // Nuclear missile salvo — picked up by `resolveAttackerHits` and
+      // restricted to medium/heavy hostile hulls; light hulls can still evade
+      // the warhead's evasionCounterThreshold.
+      missilePayload: {
+        damageType: 'explosive',
+        alphaDamage: 5400,
+        reloadSec: 45,
+        armorPenetration: 0.55,
+        shieldMultiplier: 1.35,
+        validTargetClasses: ['military_medium', 'military_heavy'],
+        evasionCounterThreshold: 0.2,
+        maxRange: 'long',
+      },
+    } as CombatStats,
+  },
 ];
