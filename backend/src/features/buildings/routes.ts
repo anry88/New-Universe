@@ -14,6 +14,7 @@ import {
 import { formatBuildBlockedMessage } from '@shared/types/building-eligibility.js';
 import { formatInsufficientResourceMessage } from '@shared/types/entity-labels.js';
 import { rushDiamondCost, rushPricingMeta, rushRemainingSeconds } from '../../lib/diamonds.js';
+import { trackBackendEvent } from '../../lib/analytics.js';
 
 import { db } from '../../db/index.js';
 import { buildings, buildingTypes, colonies, planets, systems } from '../../db/schema.js';
@@ -135,6 +136,12 @@ export async function buildingsRoutes(app: FastifyInstance) {
 
     try {
       const result = await buildingService.build(userId, planetId, typeId, slotIndex, selectedResourceId);
+      trackBackendEvent('building_started', {
+        buildingTypeId: result.queueItem?.buildingTypeId ?? typeId,
+        slotIndex,
+        selectedResourceId: result.queueItem?.selectedResourceId ?? null,
+        rushCost: result.queueItem?.rushCost ?? null,
+      }, { userId, requestId: request.id });
       return result;
     } catch (err: unknown) {
       const locale = resolveRequestLocale(request);
@@ -165,6 +172,11 @@ export async function buildingsRoutes(app: FastifyInstance) {
 
     try {
       const result = await buildingService.upgrade(userId, buildingId);
+      trackBackendEvent('building_upgraded', {
+        buildingTypeId: result.queueItem?.buildingTypeId ?? null,
+        fromLevel: result.queueItem?.level ?? null,
+        rushCost: result.queueItem?.rushCost ?? null,
+      }, { userId, requestId: request.id });
       return result;
     } catch (err: unknown) {
       const locale = resolveRequestLocale(request);
@@ -210,7 +222,11 @@ export async function buildingsRoutes(app: FastifyInstance) {
     }
 
     try {
-      return await buildingService.changeExtractorResource(userId, buildingId, selectedResourceId);
+      const result = await buildingService.changeExtractorResource(userId, buildingId, selectedResourceId);
+      trackBackendEvent('extractor_resource_changed', {
+        selectedResourceId: result.selectedResourceId,
+      }, { userId, requestId: request.id });
+      return result;
     } catch (err: unknown) {
       const locale = resolveRequestLocale(request);
       if (err instanceof BuildingOperationError) {
@@ -240,6 +256,9 @@ export async function buildingsRoutes(app: FastifyInstance) {
 
     try {
       const result = await buildingService.demolish(userId, buildingId);
+      trackBackendEvent('building_demolished', {
+        refundResourceCount: Object.keys(result.refund ?? {}).length,
+      }, { userId, requestId: request.id });
       return result;
     } catch (err: any) {
       const locale = resolveRequestLocale(request);
@@ -337,7 +356,12 @@ export async function buildingsRoutes(app: FastifyInstance) {
     }
 
     try {
-      return await buildingService.rushQueuedBuilding(userId, buildingId);
+      const result = await buildingService.rushQueuedBuilding(userId, buildingId);
+      trackBackendEvent('building_rushed', {
+        diamondsSpent: result.cost,
+        diamondsRemaining: result.diamondsRemaining,
+      }, { userId, requestId: request.id });
+      return result;
     } catch (err: unknown) {
       if (err instanceof BuildingOperationError) {
         return reply.status(400).send({

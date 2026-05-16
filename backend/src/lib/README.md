@@ -25,6 +25,8 @@ Shared infrastructure used across features, middleware, and routes. Anything in 
   
   On validation failure the module logs the formatted Zod error and calls `process.exit(1)`. In production it also calls `assertProductionSecurityConfig` so weak launch secrets fail at startup. The exported `env` is the only place to read these variables; never read `process.env.X` from feature code.
 - **`i18n.ts`** — backend localization helpers for player-facing API errors. Exports `resolveRequestLocale(request, preferredLocale?)`, `apiErrorPayload(key, locale)`, and `sendLocalizedError(reply, request, statusCode, key, preferredLocale?)`; currently supports `en`/`ru` for auth/session/preference/internal error payloads and falls back to English.
+- **`analytics.ts`** — local-first analytics emitter for task `P4-ANA-001`. Exports `trackBackendEvent(name, properties, context)`, `buildBackendAnalyticsEvent`, `analyticsUserIdHash`, and `analyticsNumberBand`; event names and safe property filtering come from [`shared/types/analytics.ts`](../../../shared/types/analytics.ts). Backend events are structured Pino entries with `event: "analytics.event"`, `analyticsEvent`, HMAC-hashed internal user ids, optional Fastify `requestId`, and no Telegram ids/initData/tokens.
+- **`analytics.test.ts`** — verifies backend analytics user-id hashing, numeric balance buckets, and unsafe property filtering.
 - **`logger.ts`** — exports a configured Pino instance:
   - Level comes from `env.LOG_LEVEL`.
   - `level` formatter uppercases label names so logs read `INFO`, `ERROR`, etc.

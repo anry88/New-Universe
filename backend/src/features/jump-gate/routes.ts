@@ -6,6 +6,7 @@ import type {
 import jwt from 'jsonwebtoken';
 import { env } from '../../lib/env.js';
 import { sendLocalizedError } from '../../lib/i18n.js';
+import { trackBackendEvent } from '../../lib/analytics.js';
 import { jumpShip } from '../expeditions/jump.js';
 import { getJumpGateState } from './service.js';
 import { mutationRateLimit } from '../../lib/rate-limit.js';
@@ -65,6 +66,10 @@ export async function jumpGateRoutes(app: FastifyInstance) {
       return reply.status(result.status).send({ error: result.error });
     }
 
+    trackBackendEvent('expedition_jump_requested', {
+      mode: 'random',
+      jumpFuelRequired: result.jumpFuelRequired ?? null,
+    }, { userId, requestId: request.id });
     return reply.send({
       ship: result.ship,
       targetSystem: result.targetSystem,
@@ -99,6 +104,10 @@ export async function jumpGateRoutes(app: FastifyInstance) {
       return reply.status(result.status).send({ error: result.error });
     }
 
+    trackBackendEvent('expedition_jump_requested', {
+      mode: 'known_destination',
+      jumpFuelRequired: result.jumpFuelRequired ?? null,
+    }, { userId, requestId: request.id });
     return reply.send({
       ship: result.ship,
       targetSystem: result.targetSystem,

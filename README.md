@@ -13,6 +13,7 @@ New Universe — это многопользовательская космич�
 - [Architecture Diagrams](docs/Stellar_Forge_Diagrams.html)
 - [Launch Security Checklist](docs/security/launch-checklist.md)
 - [Economy Exploit Review](docs/security/economy-exploits.md)
+- [Product Analytics Event Taxonomy](docs/analytics/events.md)
 - [Changelog](CHANGELOG.md)
 
 Все проектные документы и спецификации доступны в папке [docs/](docs/).

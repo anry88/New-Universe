@@ -2493,7 +2493,7 @@
         "P4-SEC-001"
       ],
       "verify": "Complete monetization readiness review checklist",
-      "notes": "Keep this as design/readiness until the game loop is validated.",
+      "notes": "Keep this as design/readiness until the game loop is validated. Deferred on 2026-05-16 until P4-ANA-001 is complete. User monetization preference for the later Telegram Stars design: diamond packs should cover 100, 500, 2500, 5000, and 10000 diamonds; 100 diamonds should cost 20 Stars; each larger pack should improve diamonds-per-Star value by 10-25% versus the previous pack. Candidate balanced ladder to review: 20, 85, 350, 600, and 1000 Stars.",
       "prompt": "[TASK P4-MON-001] Monetization and Telegram policy readiness\n\nОПИСАНИЕ\nDefine launch-safe monetization surfaces, Telegram policy constraints, purchase flow boundaries, and non-pay-to-win guardrails.\n\nACCEPTANCE CRITERIA\n  1. Monetization design is documented and mapped to Telegram requirements\n  2. No paid flow is implemented without policy review\n  3. Economy impact and abuse risks are documented\n  4. Implementation tasks can be created from the approved plan\n\nФАЙЛЫ ДЛЯ СОЗДАНИЯ/ИЗМЕНЕНИЯ\n  - docs/product/monetization.md\n  - docs/product/telegram-policy-checklist.md\n\nЗАВИСИМОСТИ (должны быть выполнены ранее)\n  - P4-ANA-001\n  - P4-SEC-001\n\nКАК ПРОВЕРИТЬ\n  Complete monetization readiness review checklist\n\nТЕХНИЧЕСКИЕ ЗАМЕТКИ\n  Keep this as design/readiness until the game loop is validated."
     },
     {

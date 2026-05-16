@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { trackFrontendEvent } from '../lib/analytics';
 import { apiFetch, setSessionToken } from '../lib/api';
 import { persistUiLocale } from '../lib/locale';
 import type { AuthResponse } from '@shared/types/auth';
@@ -28,6 +29,10 @@ export const useAuthStore = create<AuthState>((set) => ({
       });
       setSessionToken(response.token);
       persistUiLocale(response.user.preferredLocale);
+      trackFrontendEvent('session_authenticated', {
+        locale: response.user.preferredLocale,
+        tutorialCompleted: Boolean(response.user.tutorialCompletedAt),
+      });
       set({
         token: response.token,
         user: response.user,
