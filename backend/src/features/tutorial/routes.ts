@@ -1,35 +1,80 @@
 import { FastifyInstance } from 'fastify';
-import jwt from 'jsonwebtoken';
 import { env } from '../../lib/env.js';
-import { syncTutorialProgress } from './service.js';
+import { claimTutorialReward, syncTutorialProgress } from './service.js';
 import { mutationRateLimit } from '../../lib/rate-limit.js';
-import { securityRouteConfig } from '../../lib/security.js';
+import { objectBodySchema, requireSessionUserId, securityRouteConfig } from '../../lib/security.js';
+import { isTutorialStepId, TUTORIAL_FINAL_STEP } from '@shared/config/tutorialRewards.js';
+import type {
+  TutorialClaimRequest,
+  TutorialClaimResponse,
+  TutorialSyncResponse,
+} from '@shared/types/tutorial.js';
 
-function readToken(authorization?: string): string | null {
-  return authorization?.startsWith('Bearer ') ? authorization.slice(7) : null;
+function serializeProgress(progress: Awaited<ReturnType<typeof syncTutorialProgress>>): TutorialSyncResponse {
+  return {
+    tutorialStep: progress.tutorialStepCompleted,
+    tutorialCompletedAt: progress.tutorialCompletedAt?.toISOString() ?? null,
+    tutorialRewardsClaimed: progress.tutorialRewardsClaimed,
+  };
 }
 
 export async function tutorialRoutes(app: FastifyInstance) {
-  /** Applies milestone detection + per-step/completion resource grants (see `service.ts`, `@shared/config/tutorialRewards`). */
+  /** Syncs milestone detection without granting rewards; claims are handled by `POST /claim`. */
   app.post('/sync', {
     config: securityRouteConfig(mutationRateLimit, 'session-no-body'),
   }, async (request, reply) => {
-    const token = readToken(request.headers.authorization);
-    if (!token) {
-      return reply.status(401).send({ error: 'Unauthorized', message: 'Missing session token' });
+    const userId = await requireSessionUserId(request, reply, env.JWT_SECRET);
+    if (!userId) return;
+
+    const progress = await syncTutorialProgress(userId);
+    return reply.send(serializeProgress(progress));
+  });
+
+  app.post('/claim', {
+    config: securityRouteConfig(mutationRateLimit, 'body'),
+    schema: {
+      body: objectBodySchema(
+        {
+          stepId: {
+            type: 'integer',
+            minimum: 0,
+            maximum: TUTORIAL_FINAL_STEP,
+          },
+        },
+        ['stepId'],
+      ),
+    },
+  }, async (request, reply) => {
+    const userId = await requireSessionUserId(request, reply, env.JWT_SECRET);
+    if (!userId) return;
+
+    const body = request.body as Partial<TutorialClaimRequest> | null;
+    const stepId = body?.stepId;
+    if (typeof stepId !== 'number' || !isTutorialStepId(stepId)) {
+      return reply.status(400).send({
+        error: 'Bad Request',
+        message: 'Invalid tutorial reward step',
+      });
     }
 
-    let payload: { userId: string };
     try {
-      payload = jwt.verify(token, env.JWT_SECRET) as { userId: string };
-    } catch {
-      return reply.status(401).send({ error: 'Unauthorized', message: 'Invalid or expired session token' });
+      const result = await claimTutorialReward(userId, stepId);
+      return reply.send({
+        ...serializeProgress(result),
+        diamonds: result.diamonds,
+        rewardDiamonds: result.rewardDiamonds,
+        rewardGranted: result.rewardGranted,
+        claimedStepId: result.claimedStepId,
+      } satisfies TutorialClaimResponse);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to claim tutorial reward';
+      if (message.includes('not complete')) {
+        return reply.status(409).send({
+          error: 'Conflict',
+          message,
+        });
+      }
+      throw error;
     }
-
-    const progress = await syncTutorialProgress(payload.userId);
-    return reply.send({
-      tutorialStep: progress.tutorialStepCompleted,
-      tutorialCompletedAt: progress.tutorialCompletedAt,
-    });
   });
 }

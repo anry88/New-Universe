@@ -440,7 +440,8 @@ export async function meRoutes(app: FastifyInstance) {
         ...user,
         tgId: user.tgId.toString(),
         tutorialStep: tutorialProgress.tutorialStepCompleted,
-        tutorialCompletedAt: tutorialProgress.tutorialCompletedAt,
+        tutorialCompletedAt: tutorialProgress.tutorialCompletedAt?.toISOString() ?? null,
+        tutorialRewardsClaimed: tutorialProgress.tutorialRewardsClaimed,
         homeSystem: homeSystem
           ? {
               ...homeSystem,

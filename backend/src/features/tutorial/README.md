@@ -1,15 +1,12 @@
 # `backend/src/features/tutorial` directory
 
-Tutorial progression and per-milestone rewards for first-time users.
+Tutorial progression and manually claimed diamond rewards for first-time users.
 
 ## Files
 
-- **`routes.ts`** — `tutorialRoutes(app)` registers mutation-rate-limited `POST /tutorial/sync` (mounted at `/tutorial`). The endpoint validates the JWT and returns `{ tutorialStep, tutorialCompletedAt }` after syncing progress from current game state.
-- **`service.ts`** — `syncTutorialProgress(userId)` inspects user actions (mine → storage → scout → expedition), advances `users.tutorialStepCompleted`, and applies **resource grants atomically** in one transaction:
-  - Per-step bundles from [`shared/config/tutorialRewards.ts`](../../../../shared/config/tutorialRewards.ts) (`TUTORIAL_STEP_RESOURCE_GRANTS` for steps 1–4 as each threshold is crossed).
-  - Completion bundle `TUTORIAL_COMPLETION_RESOURCE_GRANTS` when an expedition row exists (same moment `tutorial_completed_at` is set).
-  - Totals remain **+200 iron** and **+100 water** to the home capital vs starting balances when all milestones complete in one sync (see `tutorial.test.ts`).
-- **`tutorial.test.ts`** — integration coverage for completion sync, idempotent rewards, and intermediate grants.
+- **`routes.ts`** — `tutorialRoutes(app)` registers mutation-rate-limited `POST /tutorial/sync` and `POST /tutorial/claim` (mounted at `/tutorial`). `sync` validates the JWT and returns `{ tutorialStep, tutorialCompletedAt, tutorialRewardsClaimed }` after syncing progress from current game state without granting rewards. `claim` accepts `{ stepId }`, requires that step to be complete, grants 100 account diamonds once, and returns the updated tutorial state plus diamond balance.
+- **`service.ts`** — `syncTutorialProgress(userId)` inspects user actions (completed mine → completed storage → scout ready → scout sent), advances `users.tutorialStepCompleted`, and clears/sets `tutorialCompletedAt` based on whether all five rewards are claimed. `claimTutorialReward(userId, stepId)` locks the user row, uses `users.tutorialRewardsClaimed` as a bitmask for steps 0..4, and applies the one-time diamond grant atomically.
+- **`tutorial.test.ts`** — integration coverage for sync without auto-grants, five one-time diamond claims, final completion after all claims, repeat-claim idempotency, and queued milestones staying locked.
 
 ## Verification commands
 

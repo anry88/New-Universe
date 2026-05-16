@@ -1,15 +1,15 @@
 import {
-  TUTORIAL_COMPLETION_REWARD_SUMMARY_EN,
-  TUTORIAL_COMPLETION_REWARD_SUMMARY_RU,
+  type TutorialStepId,
   TUTORIAL_STEP_REWARD_SUMMARY_EN,
   TUTORIAL_STEP_REWARD_SUMMARY_RU,
 } from '@shared/config/tutorialRewards';
 import { useI18n } from '../lib/i18n';
 
 type TutorialStep = {
-  id: number;
+  id: TutorialStepId;
   title: string;
   done: boolean;
+  rewardClaimed: boolean;
 };
 
 interface TutorialProps {
@@ -17,25 +17,27 @@ interface TutorialProps {
   onSkip: () => void;
   /** Close overlay and return to play (does not skip tutorial). */
   onContinue: () => void;
+  onClaimReward: (stepId: TutorialStepId) => void;
   /** After tutorial is fully completed on the server. */
   onClose: () => void;
   completed: boolean;
   currentHint: string;
+  claimingStepId: TutorialStepId | null;
 }
 
 export function Tutorial({
   steps,
   onSkip,
   onContinue,
+  onClaimReward,
   onClose,
   completed,
   currentHint,
+  claimingStepId,
 }: TutorialProps) {
   const { locale, t } = useI18n();
   const stepRewards =
     locale === 'ru' ? TUTORIAL_STEP_REWARD_SUMMARY_RU : TUTORIAL_STEP_REWARD_SUMMARY_EN;
-  const completionReward =
-    locale === 'ru' ? TUTORIAL_COMPLETION_REWARD_SUMMARY_RU : TUTORIAL_COMPLETION_REWARD_SUMMARY_EN;
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/90 text-white">
@@ -47,7 +49,7 @@ export function Tutorial({
           <h1 className="text-xl font-bold">{t('tutorial.title')}</h1>
           <p className="mt-2 text-sm text-slate-300">
             {completed
-              ? t('tutorial.completed', { reward: completionReward })
+              ? t('tutorial.completed')
               : t('tutorial.progress')}
           </p>
         </div>
@@ -68,17 +70,32 @@ export function Tutorial({
                     {step.done ? t('common.done') : t('common.pending')}
                   </span>
                 </div>
-                {step.id >= 1 && step.id <= 4 && (
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-xs leading-snug text-slate-400">
-                    {t('tutorial.reward', { reward: stepRewards[step.id] ?? '—' })}
+                    {t('tutorial.reward', { reward: stepRewards[step.id] })}
                   </p>
-                )}
+                  {step.rewardClaimed ? (
+                    <span className="text-xs font-semibold text-emerald-300">
+                      {t('tutorial.rewardClaimed')}
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => onClaimReward(step.id)}
+                      disabled={!step.done || claimingStepId === step.id}
+                      className="rounded-lg border border-cyan-400/50 px-3 py-1 text-xs font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:border-slate-600 disabled:text-slate-500"
+                    >
+                      {claimingStepId === step.id
+                        ? t('common.processing')
+                        : step.done
+                          ? t('tutorial.claimReward')
+                          : t('tutorial.claimUnavailable')}
+                    </button>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
-          <p className="mt-4 border-t border-slate-700 pt-3 text-xs text-slate-500">
-            {t('tutorial.completionBonus', { reward: completionReward })}
-          </p>
         </div>
 
         <div className="flex justify-end gap-3">

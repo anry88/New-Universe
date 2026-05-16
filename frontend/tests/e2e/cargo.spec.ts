@@ -55,8 +55,9 @@ test('fleet cargo shortcut opens transfer dialog with selected ship and localize
     createdAt: nowIso,
     preferredLocale: 'en',
     diamonds: 0,
-    tutorialStep: 0,
+    tutorialStep: 4,
     tutorialCompletedAt: nowIso,
+    tutorialRewardsClaimed: 31,
     homeSystem: {
       id: 'home-system',
       ownerId: 'cargo-user',

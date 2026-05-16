@@ -108,9 +108,9 @@ Resource accrual, transactions, conversion, and explicit production orders. [Det
 Onboarding progression sync for first-time users.
 
 - **`README.md`** — [Detailed tutorial documentation](./tutorial/README.md).
-- **`routes.ts`** — `tutorialRoutes(app)` registers rate-limited `POST /tutorial/sync` (mounted at `/tutorial`) and returns persisted tutorial state for the current user.
-- **`service.ts`** — `syncTutorialProgress(userId)` maps game actions to steps (`mine`, `storage`, `scout`, first `expedition`), persists `users.tutorialStepCompleted`, and grants one-time completion reward (`+200 iron`, `+100 water`) through `gainResources` (atomic resource transaction).
-- **`tutorial.test.ts`** — integration coverage for completion + one-time reward behavior.
+- **`routes.ts`** — `tutorialRoutes(app)` registers rate-limited `POST /tutorial/sync` and `POST /tutorial/claim` (mounted at `/tutorial`) and returns persisted tutorial state for the current user.
+- **`service.ts`** — `syncTutorialProgress(userId)` maps game actions to steps (`mine`, `storage`, `scout`, scout sent), persists `users.tutorialStepCompleted`, and leaves rewards untouched until `claimTutorialReward(userId, stepId)` grants a one-time 100-diamond reward for each of the five tutorial steps.
+- **`tutorial.test.ts`** — integration coverage for sync-only progress, one-time diamond claims, and completion after all five rewards are claimed.
 
 ## `expeditions/`
 

@@ -13,8 +13,12 @@ test('colonization flow: eligibility and founding', async ({ page }) => {
     tgId: '12345678',
     tgUsername: 'pioneer',
     tgFirstName: 'Elon',
+    preferredLocale: 'en',
+    diamonds: 0,
+    tutorialStep: 4,
     createdAt: nowIso,
     tutorialCompletedAt: nowIso,
+    tutorialRewardsClaimed: 31,
     homeSystem: {
       id: homeSystemId,
       ownerId: userId,

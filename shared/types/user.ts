@@ -28,6 +28,8 @@ export interface User {
   diamonds: number;
   tutorialStep: number;
   tutorialCompletedAt: string | null;
+  /** Bitmask of claimed onboarding rewards for tutorial steps 0..4. */
+  tutorialRewardsClaimed: number;
   homeSystem?: HomeSystem;
   planets?: Planet[];
   ships?: Ship[];

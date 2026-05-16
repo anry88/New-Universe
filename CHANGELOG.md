@@ -34,6 +34,7 @@ All notable changes to New Universe will be documented in this file.
 - Сформирована явная цепочка зависимостей задач: `P2.2-016 -> P2.2-017 -> P2.2-018`.
 
 ### Changed
+- `issue #376`: награды туториала переведены с автоматических ресурсных бонусов на ручной claim по 100 алмазов за каждый из пяти шагов; обучение считается завершённым только после получения всех пяти наград, а последний шаг переименован в отправку разведчика без отдельного completion-бонуса.
 - `issue #370`: пользовательские названия starter military resources обновлены с `Military Alloy` / `Military Composite` на реальные материалы Silver Steel / C/SiC Composite в seed catalog, shared entity labels, recipes и RU/EN локалях.
 - `P3-EPIC-COMBAT` (issue #342): refuel transfer now validates and updates both ships under row locks, preventing concurrent refuel requests from overdrawing a refueler or overfilling a target tank.
 - `P3-EPIC-COMBAT` (issue #342): colonization limits, cooldowns, and `/me` summaries now exclude only the seeded home capital, so a fresh player can still spend the first expansion colony slot after home-system generation creates the capital colony row.
