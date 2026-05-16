@@ -1944,6 +1944,65 @@ body {
   color: var(--text);
 }
 
+/* Collapsible fleet roster card */
+.ship-row-collapsible {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  align-items: stretch;
+  grid-template-columns: none;
+}
+.ship-row-header {
+  display: grid;
+  grid-template-columns: 44px 1fr 18px;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+}
+.ship-row-summary {
+  min-width: 0;
+}
+.ship-row-summary .ship-name {
+  margin-bottom: 2px;
+}
+.ship-row-summary .ship-loc {
+  margin-top: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ship-row-chevron {
+  flex-shrink: 0;
+}
+.ship-row-collapsible.is-expanded {
+  background: rgba(20, 28, 46, 0.75);
+}
+.ship-row-details {
+  padding: 0 12px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-top: 1px dashed var(--line);
+  padding-top: 10px;
+}
+.ship-row-details .ship-stats {
+  justify-content: stretch;
+}
+.ship-row-details .ship-stat {
+  text-align: left;
+}
+.ship-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 button {
   font: inherit;
   color: inherit;
