@@ -5,6 +5,45 @@ export const JUMP_GATE_JUMP_FUEL_COST = 1;
 /** @deprecated Use `JUMP_GATE_JUMP_FUEL_COST`; Jump Fuel is stored in planet inventory or ship tanks. */
 export const JUMP_GATE_SHIP_FUEL_COST = JUMP_GATE_JUMP_FUEL_COST;
 
+/**
+ * Ship roles whose expeditions fly one-way to the destination and stay there
+ * instead of returning to origin. Combat fleets, refuelers/tankers, shield
+ * escorts and missile carriers are deployed at the target — they do not
+ * automatically come home like a scout's recon trip.
+ */
+const ONE_WAY_SHIP_ROLES: ReadonlySet<string> = new Set([
+  'combat',
+  'support',
+  'shield',
+  'missile',
+]);
+
+export function isOneWayShipRole(role: string | null | undefined): boolean {
+  if (!role) return false;
+  return ONE_WAY_SHIP_ROLES.has(role);
+}
+
+/**
+ * Whether the launched mission should be modeled as one-way (no return trip).
+ *
+ * - Colonizers are one-way only when they actually carry a target planet (the
+ *   hull is consumed on arrival).
+ * - Combat / support / shield / missile hulls deploy one-way when they have a
+ *   target planet to dock at (attack, defend, or refuel mission). Without a
+ *   target planet they still round-trip — there is no place to station the
+ *   ship at an empty sector point in the current game state.
+ */
+export function isOneWayExpedition(params: {
+  shipRole: string | null | undefined;
+  isColonizer?: boolean;
+  hasTargetPlanet?: boolean;
+}): boolean {
+  if (!params.hasTargetPlanet) return false;
+  if (isOneWayShipRole(params.shipRole)) return true;
+  if (params.isColonizer) return true;
+  return false;
+}
+
 export function calculateSectorRouteDistance(
   origin: { x: number; y: number },
   target: { x: number; y: number },

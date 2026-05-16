@@ -192,6 +192,208 @@ describe("Tick Expeditions Worker", () => {
     expect(posEnd.x).toBe(100);
   });
 
+  it("docks one-way combat ships at the target planet on arrival", async () => {
+    const { user, originSystem, originPlanet, ship } = await createSetup();
+
+    await db
+      .insert(shipTypes)
+      .values({
+        id: "fighter",
+        name: { ru: "Истребитель", en: "Fighter" },
+        role: "combat",
+        hp: 100,
+        speed: "2.00",
+        cargo: 0,
+        dps: 20,
+        armor: 5,
+        fuelConsumption: "0.50",
+        buildTimeSec: 60,
+        buildCost: { iron: 200 },
+        requiredBuildings: [],
+        sensorRange: 10,
+      })
+      .onConflictDoNothing();
+
+    const [targetPlanet] = await db
+      .insert(planets)
+      .values({
+        systemId: originSystem.id,
+        name: "Strike Target",
+        biome: "rocky",
+        size: 12,
+        slotCount: 8,
+      })
+      .returning();
+
+    await db.update(ships).set({ typeId: "fighter" }).where(eq(ships.id, ship.id));
+
+    const [expedition] = await db
+      .insert(expeditions)
+      .values({
+        shipId: ship.id,
+        type: "fighter",
+        originPlanetId: originPlanet.id,
+        targetPlanetId: targetPlanet.id,
+        targetX: originSystem.sectorX.toString(),
+        targetY: originSystem.sectorY.toString(),
+        targetZ: originSystem.sectorZ.toString(),
+        status: "in_flight",
+        eta: new Date(Date.now() - 1000),
+        result: {
+          distance: 1,
+          speed: 2,
+          engineFactor: 1,
+          returnTrip: false,
+        },
+      })
+      .returning();
+
+    await processExpeditions({ userId: user.id, skipNotifications: false });
+
+    const storedExpedition = await db.query.expeditions.findFirst({
+      where: eq(expeditions.id, expedition.id),
+    });
+    expect(storedExpedition).toBeUndefined();
+
+    const storedShip = await db.query.ships.findFirst({
+      where: eq(ships.id, ship.id),
+    });
+    expect(storedShip).toBeDefined();
+    expect(storedShip!.status).toBe("idle");
+    expect(storedShip!.locationPlanetId).toBe(targetPlanet.id);
+
+    const arrivalNotice = await db.query.notifications.findFirst({
+      where: and(
+        eq(notifications.userId, user.id),
+        eq(notifications.type, "expedition_arrived"),
+      ),
+    });
+    expect(arrivalNotice).toBeDefined();
+  });
+
+  it("docks the refueler at the target planet without returning home", async () => {
+    const { user, originSystem, originPlanet, ship } = await createSetup();
+
+    await db
+      .insert(shipTypes)
+      .values({
+        id: "refueler",
+        name: { ru: "Заправщик", en: "Refueler" },
+        role: "support",
+        hp: 80,
+        speed: "1.00",
+        cargo: 200,
+        dps: 0,
+        armor: 5,
+        fuelConsumption: "1.00",
+        buildTimeSec: 60,
+        buildCost: { steel: 200 },
+        requiredBuildings: [],
+        sensorRange: 10,
+      })
+      .onConflictDoNothing();
+
+    const [outpost] = await db
+      .insert(planets)
+      .values({
+        systemId: originSystem.id,
+        name: "Refuel Outpost",
+        biome: "rocky",
+        size: 9,
+        slotCount: 6,
+      })
+      .returning();
+
+    await db.update(ships).set({ typeId: "refueler" }).where(eq(ships.id, ship.id));
+
+    const [expedition] = await db
+      .insert(expeditions)
+      .values({
+        shipId: ship.id,
+        type: "refueler",
+        originPlanetId: originPlanet.id,
+        targetPlanetId: outpost.id,
+        targetX: originSystem.sectorX.toString(),
+        targetY: originSystem.sectorY.toString(),
+        targetZ: originSystem.sectorZ.toString(),
+        status: "in_flight",
+        eta: new Date(Date.now() - 1000),
+        result: {
+          distance: 1,
+          speed: 1,
+          engineFactor: 1,
+          returnTrip: false,
+        },
+      })
+      .returning();
+
+    await processExpeditions({ userId: user.id, skipNotifications: true });
+
+    const storedExpedition = await db.query.expeditions.findFirst({
+      where: eq(expeditions.id, expedition.id),
+    });
+    expect(storedExpedition).toBeUndefined();
+
+    const storedShip = await db.query.ships.findFirst({
+      where: eq(ships.id, ship.id),
+    });
+    expect(storedShip!.status).toBe("idle");
+    expect(storedShip!.locationPlanetId).toBe(outpost.id);
+  });
+
+  it("keeps the round-trip path for one-way combat ships without a target planet", async () => {
+    const { user, originSystem, originPlanet, ship } = await createSetup();
+
+    await db
+      .insert(shipTypes)
+      .values({
+        id: "fighter",
+        name: { ru: "Истребитель", en: "Fighter" },
+        role: "combat",
+        hp: 100,
+        speed: "2.00",
+        cargo: 0,
+        dps: 20,
+        armor: 5,
+        fuelConsumption: "0.50",
+        buildTimeSec: 60,
+        buildCost: { iron: 200 },
+        requiredBuildings: [],
+        sensorRange: 10,
+      })
+      .onConflictDoNothing();
+
+    await db.update(ships).set({ typeId: "fighter" }).where(eq(ships.id, ship.id));
+
+    const pastEta = new Date(Date.now() - 1000);
+    const [expedition] = await db
+      .insert(expeditions)
+      .values({
+        shipId: ship.id,
+        type: "fighter",
+        originPlanetId: originPlanet.id,
+        targetX: (originSystem.sectorX + 5).toString(),
+        targetY: originSystem.sectorY.toString(),
+        targetZ: originSystem.sectorZ.toString(),
+        status: "in_flight",
+        eta: pastEta,
+        result: {
+          distance: 5,
+          speed: 2,
+          engineFactor: 1,
+          returnTrip: true,
+        },
+      })
+      .returning();
+
+    await processExpeditions({ userId: user.id, skipNotifications: true });
+
+    const updated = await db.query.expeditions.findFirst({
+      where: eq(expeditions.id, expedition.id),
+    });
+    expect(updated!.status).toBe("returning");
+  });
+
   it("should transition from in_flight to returning upon arrival at target", async () => {
     const { ship, originPlanet } = await createSetup();
 

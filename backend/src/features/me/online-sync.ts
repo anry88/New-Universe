@@ -13,6 +13,7 @@ const ONLINE_SYNC_NOTIFICATION_TYPES = [
   'research_done',
   'ship_done',
   'expedition_returned',
+  'expedition_arrived',
   'colony_founded',
   'ship_destroyed',
   'building_destroyed',
