@@ -17,6 +17,7 @@ export interface ExpeditionPreviewInput {
   isColonizer: boolean;
   /** Role of the launching ship type — drives one-way deployment for combat/support hulls. */
   shipRole?: string | null;
+  jumpFuelRequiredOverride?: number | null;
   fuelConsumption: number;
   speed: number;
 }
@@ -61,7 +62,7 @@ export function buildExpeditionPreview(
     ),
     jumpFuelRequired:
       input.routeMode === "jump_gate"
-        ? calculateJumpGateJumpFuelRequired(returnTrip)
+        ? input.jumpFuelRequiredOverride ?? calculateJumpGateJumpFuelRequired(returnTrip)
         : 0,
     returnTrip,
   };

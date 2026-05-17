@@ -1,6 +1,6 @@
 import { db } from '../../db/index.js';
-import { systems, planets, colonies, ships, users, discoveredSystems } from '../../db/schema.js';
-import { eq, and, inArray } from 'drizzle-orm';
+import { systems, planets, colonies, ships, users, discoveredSystems, expeditions } from '../../db/schema.js';
+import { eq, and, inArray, sql } from 'drizzle-orm';
 import type {
   PresenceEntityRelation,
   PresenceEntityType,
@@ -245,7 +245,7 @@ export async function getSectorPresence(
     }
   }
 
-  const shipRows = await db
+  const dockedShipRows = await db
     .select({
       shipId: ships.id,
       ownerId: ships.ownerId,
@@ -262,6 +262,26 @@ export async function getSectorPresence(
     .innerJoin(planets, eq(ships.locationPlanetId, planets.id))
     .innerJoin(systems, eq(planets.systemId, systems.id))
     .where(and(sectorFilter, eq(ships.status, 'idle')));
+
+  const stationedShipRows = await db
+    .select({
+      shipId: ships.id,
+      ownerId: ships.ownerId,
+      typeId: ships.typeId,
+      systemId: systems.id,
+      planetId: sql<string | null>`NULL`,
+      sx: systems.x,
+      sy: systems.y,
+      sz: systems.z,
+      systemIsHome: systems.isHome,
+      systemOwnerId: systems.ownerId,
+    })
+    .from(expeditions)
+    .innerJoin(ships, eq(ships.id, expeditions.shipId))
+    .innerJoin(systems, sql`${expeditions.result} ->> 'destinationSystemId' = ${systems.id}::text`)
+    .where(and(sectorFilter, eq(expeditions.status, 'stationed')));
+
+  const shipRows = [...dockedShipRows, ...stationedShipRows];
 
   const foreignShipOwners = new Set<string>();
   for (const row of shipRows) {
@@ -289,7 +309,7 @@ export async function getSectorPresence(
         kind: 'own_ship',
         ...presenceMeta('fleet', 'self'),
         systemId: row.systemId,
-        planetId: row.planetId,
+        planetId: row.planetId ?? undefined,
         shipId: row.shipId,
         title: `Fleet · ${label}`,
         visibility: 'full',
@@ -300,7 +320,7 @@ export async function getSectorPresence(
         kind: 'foreign_ship',
         ...presenceMeta('fleet', 'foreign'),
         systemId: row.systemId,
-        planetId: row.planetId,
+        planetId: row.planetId ?? undefined,
         shipId: row.shipId,
         title: `Ship · ${label}`,
         subtitle: shipMasks.get(row.ownerId),
@@ -440,6 +460,37 @@ export async function getSectorSystemAnchors(viewerId: string): Promise<SectorSy
     const anchor = ensureAnchor(anchors, row);
     anchor.tags.add('fleet');
     anchor.shipCount += 1;
+  }
+
+  const stationedRows = await db
+    .select({
+      shipId: ships.id,
+      systemId: systems.id,
+      ownerId: systems.ownerId,
+      isHome: systems.isHome,
+      title: systems.name,
+      sectorX: systems.sectorX,
+      sectorY: systems.sectorY,
+      sectorZ: systems.sectorZ,
+      x: systems.x,
+      y: systems.y,
+      z: systems.z,
+      stationedAt: expeditions.eta,
+    })
+    .from(expeditions)
+    .innerJoin(ships, eq(ships.id, expeditions.shipId))
+    .innerJoin(systems, sql`${expeditions.result} ->> 'destinationSystemId' = ${systems.id}::text`)
+    .where(and(eq(ships.ownerId, viewerId), eq(expeditions.status, 'stationed')));
+
+  for (const row of stationedRows) {
+    if (isProtectedForeignHomeSystem(row, viewerId)) {
+      continue;
+    }
+
+    const anchor = ensureAnchor(anchors, row);
+    anchor.tags.add('fleet');
+    anchor.shipCount += 1;
+    anchor.lastActivityAt = maxDate(anchor.lastActivityAt, row.stationedAt);
   }
 
   const serialized = [...anchors.values()]

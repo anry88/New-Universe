@@ -29,7 +29,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Shield, Crosshair, Swords } from "lucide-react";
+import { Shield } from "lucide-react";
 import type { HomeSystem, Planet } from "@shared/types/world";
 import type { Ship } from "@shared/types/ships";
 import type { Expedition } from "@shared/types/expeditions";
@@ -229,8 +229,15 @@ function buildExpeditionTrailSegments(
   return activeExpeditions.flatMap((exp) => {
     const result = exp.result as Record<string, unknown> | null | undefined;
     if (result?.routeMode === "jump_gate") {
+      const originSystemId =
+        typeof result.originSystemId === "string" ? result.originSystemId : null;
+      const originSystemPoint = pointFromResult(result.originSystemPoint);
       if (result.destinationSystemId === system.id) {
         const gatePoint = systemMapJumpGatePoint();
+        const routeStart =
+          originSystemId === system.id && originSystemPoint
+            ? originSystemPoint
+            : gatePoint;
         const targetPlanet = exp.targetPlanetId
           ? layoutByPlanetId.get(exp.targetPlanetId)
           : null;
@@ -240,10 +247,23 @@ function buildExpeditionTrailSegments(
         return [
           {
             id: `${exp.id}-destination`,
-            originX: gatePoint.x,
-            originY: gatePoint.y,
+            originX: routeStart.x,
+            originY: routeStart.y,
             endpointX: targetPoint.x,
             endpointY: targetPoint.y,
+          },
+        ];
+      }
+
+      if (originSystemId === system.id && originSystemPoint) {
+        const gatePoint = systemMapJumpGatePoint();
+        return [
+          {
+            id: `${exp.id}-origin`,
+            originX: originSystemPoint.x,
+            originY: originSystemPoint.y,
+            endpointX: gatePoint.x,
+            endpointY: gatePoint.y,
           },
         ];
       }
@@ -487,11 +507,17 @@ function jumpGateShipPointForSystem({
     typeof result.destinationSystemId === "string"
       ? result.destinationSystemId
       : null;
+  const originSystemId =
+    typeof result.originSystemId === "string"
+      ? result.originSystemId
+      : null;
+  const originSystemPoint = pointFromResult(result.originSystemPoint);
   const progress = routeProgress(exp, now);
   if (!progress) return null;
 
   const gatePoint = systemMapJumpGatePoint();
   const isDestinationSystem = destinationSystemId === system.id;
+  const isOriginSystem = originSystemId === system.id;
 
   if (isDestinationSystem) {
     const targetPlanet = exp.targetPlanetId
@@ -499,12 +525,14 @@ function jumpGateShipPointForSystem({
       : null;
     const routeEnd = targetPlanet ?? pointFromResult(result.targetSystemPoint);
     if (!routeEnd) return null;
+    const routeStart =
+      isOriginSystem && originSystemPoint ? originSystemPoint : gatePoint;
 
     const targetLegDistance = Number(result.targetGateDistance ?? 0);
     if (exp.status === "stationed") {
       return {
         point: routeEnd,
-        angle: Math.atan2(routeEnd.y - gatePoint.y, routeEnd.x - gatePoint.x),
+        angle: Math.atan2(routeEnd.y - routeStart.y, routeEnd.x - routeStart.x),
         returning: false,
       };
     }
@@ -513,10 +541,10 @@ function jumpGateShipPointForSystem({
     if (exp.status === "returning") {
       const legProgress = 1 - progress.returnTravelled / targetLegDistance;
       if (legProgress <= 0 || legProgress > 1) return null;
-      const point = interpolatePoint(gatePoint, routeEnd, legProgress);
+      const point = interpolatePoint(routeStart, routeEnd, legProgress);
       return {
         point,
-        angle: Math.atan2(gatePoint.y - routeEnd.y, gatePoint.x - routeEnd.x),
+        angle: Math.atan2(routeStart.y - routeEnd.y, routeStart.x - routeEnd.x),
         returning: true,
       };
     }
@@ -525,18 +553,31 @@ function jumpGateShipPointForSystem({
     const legProgress =
       (progress.outboundTravelled - originLegDistance) / targetLegDistance;
     if (legProgress <= 0 || legProgress > 1) return null;
-    const point = interpolatePoint(gatePoint, routeEnd, legProgress);
+    const point = interpolatePoint(routeStart, routeEnd, legProgress);
     return {
       point,
-      angle: Math.atan2(routeEnd.y - gatePoint.y, routeEnd.x - gatePoint.x),
+      angle: Math.atan2(routeEnd.y - routeStart.y, routeEnd.x - routeStart.x),
       returning: false,
     };
   }
 
-  if (!layout || exp.status === "stationed") return null;
+  if (exp.status === "stationed") return null;
 
   const originLegDistance = Number(result.originGateDistance ?? 0);
   if (!Number.isFinite(originLegDistance) || originLegDistance <= 0) return null;
+
+  if (isOriginSystem && originSystemPoint) {
+    const legProgress = progress.outboundTravelled / originLegDistance;
+    if (legProgress < 0 || legProgress > 1) return null;
+    const point = interpolatePoint(originSystemPoint, gatePoint, legProgress);
+    return {
+      point,
+      angle: Math.atan2(gatePoint.y - originSystemPoint.y, gatePoint.x - originSystemPoint.x),
+      returning: false,
+    };
+  }
+
+  if (!layout) return null;
 
   if (exp.status === "returning") {
     const originLegStart = Math.max(0, progress.totalDistance - originLegDistance);
@@ -723,11 +764,6 @@ const ShipMarkers = React.memo(function ShipMarkers({
             {ship.combatStats?.shields && (
               <div style={{ position: 'absolute', right: -4, top: -4, filter: 'drop-shadow(0 0 4px #60a5fa)' }}>
                 <Shield size={10} color="#60a5fa" />
-              </div>
-            )}
-            {ship.combatStats?.engagementRange && (
-              <div style={{ position: 'absolute', right: -4, bottom: -4, filter: 'drop-shadow(0 0 4px #f87171)' }}>
-                {ship.combatStats.engagementRange === 'orbital' ? <Crosshair size={10} color="#f87171" /> : <Swords size={10} color="#f87171" />}
               </div>
             )}
           </div>

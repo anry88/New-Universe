@@ -9,6 +9,7 @@ import {
   shipTypes,
   discoveredSystems,
   jumpGates,
+  expeditions,
 } from '../../db/schema.js';
 import { getSectorPresence, getSectorSystemAnchors } from './presence.js';
 
@@ -192,6 +193,53 @@ describe('getSectorPresence', () => {
       status: 'idle',
     }).returning();
 
+    const [viewerStationedShip] = await db.insert(ships).values({
+      ownerId: viewer.id,
+      typeId: shipType.id,
+      locationPlanetId: null,
+      status: 'moving',
+    }).returning();
+
+    const [rivalStationedShip] = await db.insert(ships).values({
+      ownerId: rival.id,
+      typeId: shipType.id,
+      locationPlanetId: null,
+      status: 'moving',
+    }).returning();
+
+    await db.insert(expeditions).values([
+      {
+        shipId: viewerStationedShip.id,
+        type: shipType.id,
+        originPlanetId: viewerColonyPlanet.id,
+        targetX: neutralSys.sectorX.toString(),
+        targetY: neutralSys.sectorY.toString(),
+        targetZ: neutralSys.sectorZ.toString(),
+        status: 'stationed',
+        eta: new Date(),
+        result: {
+          routeMode: 'jump_gate',
+          destinationSystemId: neutralSys.id,
+          targetSystemPoint: { x: 10, y: 20 },
+        },
+      },
+      {
+        shipId: rivalStationedShip.id,
+        type: shipType.id,
+        originPlanetId: rivalColonyPlanet.id,
+        targetX: neutralSys.sectorX.toString(),
+        targetY: neutralSys.sectorY.toString(),
+        targetZ: neutralSys.sectorZ.toString(),
+        status: 'stationed',
+        eta: new Date(),
+        result: {
+          routeMode: 'jump_gate',
+          destinationSystemId: neutralSys.id,
+          targetSystemPoint: { x: 30, y: 40 },
+        },
+      },
+    ]);
+
     const payload = await getSectorPresence(viewer.id, sector.sx, sector.sy, sector.sz);
 
     const ownHome = payload.entities.find((e) => e.kind === 'own_home_system' && e.systemId === viewerHome.id);
@@ -240,6 +288,28 @@ describe('getSectorPresence', () => {
       shipId: rivalShip.id,
       visibility: 'summary',
     });
+
+    const ownStationedFleet = payload.entities.find(
+      (e) => e.kind === 'own_ship' && e.shipId === viewerStationedShip.id,
+    );
+    expect(ownStationedFleet).toMatchObject({
+      entityType: 'fleet',
+      relation: 'self',
+      systemId: neutralSys.id,
+      visibility: 'full',
+    });
+    expect(ownStationedFleet?.planetId).toBeUndefined();
+
+    const foreignStationedFleet = payload.entities.find(
+      (e) => e.kind === 'foreign_ship' && e.shipId === rivalStationedShip.id,
+    );
+    expect(foreignStationedFleet).toMatchObject({
+      entityType: 'fleet',
+      relation: 'foreign',
+      systemId: neutralSys.id,
+      visibility: 'summary',
+    });
+    expect(foreignStationedFleet?.planetId).toBeUndefined();
   });
 });
 
@@ -287,6 +357,27 @@ describe('getSectorSystemAnchors', () => {
       locationPlanetId: commonPlanet.id,
       status: 'idle',
     });
+    const [stationedShip] = await db.insert(ships).values({
+      ownerId: viewer.id,
+      typeId: shipType.id,
+      locationPlanetId: null,
+      status: 'moving',
+    }).returning();
+    await db.insert(expeditions).values({
+      shipId: stationedShip.id,
+      type: shipType.id,
+      originPlanetId: commonPlanet.id,
+      targetX: common.sectorX.toString(),
+      targetY: common.sectorY.toString(),
+      targetZ: common.sectorZ.toString(),
+      status: 'stationed',
+      eta: new Date('2026-05-02T13:00:00.000Z'),
+      result: {
+        routeMode: 'jump_gate',
+        destinationSystemId: common.id,
+        targetSystemPoint: { x: 12, y: 24 },
+      },
+    });
 
     const foreignHome = await createSystem({
       ownerId: rival.id,
@@ -311,7 +402,7 @@ describe('getSectorSystemAnchors', () => {
     const commonAnchor = payload.systems.find((anchor) => anchor.systemId === common.id);
     expect(commonAnchor?.tags).toEqual(['colony', 'fleet', 'recent', 'discovered']);
     expect(commonAnchor?.colonyCount).toBe(1);
-    expect(commonAnchor?.shipCount).toBe(1);
+    expect(commonAnchor?.shipCount).toBe(2);
     expect(commonAnchor?.sector).toEqual([commonSector.sx, commonSector.sy, commonSector.sz]);
 
     expect(payload.systems.some((anchor) => anchor.systemId === foreignHome.id)).toBe(false);

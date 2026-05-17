@@ -70,16 +70,25 @@ type ShipLaunchRow = {
   shipSpeed: string;
   shipFuelConsumption: string;
   shipCargoCapacity: number;
-  originSystemId: string;
-  originSystemSeed: number;
-  originX: number;
-  originY: number;
-  originZ: number;
-  originPlanetId: string;
+  originSystemId: string | null;
+  originSystemSeed: number | null;
+  originX: number | null;
+  originY: number | null;
+  originZ: number | null;
+  originPlanetId: string | null;
   shipFuel: string;
   shipJumpFuel: string;
   shipFuelCapacity: number;
   shipJumpFuelCapacity: number;
+};
+
+type SystemMapPoint = { x: number; y: number };
+
+type StationedLaunchOrigin = {
+  expedition: typeof expeditions.$inferSelect;
+  system: typeof systems.$inferSelect;
+  originPlanetId: string;
+  point: SystemMapPoint;
 };
 
 function isFiniteNumber(value: unknown): value is number {
@@ -100,6 +109,14 @@ function launchFailure(
   };
 }
 
+function pointFromUnknown(value: unknown): SystemMapPoint | null {
+  if (!value || typeof value !== "object") return null;
+  const point = value as Record<string, unknown>;
+  return isFiniteNumber(point.x) && isFiniteNumber(point.y)
+    ? { x: point.x, y: point.y }
+    : null;
+}
+
 async function getAvailableCargo(planetId: string, tx: any): Promise<number> {
   const rows = await tx
     .select({
@@ -109,6 +126,47 @@ async function getAvailableCargo(planetId: string, tx: any): Promise<number> {
     .where(eq(planetResources.planetId, planetId));
 
   return Number(rows[0]?.total ?? 0);
+}
+
+async function loadStationedLaunchOrigin(
+  shipId: string,
+): Promise<StationedLaunchOrigin | null> {
+  const expedition =
+    (await defaultDb.query.expeditions.findFirst({
+      where: and(
+        eq(expeditions.shipId, shipId),
+        eq(expeditions.status, "stationed"),
+      ),
+    })) ?? null;
+  if (!expedition) return null;
+
+  const result = expedition.result as Record<string, unknown> | null;
+  const originSystemId =
+    result && typeof result.destinationSystemId === "string"
+      ? result.destinationSystemId
+      : null;
+  const point = pointFromUnknown(result?.targetSystemPoint);
+  if (!originSystemId || !point) return null;
+
+  const system =
+    (await defaultDb.query.systems.findFirst({
+      where: eq(systems.id, originSystemId),
+    })) ?? null;
+  if (!system) return null;
+
+  const [originPlanet] = await defaultDb
+    .select({ id: planets.id })
+    .from(planets)
+    .where(eq(planets.systemId, system.id))
+    .limit(1);
+  if (!originPlanet) return null;
+
+  return {
+    expedition,
+    system,
+    originPlanetId: originPlanet.id,
+    point,
+  };
 }
 
 async function distanceBetweenSystemGateAndPlanet(
@@ -125,6 +183,23 @@ async function distanceBetweenSystemGateAndPlanet(
   if (!planetLayout) return null;
 
   return systemMapPointDistanceLy(systemMapJumpGatePoint(), planetLayout);
+}
+
+async function distanceBetweenPointAndPlanet(
+  systemId: string,
+  systemSeed: number,
+  point: SystemMapPoint,
+  planetId: string,
+): Promise<number | null> {
+  const systemPlanets = await defaultDb.query.planets.findMany({
+    where: eq(planets.systemId, systemId),
+  });
+  const planetLayout = buildSystemMapLayouts(systemPlanets, Number(systemSeed)).find(
+    (layout) => layout.id === planetId,
+  );
+  if (!planetLayout) return null;
+
+  return systemMapPointDistanceLy(point, planetLayout);
 }
 
 export async function launchExpedition(
@@ -221,12 +296,33 @@ export async function launchExpedition(
     return launchFailure(403, { code: "expedition_ship_not_owned" });
   }
 
-  if (shipRow.shipStatus !== "idle") {
+  const stationedOrigin =
+    shipRow.shipStatus === "moving"
+      ? await loadStationedLaunchOrigin(shipRow.shipId)
+      : null;
+  const launchingFromStationedPoint = stationedOrigin !== null;
+
+  if (shipRow.shipStatus !== "idle" && !launchingFromStationedPoint) {
     return launchFailure(400, { code: "expedition_ship_not_idle" });
   }
 
-  if (!shipRow.shipLocationPlanetId || !shipRow.originPlanetId) {
+  if (
+    !launchingFromStationedPoint &&
+    (!shipRow.shipLocationPlanetId ||
+      !shipRow.originPlanetId ||
+      !shipRow.originSystemId ||
+      shipRow.originSystemSeed === null ||
+      shipRow.originX === null ||
+      shipRow.originY === null ||
+      shipRow.originZ === null)
+  ) {
     return launchFailure(400, { code: "expedition_ship_not_on_planet" });
+  }
+
+  if (launchingFromStationedPoint && routeMode !== "jump_gate") {
+    return launchFailure(400, {
+      code: "expedition_invalid_route_mode",
+    });
   }
 
   if (shipRow.shipRole === "logistics") {
@@ -235,6 +331,34 @@ export async function launchExpedition(
       shipTypeId: shipRow.shipTypeId,
     });
   }
+
+  const originSystemId = launchingFromStationedPoint
+    ? stationedOrigin.system.id
+    : shipRow.originSystemId!;
+  const originSystemSeed = Number(
+    launchingFromStationedPoint
+      ? stationedOrigin.system.seed
+      : shipRow.originSystemSeed,
+  );
+  const originX = Number(
+    launchingFromStationedPoint
+      ? stationedOrigin.system.sectorX
+      : shipRow.originX,
+  );
+  const originY = Number(
+    launchingFromStationedPoint
+      ? stationedOrigin.system.sectorY
+      : shipRow.originY,
+  );
+  const originPlanetId = launchingFromStationedPoint
+    ? stationedOrigin.originPlanetId
+    : shipRow.originPlanetId!;
+  const originSystemPoint = launchingFromStationedPoint
+    ? stationedOrigin.point
+    : null;
+  const launchInventoryPlanetId = launchingFromStationedPoint
+    ? null
+    : shipRow.shipLocationPlanetId!;
 
   let resolvedTargetX = routeMode === "local" ? targetX! : 0;
   let resolvedTargetY = routeMode === "local" ? targetY! : 0;
@@ -373,16 +497,26 @@ export async function launchExpedition(
       }
     }
 
-    if (targetPlanet.systemId === shipRow.originSystemId) {
+    if (targetPlanet.systemId === originSystemId) {
       const systemPlanets = await defaultDb.query.planets.findMany({
-        where: eq(planets.systemId, shipRow.originSystemId),
+        where: eq(planets.systemId, originSystemId),
       });
-      sameSystemPlanetDistance = systemMapPlanetDistanceLy(
-        systemPlanets,
-        Number(shipRow.originSystemSeed),
-        shipRow.originPlanetId,
-        targetPlanet.id,
-      );
+      if (originSystemPoint) {
+        const targetLayout = buildSystemMapLayouts(
+          systemPlanets,
+          originSystemSeed,
+        ).find((layout) => layout.id === targetPlanet.id);
+        sameSystemPlanetDistance = targetLayout
+          ? systemMapPointDistanceLy(originSystemPoint, targetLayout)
+          : null;
+      } else {
+        sameSystemPlanetDistance = systemMapPlanetDistanceLy(
+          systemPlanets,
+          originSystemSeed,
+          originPlanetId,
+          targetPlanet.id,
+        );
+      }
     }
 
     resolvedTargetPlanetId = targetPlanetId;
@@ -391,18 +525,42 @@ export async function launchExpedition(
   // Galactic travel is modeled on the sector XY plane only so map routes, fuel,
   // ETA, and expedition ticks stay aligned with the 2D system map / corridor
   // discovery logic (which never used Z in layout space).
-  const ox = Number(shipRow.originX);
-  const oy = Number(shipRow.originY);
+  const ox = originX;
+  const oy = originY;
+  const sameStationedDestination =
+    routeMode === "jump_gate" &&
+    launchingFromStationedPoint &&
+    destinationSystem?.id === originSystemId;
   const originGateDistance =
-    routeMode === "jump_gate"
+    routeMode === "jump_gate" && sameStationedDestination
+      ? 0
+      : routeMode === "jump_gate" && originSystemPoint
+        ? systemMapPointDistanceLy(originSystemPoint, systemMapJumpGatePoint())
+        : routeMode === "jump_gate"
       ? await distanceBetweenSystemGateAndPlanet(
-          shipRow.originSystemId,
-          Number(shipRow.originSystemSeed),
-          shipRow.originPlanetId,
+          originSystemId,
+          originSystemSeed,
+          originPlanetId,
         )
       : null;
   const targetGateDistance =
-    routeMode === "jump_gate" && resolvedTargetPlanetId && destinationSystem
+    routeMode === "jump_gate" &&
+    sameStationedDestination &&
+    resolvedTargetPlanetId &&
+    destinationSystem &&
+    originSystemPoint
+      ? await distanceBetweenPointAndPlanet(
+          destinationSystem.id,
+          Number(destinationSystem.seed),
+          originSystemPoint,
+          resolvedTargetPlanetId,
+        )
+      : routeMode === "jump_gate" &&
+        sameStationedDestination &&
+        targetSystemPoint &&
+        originSystemPoint
+        ? systemMapPointDistanceLy(originSystemPoint, targetSystemPoint)
+        : routeMode === "jump_gate" && resolvedTargetPlanetId && destinationSystem
         ? await distanceBetweenSystemGateAndPlanet(
             destinationSystem.id,
             Number(destinationSystem.seed),
@@ -431,9 +589,11 @@ export async function launchExpedition(
   });
   const returnTrip = !isOneWayMission;
   jumpFuelRequired =
-    routeMode === "jump_gate" ? calculateJumpGateJumpFuelRequired(returnTrip) : 0;
+    routeMode === "jump_gate" && !sameStationedDestination
+      ? calculateJumpGateJumpFuelRequired(returnTrip)
+      : 0;
   const spaceportReservation = buildExpeditionSpaceportReservation({
-    originPlanetId: shipRow.originPlanetId,
+    originPlanetId,
     targetPlanetId: resolvedTargetPlanetId,
     returnTrip,
     targetLandingSlotRequired:
@@ -477,10 +637,9 @@ export async function launchExpedition(
       }
     }
 
-    const availableCargo = await getAvailableCargo(
-      shipRow.shipLocationPlanetId!,
-      tx,
-    );
+    const availableCargo = launchInventoryPlanetId
+      ? await getAvailableCargo(launchInventoryPlanetId, tx)
+      : 0;
     if (availableCargo < cargoLoaded) {
       return launchFailure(400, { code: "expedition_cargo_unavailable" });
     }
@@ -509,21 +668,49 @@ export async function launchExpedition(
       });
     }
 
-    // Determine how much to load from the planet
-    const extraFuelRequested = fuelLoaded ?? 0;
-    const extraJumpFuelRequested = jumpFuelLoaded ?? 0;
+    let targetFuelInTank = currentFuel;
+    let targetJumpFuelInTank = currentJumpFuel;
+    let fuelToTakeFromPlanet = 0;
+    let jumpFuelToTakeFromPlanet = 0;
 
-    // We must have at least the minimum required fuel after loading
-    let targetFuelInTank = Math.max(minFuelNeededInTank, currentFuel + extraFuelRequested);
-    let targetJumpFuelInTank = Math.max(minJumpFuelNeededInTank, currentJumpFuel + extraJumpFuelRequested);
+    if (launchInventoryPlanetId) {
+      // Determine how much to load from the planet
+      const extraFuelRequested = fuelLoaded ?? 0;
+      const extraJumpFuelRequested = jumpFuelLoaded ?? 0;
 
-    // Cap at tank capacity
-    targetFuelInTank = Math.min(targetFuelInTank, fuelCapacity);
-    targetJumpFuelInTank = Math.min(targetJumpFuelInTank, jumpFuelCapacity);
+      // We must have at least the minimum required fuel after loading
+      targetFuelInTank = Math.max(minFuelNeededInTank, currentFuel + extraFuelRequested);
+      targetJumpFuelInTank = Math.max(minJumpFuelNeededInTank, currentJumpFuel + extraJumpFuelRequested);
 
-    // Amount to take from planet inventory
-    const fuelToTakeFromPlanet = Math.max(0, targetFuelInTank - currentFuel);
-    const jumpFuelToTakeFromPlanet = Math.max(0, targetJumpFuelInTank - currentJumpFuel);
+      // Cap at tank capacity
+      targetFuelInTank = Math.min(targetFuelInTank, fuelCapacity);
+      targetJumpFuelInTank = Math.min(targetJumpFuelInTank, jumpFuelCapacity);
+
+      // Amount to take from planet inventory
+      fuelToTakeFromPlanet = Math.max(0, targetFuelInTank - currentFuel);
+      jumpFuelToTakeFromPlanet = Math.max(0, targetJumpFuelInTank - currentJumpFuel);
+    } else if ((fuelLoaded ?? 0) > 0 || (jumpFuelLoaded ?? 0) > 0) {
+      return launchFailure(400, {
+        code: "expedition_ship_not_on_planet",
+      });
+    }
+
+    if (targetFuelInTank < minFuelNeededInTank) {
+      return launchFailure(400, {
+        code: "insufficient_resource",
+        resourceId: "fuel",
+        required: minFuelNeededInTank,
+        available: targetFuelInTank,
+      });
+    }
+    if (targetJumpFuelInTank < minJumpFuelNeededInTank) {
+      return launchFailure(400, {
+        code: "insufficient_resource",
+        resourceId: JUMP_FUEL_RESOURCE_ID,
+        required: minJumpFuelNeededInTank,
+        available: targetJumpFuelInTank,
+      });
+    }
 
     if (fuelToTakeFromPlanet > 0 || jumpFuelToTakeFromPlanet > 0) {
       const launchCosts = [];
@@ -538,7 +725,7 @@ export async function launchExpedition(
       }
 
       const fuelSpend = await spendResources(
-        shipRow.shipLocationPlanetId!,
+        launchInventoryPlanetId!,
         launchCosts,
         tx,
       );
@@ -563,7 +750,7 @@ export async function launchExpedition(
       .values({
         shipId: shipRow.shipId,
         type: shipRow.shipTypeId,
-        originPlanetId: shipRow.originPlanetId,
+        originPlanetId,
         targetX: resolvedTargetX.toString(),
         targetY: resolvedTargetY.toString(),
         targetZ: resolvedTargetZ.toString(),
@@ -580,6 +767,8 @@ export async function launchExpedition(
           requestedDistance: distance,
           originGateDistance: originGateDistance ?? undefined,
           targetGateDistance: targetGateDistance ?? undefined,
+          originSystemId,
+          originSystemPoint: originSystemPoint ?? undefined,
           targetSystemPoint,
           speed,
           engineFactor,
@@ -588,6 +777,17 @@ export async function launchExpedition(
         },
       })
       .returning();
+
+    if (stationedOrigin) {
+      await tx
+        .delete(expeditions)
+        .where(
+          and(
+            eq(expeditions.shipId, shipRow.shipId),
+            eq(expeditions.status, "stationed"),
+          ),
+        );
+    }
 
     const [updatedShip] = await tx
       .update(ships)

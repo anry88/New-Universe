@@ -1,6 +1,7 @@
 import type { Ship, ShipType } from "@shared/types/ships";
 import {
   formatLaunchExpeditionErrorMessage,
+  type Expedition,
   type LaunchExpeditionErrorDetails,
 } from "@shared/types/expeditions";
 import type {
@@ -58,6 +59,7 @@ interface ExpeditionDialogProps {
   originZ: number;
   initialRouteMode?: ExpeditionRouteMode;
   initialDestinationSystemId?: string | null;
+  stationedExpedition?: Expedition | null;
   onClose: () => void;
 }
 
@@ -116,6 +118,14 @@ function destinationToSystem(
   };
 }
 
+function pointFromUnknown(value: unknown): SystemMapPoint | null {
+  if (!value || typeof value !== "object") return null;
+  const point = value as Record<string, unknown>;
+  return typeof point.x === "number" && typeof point.y === "number"
+    ? { x: point.x, y: point.y }
+    : null;
+}
+
 export function ExpeditionDialog({
   ship,
   shipType,
@@ -124,14 +134,28 @@ export function ExpeditionDialog({
   originZ,
   initialRouteMode,
   initialDestinationSystemId,
+  stationedExpedition,
   onClose,
 }: ExpeditionDialogProps) {
   const { data: meData } = useMe();
   const { data: jumpGateState, isLoading: jumpGateLoading } =
     useJumpGateState();
   const { locale, t } = useI18n();
+  const stationedResult =
+    stationedExpedition?.result &&
+    typeof stationedExpedition.result === "object"
+      ? (stationedExpedition.result as Record<string, unknown>)
+      : null;
+  const stationedOriginSystemId =
+    typeof stationedResult?.destinationSystemId === "string"
+      ? stationedResult.destinationSystemId
+      : null;
+  const stationedOriginPoint = pointFromUnknown(stationedResult?.targetSystemPoint);
+  const isStationedOrigin = Boolean(
+    stationedExpedition && stationedOriginSystemId && stationedOriginPoint,
+  );
   const [routeMode, setRouteMode] = useState<ExpeditionRouteMode>(
-    initialRouteMode ?? "local",
+    isStationedOrigin ? "jump_gate" : (initialRouteMode ?? "local"),
   );
   const [target, setTarget] = useState({
     x: originX + 10,
@@ -140,7 +164,9 @@ export function ExpeditionDialog({
   });
   const [targetPlanetId, setTargetPlanetId] = useState<string | null>(null);
   const [selectedDestinationSystemId, setSelectedDestinationSystemId] =
-    useState<string | null>(initialDestinationSystemId ?? null);
+    useState<string | null>(
+      initialDestinationSystemId ?? stationedOriginSystemId ?? null,
+    );
   const [jumpTargetPoints, setJumpTargetPoints] = useState<Record<string, SystemMapPoint>>({});
   const [fuelLoaded, setFuelLoaded] = useState(0);
   const [jumpFuelLoaded, setJumpFuelLoaded] = useState(0);
@@ -217,6 +243,9 @@ export function ExpeditionDialog({
     routeMode === "jump_gate" && selectedDestinationSystem
       ? selectedDestinationSystem
       : homeSystem;
+  const sameStationedDestination =
+    isStationedOrigin &&
+    selectedDestination?.systemId === stationedOriginSystemId;
   const colonizationEligibility = useQuery({
     queryKey: ["colonization-eligibility", targetPlanetId, routeMode],
     queryFn: () =>
@@ -267,6 +296,12 @@ export function ExpeditionDialog({
 
   const jumpGatePoint = useMemo(() => systemMapJumpGatePoint(), []);
   const originGateDistance = useMemo(() => {
+    if (routeMode === "jump_gate" && isStationedOrigin && stationedOriginPoint) {
+      return sameStationedDestination
+        ? 0
+        : systemMapPointDistanceLy(stationedOriginPoint, jumpGatePoint);
+    }
+
     if (routeMode !== "jump_gate" || !homeSystem?.planets || !ship.locationPlanetId) {
       return null;
     }
@@ -276,7 +311,16 @@ export function ExpeditionDialog({
       Number(homeSystem.seed),
     ).find((layout) => layout.id === ship.locationPlanetId);
     return launchLayout ? systemMapPointDistanceLy(launchLayout, jumpGatePoint) : null;
-  }, [homeSystem?.planets, homeSystem?.seed, jumpGatePoint, routeMode, ship.locationPlanetId]);
+  }, [
+    homeSystem?.planets,
+    homeSystem?.seed,
+    isStationedOrigin,
+    jumpGatePoint,
+    routeMode,
+    sameStationedDestination,
+    ship.locationPlanetId,
+    stationedOriginPoint,
+  ]);
 
   const targetGateDistance = useMemo(() => {
     if (routeMode !== "jump_gate" || !selectedDestinationSystem) return null;
@@ -285,18 +329,28 @@ export function ExpeditionDialog({
         selectedDestinationSystem.planets ?? [],
         Number(selectedDestinationSystem.seed),
       ).find((layout) => layout.id === selectedJumpTargetPlanet.id);
+      if (sameStationedDestination && stationedOriginPoint) {
+        return targetLayout
+          ? systemMapPointDistanceLy(stationedOriginPoint, targetLayout)
+          : null;
+      }
       return targetLayout ? systemMapPointDistanceLy(jumpGatePoint, targetLayout) : null;
     }
     if (selectedJumpTargetPoint) {
+      if (sameStationedDestination && stationedOriginPoint) {
+        return systemMapPointDistanceLy(stationedOriginPoint, selectedJumpTargetPoint);
+      }
       return systemMapPointDistanceLy(jumpGatePoint, selectedJumpTargetPoint);
     }
     return null;
   }, [
     jumpGatePoint,
     routeMode,
+    sameStationedDestination,
     selectedDestinationSystem,
     selectedJumpTargetPlanet,
     selectedJumpTargetPoint,
+    stationedOriginPoint,
   ]);
 
   const jumpGateRouteDistance =
@@ -324,6 +378,7 @@ export function ExpeditionDialog({
         targetSector: { x: routeTarget.x, y: routeTarget.y },
         sameSystemPlanetDistance,
         jumpGateRouteDistance,
+        jumpFuelRequiredOverride: sameStationedDestination ? 0 : undefined,
         hasTargetPlanet: Boolean(targetPlanetId),
         isColonizer,
         shipRole: shipType.role,
@@ -338,6 +393,7 @@ export function ExpeditionDialog({
       routeTarget.x,
       routeTarget.y,
       sameSystemPlanetDistance,
+      sameStationedDestination,
       jumpGateRouteDistance,
       shipType.fuelConsumption,
       shipType.role,
@@ -512,6 +568,7 @@ export function ExpeditionDialog({
   };
 
   const selectRouteMode = (nextRouteMode: ExpeditionRouteMode) => {
+    if (isStationedOrigin && nextRouteMode !== "jump_gate") return;
     setRouteMode(nextRouteMode);
     setTargetPlanetId(null);
     setLaunchError(null);
@@ -623,14 +680,18 @@ export function ExpeditionDialog({
   const expeditionPick = useMemo<ExpeditionPickConfig | undefined>(
     () => {
       if (routeMode === "jump_gate" && selectedDestinationSystem) {
+        const routeStartPoint =
+          sameStationedDestination && stationedOriginPoint
+            ? stationedOriginPoint
+            : jumpGatePoint;
         return {
           sectorDx: selectedJumpTargetPoint
-            ? selectedJumpTargetPoint.x - jumpGatePoint.x
+            ? selectedJumpTargetPoint.x - routeStartPoint.x
             : 0,
           sectorDy: selectedJumpTargetPoint
-            ? selectedJumpTargetPoint.y - jumpGatePoint.y
+            ? selectedJumpTargetPoint.y - routeStartPoint.y
             : 0,
-          routeStartPoint: jumpGatePoint,
+          routeStartPoint,
           targetPoint: isColonizer ? null : selectedJumpTargetPoint,
           targetPlanetId,
           onPickSectorDelta: () => {},
@@ -659,11 +720,13 @@ export function ExpeditionDialog({
       onPickPlanet,
       onPickSectorDelta,
       routeMode,
+      sameStationedDestination,
       sectorDx,
       sectorDy,
       selectedDestinationSystem,
       selectedJumpTargetPoint,
       ship.locationPlanetId,
+      stationedOriginPoint,
       targetPlanetId,
     ],
   );
@@ -843,16 +906,18 @@ export function ExpeditionDialog({
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: supportsJumpGateExpedition
+            gridTemplateColumns: supportsJumpGateExpedition && !isStationedOrigin
               ? "repeat(2, minmax(0, 1fr))"
               : "minmax(0, 1fr)",
             gap: 8,
             marginBottom: 10,
           }}
         >
-          {(supportsJumpGateExpedition
-            ? (["local", "jump_gate"] as ExpeditionRouteMode[])
-            : (["local"] as ExpeditionRouteMode[])
+          {(isStationedOrigin
+            ? (["jump_gate"] as ExpeditionRouteMode[])
+            : supportsJumpGateExpedition
+              ? (["local", "jump_gate"] as ExpeditionRouteMode[])
+              : (["local"] as ExpeditionRouteMode[])
           ).map((mode) => {
             const active = routeMode === mode;
             return (

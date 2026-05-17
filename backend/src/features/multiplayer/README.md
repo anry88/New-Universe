@@ -4,7 +4,7 @@ Sector-scale multiplayer visibility — projects what another player may learn a
 
 ## Files
 
-- **`presence.ts`** — exports `getSectorPresence(viewerId, sectorX, sectorY, sectorZ)` returning `SectorPresencePayload` and `getSectorSystemAnchors(viewerId)` returning `SectorSystemAnchorsPayload` (`@shared/types/multiplayer`). Filters foreign homeworlds entirely, marks each payload with explicit home/colony/fleet/public-sector metadata, masks foreign actors via truncated Telegram handles, and feeds the frontend Sector selector with Home/discovered/colony/fleet anchors.
+- **`presence.ts`** — exports `getSectorPresence(viewerId, sectorX, sectorY, sectorZ)` returning `SectorPresencePayload` and `getSectorSystemAnchors(viewerId)` returning `SectorSystemAnchorsPayload` (`@shared/types/multiplayer`). Filters foreign homeworlds entirely, marks each payload with explicit home/colony/fleet/public-sector metadata, includes both docked idle ships and `stationed` Jump Gate point deployments as fleet markers, masks foreign actors via truncated Telegram handles, and feeds the frontend Sector selector with Home/discovered/colony/fleet anchors.
 - **`presence.test.ts`** — Vitest checks foreign homes stay hidden, two-player sector presence distinguishes home/public/colony/fleet entities, and the system-anchor selector filters protected home systems.
 
 ## Adding visibility rules
