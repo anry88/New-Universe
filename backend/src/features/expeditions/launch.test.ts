@@ -623,7 +623,7 @@ describe("Expeditions - POST /expeditions", () => {
 
     await unlockJumpGate(userId);
     await ensureFuel(planet.id, 100);
-    await ensureJumpFuel(planet.id, JUMP_GATE_JUMP_FUEL_COST);
+    await ensureJumpFuel(planet.id, JUMP_GATE_JUMP_FUEL_COST * 2);
     await ensureSpaceport(destination.planets[0].id);
     const ship = await createIdleScout(userId, planet.id);
     const targetSystemPoint = {
@@ -671,7 +671,7 @@ describe("Expeditions - POST /expeditions", () => {
       destination.system.id,
     );
     expect(body.expedition.result.jumpFuelRequired).toBe(
-      JUMP_GATE_JUMP_FUEL_COST,
+      JUMP_GATE_JUMP_FUEL_COST * 2,
     );
     expect(body.expedition.result.distance).toBeCloseTo(expectedDistance, 5);
     expect(body.expedition.result.fuelRequired).toBe(expectedFuel);
@@ -689,6 +689,42 @@ describe("Expeditions - POST /expeditions", () => {
       ),
     });
     expect(Number(jumpFuel!.amount)).toBe(0);
+  });
+
+  it("launches combat ships through the Jump Gate one-way to a target point", async () => {
+    const { app, token, userId } = await createTestUser();
+    const { planet } = await getHomeContext(userId);
+    const destination = await createKnownPublicDestination(userId);
+
+    await unlockJumpGate(userId);
+    await ensureFuel(planet.id, 100);
+    await ensureJumpFuel(planet.id, JUMP_GATE_JUMP_FUEL_COST);
+    const ship = await createIdleFighter(userId, planet.id);
+    const targetSystemPoint = {
+      x: systemMapJumpGatePoint().x + 120,
+      y: systemMapJumpGatePoint().y + 40,
+    };
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/expeditions",
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        shipId: ship.id,
+        routeMode: "jump_gate",
+        destinationSystemId: destination.system.id,
+        targetSystemX: targetSystemPoint.x,
+        targetSystemY: targetSystemPoint.y,
+        cargoLoaded: 0,
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.expedition.result.returnTrip).toBe(false);
+    expect(body.expedition.result.jumpFuelRequired).toBe(JUMP_GATE_JUMP_FUEL_COST);
+    expect(body.expedition.result.targetSystemPoint).toEqual(targetSystemPoint);
+    expect(body.expedition.result.spaceportReservation).toBeUndefined();
   });
 
   it("requires a target-system point for Jump Gate scout routes", async () => {

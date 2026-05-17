@@ -394,6 +394,85 @@ describe("Tick Expeditions Worker", () => {
     expect(updated!.status).toBe("returning");
   });
 
+  it("stations one-way combat ships at a Jump Gate target point", async () => {
+    const { user, originPlanet, ship } = await createSetup();
+
+    await db
+      .insert(shipTypes)
+      .values({
+        id: "test_combat_hull",
+        name: { ru: "Истребитель", en: "Fighter" },
+        role: "combat",
+        hp: 100,
+        speed: "2.00",
+        cargo: 0,
+        dps: 20,
+        armor: 5,
+        fuelConsumption: "0.50",
+        buildTimeSec: 60,
+        buildCost: { iron: 200 },
+        requiredBuildings: [],
+        sensorRange: 10,
+      })
+      .onConflictDoNothing();
+    await db.update(ships).set({ typeId: "test_combat_hull" }).where(eq(ships.id, ship.id));
+
+    const [destinationSystem] = await db
+      .insert(systems)
+      .values({
+        name: "Combat Public Destination",
+        sectorX: 7,
+        sectorY: 9,
+        sectorZ: 0,
+        x: "700.00",
+        y: "900.00",
+        z: "0.00",
+        seed: 456,
+        ownerId: null,
+        isHome: false,
+      })
+      .returning();
+
+    const [expedition] = await db
+      .insert(expeditions)
+      .values({
+        shipId: ship.id,
+        type: "test_combat_hull",
+        originPlanetId: originPlanet.id,
+        targetX: destinationSystem.sectorX.toString(),
+        targetY: destinationSystem.sectorY.toString(),
+        targetZ: destinationSystem.sectorZ.toString(),
+        status: "in_flight",
+        eta: new Date(Date.now() - 1000),
+        result: {
+          routeMode: "jump_gate",
+          destinationSystemId: destinationSystem.id,
+          targetSystemPoint: { x: 120, y: -40 },
+          distance: 5,
+          originGateDistance: 2,
+          targetGateDistance: 3,
+          speed: 2,
+          engineFactor: 1,
+          returnTrip: false,
+        },
+      })
+      .returning();
+
+    await processExpeditions({ userId: user.id, skipNotifications: true });
+
+    const storedExpedition = await db.query.expeditions.findFirst({
+      where: eq(expeditions.id, expedition.id),
+    });
+    expect(storedExpedition).toBeDefined();
+    expect(storedExpedition!.status).toBe("stationed");
+
+    const storedShip = await db.query.ships.findFirst({
+      where: eq(ships.id, ship.id),
+    });
+    expect(storedShip!.status).toBe("moving");
+    expect(storedShip!.locationPlanetId).toBeNull();
+  });
+
   it("should transition from in_flight to returning upon arrival at target", async () => {
     const { ship, originPlanet } = await createSetup();
 

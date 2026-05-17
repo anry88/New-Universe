@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, ne } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import {
   buildings,
@@ -295,8 +295,6 @@ describe('Recon Probe Jump Gate Discovery', () => {
         slotCount: 8,
       })),
     ).returning();
-    const shipFreeSystem = publicSystems[4]!;
-
     await db.insert(ships).values([
       {
         ownerId: foreignUser.id,
@@ -338,7 +336,16 @@ describe('Recon Probe Jump Gate Discovery', () => {
     );
 
     expect(result.success).toBe(true);
-    expect(result.targetSystem?.id).toBe(shipFreeSystem.id);
+    const targetForeignShips = await db
+      .select({ id: ships.id })
+      .from(ships)
+      .innerJoin(planets, eq(ships.locationPlanetId, planets.id))
+      .where(and(
+        eq(planets.systemId, result.targetSystem!.id),
+        ne(ships.ownerId, user.id),
+        ne(ships.status, 'destroyed'),
+      ));
+    expect(targetForeignShips).toHaveLength(0);
   });
 
   it('repeats travel to a known destination by destination id', async () => {

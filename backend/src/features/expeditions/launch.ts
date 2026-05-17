@@ -7,12 +7,12 @@ import {
 } from "@shared/types/expeditions.js";
 import type { ExpeditionRouteMode } from "@shared/config/expeditionRouting.js";
 import {
+  calculateJumpGateJumpFuelRequired,
   calculateExpeditionEtaSeconds,
   calculateExpeditionRequiredFuel,
   calculateSectorRouteDistance,
   isOneWayExpedition,
   JUMP_FUEL_RESOURCE_ID,
-  JUMP_GATE_JUMP_FUEL_COST,
 } from "@shared/config/expeditionRouting.js";
 import { db as defaultDb } from "../../db/index.js";
 import {
@@ -236,14 +236,6 @@ export async function launchExpedition(
     });
   }
 
-  if (
-    routeMode === "jump_gate" &&
-    shipRow.shipRole !== "recon" &&
-    shipRow.shipRole !== "colonization"
-  ) {
-    return launchFailure(400, { code: "expedition_jump_gate_role_required" });
-  }
-
   let resolvedTargetX = routeMode === "local" ? targetX! : 0;
   let resolvedTargetY = routeMode === "local" ? targetY! : 0;
   let resolvedTargetZ = routeMode === "local" ? targetZ! : 0;
@@ -289,7 +281,6 @@ export async function launchExpedition(
       return launchFailure(400, { code: "expedition_known_destination_not_public" });
     }
 
-    jumpFuelRequired = JUMP_GATE_JUMP_FUEL_COST;
     if (isFiniteNumber(targetSystemX) && isFiniteNumber(targetSystemY)) {
       targetSystemPoint = { x: targetSystemX, y: targetSystemY };
     }
@@ -306,7 +297,7 @@ export async function launchExpedition(
 
   if (
     routeMode === "jump_gate" &&
-    shipRow.shipRole === "recon" &&
+    shipRow.shipRole !== "colonization" &&
     !targetPlanetId &&
     !targetSystemPoint
   ) {
@@ -436,8 +427,11 @@ export async function launchExpedition(
     shipRole: shipRow.shipRole,
     isColonizer: shipRow.shipRole === "colonization",
     hasTargetPlanet: resolvedTargetPlanetId !== null,
+    routeMode,
   });
   const returnTrip = !isOneWayMission;
+  jumpFuelRequired =
+    routeMode === "jump_gate" ? calculateJumpGateJumpFuelRequired(returnTrip) : 0;
   const spaceportReservation = buildExpeditionSpaceportReservation({
     originPlanetId: shipRow.originPlanetId,
     targetPlanetId: resolvedTargetPlanetId,

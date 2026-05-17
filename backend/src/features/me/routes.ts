@@ -221,6 +221,7 @@ export async function meRoutes(app: FastifyInstance) {
               or(
                 eq(expeditions.status, "in_flight"),
                 eq(expeditions.status, "returning"),
+                eq(expeditions.status, "stationed"),
               ),
             ),
           })

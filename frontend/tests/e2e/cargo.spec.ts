@@ -79,6 +79,9 @@ test('fleet cargo shortcut opens transfer dialog with selected ship and localize
         status: 'idle',
         cargoJson: {},
         fuel: '0',
+        jumpFuel: '0',
+        refuelFuel: '0',
+        refuelJumpFuel: '0',
       },
     ],
     expeditions: [],
@@ -114,6 +117,10 @@ test('fleet cargo shortcut opens transfer dialog with selected ship and localize
           dps: 0,
           armor: 0,
           fuelConsumption: '0.80',
+          fuelCapacity: 100,
+          jumpFuelCapacity: 200,
+          refuelFuelCapacity: 0,
+          refuelJumpFuelCapacity: 0,
           buildTimeSec: 1200,
           buildCost: { iron: 500, silicon: 300, carbon: 200, methane: 100 },
           requiredBuildings: [{ typeId: 'shipyard', level: 2 }],
@@ -134,6 +141,7 @@ test('fleet cargo shortcut opens transfer dialog with selected ship and localize
   });
 
   await page.goto('/ships');
+  await page.getByRole('button', { name: /Lightweight Transporter/ }).click();
   await expect(page.getByText('OPEN CARGO')).toBeVisible();
   await page.getByText('OPEN CARGO').click();
 

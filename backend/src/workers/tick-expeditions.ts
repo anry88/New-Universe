@@ -35,6 +35,7 @@ import {
 
 const POLL_INTERVAL_MS = 30000;
 const SYSTEM_MAP_SENSOR_RANGE_SCALE = 0.25;
+export const EXPEDITION_STATUS_STATIONED = "stationed";
 
 /**
  * Calculates current position of a ship in an expedition using linear interpolation.
@@ -92,6 +93,10 @@ export function calculateExpeditionPosition(
       y: tY + (originY - tY) * progress,
       z: originZ,
     };
+  }
+
+  if (status === EXPEDITION_STATUS_STATIONED) {
+    return { x: tX, y: tY, z: originZ };
   }
 
   return { x: originX, y: originY, z: originZ };
@@ -365,6 +370,7 @@ async function handleArrivalAtTarget(
   const result = expedition.result as any;
   const durationMs =
     ((result.distance * 60) / result.speed) * result.engineFactor * 1000;
+  const arrivalTime = expedition.eta.getTime();
 
   if (expedition.type === "cargo_transfer") {
     await completeCargoTransfer(expedition, expedition.shipId, tx, options);
@@ -487,8 +493,51 @@ async function handleArrivalAtTarget(
     return;
   }
 
+  if (result.returnTrip === false) {
+    const [shipRow] = await tx
+      .select({
+        id: ships.id,
+        ownerId: ships.ownerId,
+        typeId: ships.typeId,
+        role: shipTypes.role,
+      })
+      .from(ships)
+      .innerJoin(shipTypes, eq(shipTypes.id, ships.typeId))
+      .where(eq(ships.id, expedition.shipId))
+      .limit(1);
+
+    if (shipRow && isOneWayShipRole(shipRow.role)) {
+      await tx
+        .update(expeditions)
+        .set({
+          status: EXPEDITION_STATUS_STATIONED,
+          eta: new Date(arrivalTime),
+        })
+        .where(eq(expeditions.id, expedition.id));
+      await tx
+        .update(ships)
+        .set({
+          status: "moving",
+          locationPlanetId: null,
+          cargoJson: {},
+        })
+        .where(eq(ships.id, expedition.shipId));
+
+      logger.info(
+        {
+          expeditionId: expedition.id,
+          shipId: expedition.shipId,
+          role: shipRow.role,
+          targetX: expedition.targetX,
+          targetY: expedition.targetY,
+        },
+        "One-way expedition reached target point; ship stationed in destination system",
+      );
+      return;
+    }
+  }
+
   // Start return journey from the moment we SHOULD have arrived
-  const arrivalTime = expedition.eta.getTime();
   const returnEta = new Date(arrivalTime + durationMs);
 
   await tx

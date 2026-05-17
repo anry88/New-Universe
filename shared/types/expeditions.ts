@@ -186,8 +186,8 @@ export function formatLaunchExpeditionErrorMessage(
         : `${shipLabel(error.shipTypeId ?? 'cargo_light', locale)} uses cargo transfer.`;
     case 'expedition_jump_gate_role_required':
       return locale === 'ru'
-        ? `Маршруты через врата доступны для кораблей «${shipLabel('scout', locale)}» и «${shipLabel('colonizer', locale)}».`
-        : `Jump Gate expedition routes support ${shipLabel('scout', locale)} and ${shipLabel('colonizer', locale)} ships.`;
+        ? 'Маршруты через врата доступны всем кораблям, кроме грузовых перевозчиков.'
+        : 'Jump Gate expedition routes support every non-logistics ship.';
     case 'expedition_jump_drive_required':
       return locale === 'ru'
         ? 'Для маршрутов через врата нужен Прыжковый двигатель уровня 1.'

@@ -445,8 +445,8 @@ export function SystemMapPage() {
       >
         <CosmicSystemRenderer
           system={activeSystem}
-          ships={selectedDestination ? [] : (meData.ships || [])}
-          expeditions={selectedDestination ? [] : (meData.expeditions || [])}
+          ships={meData.ships || []}
+          expeditions={meData.expeditions || []}
           onPlanetClick={(planet) => navigate(`/planet/${planet.id}`)}
           onColonizeClick={() => navigate('/ships')}
           ownedPlanetIds={ownedPlanetIds}

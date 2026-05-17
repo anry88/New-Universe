@@ -39,6 +39,11 @@ import {
   JUMP_FUEL_RESOURCE_ID,
   JUMP_GATE_JUMP_FUEL_COST,
 } from "@shared/config/expeditionRouting.js";
+import {
+  buildSystemMapLayouts,
+  systemMapJumpGatePoint,
+  systemMapPointDistanceLy,
+} from "@shared/format/systemMapLayout.js";
 
 const AREA = {
   cargo: "[JumpGate:Cargo]",
@@ -313,6 +318,9 @@ describe("Jump Gate end-to-end regression suite", () => {
       targetSystem?.ownerId,
       `${AREA.visibility} target is public`,
     ).toBeNull();
+    if (!targetSystem) {
+      throw new Error(`${AREA.visibility} target system missing`);
+    }
     await db
       .update(systems)
       .set({ x: "100.00", y: "100.00", z: "0.00" })
@@ -320,9 +328,21 @@ describe("Jump Gate end-to-end regression suite", () => {
     const targetPlanets = await db.query.planets.findMany({
       where: eq(planets.systemId, randomJump.destination.systemId),
     });
-    const targetPlanet = targetPlanets.sort((a, b) =>
-      a.name.localeCompare(b.name),
-    )[0];
+    const targetPlanetLayouts = buildSystemMapLayouts(
+      targetPlanets,
+      Number(targetSystem.seed),
+    );
+    const targetPlanetById = new Map(
+      targetPlanets.map((planet) => [planet.id, planet]),
+    );
+    const targetPlanet = [...targetPlanetLayouts]
+      .sort(
+        (a, b) =>
+          systemMapPointDistanceLy(systemMapJumpGatePoint(), a) -
+          systemMapPointDistanceLy(systemMapJumpGatePoint(), b),
+      )
+      .map((layout) => targetPlanetById.get(layout.id))
+      .find(Boolean);
     expect(
       targetPlanet,
       `${AREA.discovery} target common planet`,
@@ -487,6 +507,27 @@ describe("Jump Gate end-to-end regression suite", () => {
       `${AREA.discovery} target discovery is idempotent`,
     ).toHaveLength(1);
 
+    await setResearchLevel(userId, "jump_drive", 1);
+    await setResearchLevel(userId, "engineering", 2);
+    await setResearchLevel(userId, "logistics", 1);
+    await db
+      .insert(discoveredSystems)
+      .values({
+        userId,
+        systemId: randomJump.destination.systemId,
+        source: "random_jump",
+        lastVisitedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: [discoveredSystems.userId, discoveredSystems.systemId],
+        set: { source: "random_jump", lastVisitedAt: new Date() },
+      });
+    await db
+      .insert(discoveredPlanets)
+      .values({ userId, planetId: targetPlanet.id })
+      .onConflictDoNothing();
+    await db.delete(buildings).where(eq(buildings.planetId, targetPlanet.id));
+    await db.delete(colonies).where(eq(colonies.planetId, targetPlanet.id));
     await db
       .insert(richness)
       .values({
@@ -494,7 +535,10 @@ describe("Jump Gate end-to-end regression suite", () => {
         resourceId: "iron",
         value: 3,
       })
-      .onConflictDoNothing();
+      .onConflictDoUpdate({
+        target: [richness.planetId, richness.resourceId],
+        set: { value: 3 },
+      });
     const [colonizer] = await db
       .insert(ships)
       .values({
@@ -502,7 +546,8 @@ describe("Jump Gate end-to-end regression suite", () => {
         typeId: "colonizer",
         locationPlanetId: homePlanet.id,
         status: "idle",
-        fuel: "100",
+        fuel: "80",
+        jumpFuel: JUMP_GATE_JUMP_FUEL_COST.toString(),
       })
       .returning();
     const colonizerRes = await app.inject({
@@ -519,7 +564,7 @@ describe("Jump Gate end-to-end regression suite", () => {
     });
     expect(
       colonizerRes.statusCode,
-      `${AREA.colonization} colonizer through Jump Gate`,
+      `${AREA.colonization} colonizer through Jump Gate: ${colonizerRes.body}`,
     ).toBe(200);
     const colonizerExpedition = (
       colonizerRes.json() as {

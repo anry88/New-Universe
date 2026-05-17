@@ -299,7 +299,10 @@ export function ShipsPage() {
     return new Map(
       (meData?.expeditions ?? [])
         .filter(
-          (exp) => exp.status === "in_flight" || exp.status === "returning",
+          (exp) =>
+            exp.status === "in_flight" ||
+            exp.status === "returning" ||
+            exp.status === "stationed",
         )
         .map((exp) => [exp.shipId, exp]),
     );
@@ -308,9 +311,7 @@ export function ShipsPage() {
     ? getShipType(selectedShip.typeId)
     : null;
   const selectedShipSupportsJumpGate =
-    selectedShipType?.role === "recon" ||
-    selectedShipType?.role === "colonization" ||
-    selectedShip?.typeId === "colonizer";
+    Boolean(selectedShipType) && selectedShipType?.role !== "logistics";
 
   return (
     <div
@@ -680,13 +681,17 @@ export function ShipsPage() {
                   )
                 : null;
               const expeditionLegLabel =
-                activeExpedition?.status === "returning"
+                activeExpedition?.status === "stationed"
+                  ? t("ships.deployed")
+                  : activeExpedition?.status === "returning"
                   ? t("ships.returning")
                   : t("ships.outbound");
               const shipLocation = isIdle
                 ? `${t("ships.orbit")} · ${origin.sectorX}:${origin.sectorY}:${origin.sectorZ}`
                 : isBuilding
                   ? `${t("ships.underConstruction")}${etaSec != null ? ` · ETA ${formatDuration(etaSec)}` : ""}`
+                  : activeExpedition?.status === "stationed"
+                    ? `${t("ships.deployed")} · ${activeExpedition.targetX}:${activeExpedition.targetY}:${activeExpedition.targetZ}`
                   : activeExpedition && expeditionEtaSec != null
                     ? `${t("ships.inTransit")} · ${expeditionLegLabel} · ETA ${formatDuration(expeditionEtaSec)}`
                     : `${t("ships.inTransit")} · ${t("ships.syncingRoute")}`;
@@ -705,6 +710,8 @@ export function ShipsPage() {
                       : t("ships.sendMission").toUpperCase()
                 : isBuilding
                   ? t("ships.building").toUpperCase()
+                  : activeExpedition?.status === "stationed"
+                    ? t("ships.deployed").toUpperCase()
                   : expeditionEtaSec != null
                     ? `ETA ${formatDuration(expeditionEtaSec)}`
                     : t("ships.inTransit").toUpperCase();

@@ -1,10 +1,10 @@
 import type { ExpeditionRouteMode } from "@shared/config/expeditionRouting";
 import {
+  calculateJumpGateJumpFuelRequired,
   calculateExpeditionEtaSeconds,
   calculateExpeditionRequiredFuel,
   calculateSectorRouteDistance,
   isOneWayExpedition,
-  JUMP_GATE_JUMP_FUEL_COST,
 } from "@shared/config/expeditionRouting";
 
 export interface ExpeditionPreviewInput {
@@ -48,6 +48,7 @@ export function buildExpeditionPreview(
     shipRole: input.shipRole,
     isColonizer: input.isColonizer,
     hasTargetPlanet: input.hasTargetPlanet,
+    routeMode: input.routeMode,
   });
 
   return {
@@ -59,7 +60,9 @@ export function buildExpeditionPreview(
       returnTrip,
     ),
     jumpFuelRequired:
-      input.routeMode === "jump_gate" ? JUMP_GATE_JUMP_FUEL_COST : 0,
+      input.routeMode === "jump_gate"
+        ? calculateJumpGateJumpFuelRequired(returnTrip)
+        : 0,
     returnTrip,
   };
 }

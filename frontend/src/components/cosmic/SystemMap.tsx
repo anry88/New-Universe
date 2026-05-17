@@ -104,6 +104,11 @@ const MAX_SCALE = 5;
 const DISPLAY_SCALE_FACTOR = 0.3;
 const SHIP_MARKER_TICK_MS = 2500;
 const PICK_DELTA_EPSILON = 0.03;
+const ACTIVE_MAP_EXPEDITION_STATUSES = new Set([
+  "in_flight",
+  "returning",
+  "stationed",
+]);
 
 /** Below this drag distance (CSS px), a one-finger gesture counts as a tap for expedition aiming. */
 const EXPEDITION_TAP_THRESHOLD_PX = 14;
@@ -204,19 +209,52 @@ interface ExpeditionTrailSegment {
   endpointY: number;
 }
 
+function isActiveMapExpedition(expedition: Expedition): boolean {
+  return ACTIVE_MAP_EXPEDITION_STATUSES.has(expedition.status);
+}
+
+function pointFromResult(value: unknown): SystemMapPoint | null {
+  if (!value || typeof value !== "object") return null;
+  const point = value as { x?: unknown; y?: unknown };
+  return typeof point.x === "number" && typeof point.y === "number"
+    ? { x: point.x, y: point.y }
+    : null;
+}
+
 function buildExpeditionTrailSegments(
   activeExpeditions: Expedition[],
   layoutByPlanetId: Map<string, PlanetLayout>,
   system: HomeSystem,
 ): ExpeditionTrailSegment[] {
   return activeExpeditions.flatMap((exp) => {
+    const result = exp.result as Record<string, unknown> | null | undefined;
+    if (result?.routeMode === "jump_gate") {
+      if (result.destinationSystemId === system.id) {
+        const gatePoint = systemMapJumpGatePoint();
+        const targetPlanet = exp.targetPlanetId
+          ? layoutByPlanetId.get(exp.targetPlanetId)
+          : null;
+        const targetPoint = targetPlanet ?? pointFromResult(result.targetSystemPoint);
+        if (!targetPoint) return [];
+
+        return [
+          {
+            id: `${exp.id}-destination`,
+            originX: gatePoint.x,
+            originY: gatePoint.y,
+            endpointX: targetPoint.x,
+            endpointY: targetPoint.y,
+          },
+        ];
+      }
+    }
+
     const origin = layoutByPlanetId.get(exp.originPlanetId);
     if (!origin) return [];
 
     const targetPlanet = exp.targetPlanetId
       ? layoutByPlanetId.get(exp.targetPlanetId)
       : null;
-    const result = exp.result as Record<string, unknown> | null | undefined;
     const endpoint = targetPlanet
       ? { x: targetPlanet.x, y: targetPlanet.y }
       : result?.routeMode === "jump_gate"
@@ -385,6 +423,144 @@ const PlanetMarkers = React.memo(function PlanetMarkers({
   );
 });
 
+function routeProgress(exp: Expedition, now: number): {
+  totalDistance: number;
+  outboundTravelled: number;
+  returnTravelled: number;
+} | null {
+  const res = exp.result as Record<string, number> | null | undefined;
+  if (!res || res.distance === undefined || !res.speed) return null;
+  const totalDistance = Number(res.distance);
+  const durationMs =
+    ((totalDistance * 60) / Number(res.speed)) *
+    Number(res.engineFactor || 1) *
+    1000;
+  if (!Number.isFinite(durationMs) || durationMs <= 0) return null;
+
+  if (exp.status === "stationed") {
+    return {
+      totalDistance,
+      outboundTravelled: totalDistance,
+      returnTravelled: 0,
+    };
+  }
+
+  const etaMs = new Date(exp.eta).getTime();
+  const startMs = etaMs - durationMs;
+  const progress = Math.max(0, Math.min(1, (now - startMs) / durationMs));
+  const remaining = Math.max(0, Math.min(1, (etaMs - now) / durationMs));
+  return {
+    totalDistance,
+    outboundTravelled: progress * totalDistance,
+    returnTravelled: (1 - remaining) * totalDistance,
+  };
+}
+
+function interpolatePoint(
+  start: SystemMapPoint,
+  end: SystemMapPoint,
+  progress: number,
+): SystemMapPoint {
+  const p = Math.max(0, Math.min(1, progress));
+  return {
+    x: start.x + (end.x - start.x) * p,
+    y: start.y + (end.y - start.y) * p,
+  };
+}
+
+function jumpGateShipPointForSystem({
+  exp,
+  layout,
+  layoutByPlanetId,
+  system,
+  now,
+}: {
+  exp: Expedition;
+  layout: PlanetLayout | null;
+  layoutByPlanetId: Map<string, PlanetLayout>;
+  system: HomeSystem;
+  now: number;
+}): { point: SystemMapPoint; angle: number; returning: boolean } | null {
+  const result = exp.result as Record<string, unknown> | null | undefined;
+  if (!result || result.routeMode !== "jump_gate") return null;
+  const destinationSystemId =
+    typeof result.destinationSystemId === "string"
+      ? result.destinationSystemId
+      : null;
+  const progress = routeProgress(exp, now);
+  if (!progress) return null;
+
+  const gatePoint = systemMapJumpGatePoint();
+  const isDestinationSystem = destinationSystemId === system.id;
+
+  if (isDestinationSystem) {
+    const targetPlanet = exp.targetPlanetId
+      ? layoutByPlanetId.get(exp.targetPlanetId)
+      : null;
+    const routeEnd = targetPlanet ?? pointFromResult(result.targetSystemPoint);
+    if (!routeEnd) return null;
+
+    const targetLegDistance = Number(result.targetGateDistance ?? 0);
+    if (exp.status === "stationed") {
+      return {
+        point: routeEnd,
+        angle: Math.atan2(routeEnd.y - gatePoint.y, routeEnd.x - gatePoint.x),
+        returning: false,
+      };
+    }
+    if (!Number.isFinite(targetLegDistance) || targetLegDistance <= 0) return null;
+
+    if (exp.status === "returning") {
+      const legProgress = 1 - progress.returnTravelled / targetLegDistance;
+      if (legProgress <= 0 || legProgress > 1) return null;
+      const point = interpolatePoint(gatePoint, routeEnd, legProgress);
+      return {
+        point,
+        angle: Math.atan2(gatePoint.y - routeEnd.y, gatePoint.x - routeEnd.x),
+        returning: true,
+      };
+    }
+
+    const originLegDistance = Number(result.originGateDistance ?? 0);
+    const legProgress =
+      (progress.outboundTravelled - originLegDistance) / targetLegDistance;
+    if (legProgress <= 0 || legProgress > 1) return null;
+    const point = interpolatePoint(gatePoint, routeEnd, legProgress);
+    return {
+      point,
+      angle: Math.atan2(routeEnd.y - gatePoint.y, routeEnd.x - gatePoint.x),
+      returning: false,
+    };
+  }
+
+  if (!layout || exp.status === "stationed") return null;
+
+  const originLegDistance = Number(result.originGateDistance ?? 0);
+  if (!Number.isFinite(originLegDistance) || originLegDistance <= 0) return null;
+
+  if (exp.status === "returning") {
+    const originLegStart = Math.max(0, progress.totalDistance - originLegDistance);
+    const legProgress =
+      (progress.returnTravelled - originLegStart) / originLegDistance;
+    if (legProgress <= 0 || legProgress > 1) return null;
+    const point = interpolatePoint(gatePoint, layout, legProgress);
+    return {
+      point,
+      angle: Math.atan2(layout.y - gatePoint.y, layout.x - gatePoint.x),
+      returning: true,
+    };
+  }
+
+  const legProgress = progress.outboundTravelled / originLegDistance;
+  if (legProgress < 0 || legProgress > 1) return null;
+  const point = interpolatePoint(layout, gatePoint, legProgress);
+  return {
+    point,
+    angle: Math.atan2(gatePoint.y - layout.y, gatePoint.x - layout.x),
+    returning: false,
+  };
+}
+
 const ShipMarkers = React.memo(function ShipMarkers({
   ships,
   activeExpeditions,
@@ -426,9 +602,9 @@ const ShipMarkers = React.memo(function ShipMarkers({
           ship.status === "moving" ? expeditionByShipId.get(ship.id) : undefined;
         const anchorPlanetId =
           ship.locationPlanetId ?? movingExpedition?.originPlanetId ?? null;
-        if (!anchorPlanetId) return null;
-        const layout = layoutByPlanetId.get(anchorPlanetId);
-        if (!layout) return null;
+        const layout = anchorPlanetId
+          ? (layoutByPlanetId.get(anchorPlanetId) ?? null)
+          : null;
 
         let sx,
           sy,
@@ -440,7 +616,23 @@ const ShipMarkers = React.memo(function ShipMarkers({
           const exp = movingExpedition;
           if (exp && exp.result && typeof exp.result === "object") {
             const res = exp.result as Record<string, number>;
-            if (res.distance !== undefined && res.speed) {
+            if ((exp.result as Record<string, unknown>).routeMode === "jump_gate") {
+              const gatePoint = jumpGateShipPointForSystem({
+                exp,
+                layout,
+                layoutByPlanetId,
+                system,
+                now,
+              });
+              if (!gatePoint) return null;
+              sx = gatePoint.point.x;
+              sy = gatePoint.point.y;
+              angle = gatePoint.angle;
+              isReturning = gatePoint.returning;
+              isMoving = exp.status !== "stationed";
+            } else if (!layout) {
+              return null;
+            } else if (res.distance !== undefined && res.speed) {
               const durationMs =
                 ((res.distance * 60) / res.speed) *
                 (res.engineFactor || 1) *
@@ -489,11 +681,16 @@ const ShipMarkers = React.memo(function ShipMarkers({
         }
 
         if (!isMoving) {
-          const dockRadius = Math.min(14, Math.max(5, layout.spriteSize * 0.24));
-          const a = layout.angle + 0.18 + shipIdx * 0.74;
-          sx = layout.x + Math.cos(a) * dockRadius;
-          sy = layout.y + Math.sin(a) * dockRadius;
-          angle = a + Math.PI / 2;
+          if (!layout && sx === undefined && sy === undefined) return null;
+          if (!layout) {
+            angle = angle || 0;
+          } else {
+            const dockRadius = Math.min(14, Math.max(5, layout.spriteSize * 0.24));
+            const a = layout.angle + 0.18 + shipIdx * 0.74;
+            sx = layout.x + Math.cos(a) * dockRadius;
+            sy = layout.y + Math.sin(a) * dockRadius;
+            angle = a + Math.PI / 2;
+          }
         }
 
         const tone = isMoving
@@ -642,9 +839,7 @@ export function CosmicSystemRenderer({
 
   const activeExpeditions = useMemo(
     () =>
-      expeditions.filter(
-        (exp) => exp.status === "in_flight" || exp.status === "returning",
-      ),
+      expeditions.filter(isActiveMapExpedition),
     [expeditions],
   );
 
