@@ -88,6 +88,7 @@ function formatJumpGateError(message: string, t: TFunction) {
   if (normalized.includes('jump gate calibration is still in progress')) return t('jumpGate.random.calibrationInProgress');
   if (normalized.includes('random_jump_cooldown')) return t('jumpGate.error.randomCooldownShort');
   if (normalized.includes('random jump is still on cooldown')) return t('jumpGate.error.randomCooldownShort');
+  if (normalized.includes('random discovery limit reached')) return t('jumpGate.error.randomDiscoveryLimit');
   if (normalized.includes('ship state changed')) return t('jumpGate.error.shipChanged');
   if (normalized.includes('recon probe')) return t('jumpGate.error.noJumpShip');
   return message.includes('_') ? t('jumpGate.error.unavailable') : message;
@@ -125,6 +126,7 @@ function destinationToSystem(destination: JumpGateKnownDestinationSummary, local
       size: planet.size ?? 10,
       slotCount: planet.slotCount ?? 0,
       name: planet.name ?? `#${planet.orbitIndex}`,
+      orbitIndex: planet.orbitIndex,
       isDiscovered: true,
       isColonized: planet.isColonized,
       resources: planet.resources ?? [],

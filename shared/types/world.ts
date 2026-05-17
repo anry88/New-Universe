@@ -55,6 +55,8 @@ export interface Planet {
   size: number;
   slotCount: number;
   name: string;
+  /** Explicit public-system orbit index when the backend exposes one. */
+  orbitIndex?: number;
   isDiscovered?: boolean;
   /** True only after the planet has an active Command Center/capital or colony record. */
   isColonized?: boolean;

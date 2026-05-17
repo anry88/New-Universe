@@ -193,6 +193,7 @@
   "jumpGate.error.insufficientJumpFuel": "На стартовой планете не хватает прыжкового топлива.",
   "jumpGate.error.randomCooldown": "Случайный прыжок на откате до {time}.",
   "jumpGate.error.randomCooldownShort": "Случайный прыжок ещё на откате.",
+  "jumpGate.error.randomDiscoveryLimit": "Колонизируйте планету в одной из открытых публичных систем, чтобы разблокировать ещё одно случайное открытие.",
   "jumpGate.error.shipChanged": "Состояние корабля изменилось до запуска прыжка.",
   "jumpGate.error.server": "Не удалось выполнить запрос Прыжковых врат.",
   "map.noHome": "Домашняя система не найдена.",

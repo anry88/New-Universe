@@ -21,10 +21,15 @@ import {
   ships,
   shipTypes,
   systems,
+  users,
 } from '../../db/schema.js';
 import { getJumpGateState } from '../jump-gate/service.js';
-import { getOrCreateSector } from '../world/sectors.js';
-import { generateSystemsInSector } from '../world/sector-generator.js';
+import {
+  COMMON_POOL_INITIAL_SYSTEM_COUNT,
+  countCommonPoolSectors,
+  countCommonPoolSystems,
+  createCommonPoolSystems,
+} from '../world/sector-generator.js';
 import { spendResources } from '../resources/transactions.js';
 import { formatInsufficientResourceMessage, shipLabel } from '@shared/types/entity-labels.js';
 import type { JumpGateAvailabilityBlockedCode } from '@shared/types/jump-gate.js';
@@ -48,32 +53,21 @@ export interface JumpResult extends Partial<JumpGateJumpResponse> {
   targetPlanet?: typeof planets.$inferSelect;
 }
 
-export interface RandomJumpSectorContext {
-  userId: string;
-  shipId: string;
-  originSystem: typeof systems.$inferSelect;
-  now: Date;
-}
-
 export interface JumpShipOptions {
   now?: Date;
   database?: typeof defaultDb;
-  selectRandomSector?: (
-    attempt: number,
-    context: RandomJumpSectorContext,
-  ) => { x: number; y: number; z: number };
 }
 
 type LoadedShipContext = {
   shipRow: typeof ships.$inferSelect;
-  originSystem: typeof systems.$inferSelect;
 };
 
 type LoadShipContextResult = LoadedShipContext | { error: JumpResult };
 
-const RANDOM_JUMP_ATTEMPTS = 8;
-const RANDOM_JUMP_SECTOR_RANGE = 8;
 const DISCOVERY_PROBE_TYPE_ID = 'recon_probe';
+const RANDOM_JUMP_BASE_OPEN_LIMIT = 5;
+const RANDOM_JUMP_LIMIT_REACHED_MESSAGE =
+  'Random discovery limit reached. Colonize a planet in one of your opened public systems to unlock another random system.';
 
 function randomJumpBlockedMessage(code: JumpGateAvailabilityBlockedCode | null): string {
   switch (code) {
@@ -102,33 +96,6 @@ function hashString(str: string): number {
 
 function positiveModulo(value: number, divisor: number): number {
   return ((value % divisor) + divisor) % divisor;
-}
-
-function randomOffset(seed: string, axis: string): number {
-  const span = RANDOM_JUMP_SECTOR_RANGE * 2 + 1;
-  return positiveModulo(hashString(`${seed}:${axis}`), span) - RANDOM_JUMP_SECTOR_RANGE;
-}
-
-function defaultRandomSector(
-  attempt: number,
-  context: RandomJumpSectorContext,
-): { x: number; y: number; z: number } {
-  const seed = `${context.userId}:${context.shipId}:${context.now.toISOString()}:${attempt}`;
-  const offset = {
-    x: randomOffset(seed, 'x'),
-    y: randomOffset(seed, 'y'),
-    z: randomOffset(seed, 'z'),
-  };
-
-  if (offset.x === 0 && offset.y === 0 && offset.z === 0) {
-    offset.x = 1;
-  }
-
-  return {
-    x: context.originSystem.sectorX + offset.x,
-    y: context.originSystem.sectorY + offset.y,
-    z: context.originSystem.sectorZ + offset.z,
-  };
 }
 
 function isPublicSystem(system: typeof systems.$inferSelect): boolean {
@@ -254,13 +221,23 @@ async function loadShipContext(
     };
   }
 
-  return { shipRow, originSystem: originPlanet.system };
+  return { shipRow };
 }
 
-async function hasKnownPublicDestinations(
+async function countUsers(
+  database: typeof defaultDb,
+): Promise<number> {
+  const [row] = await database
+    .select({ count: sql<number>`count(*)::int` })
+    .from(users);
+
+  return Number(row?.count ?? 0);
+}
+
+async function countKnownPublicDestinations(
   userId: string,
   database: typeof defaultDb,
-): Promise<boolean> {
+): Promise<number> {
   const [row] = await database
     .select({ count: sql<number>`count(*)::int` })
     .from(discoveredSystems)
@@ -271,26 +248,40 @@ async function hasKnownPublicDestinations(
       isNull(systems.ownerId),
     ));
 
-  return Number(row?.count ?? 0) > 0;
+  return Number(row?.count ?? 0);
 }
 
-async function hasForeignPresenceInSystem(
+async function countColonizedKnownPublicSystems(
+  userId: string,
+  database: typeof defaultDb,
+): Promise<number> {
+  const [row] = await database
+    .select({ count: sql<number>`count(distinct ${systems.id})::int` })
+    .from(colonies)
+    .innerJoin(planets, eq(colonies.planetId, planets.id))
+    .innerJoin(systems, eq(planets.systemId, systems.id))
+    .innerJoin(
+      discoveredSystems,
+      and(
+        eq(discoveredSystems.systemId, systems.id),
+        eq(discoveredSystems.userId, userId),
+      ),
+    )
+    .where(and(
+      eq(colonies.ownerId, userId),
+      eq(colonies.status, 'active'),
+      eq(systems.isHome, false),
+      isNull(systems.ownerId),
+    ));
+
+  return Number(row?.count ?? 0);
+}
+
+async function hasForeignShipsInSystem(
   userId: string,
   systemId: string,
   database: typeof defaultDb,
 ): Promise<boolean> {
-  const [foreignColony] = await database
-    .select({ id: colonies.id })
-    .from(colonies)
-    .innerJoin(planets, eq(colonies.planetId, planets.id))
-    .where(and(
-      eq(planets.systemId, systemId),
-      ne(colonies.ownerId, userId),
-    ))
-    .limit(1);
-
-  if (foreignColony) return true;
-
   const [foreignShip] = await database
     .select({ id: ships.id })
     .from(ships)
@@ -298,72 +289,102 @@ async function hasForeignPresenceInSystem(
     .where(and(
       eq(planets.systemId, systemId),
       ne(ships.ownerId, userId),
+      ne(ships.status, 'destroyed'),
     ))
     .limit(1);
 
   return Boolean(foreignShip);
 }
 
-async function isAlreadyKnownDestination(
-  userId: string,
-  systemId: string,
-  database: typeof defaultDb,
-): Promise<boolean> {
-  const row = await database.query.discoveredSystems.findFirst({
-    where: and(
-      eq(discoveredSystems.userId, userId),
-      eq(discoveredSystems.systemId, systemId),
-    ),
-  });
+async function ensureCommonPoolCapacity(database: typeof defaultDb) {
+  const [currentSystemCount, currentSectorCount, playerCount] = await Promise.all([
+    countCommonPoolSystems(database),
+    countCommonPoolSectors(database),
+    countUsers(database),
+  ]);
+  const systemsToCreate = currentSystemCount === 0 ? COMMON_POOL_INITIAL_SYSTEM_COUNT : 0;
 
-  return Boolean(row);
+  if (systemsToCreate > 0) {
+    await createCommonPoolSystems(systemsToCreate, database);
+  }
+
+  const projectedSectorCount = currentSystemCount === 0 ? 1 : currentSectorCount;
+  if (playerCount > projectedSectorCount) {
+    await createCommonPoolSystems(1, database, { forceNewSector: true });
+  }
+}
+
+async function loadUndiscoveredPublicSystems(
+  userId: string,
+  database: typeof defaultDb,
+): Promise<(typeof systems.$inferSelect)[]> {
+  const [publicSystems, knownRows] = await Promise.all([
+    database.query.systems.findMany({
+      where: and(
+        eq(systems.isHome, false),
+        isNull(systems.ownerId),
+      ),
+    }),
+    database
+      .select({ systemId: discoveredSystems.systemId })
+      .from(discoveredSystems)
+      .where(eq(discoveredSystems.userId, userId)),
+  ]);
+
+  const knownSystemIds = new Set(knownRows.map((row) => row.systemId));
+  return publicSystems.filter((system) => !knownSystemIds.has(system.id));
+}
+
+async function loadRandomJumpLimitState(
+  userId: string,
+  database: typeof defaultDb,
+) {
+  const [openedCount, colonizedKnownSystemCount] = await Promise.all([
+    countKnownPublicDestinations(userId, database),
+    countColonizedKnownPublicSystems(userId, database),
+  ]);
+
+  const openLimit = RANDOM_JUMP_BASE_OPEN_LIMIT + colonizedKnownSystemCount;
+
+  return {
+    openedCount,
+    colonizedKnownSystemCount,
+    openLimit,
+    reached: openedCount >= openLimit,
+  };
 }
 
 async function resolveRandomTargetSystem(
   userId: string,
   shipId: string,
-  originSystem: typeof systems.$inferSelect,
   now: Date,
   database: typeof defaultDb,
-  selectRandomSector: NonNullable<JumpShipOptions['selectRandomSector']>,
-  requireNoForeignPresence: boolean,
+  requireNoForeignShips: boolean,
 ) {
-  const context: RandomJumpSectorContext = {
-    userId,
-    shipId,
-    originSystem,
-    now,
-  };
+  await ensureCommonPoolCapacity(database);
 
-  for (let attempt = 0; attempt < RANDOM_JUMP_ATTEMPTS; attempt += 1) {
-    const targetSector = selectRandomSector(attempt, context);
-    const sector = await getOrCreateSector(
-      targetSector.x,
-      targetSector.y,
-      targetSector.z,
-      database,
-    );
-    const sectorSystems = await generateSystemsInSector(sector, undefined, database);
-    const candidateSystems = sortSystemsForJump(
-      sectorSystems,
-      `${userId}:${shipId}:${now.toISOString()}:${attempt}`,
-    );
+  let candidateSystems = await loadUndiscoveredPublicSystems(userId, database);
 
+  if (requireNoForeignShips) {
+    const shipFreeCandidates = [];
     for (const candidateSystem of candidateSystems) {
-      if (await isAlreadyKnownDestination(userId, candidateSystem.id, database)) {
-        continue;
+      if (!(await hasForeignShipsInSystem(userId, candidateSystem.id, database))) {
+        shipFreeCandidates.push(candidateSystem);
       }
-      if (
-        requireNoForeignPresence &&
-        await hasForeignPresenceInSystem(userId, candidateSystem.id, database)
-      ) {
-        continue;
-      }
-      return candidateSystem;
     }
+    candidateSystems = shipFreeCandidates;
   }
 
-  return null;
+  if (candidateSystems.length === 0) {
+    const [newSystem] = await createCommonPoolSystems(1, database);
+    if (!newSystem) return null;
+    return newSystem;
+  }
+
+  return sortSystemsForJump(
+    candidateSystems,
+    `${userId}:${shipId}:${now.toISOString()}`,
+  )[0] ?? null;
 }
 
 async function resolveKnownTargetSystem(
@@ -663,16 +684,21 @@ export async function jumpShip(
       };
     }
 
-    const firstPublicDiscovery = !(await hasKnownPublicDestinations(userId, database));
+    const randomJumpLimit = await loadRandomJumpLimitState(userId, database);
+    if (randomJumpLimit.reached) {
+      return {
+        success: false,
+        status: 400,
+        error: RANDOM_JUMP_LIMIT_REACHED_MESSAGE,
+      };
+    }
 
     targetSystem = await resolveRandomTargetSystem(
       userId,
       req.shipId,
-      shipContext.originSystem,
       now,
       database,
-      options.selectRandomSector ?? defaultRandomSector,
-      firstPublicDiscovery,
+      randomJumpLimit.openedCount === 0,
     );
 
     if (!targetSystem) {

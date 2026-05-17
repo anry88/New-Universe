@@ -26,6 +26,7 @@ import {
   JUMP_FUEL_RESOURCE_ID,
   JUMP_GATE_JUMP_FUEL_COST,
 } from '@shared/config/expeditionRouting.js';
+import { countCommonPoolSystems, createCommonPoolSystems } from '../world/sector-generator.js';
 
 const RANDOM_JUMP_NOW = new Date('2026-05-13T12:00:00.000Z');
 const REPEAT_JUMP_NOW = new Date('2026-05-13T12:10:00.000Z');
@@ -193,10 +194,7 @@ describe('Recon Probe Jump Gate Discovery', () => {
     const result = await jumpShip(
       user.id,
       { shipId: scout.id, mode: 'random' },
-      {
-        now: RANDOM_JUMP_NOW,
-        selectRandomSector: () => ({ x: 2, y: 3, z: 4 }),
-      },
+      { now: RANDOM_JUMP_NOW },
     );
 
     expect(result.success).toBe(false);
@@ -218,15 +216,12 @@ describe('Recon Probe Jump Gate Discovery', () => {
         shipId: ship.id,
         mode: 'random',
       },
-      {
-        now: RANDOM_JUMP_NOW,
-        selectRandomSector: () => ({ x: 2, y: 3, z: 4 }),
-      },
+      { now: RANDOM_JUMP_NOW },
     );
 
     expect(result.success).toBe(true);
     expect(result.targetSystem).toMatchObject({
-      sector: { x: 2, y: 3, z: 4 },
+      sector: { x: 0, y: 0, z: 0 },
     });
     expect(result.targetPlanet).toBeDefined();
     expect(result.targetSystem?.id).toBe(result.destination?.systemId);
@@ -268,7 +263,7 @@ describe('Recon Probe Jump Gate Discovery', () => {
     expect(planetDiscoveries).toHaveLength(0);
   });
 
-  it("keeps the player's first random public system free of foreign colonies and ships", async () => {
+  it("keeps the player's first random public system free of foreign ships", async () => {
     const { user, ship } = await createSetup();
     await unlockJumpDrive(user.id);
 
@@ -277,16 +272,15 @@ describe('Recon Probe Jump Gate Discovery', () => {
       tgUsername: `foreign_${Date.now()}`,
     }).returning();
 
-    const targetSector = { x: 21, y: 22, z: 23 };
     const publicSystems = await db.insert(systems).values(
       Array.from({ length: 5 }, (_, index) => ({
-        name: index === 4 ? 'Pristine Public' : `Occupied Public ${index + 1}`,
-        sectorX: targetSector.x,
-        sectorY: targetSector.y,
-        sectorZ: targetSector.z,
-        x: `${targetSector.x * 500 + index}.00`,
-        y: `${targetSector.y * 500 + index}.00`,
-        z: `${targetSector.z * 500 + index}.00`,
+        name: index === 4 ? 'Ship-Free Public' : `Ship-Occupied Public ${index + 1}`,
+        sectorX: index === 4 ? 1 : 0,
+        sectorY: 0,
+        sectorZ: 0,
+        x: `${(index === 4 ? 500 : 0) + index}.00`,
+        y: `${index}.00`,
+        z: `${index}.00`,
         seed: 9000 + index,
         ownerId: null,
         isHome: false,
@@ -301,19 +295,23 @@ describe('Recon Probe Jump Gate Discovery', () => {
         slotCount: 8,
       })),
     ).returning();
-    const pristineSystem = publicSystems[4]!;
+    const shipFreeSystem = publicSystems[4]!;
 
-    await db.insert(colonies).values([
-      {
-        ownerId: foreignUser.id,
-        planetId: publicPlanets[0]!.id,
-      },
-      {
-        ownerId: foreignUser.id,
-        planetId: publicPlanets[1]!.id,
-      },
-    ]);
     await db.insert(ships).values([
+      {
+        ownerId: foreignUser.id,
+        typeId: 'scout',
+        locationPlanetId: publicPlanets[2]!.id,
+        status: 'idle',
+        fuel: '100',
+      },
+      {
+        ownerId: foreignUser.id,
+        typeId: 'scout',
+        locationPlanetId: publicPlanets[1]!.id,
+        status: 'idle',
+        fuel: '100',
+      },
       {
         ownerId: foreignUser.id,
         typeId: 'scout',
@@ -336,14 +334,11 @@ describe('Recon Probe Jump Gate Discovery', () => {
         shipId: ship.id,
         mode: 'random',
       },
-      {
-        now: RANDOM_JUMP_NOW,
-        selectRandomSector: () => targetSector,
-      },
+      { now: RANDOM_JUMP_NOW },
     );
 
     expect(result.success).toBe(true);
-    expect(result.targetSystem?.id).toBe(pristineSystem.id);
+    expect(result.targetSystem?.id).toBe(shipFreeSystem.id);
   });
 
   it('repeats travel to a known destination by destination id', async () => {
@@ -353,10 +348,7 @@ describe('Recon Probe Jump Gate Discovery', () => {
     const firstJump = await jumpShip(
       user.id,
       { shipId: ship.id, mode: 'random' },
-      {
-        now: RANDOM_JUMP_NOW,
-        selectRandomSector: () => ({ x: 5, y: 6, z: 7 }),
-      },
+      { now: RANDOM_JUMP_NOW },
     );
     expect(firstJump.success).toBe(true);
     const [scout] = await db.insert(ships).values({
@@ -420,31 +412,24 @@ describe('Recon Probe Jump Gate Discovery', () => {
     const result = await jumpShip(
       user.id,
       { shipId: ship.id, mode: 'random' },
-      {
-        now: RANDOM_JUMP_NOW,
-        selectRandomSector: () => ({ x: 11, y: 12, z: 13 }),
-      },
+      { now: RANDOM_JUMP_NOW },
     );
 
     expect(result.success).toBe(false);
     expect(result.error).toContain('not enough jump fuel');
-    const createdSector = await db.query.sectors.findFirst({
-      where: and(eq(sectors.x, 11), eq(sectors.y, 12), eq(sectors.z, 13)),
-    });
-    expect(createdSector).toBeUndefined();
+    expect(await countCommonPoolSystems()).toBe(0);
   });
 
   it("does not choose another player's home system as a random jump target", async () => {
     const { user, ship } = await createSetup();
-    const targetSector = { x: 8, y: 9, z: 10 };
     await unlockJumpDrive(user.id);
 
     const foreignOwner = await createTestUser('jump_foreign');
     const [foreignHome] = await db.insert(systems).values({
       name: 'Foreign Home System',
-      sectorX: targetSector.x,
-      sectorY: targetSector.y,
-      sectorZ: targetSector.z,
+      sectorX: 0,
+      sectorY: 0,
+      sectorZ: 0,
       x: '1.00',
       y: '1.00',
       z: '1.00',
@@ -464,10 +449,7 @@ describe('Recon Probe Jump Gate Discovery', () => {
     const result = await jumpShip(
       user.id,
       { shipId: ship.id, mode: 'random' },
-      {
-        now: RANDOM_JUMP_NOW,
-        selectRandomSector: () => targetSector,
-      },
+      { now: RANDOM_JUMP_NOW },
     );
 
     expect(result.success).toBe(true);
@@ -479,5 +461,43 @@ describe('Recon Probe Jump Gate Discovery', () => {
     });
     expect(targetSystem?.isHome).toBe(false);
     expect(targetSystem?.ownerId).toBeNull();
+  });
+
+  it('blocks random discovery after five opened public systems until the player colonizes a public system', async () => {
+    const { user, ship } = await createSetup();
+    await unlockJumpDrive(user.id);
+    const publicSystems = await createCommonPoolSystems(5);
+
+    await db.insert(discoveredSystems).values(
+      publicSystems.map((system) => ({
+        userId: user.id,
+        systemId: system.id,
+        source: 'random_jump' as const,
+      })),
+    );
+
+    const blocked = await jumpShip(
+      user.id,
+      { shipId: ship.id, mode: 'random' },
+      { now: RANDOM_JUMP_NOW },
+    );
+    expect(blocked.success).toBe(false);
+    expect(blocked.error).toContain('Colonize a planet');
+
+    const [firstPublicPlanet] = await db.query.planets.findMany({
+      where: eq(planets.systemId, publicSystems[0]!.id),
+    });
+    await db.insert(colonies).values({
+      ownerId: user.id,
+      planetId: firstPublicPlanet!.id,
+    });
+
+    const unlocked = await jumpShip(
+      user.id,
+      { shipId: ship.id, mode: 'random' },
+      { now: new Date(RANDOM_JUMP_NOW.getTime() + 60_000) },
+    );
+    expect(unlocked.success).toBe(true);
+    expect(unlocked.targetSystem?.id).not.toBe(publicSystems[0]!.id);
   });
 });

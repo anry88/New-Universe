@@ -97,6 +97,7 @@ function destinationToSystem(
       size: planet.size ?? 10,
       slotCount: planet.slotCount ?? 0,
       name: planet.name ?? `#${planet.orbitIndex}`,
+      orbitIndex: planet.orbitIndex,
       isDiscovered: true,
       isColonized: planet.isColonized,
       resources: planet.resources ?? [],
