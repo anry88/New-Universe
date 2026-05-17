@@ -18,7 +18,7 @@ describe("expedition route preview", () => {
     expect(preview.distance).toBe(12);
     expect(preview.etaSeconds).toBe(360);
     expect(preview.fuelRequired).toBe(8);
-    expect(preview.jumpFuelRequired).toBe(50);
+    expect(preview.jumpFuelRequired).toBe(100);
     expect(preview.returnTrip).toBe(true);
   });
 
@@ -87,6 +87,24 @@ describe("expedition route preview", () => {
 
     expect(preview.returnTrip).toBe(true);
     expect(preview.fuelRequired).toBe(5);
+  });
+
+  it("deploys combat ships one-way through Jump Gate routes even without a planet target", () => {
+    const preview = buildExpeditionPreview({
+      routeMode: "jump_gate",
+      originSector: { x: 0, y: 0 },
+      targetSector: { x: 3, y: 4 },
+      jumpGateRouteDistance: 6,
+      hasTargetPlanet: false,
+      isColonizer: false,
+      shipRole: "combat",
+      fuelConsumption: 0.5,
+      speed: 2,
+    });
+
+    expect(preview.returnTrip).toBe(false);
+    expect(preview.fuelRequired).toBe(3);
+    expect(preview.jumpFuelRequired).toBe(50);
   });
 
   it("keeps scouts round-trip even when targeting a planet", () => {

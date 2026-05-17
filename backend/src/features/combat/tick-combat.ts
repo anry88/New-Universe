@@ -28,7 +28,10 @@ import {
   colonies,
 } from '../../db/schema.js';
 import { logger } from '../../lib/logger.js';
-import { calculateExpeditionPosition } from '../../workers/tick-expeditions.js';
+import {
+  calculateExpeditionPosition,
+  EXPEDITION_STATUS_STATIONED,
+} from '../../workers/tick-expeditions.js';
 import { SHIP_STATUS_DESTROYED, type CombatStats } from '@shared/types/combat.js';
 import { COMMAND_CENTER_TYPE_ID } from '@shared/config/buildingUpgradeEconomy.js';
 import {
@@ -751,7 +754,7 @@ async function loadInFlightExpeditions(
     .where(
       and(
         inArray(expeditions.shipId, shipIds),
-        inArray(expeditions.status, ['in_flight', 'returning']),
+        inArray(expeditions.status, ['in_flight', 'returning', EXPEDITION_STATUS_STATIONED]),
       ),
     );
 
@@ -777,6 +780,9 @@ function computePosition(
   if (ship.status === 'moving') {
     const exp = expeditionByShipId.get(ship.id);
     if (!exp) return null;
+    if (exp.status === EXPEDITION_STATUS_STATIONED) {
+      return { x: Number(exp.targetX), y: Number(exp.targetY) };
+    }
     const pos = calculateExpeditionPosition(
       {
         targetX: exp.targetX,

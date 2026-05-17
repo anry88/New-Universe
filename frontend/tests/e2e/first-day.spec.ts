@@ -46,6 +46,8 @@ test('first day flow on cosmic atlas layout', async ({ page }) => {
           size: 12,
           slotCount: 2,
           name: 'aaaa-1',
+          isDiscovered: true,
+          isColonized: true,
           resources: [
             { planetId, resourceId: 'iron', amount: '1000', lastUpdateAt: nowIso, regenRate: '1200', storageCap: '5000' },
             { planetId, resourceId: 'water', amount: '1000', lastUpdateAt: nowIso, regenRate: '300', storageCap: '5000' },
@@ -67,6 +69,8 @@ test('first day flow on cosmic atlas layout', async ({ page }) => {
         biome: 'rocky',
         size: 12,
         slotCount: 2,
+        isDiscovered: true,
+        isColonized: true,
         resources: [
           { planetId, resourceId: 'iron', amount: '1000', lastUpdateAt: nowIso, regenRate: '1200', storageCap: '5000' },
           { planetId, resourceId: 'water', amount: '1000', lastUpdateAt: nowIso, regenRate: '300', storageCap: '5000' },
@@ -186,6 +190,8 @@ test('first day flow on cosmic atlas layout', async ({ page }) => {
       level: 1,
       slotIndex: 0,
       queueAction: 'build',
+      queueStartedAt: new Date(Date.now() - 10_000).toISOString(),
+      queueCompletesAt: new Date(Date.now() + 120_000).toISOString(),
     };
     meUser.homeSystem.planets[0].buildings.push(queuedBuilding);
     meUser.planets[0].buildings.push(queuedBuilding);

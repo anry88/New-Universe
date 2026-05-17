@@ -29,19 +29,28 @@ export function isOneWayShipRole(role: string | null | undefined): boolean {
  * - Colonizers are one-way only when they actually carry a target planet (the
  *   hull is consumed on arrival).
  * - Combat / support / shield / missile hulls deploy one-way when they have a
- *   target planet to dock at (attack, defend, or refuel mission). Without a
- *   target planet they still round-trip — there is no place to station the
- *   ship at an empty sector point in the current game state.
+ *   target planet to dock at, or when a Jump Gate route supplies a destination
+ *   map point where the ship can stay stationed.
  */
 export function isOneWayExpedition(params: {
   shipRole: string | null | undefined;
   isColonizer?: boolean;
   hasTargetPlanet?: boolean;
+  routeMode?: ExpeditionRouteMode;
 }): boolean {
+  if (
+    isOneWayShipRole(params.shipRole) &&
+    (params.hasTargetPlanet || params.routeMode === "jump_gate")
+  ) {
+    return true;
+  }
   if (!params.hasTargetPlanet) return false;
-  if (isOneWayShipRole(params.shipRole)) return true;
   if (params.isColonizer) return true;
   return false;
+}
+
+export function calculateJumpGateJumpFuelRequired(returnTrip = true): number {
+  return JUMP_GATE_JUMP_FUEL_COST * (returnTrip ? 2 : 1);
 }
 
 export function calculateSectorRouteDistance(

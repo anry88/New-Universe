@@ -151,7 +151,7 @@ export function ExpeditionDialog({
   const homeSystem = meData?.homeSystem;
   const isColonizer =
     shipType.role === "colonization" || ship.typeId === "colonizer";
-  const supportsJumpGateExpedition = shipType.role === "recon" || isColonizer;
+  const supportsJumpGateExpedition = shipType.role !== "logistics";
   const colonizationTargets = useMemo(
     () =>
       (homeSystem?.planets ?? []).filter(
@@ -769,8 +769,8 @@ export function ExpeditionDialog({
           <div style={{ position: "absolute", inset: 0, zIndex: 1 }}>
             <CosmicSystemRenderer
               system={renderedSystem}
-              ships={routeMode === "jump_gate" ? [] : (meData?.ships ?? [])}
-              expeditions={routeMode === "jump_gate" ? [] : (meData?.expeditions ?? [])}
+              ships={meData?.ships ?? []}
+              expeditions={meData?.expeditions ?? []}
               onPlanetClick={() => {}}
               ownedPlanetIds={ownedPlanetIds}
               expeditionPick={expeditionPick}
