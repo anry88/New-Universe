@@ -107,6 +107,26 @@ describe("expedition route preview", () => {
     expect(preview.jumpFuelRequired).toBe(50);
   });
 
+  it("lets stationed ships move inside the same opened system without another Jump Fuel charge", () => {
+    const preview = buildExpeditionPreview({
+      routeMode: "jump_gate",
+      originSector: { x: 3, y: 4 },
+      targetSector: { x: 3, y: 4 },
+      jumpGateRouteDistance: 7,
+      jumpFuelRequiredOverride: 0,
+      hasTargetPlanet: false,
+      isColonizer: false,
+      shipRole: "combat",
+      fuelConsumption: 0.5,
+      speed: 2,
+    });
+
+    expect(preview.returnTrip).toBe(false);
+    expect(preview.distance).toBe(7);
+    expect(preview.fuelRequired).toBe(4);
+    expect(preview.jumpFuelRequired).toBe(0);
+  });
+
   it("keeps scouts round-trip even when targeting a planet", () => {
     const preview = buildExpeditionPreview({
       routeMode: "local",

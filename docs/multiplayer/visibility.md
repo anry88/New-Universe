@@ -13,7 +13,7 @@ The persistence model deliberately reuses `systems`, `discovered_systems`, `plan
 2. **Neutral systems** — Systems with `owner_id IS NULL` appear as `neutral_system` markers with summary visibility (public names only).
 3. **Own home** — The viewer's home system in the requested sector appears as `own_home_system` with full visibility.
 4. **Colonies** — Off-world colonies appear as `own_colony` or `foreign_colony`. Foreign colonies never expose another player's planet title as authoritative identity; the UI shows a generic label plus a masked handle derived from Telegram username/first name.
-5. **Idle ships** — Ships docked at a planet (`status = idle`) appear as `own_ship` / `foreign_ship`. Cargo JSON is not exposed on this endpoint.
+5. **Fleets** — Ships docked at a planet (`status = idle`) and Jump Gate point deployments whose expedition is `stationed` appear as `own_ship` / `foreign_ship`. Cargo JSON is not exposed on this endpoint, and point deployments do not carry a `planetId`.
 
 Every presence entity also carries an explicit model classification:
 
@@ -21,7 +21,7 @@ Every presence entity also carries an explicit model classification:
 |---|---|---|
 | `home` | `self` | Viewer-owned `systems.is_home` rows only. |
 | `colony` | `self`, `foreign` | Active `colonies` joined through their planet/system. |
-| `fleet` | `self`, `foreign` | Idle docked `ships` joined through their planet/system. |
+| `fleet` | `self`, `foreign` | Idle docked `ships` joined through their planet/system, plus `stationed` expedition rows joined through `result.destinationSystemId`. |
 | `public_sector` | `public` | Neutral/common `systems.owner_id IS NULL` rows. |
 
 ## Sector selector
@@ -31,7 +31,7 @@ Every presence entity also carries an explicit model classification:
 1. The viewer's home system.
 2. Discovered non-protected systems from `discovered_systems`, with the newest five tagged as `recent`.
 3. Systems containing the viewer's active colonies, even if the selector reached them through colony ownership rather than a discovery row.
-4. Systems containing the viewer's docked ships.
+4. Systems containing the viewer's docked ships or stationed Jump Gate point deployments.
 
 Anchors include sector coordinates, world position, `home`/`discovered`/`recent`/`colony`/`fleet` tags, and colony/ship counts. Foreign home systems are filtered from this list as a defense-in-depth rule, even if bad historical data inserted a stale discovery row.
 

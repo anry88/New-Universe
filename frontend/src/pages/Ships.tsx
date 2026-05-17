@@ -310,6 +310,9 @@ export function ShipsPage() {
   const selectedShipType = selectedShip
     ? getShipType(selectedShip.typeId)
     : null;
+  const selectedShipExpedition = selectedShip
+    ? activeExpeditionByShipId.get(selectedShip.id) ?? null
+    : null;
   const selectedShipSupportsJumpGate =
     Boolean(selectedShipType) && selectedShipType?.role !== "logistics";
 
@@ -652,8 +655,13 @@ export function ShipsPage() {
               const queueItem =
                 queueByShipId.get(ship.id) ?? queueItemFromBuildingShip(ship);
               const effectiveStatus = ship.status;
+              const activeExpedition = activeExpeditionByShipId.get(ship.id);
+              const isStationed = activeExpedition?.status === "stationed";
               const isIdle = isShipReadyForOrders(ship);
               const isBuilding = effectiveStatus === "building";
+              const isDestroyed = ship.status === "destroyed";
+              const canIssueOrders =
+                !isDestroyed && (isIdle || (isStationed && !isCargoShip && !isDiscoveryProbe));
               const localRefueler =
                 isIdle && ship.locationPlanetId
                   ? ships.find(
@@ -663,7 +671,6 @@ export function ShipsPage() {
                         s.locationPlanetId === ship.locationPlanetId,
                     )
                   : null;
-              const activeExpedition = activeExpeditionByShipId.get(ship.id);
               const buildTimer = queueItem
                 ? timerSnapshot({
                     completesAt: queueItem.queueCompletesAt,
@@ -697,15 +704,14 @@ export function ShipsPage() {
                     : `${t("ships.inTransit")} · ${t("ships.syncingRoute")}`;
               const shipName =
                 type?.name?.[locale] ?? getShipLabel(ship.typeId, locale);
-              const isDestroyed = ship.status === "destroyed";
               const isDamaged = !isDestroyed && ship.hp < ship.maxHp;
               const expanded = expandedShipId === ship.id;
-              const primaryAction = isIdle
+              const primaryAction = canIssueOrders
                 ? isCargoShip
                   ? t("ships.openCargo").toUpperCase()
                   : isDiscoveryProbe
                     ? t("ships.openJumpGate").toUpperCase()
-                    : ship.typeId === "refueler"
+                    : ship.typeId === "refueler" && isIdle
                       ? t("refuel_dialog_transfer_button").toUpperCase()
                       : t("ships.sendMission").toUpperCase()
                 : isBuilding
@@ -727,6 +733,10 @@ export function ShipsPage() {
                 }
                 if (isDiscoveryProbe) {
                   navigate("/map");
+                  return;
+                }
+                if (ship.typeId === "refueler" && isIdle) {
+                  setRefuelingShip(ship);
                   return;
                 }
                 setSelectedShip(ship);
@@ -847,7 +857,8 @@ export function ShipsPage() {
                         <button
                           type="button"
                           disabled={
-                            !isIdle || (isCargoShip && !ship.locationPlanetId)
+                            !canIssueOrders ||
+                            (isCargoShip && !ship.locationPlanetId)
                           }
                           onClick={handlePrimaryAction}
                           className="cosmic-cta"
@@ -855,11 +866,13 @@ export function ShipsPage() {
                             padding: "6px 12px",
                             fontSize: 11,
                             opacity:
-                              isIdle && (!isCargoShip || ship.locationPlanetId)
+                              canIssueOrders &&
+                              (!isCargoShip || ship.locationPlanetId)
                                 ? 1
                                 : 0.4,
                             cursor:
-                              isIdle && (!isCargoShip || ship.locationPlanetId)
+                              canIssueOrders &&
+                              (!isCargoShip || ship.locationPlanetId)
                                 ? "pointer"
                                 : "not-allowed",
                           }}
@@ -924,10 +937,21 @@ export function ShipsPage() {
             originY={Number(origin.sectorY)}
             originZ={Number(origin.sectorZ)}
             initialRouteMode={
-              selectedShipSupportsJumpGate ? requestedInitialRouteMode : "local"
+              selectedShipExpedition?.status === "stationed"
+                ? "jump_gate"
+                : selectedShipSupportsJumpGate ? requestedInitialRouteMode : "local"
             }
             initialDestinationSystemId={
-              selectedShipSupportsJumpGate ? jumpGateDestinationSystemId : null
+              selectedShipExpedition?.status === "stationed"
+                ? typeof selectedShipExpedition.result?.destinationSystemId === "string"
+                  ? selectedShipExpedition.result.destinationSystemId
+                  : jumpGateDestinationSystemId
+                : selectedShipSupportsJumpGate ? jumpGateDestinationSystemId : null
+            }
+            stationedExpedition={
+              selectedShipExpedition?.status === "stationed"
+                ? selectedShipExpedition
+                : null
             }
             onClose={() => setSelectedShip(null)}
           />

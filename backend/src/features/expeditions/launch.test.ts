@@ -727,6 +727,97 @@ describe("Expeditions - POST /expeditions", () => {
     expect(body.expedition.result.spaceportReservation).toBeUndefined();
   });
 
+  it("relaunches stationed Jump Gate combat ships from their current point", async () => {
+    const { app, token, userId } = await createTestUser();
+    const { planet } = await getHomeContext(userId);
+    const destination = await createKnownPublicDestination(userId);
+
+    await unlockJumpGate(userId);
+    await ensureFuel(planet.id, 200);
+    await ensureJumpFuel(planet.id, JUMP_GATE_JUMP_FUEL_COST);
+    const ship = await createIdleFighter(userId, planet.id);
+    const firstPoint = {
+      x: systemMapJumpGatePoint().x + 80,
+      y: systemMapJumpGatePoint().y + 20,
+    };
+
+    const firstResponse = await app.inject({
+      method: "POST",
+      url: "/expeditions",
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        shipId: ship.id,
+        routeMode: "jump_gate",
+        destinationSystemId: destination.system.id,
+        targetSystemX: firstPoint.x,
+        targetSystemY: firstPoint.y,
+        fuelLoaded: 100,
+        cargoLoaded: 0,
+      },
+    });
+
+    expect(firstResponse.statusCode).toBe(200);
+    const firstBody = firstResponse.json();
+    await db
+      .update(expeditions)
+      .set({ eta: new Date(Date.now() - 1000) })
+      .where(eq(expeditions.id, firstBody.expedition.id));
+    await processExpeditions({ userId, skipNotifications: true });
+
+    const stationed = await db.query.expeditions.findFirst({
+      where: and(
+        eq(expeditions.shipId, ship.id),
+        eq(expeditions.status, "stationed"),
+      ),
+    });
+    expect(stationed).toBeDefined();
+
+    const nextPoint = {
+      x: firstPoint.x + 40,
+      y: firstPoint.y + 10,
+    };
+    const expectedDistance = systemMapPointDistanceLy(firstPoint, nextPoint);
+    const expectedFuel = Math.ceil(expectedDistance * 0.3);
+
+    const relaunchResponse = await app.inject({
+      method: "POST",
+      url: "/expeditions",
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        shipId: ship.id,
+        routeMode: "jump_gate",
+        destinationSystemId: destination.system.id,
+        targetSystemX: nextPoint.x,
+        targetSystemY: nextPoint.y,
+        cargoLoaded: 0,
+      },
+    });
+
+    expect(relaunchResponse.statusCode).toBe(200);
+    const relaunchBody = relaunchResponse.json();
+    expect(relaunchBody.expedition.result.originSystemId).toBe(destination.system.id);
+    expect(relaunchBody.expedition.result.originSystemPoint).toEqual(firstPoint);
+    expect(relaunchBody.expedition.result.targetSystemPoint).toEqual(nextPoint);
+    expect(relaunchBody.expedition.result.jumpFuelRequired).toBe(0);
+    expect(relaunchBody.expedition.result.distance).toBeCloseTo(expectedDistance, 5);
+    expect(relaunchBody.expedition.result.fuelRequired).toBe(expectedFuel);
+
+    const oldStation = await db.query.expeditions.findFirst({
+      where: eq(expeditions.id, stationed!.id),
+    });
+    expect(oldStation).toBeUndefined();
+
+    const updatedShip = await db.query.ships.findFirst({
+      where: eq(ships.id, ship.id),
+    });
+    expect(updatedShip!.status).toBe("moving");
+    expect(updatedShip!.locationPlanetId).toBeNull();
+    expect(Number(updatedShip!.fuel)).toBeCloseTo(
+      100 - Number(firstBody.expedition.result.fuelRequired) - expectedFuel,
+      2,
+    );
+  });
+
   it("requires a target-system point for Jump Gate scout routes", async () => {
     const { app, token, userId } = await createTestUser();
     const { planet } = await getHomeContext(userId);

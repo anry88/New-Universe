@@ -37,6 +37,8 @@ export interface ExpeditionResult {
   requestedDistance?: number;
   originGateDistance?: number;
   targetGateDistance?: number;
+  originSystemId?: string | null;
+  originSystemPoint?: { x: number; y: number } | null;
   targetSystemPoint?: { x: number; y: number } | null;
   speed?: number;
   engineFactor?: number;
