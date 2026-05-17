@@ -9,6 +9,7 @@ export interface SystemMapPlanetInput {
   name?: string | null;
   biome?: string | null;
   size?: number | null;
+  orbitIndex?: number | null;
 }
 
 export interface SystemMapPlanetLayout {
@@ -62,6 +63,18 @@ function planetNameIndex(name?: string | null): number {
   return match ? Number.parseInt(match[1]!, 10) : Number.MAX_SAFE_INTEGER;
 }
 
+function normalizedOrbitIndex(planet: SystemMapPlanetInput): number | null {
+  if (typeof planet.orbitIndex !== "number") return null;
+  const index = Math.floor(planet.orbitIndex);
+  return index >= 1 ? index : null;
+}
+
+function hasHomeCapitalLayout(planets: SystemMapPlanetInput[]): boolean {
+  return planets.some(
+    (planet) => planet.biome === "green" && planetNameIndex(planet.name) === 1,
+  );
+}
+
 export function systemMapPlanetOrbitTier(planet: SystemMapPlanetInput): number {
   const biome = planet.biome ?? "unknown";
   return SYSTEM_MAP_BIOME_ORBIT_TIER[biome] ?? SYSTEM_MAP_BIOME_ORBIT_TIER.unknown;
@@ -95,15 +108,24 @@ export function systemMapPointDistanceLy(
 export function systemMapPlanetOrbitSlot(
   planet: SystemMapPlanetInput,
   sortedIndex = 0,
+  options: { homeCapitalLayout?: boolean } = {},
 ): number {
+  const explicitOrbitIndex = normalizedOrbitIndex(planet);
+  if (explicitOrbitIndex) return explicitOrbitIndex;
+
   const nameIndex = planetNameIndex(planet.name);
-  if (planet.biome === "green" && nameIndex === 1) {
-    return SYSTEM_MAP_HOME_CAPITAL_ORBIT_SLOT;
-  }
-  if (nameIndex >= 2 && nameIndex <= 6) {
-    return nameIndex - 1;
-  }
-  if (nameIndex >= 7 && nameIndex <= SYSTEM_MAP_HOME_GUIDE_ORBIT_COUNT) {
+  const homeCapitalLayout = options.homeCapitalLayout ?? true;
+  if (homeCapitalLayout) {
+    if (planet.biome === "green" && nameIndex === 1) {
+      return SYSTEM_MAP_HOME_CAPITAL_ORBIT_SLOT;
+    }
+    if (nameIndex >= 2 && nameIndex <= 6) {
+      return nameIndex - 1;
+    }
+    if (nameIndex >= 7 && nameIndex <= SYSTEM_MAP_HOME_GUIDE_ORBIT_COUNT) {
+      return nameIndex;
+    }
+  } else if (nameIndex !== Number.MAX_SAFE_INTEGER) {
     return nameIndex;
   }
   return sortedIndex + 1;
@@ -114,9 +136,12 @@ export function buildSystemMapOrbitGuideRadii(
   minimumOrbitCount =
     planets.length > 0 ? SYSTEM_MAP_HOME_GUIDE_ORBIT_COUNT : 1,
 ): number[] {
+  const homeCapitalLayout = hasHomeCapitalLayout(planets);
   const orbitSlots = planets
     .map((planet, index) =>
-      planet.biome === "unknown" ? 0 : systemMapPlanetOrbitSlot(planet, index),
+      planet.biome === "unknown"
+        ? 0
+        : systemMapPlanetOrbitSlot(planet, index, { homeCapitalLayout }),
     )
     .filter((slot) => slot >= 1);
   const orbitCount = Math.max(1, minimumOrbitCount, planets.length, ...orbitSlots);
@@ -133,7 +158,18 @@ function planetAngleIndex(planet: SystemMapPlanetInput, sortedIndex: number): nu
 export function compareSystemMapPlanets(
   a: SystemMapPlanetInput,
   b: SystemMapPlanetInput,
+  options: { homeCapitalLayout?: boolean } = {},
 ): number {
+  const orbitIndexDelta = (normalizedOrbitIndex(a) ?? Number.MAX_SAFE_INTEGER) -
+    (normalizedOrbitIndex(b) ?? Number.MAX_SAFE_INTEGER);
+  if (orbitIndexDelta !== 0 && Number.isFinite(orbitIndexDelta)) return orbitIndexDelta;
+
+  const homeCapitalLayout = options.homeCapitalLayout ?? true;
+  if (!homeCapitalLayout) {
+    const indexDelta = planetNameIndex(a.name) - planetNameIndex(b.name);
+    if (indexDelta !== 0) return indexDelta;
+  }
+
   const tierDelta = systemMapPlanetOrbitTier(a) - systemMapPlanetOrbitTier(b);
   if (tierDelta !== 0) return tierDelta;
 
@@ -159,24 +195,27 @@ export function buildSystemMapLayouts(
   planets: SystemMapPlanetInput[],
   systemSeed: number,
 ): SystemMapPlanetLayout[] {
-  return [...planets].sort(compareSystemMapPlanets).map((planet, index) => {
-    const orbitRadius = systemMapOrbitRadiusForSlot(
-      systemMapPlanetOrbitSlot(planet, index),
-    );
-    const angle = planetAngle(planet, planetAngleIndex(planet, index), systemSeed);
-    const x = Math.cos(angle) * orbitRadius;
-    const y = Math.sin(angle) * orbitRadius;
-    const biome = planet.biome ?? "unknown";
-    const size = planet.size ?? 10;
-    const sizeFromBiome =
-      SYSTEM_MAP_BIOME_SPRITE_BASE[biome] ?? SYSTEM_MAP_BIOME_SPRITE_BASE.unknown;
-    const sizeFactor = Math.max(0.7, Math.min(1.55, size / 22));
-    const spriteSize = Math.round(
-      sizeFromBiome * sizeFactor,
-    );
+  const homeCapitalLayout = hasHomeCapitalLayout(planets);
+  return [...planets]
+    .sort((a, b) => compareSystemMapPlanets(a, b, { homeCapitalLayout }))
+    .map((planet, index) => {
+      const orbitRadius = systemMapOrbitRadiusForSlot(
+        systemMapPlanetOrbitSlot(planet, index, { homeCapitalLayout }),
+      );
+      const angle = planetAngle(planet, planetAngleIndex(planet, index), systemSeed);
+      const x = Math.cos(angle) * orbitRadius;
+      const y = Math.sin(angle) * orbitRadius;
+      const biome = planet.biome ?? "unknown";
+      const size = planet.size ?? 10;
+      const sizeFromBiome =
+        SYSTEM_MAP_BIOME_SPRITE_BASE[biome] ?? SYSTEM_MAP_BIOME_SPRITE_BASE.unknown;
+      const sizeFactor = Math.max(0.7, Math.min(1.55, size / 22));
+      const spriteSize = Math.round(
+        sizeFromBiome * sizeFactor,
+      );
 
-    return { id: planet.id, index, orbitRadius, angle, x, y, spriteSize };
-  });
+      return { id: planet.id, index, orbitRadius, angle, x, y, spriteSize };
+    });
 }
 
 export function systemMapPlanetDistanceLy(

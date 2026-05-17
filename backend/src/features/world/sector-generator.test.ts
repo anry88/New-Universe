@@ -1,10 +1,19 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
+  COMMON_POOL_INITIAL_SYSTEM_COUNT,
   COMMON_SYSTEM_PLANET_COUNT_MAX,
   COMMON_SYSTEM_PLANET_COUNT_MIN,
+  countCommonPoolSystems,
+  createCommonPoolSystems,
   generateCommonPlanetRichness,
   generateSystemsInSector,
 } from './sector-generator.js';
+import {
+  buildSystemMapLayouts,
+  buildSystemMapOrbitGuideRadii,
+  SYSTEM_MAP_ORBIT_BASE,
+  SYSTEM_MAP_ORBIT_STEP,
+} from '@shared/format/systemMapLayout.js';
 import { db } from '../../db/index.js';
 import {
   sectors,
@@ -28,6 +37,15 @@ import {
 } from '@shared/types/resources.js';
 
 describe('generateSystemsInSector', () => {
+  const baseCommonBiomeOrder = [
+    'volcanic',
+    'rocky',
+    'ocean',
+    'green',
+    'gas_giant',
+    'ice',
+  ];
+
   beforeEach(async () => {
     await seedResources();
   });
@@ -62,6 +80,15 @@ describe('generateSystemsInSector', () => {
       where: (systems, { eq }) => eq(systems.sectorX, 1),
     });
     expect(dbSystems).toHaveLength(5);
+
+    const updatedSector = await db.query.sectors.findFirst({
+      where: (sectors, { and, eq }) => and(
+        eq(sectors.x, 1),
+        eq(sectors.y, 2),
+        eq(sectors.z, 3),
+      ),
+    });
+    expect(updatedSector?.systemCount).toBe(5);
   });
 
   it('should not add systems if already at target count', async () => {
@@ -143,8 +170,19 @@ describe('generateSystemsInSector', () => {
       const systemPlanets = await db.query.planets.findMany({
         where: (planets, { eq }) => eq(planets.systemId, system.id),
       });
+      const orderedPlanets = [...systemPlanets].sort((a, b) => a.name.localeCompare(b.name));
+      const orderedBiomes = orderedPlanets.map((planet) => planet.biome);
+      const nonAnomalousBiomes = orderedBiomes.filter(
+        (biome) => !isAnomalousCommonBiome(biome as BiomeType),
+      );
+      const anomalousBiomes = orderedBiomes.filter((biome) =>
+        isAnomalousCommonBiome(biome as BiomeType),
+      );
+
       expect(systemPlanets.length).toBeGreaterThanOrEqual(COMMON_SYSTEM_PLANET_COUNT_MIN);
       expect(systemPlanets.length).toBeLessThanOrEqual(COMMON_SYSTEM_PLANET_COUNT_MAX);
+      expect(nonAnomalousBiomes).toEqual(baseCommonBiomeOrder);
+      expect(anomalousBiomes).toHaveLength(systemPlanets.length - baseCommonBiomeOrder.length);
 
       for (const planet of systemPlanets) {
         const richnessRows = await db.query.richness.findMany({
@@ -191,6 +229,9 @@ describe('generateSystemsInSector', () => {
       expect(
         systemPlanets.some((planet) => isAnomalousCommonBiome(planet.biome as BiomeType)),
       ).toBe(true);
+      expect(
+        systemPlanets.filter((planet) => isAnomalousCommonBiome(planet.biome as BiomeType)),
+      ).toHaveLength(COMMON_SYSTEM_PLANET_COUNT_MAX - baseCommonBiomeOrder.length);
       break;
     }
 
@@ -234,5 +275,45 @@ describe('generateSystemsInSector', () => {
     const homeGuaranteedResources = new Set(['iron', 'carbon', 'silicon', 'water', 'ice', 'methane', 'tritium']);
     expect(homeGuaranteedResources.has('uranium')).toBe(false);
     expect(homeGuaranteedResources.has('antimatter')).toBe(false);
+  });
+
+  it('creates common-pool systems in abstract packing sectors', async () => {
+    const created = await createCommonPoolSystems(COMMON_POOL_INITIAL_SYSTEM_COUNT);
+
+    expect(created).toHaveLength(COMMON_POOL_INITIAL_SYSTEM_COUNT);
+    expect(await countCommonPoolSystems()).toBe(COMMON_POOL_INITIAL_SYSTEM_COUNT);
+    expect(new Set(created.map((system) => `${system.sectorX}:${system.sectorY}:${system.sectorZ}`))).toEqual(
+      new Set(['0:0:0']),
+    );
+  });
+
+  it('keeps public-system layout on one orbit per generated body', () => {
+    const layouts = buildSystemMapLayouts(
+      [
+        { id: 'hot', name: 'cp-1', biome: 'volcanic', size: 12, orbitIndex: 1 },
+        { id: 'anomaly', name: 'cp-2', biome: 'metallic', size: 24, orbitIndex: 2 },
+        { id: 'rock', name: 'cp-3', biome: 'rocky', size: 14, orbitIndex: 3 },
+        { id: 'water', name: 'cp-4', biome: 'ocean', size: 20, orbitIndex: 4 },
+      ],
+      123,
+    );
+
+    expect(layouts.map((layout) => layout.id)).toEqual(['hot', 'anomaly', 'rock', 'water']);
+    expect(layouts.map((layout) => layout.orbitRadius)).toEqual([
+      SYSTEM_MAP_ORBIT_BASE,
+      SYSTEM_MAP_ORBIT_BASE + SYSTEM_MAP_ORBIT_STEP,
+      SYSTEM_MAP_ORBIT_BASE + SYSTEM_MAP_ORBIT_STEP * 2,
+      SYSTEM_MAP_ORBIT_BASE + SYSTEM_MAP_ORBIT_STEP * 3,
+    ]);
+    expect(
+      buildSystemMapOrbitGuideRadii(
+        layouts.map((layout, index) => ({
+          id: layout.id,
+          orbitIndex: index + 1,
+          biome: 'rocky',
+        })),
+        layouts.length,
+      ),
+    ).toHaveLength(layouts.length);
   });
 });

@@ -193,6 +193,7 @@
   "jumpGate.error.insufficientJumpFuel": "Not enough Jump Fuel on the launch planet.",
   "jumpGate.error.randomCooldown": "Random jump cooldown until {time}.",
   "jumpGate.error.randomCooldownShort": "Random jump is still on cooldown.",
+  "jumpGate.error.randomDiscoveryLimit": "Colonize a planet in one of your opened public systems to unlock another random discovery.",
   "jumpGate.error.shipChanged": "Ship state changed before the jump could start.",
   "jumpGate.error.server": "Jump Gate request failed.",
   "map.noHome": "No home system found.",
