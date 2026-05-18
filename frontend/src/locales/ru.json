@@ -367,6 +367,7 @@
   "shop.checkout.cancelled": "Оплата отменена.",
   "shop.checkout.failed": "Оплата не прошла.",
   "shop.checkout.pending": "Платеж открыт. Проверяем начисление алмазов...",
+  "shop.checkout.processing": "Telegram еще не подтвердил оплату. Алмазы начислим только после подтверждения Telegram.",
   "shop.checkout.confirming": "Подтверждаем начисление Stars...",
   "shop.checkout.delivered": "Начислено алмазов: {diamonds}. Баланс: ◆ {balance}.",
   "shop.checkout.pendingDelivery": "Платеж принят. Начисление алмазов еще синхронизируется.",
