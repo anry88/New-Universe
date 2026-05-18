@@ -301,6 +301,13 @@ export function buildExpeditionTrailSegments(
   });
 }
 
+export function fleetContactsForSystem(
+  contacts: JumpGateFleetContactSummary[],
+  systemId: string,
+): JumpGateFleetContactSummary[] {
+  return contacts.filter((contact) => contact.systemId === systemId);
+}
+
 const ExpeditionTrailLayer = React.memo(function ExpeditionTrailLayer({
   segments,
 }: {
@@ -965,6 +972,11 @@ export function CosmicSystemRenderer({
     [expeditions],
   );
 
+  const visibleFleetContacts = useMemo(
+    () => fleetContactsForSystem(fleetContacts, system.id),
+    [fleetContacts, system.id],
+  );
+
   const expeditionTrailSegments = useMemo(
     () =>
       buildExpeditionTrailSegments(activeExpeditions, layoutByPlanetId, system),
@@ -1563,7 +1575,7 @@ export function CosmicSystemRenderer({
             isPicking={isPicking}
           />
 
-          <FleetContactMarkers contacts={fleetContacts} isPicking={isPicking} />
+          <FleetContactMarkers contacts={visibleFleetContacts} isPicking={isPicking} />
 
           {/* Draft course for expedition launcher (vector from home star, shown from launch planet). */}
           {expeditionPick &&

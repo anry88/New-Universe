@@ -834,7 +834,11 @@ export function ExpeditionDialog({
               system={renderedSystem}
               ships={meData?.ships ?? []}
               expeditions={meData?.expeditions ?? []}
-              fleetContacts={selectedDestination?.fleetContacts ?? []}
+              fleetContacts={
+                routeMode === "jump_gate" && selectedDestination?.systemId === renderedSystem.id
+                  ? selectedDestination.fleetContacts
+                  : []
+              }
               onPlanetClick={() => {}}
               ownedPlanetIds={ownedPlanetIds}
               expeditionPick={expeditionPick}

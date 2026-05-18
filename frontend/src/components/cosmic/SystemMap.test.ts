@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Expedition } from '@shared/types/expeditions';
+import type { JumpGateFleetContactSummary } from '@shared/types/jump-gate';
 import type { HomeSystem } from '@shared/types/world';
-import { buildExpeditionTrailSegments } from './SystemMap';
+import { buildExpeditionTrailSegments, fleetContactsForSystem } from './SystemMap';
 
 const system: HomeSystem = {
   id: 'public-system',
@@ -61,6 +62,37 @@ describe('buildExpeditionTrailSegments', () => {
         endpointX: 72,
         endpointY: -24,
       }),
+    ]);
+  });
+});
+
+describe('fleetContactsForSystem', () => {
+  it('keeps only contacts for the currently rendered system', () => {
+    const contacts: JumpGateFleetContactSummary[] = [
+      {
+        id: 'contact-visible',
+        systemId: system.id,
+        relation: 'foreign',
+        visibility: 'summary',
+        ownerAlias: '@rival',
+        shipTypeId: null,
+        point: { x: 72, y: -24 },
+        stationedAt: '2026-05-13T01:00:00.000Z',
+      },
+      {
+        id: 'contact-other-sector',
+        systemId: 'other-public-system',
+        relation: 'foreign',
+        visibility: 'summary',
+        ownerAlias: '@other',
+        shipTypeId: null,
+        point: { x: -120, y: 40 },
+        stationedAt: '2026-05-13T02:00:00.000Z',
+      },
+    ];
+
+    expect(fleetContactsForSystem(contacts, system.id)).toEqual([
+      expect.objectContaining({ id: 'contact-visible' }),
     ]);
   });
 });
