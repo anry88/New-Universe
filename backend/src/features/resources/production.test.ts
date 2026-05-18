@@ -1,5 +1,9 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { eq, and } from 'drizzle-orm';
+import {
+  productionSlotsForBuildingLevel,
+  productionSpeedMultiplierForBuildingLevel,
+} from '@shared/config/productionRecipes.js';
 import { db } from '../../db/index.js';
 import {
   buildings,
@@ -198,6 +202,91 @@ describe('production orders', () => {
     const highIron = highPreview.inputs.find((input) => input.resourceId === 'iron')!.amount;
     expect(highIron).toBeLessThan(lowIron);
     expect(highPreview.durationSec).toBeLessThan(lowPreview.durationSec);
+  });
+
+  it('unlocks production slots on odd levels and blocks starts when slots are full', async () => {
+    expect(productionSlotsForBuildingLevel(1)).toBe(1);
+    expect(productionSlotsForBuildingLevel(2)).toBe(1);
+    expect(productionSlotsForBuildingLevel(3)).toBe(2);
+    expect(productionSlotsForBuildingLevel(9)).toBe(5);
+    expect(productionSlotsForBuildingLevel(10)).toBe(5);
+
+    const levelOne = await createProductionPlanet('smelter', 1);
+    await productionService.start(levelOne.user.id, {
+      planetId: levelOne.planet.id,
+      buildingId: levelOne.building.id,
+      recipeId: 'steel_from_iron_water',
+      quantity: 1,
+    });
+    const levelOneBlocked = await productionService.preview(levelOne.user.id, {
+      planetId: levelOne.planet.id,
+      buildingId: levelOne.building.id,
+      recipeId: 'steel_from_iron_water',
+      quantity: 1,
+    });
+
+    expect(levelOneBlocked.canStart).toBe(false);
+    expect(levelOneBlocked.activeSlots).toBe(1);
+    expect(levelOneBlocked.maxSlots).toBe(1);
+    expect(levelOneBlocked.blockedReason?.code).toBe('production_slots_full');
+
+    const levelThree = await createProductionPlanet('smelter', 3);
+    await productionService.start(levelThree.user.id, {
+      planetId: levelThree.planet.id,
+      buildingId: levelThree.building.id,
+      recipeId: 'steel_from_iron_water',
+      quantity: 1,
+    });
+    const secondSlot = await productionService.preview(levelThree.user.id, {
+      planetId: levelThree.planet.id,
+      buildingId: levelThree.building.id,
+      recipeId: 'steel_from_iron_water',
+      quantity: 1,
+    });
+    expect(secondSlot.canStart).toBe(true);
+    expect(secondSlot.activeSlots).toBe(1);
+    expect(secondSlot.maxSlots).toBe(2);
+
+    await productionService.start(levelThree.user.id, {
+      planetId: levelThree.planet.id,
+      buildingId: levelThree.building.id,
+      recipeId: 'steel_from_iron_water',
+      quantity: 1,
+    });
+    const levelThreeBlocked = await productionService.preview(levelThree.user.id, {
+      planetId: levelThree.planet.id,
+      buildingId: levelThree.building.id,
+      recipeId: 'steel_from_iron_water',
+      quantity: 1,
+    });
+    expect(levelThreeBlocked.canStart).toBe(false);
+    expect(levelThreeBlocked.activeSlots).toBe(2);
+    expect(levelThreeBlocked.maxSlots).toBe(2);
+    expect(levelThreeBlocked.blockedReason?.code).toBe('production_slots_full');
+  });
+
+  it('uses a progressive production speed curve for building levels', async () => {
+    const firstGain = productionSpeedMultiplierForBuildingLevel(3) - productionSpeedMultiplierForBuildingLevel(1);
+    const laterGain = productionSpeedMultiplierForBuildingLevel(5) - productionSpeedMultiplierForBuildingLevel(3);
+    expect(laterGain).toBeGreaterThan(firstGain);
+
+    const levelOne = await createProductionPlanet('smelter', 1);
+    const levelFive = await createProductionPlanet('smelter', 5);
+
+    const levelOnePreview = await productionService.preview(levelOne.user.id, {
+      planetId: levelOne.planet.id,
+      buildingId: levelOne.building.id,
+      recipeId: 'steel_from_iron_water',
+      quantity: 20,
+    });
+    const levelFivePreview = await productionService.preview(levelFive.user.id, {
+      planetId: levelFive.planet.id,
+      buildingId: levelFive.building.id,
+      recipeId: 'steel_from_iron_water',
+      quantity: 20,
+    });
+
+    expect(levelFivePreview.durationSec).toBeLessThan(levelOnePreview.durationSec);
   });
 
   it('supports multi-component electronics and alternate fuel recipes', async () => {

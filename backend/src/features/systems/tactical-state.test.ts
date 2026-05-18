@@ -212,7 +212,6 @@ describe("getSystemTacticalState", () => {
     await db.delete(researchProgress);
     await db.delete(expeditions);
     await db.delete(ships);
-    await db.delete(shipTypes);
     await db.delete(productionOrders);
     await db.delete(buildings);
     await db.delete(colonies);
