@@ -834,6 +834,7 @@ export function ExpeditionDialog({
               system={renderedSystem}
               ships={meData?.ships ?? []}
               expeditions={meData?.expeditions ?? []}
+              fleetContacts={selectedDestination?.fleetContacts ?? []}
               onPlanetClick={() => {}}
               ownedPlanetIds={ownedPlanetIds}
               expeditionPick={expeditionPick}
