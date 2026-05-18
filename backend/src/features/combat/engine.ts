@@ -14,8 +14,8 @@ import {
   engagementRangeToSectorDistance,
   isShipTargetClass,
   missilePayloadShieldDps,
-} from '@shared/types/combat.js';
-import { resolveMissilePayloadDps } from './missiles.js';
+} from "@shared/types/combat.js";
+import { resolveMissilePayloadDps } from "./missiles.js";
 
 /**
  * Upper bound on the elapsed-time window applied to a single combat tick.
@@ -24,7 +24,7 @@ import { resolveMissilePayloadDps } from './missiles.js';
  */
 export const COMBAT_TICK_MAX_DT_SEC = 3;
 export const COMBAT_REENGAGEMENT_RESET_SEC = 15;
-export const SHIP_COMBAT_DAMAGE_TIME_SCALE = 0.35;
+export const SHIP_COMBAT_DAMAGE_TIME_SCALE = 0.08;
 
 export interface CombatActor {
   id: string;
@@ -63,8 +63,8 @@ export interface AttackerHit {
  * capital), the protection lifts.
  */
 export function isDefenderProtectedFromAttacker(
-  attacker: Pick<CombatActor, 'ownerId' | 'hostSystem'>,
-  defender: Pick<CombatActor, 'hostSystem'>,
+  attacker: Pick<CombatActor, "ownerId" | "hostSystem">,
+  defender: Pick<CombatActor, "hostSystem">,
 ): boolean {
   const sys = defender.hostSystem;
   if (!sys || !sys.isHome) return false;
@@ -109,9 +109,10 @@ function selectShipTargetForAttacker(
 ): ShipTargetCandidate | null {
   const candidates: ShipTargetCandidate[] = [];
 
-  const sustainedRange = engagementRangeToSectorDistance(
-    attacker.combatStats.engagementRange as EngagementRange | undefined,
-  ) * weaponRangeMultiplierFor(attacker);
+  const sustainedRange =
+    engagementRangeToSectorDistance(
+      attacker.combatStats.engagementRange as EngagementRange | undefined,
+    ) * weaponRangeMultiplierFor(attacker);
 
   for (const defender of actors) {
     if (defender.id === attacker.id) continue;
@@ -164,7 +165,7 @@ function resolveSustainedShipWeaponDps(
 ): number {
   if (range <= 0 || dist > range) return 0;
   if (!attacker.combatStats.damageProfile) return 0;
-  if (attacker.combatStats.engagementRange === 'orbital') return 0;
+  if (attacker.combatStats.engagementRange === "orbital") return 0;
   return effectiveDpsAgainst(
     attacker.combatStats.damageProfile,
     defender.defenderArmor,
@@ -189,20 +190,22 @@ function resolveMissileShipWeaponDps(
 }
 
 function isAttackerActive(actor: CombatActor): boolean {
-  if (actor.status === 'destroyed' || actor.status === 'building') return false;
+  if (actor.status === "destroyed" || actor.status === "building") return false;
   if (actor.hp <= 0) return false;
   if (!actor.position) return false;
   return canTargetShips(actor.combatStats);
 }
 
 function isDefenderTargetable(actor: CombatActor): boolean {
-  if (actor.status === 'destroyed' || actor.status === 'building') return false;
+  if (actor.status === "destroyed" || actor.status === "building") return false;
   if (actor.hp <= 0) return false;
   if (!actor.position) return false;
   return isShipTargetClass(actor.combatStats.targetClass);
 }
 
-function weaponRangeMultiplierFor(actor: { weaponRangeMultiplier?: number }): number {
+function weaponRangeMultiplierFor(actor: {
+  weaponRangeMultiplier?: number;
+}): number {
   const multiplier = actor.weaponRangeMultiplier ?? 1;
   return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1;
 }
@@ -223,7 +226,7 @@ function planarDistance(
  * gaps when a defender re-enters combat after drifting out of range.
  */
 export function computeTickDamage(
-  defender: Pick<CombatActor, 'lastCombatTickAtMs'>,
+  defender: Pick<CombatActor, "lastCombatTickAtMs">,
   totalDps: number,
   nowMs: number,
   options: { timeScale?: number } = {},
@@ -244,7 +247,7 @@ function finitePositiveScale(value: number | undefined): number {
 }
 
 export function isFreshCombatTouch(
-  defender: Pick<CombatActor, 'lastCombatTickAtMs'>,
+  defender: Pick<CombatActor, "lastCombatTickAtMs">,
   nowMs: number,
 ): boolean {
   if (defender.lastCombatTickAtMs == null) return true;
@@ -255,7 +258,10 @@ export function isFreshCombatTouch(
 export function sumDpsPerDefender(hits: AttackerHit[]): Map<string, number> {
   const totals = new Map<string, number>();
   for (const hit of hits) {
-    totals.set(hit.defenderId, (totals.get(hit.defenderId) ?? 0) + hit.effectiveDps);
+    totals.set(
+      hit.defenderId,
+      (totals.get(hit.defenderId) ?? 0) + hit.effectiveDps,
+    );
   }
   return totals;
 }
@@ -284,7 +290,7 @@ export interface BuildingTarget {
   systemId: string;
   ownerId: string | null;
   /** `command_center` is a special last-resort target; everything else is a non-CC priority target. */
-  targetClass: 'building' | 'command_center';
+  targetClass: "building" | "command_center";
   armor: number;
   hp: number;
   destroyed: boolean;
@@ -312,9 +318,9 @@ export function selectBomberTargetForPlanet(
   const alive = buildings.filter((b) => !b.destroyed && b.hp > 0);
   if (alive.length === 0) return null;
   const sorted = alive.slice().sort((a, b) => a.id.localeCompare(b.id));
-  const nonCc = sorted.find((b) => b.targetClass !== 'command_center');
+  const nonCc = sorted.find((b) => b.targetClass !== "command_center");
   if (nonCc) return nonCc;
-  return sorted.find((b) => b.targetClass === 'command_center') ?? null;
+  return sorted.find((b) => b.targetClass === "command_center") ?? null;
 }
 
 /**
@@ -358,7 +364,10 @@ export function resolveBomberHits(
       const dist = planarDistance(bomber.position, target.position);
       if (dist === null || dist > range) continue;
 
-      const eff = effectiveDpsAgainst(bomber.combatStats.damageProfile, target.armor);
+      const eff = effectiveDpsAgainst(
+        bomber.combatStats.damageProfile,
+        target.armor,
+      );
       if (eff <= 0) continue;
 
       hits.push({
@@ -376,15 +385,19 @@ export function resolveBomberHits(
 export function sumDpsPerBuilding(hits: BomberHit[]): Map<string, number> {
   const totals = new Map<string, number>();
   for (const hit of hits) {
-    totals.set(hit.buildingId, (totals.get(hit.buildingId) ?? 0) + hit.effectiveDps);
+    totals.set(
+      hit.buildingId,
+      (totals.get(hit.buildingId) ?? 0) + hit.effectiveDps,
+    );
   }
   return totals;
 }
 
 function isBomberActive(actor: BomberActor): boolean {
-  if (actor.status === 'destroyed' || actor.status === 'building') return false;
+  if (actor.status === "destroyed" || actor.status === "building") return false;
   if (actor.hp <= 0) return false;
   const stats = actor.combatStats;
-  if (!stats?.damageProfile || stats.engagementRange !== 'orbital') return false;
+  if (!stats?.damageProfile || stats.engagementRange !== "orbital")
+    return false;
   return true;
 }

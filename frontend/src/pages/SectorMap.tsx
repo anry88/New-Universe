@@ -1,26 +1,30 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { ChevronLeft, X } from 'lucide-react';
-import { useMe } from '../hooks/useMe';
-import { apiFetch } from '../lib/api';
-import { CosmicBottomNav } from '../components/cosmic/atoms';
-import { SectorRenderer } from '../components/pixi/SectorRenderer';
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { ChevronLeft, X } from "lucide-react";
+import { useMe } from "../hooks/useMe";
+import { apiFetch } from "../lib/api";
+import { CosmicBottomNav } from "../components/cosmic/atoms";
+import { SectorRenderer } from "../components/pixi/SectorRenderer";
 import type {
   SectorPresencePayload,
   SectorPresenceEntity,
   SectorSystemAnchorTag,
   SectorSystemAnchorsPayload,
-} from '@shared/types/multiplayer';
-import { useI18n } from '../lib/i18n';
+} from "@shared/types/multiplayer";
+import { useI18n } from "../lib/i18n";
 import {
+  hasLiveSectorActivity,
   sectorEntityDisplay,
   sectorEntityKey,
   summarizeSectorEntities,
-} from '../lib/sectorMap';
+} from "../lib/sectorMap";
+
+const SECTOR_LIVE_REFETCH_INTERVAL_MS = 2_500;
+const SECTOR_IDLE_REFETCH_INTERVAL_MS = 10_000;
 
 function parseCoord(raw: string | null, fallback: number): number {
-  if (raw === null || raw === '') return fallback;
+  if (raw === null || raw === "") return fallback;
   const n = Number.parseInt(raw, 10);
   return Number.isFinite(n) ? n : fallback;
 }
@@ -36,17 +40,19 @@ export function SectorMapPage() {
   const { t } = useI18n();
 
   const home = meData?.homeSystem;
-  const selectedSystemId = searchParams.get('systemId');
+  const selectedSystemId = searchParams.get("systemId");
 
   const { data: anchorData } = useQuery({
-    queryKey: ['sector-system-anchors'],
-    queryFn: () => apiFetch<SectorSystemAnchorsPayload>('/multiplayer/systems'),
+    queryKey: ["sector-system-anchors"],
+    queryFn: () => apiFetch<SectorSystemAnchorsPayload>("/multiplayer/systems"),
     enabled: Boolean(meData?.id && home),
   });
   const anchorSystems = anchorData?.systems ?? [];
 
   const sector = useMemo(() => {
-    const selectedAnchor = anchorSystems.find((anchor) => anchor.systemId === selectedSystemId);
+    const selectedAnchor = anchorSystems.find(
+      (anchor) => anchor.systemId === selectedSystemId,
+    );
     if (selectedAnchor) {
       return {
         sx: selectedAnchor.sector[0],
@@ -57,9 +63,9 @@ export function SectorMapPage() {
 
     const h = meData?.homeSystem;
     return {
-      sx: parseCoord(searchParams.get('sx'), h?.sectorX ?? 0),
-      sy: parseCoord(searchParams.get('sy'), h?.sectorY ?? 0),
-      sz: parseCoord(searchParams.get('sz'), h?.sectorZ ?? 0),
+      sx: parseCoord(searchParams.get("sx"), h?.sectorX ?? 0),
+      sy: parseCoord(searchParams.get("sy"), h?.sectorY ?? 0),
+      sz: parseCoord(searchParams.get("sz"), h?.sectorZ ?? 0),
     };
   }, [anchorSystems, selectedSystemId, searchParams, meData?.homeSystem]);
 
@@ -86,19 +92,29 @@ export function SectorMapPage() {
   }, [sector.sx, sector.sy, sector.sz]);
 
   const { data, isFetching, error } = useQuery({
-    queryKey: ['sector-presence', sector.sx, sector.sy, sector.sz],
+    queryKey: ["sector-presence", sector.sx, sector.sy, sector.sz],
     queryFn: () =>
       apiFetch<SectorPresencePayload>(
         `/multiplayer/sectors/${sector.sx}/${sector.sy}/${sector.sz}/presence`,
       ),
     enabled: Boolean(meData?.id && home),
+    staleTime: 1_000,
+    refetchInterval: (query) =>
+      hasLiveSectorActivity(query.state.data)
+        ? SECTOR_LIVE_REFETCH_INTERVAL_MS
+        : SECTOR_IDLE_REFETCH_INTERVAL_MS,
   });
 
   const entities = data?.entities ?? [];
-  const sectorSummary = useMemo(() => summarizeSectorEntities(entities), [entities]);
+  const sectorSummary = useMemo(
+    () => summarizeSectorEntities(entities),
+    [entities],
+  );
   const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
   const selectedEntity = useMemo(
-    () => entities.find((entity) => sectorEntityKey(entity) === selectedEntityId) ?? null,
+    () =>
+      entities.find((entity) => sectorEntityKey(entity) === selectedEntityId) ??
+      null,
     [entities, selectedEntityId],
   );
   const selectedDisplay = useMemo(
@@ -107,10 +123,26 @@ export function SectorMapPage() {
   );
   const statCards = useMemo(
     () => [
-      { key: 'total', label: t('sector.summary.total'), value: sectorSummary.total },
-      { key: 'self', label: t('sector.summary.local'), value: sectorSummary.relation.self },
-      { key: 'public', label: t('sector.summary.neutral'), value: sectorSummary.relation.public },
-      { key: 'foreign', label: t('sector.summary.foreign'), value: sectorSummary.relation.foreign },
+      {
+        key: "total",
+        label: t("sector.summary.total"),
+        value: sectorSummary.total,
+      },
+      {
+        key: "self",
+        label: t("sector.summary.local"),
+        value: sectorSummary.relation.self,
+      },
+      {
+        key: "public",
+        label: t("sector.summary.neutral"),
+        value: sectorSummary.relation.public,
+      },
+      {
+        key: "foreign",
+        label: t("sector.summary.foreign"),
+        value: sectorSummary.relation.foreign,
+      },
     ],
     [sectorSummary, t],
   );
@@ -126,15 +158,25 @@ export function SectorMapPage() {
     setSelectedEntityId(sectorEntityKey(entity));
   }, []);
 
-  const entityLabel = useCallback((entity: SectorPresenceEntity) => {
-    return sectorEntityDisplay(entity, t).title;
-  }, [t]);
+  const entityLabel = useCallback(
+    (entity: SectorPresenceEntity) => {
+      return sectorEntityDisplay(entity, t).title;
+    },
+    [t],
+  );
 
   const applySector = () => {
-    setSearchParams({ sx: String(draftSx), sy: String(draftSy), sz: String(draftSz) });
+    setSearchParams({
+      sx: String(draftSx),
+      sy: String(draftSy),
+      sz: String(draftSz),
+    });
   };
 
-  const selectAnchor = (systemId: string, sectorCoords: [number, number, number]) => {
+  const selectAnchor = (
+    systemId: string,
+    sectorCoords: [number, number, number],
+  ) => {
     setSearchParams({
       systemId,
       sx: String(sectorCoords[0]),
@@ -147,9 +189,18 @@ export function SectorMapPage() {
 
   if (isLoading) {
     return (
-      <div className="cosmic-screen" style={{ '--accent': '#5BD7FF', display: 'grid', placeItems: 'center' } as React.CSSProperties}>
+      <div
+        className="cosmic-screen"
+        style={
+          {
+            "--accent": "#5BD7FF",
+            display: "grid",
+            placeItems: "center",
+          } as React.CSSProperties
+        }
+      >
         <div className="qstrip-bar" style={{ width: 80 }}>
-          <div className="qstrip-fill" style={{ width: '60%' }} />
+          <div className="qstrip-fill" style={{ width: "60%" }} />
         </div>
       </div>
     );
@@ -157,10 +208,24 @@ export function SectorMapPage() {
 
   if (!home) {
     return (
-      <div className="cosmic-screen" style={{ '--accent': '#5BD7FF', display: 'grid', placeItems: 'center' } as React.CSSProperties}>
-        <p style={{ color: 'var(--text-dim)' }}>{t('sector.noHome')}</p>
-        <button type="button" className="cosmic-cta" style={{ marginTop: 12 }} onClick={() => navigate('/')}>
-          {t('common.home')}
+      <div
+        className="cosmic-screen"
+        style={
+          {
+            "--accent": "#5BD7FF",
+            display: "grid",
+            placeItems: "center",
+          } as React.CSSProperties
+        }
+      >
+        <p style={{ color: "var(--text-dim)" }}>{t("sector.noHome")}</p>
+        <button
+          type="button"
+          className="cosmic-cta"
+          style={{ marginTop: 12 }}
+          onClick={() => navigate("/")}
+        >
+          {t("common.home")}
         </button>
       </div>
     );
@@ -171,41 +236,41 @@ export function SectorMapPage() {
       className="cosmic-screen"
       style={
         {
-          '--accent': '#5BD7FF',
-          position: 'relative',
-          display: 'flex',
-          flexDirection: 'column',
+          "--accent": "#5BD7FF",
+          position: "relative",
+          display: "flex",
+          flexDirection: "column",
         } as React.CSSProperties
       }
     >
       <div
         className="sector-map-topbar"
         style={{
-          position: 'absolute',
+          position: "absolute",
           top: 0,
           left: 0,
           right: 0,
           zIndex: 10,
-          padding: '12px 14px',
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
+          padding: "12px 14px",
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
           gap: 8,
-          pointerEvents: 'none',
+          pointerEvents: "none",
         }}
       >
         <button
           type="button"
-          aria-label={t('common.back')}
-          onClick={() => navigate('/map')}
+          aria-label={t("common.back")}
+          onClick={() => navigate("/map")}
           style={{
             padding: 8,
             borderRadius: 999,
-            background: 'rgba(14,20,36,0.85)',
-            border: '1px solid var(--line)',
-            backdropFilter: 'blur(8px)',
-            color: 'var(--text)',
-            pointerEvents: 'auto',
+            background: "rgba(14,20,36,0.85)",
+            border: "1px solid var(--line)",
+            backdropFilter: "blur(8px)",
+            color: "var(--text)",
+            pointerEvents: "auto",
           }}
         >
           <ChevronLeft size={20} />
@@ -215,25 +280,42 @@ export function SectorMapPage() {
           className="sector-map-control-panel"
           style={{
             flex: 1,
-            background: 'rgba(14,20,36,0.85)',
-            border: '1px solid var(--line)',
+            background: "rgba(14,20,36,0.85)",
+            border: "1px solid var(--line)",
             borderRadius: 8,
-            padding: '10px 12px',
-            backdropFilter: 'blur(8px)',
-            pointerEvents: 'auto',
+            padding: "10px 12px",
+            backdropFilter: "blur(8px)",
+            pointerEvents: "auto",
             maxHeight: 250,
-            overflowY: 'auto',
+            overflowY: "auto",
           }}
         >
-          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 13, color: 'var(--text)' }}>
-            {t('sector.title')}
+          <div
+            style={{
+              fontFamily: "var(--font-display)",
+              fontWeight: 600,
+              fontSize: 13,
+              color: "var(--text)",
+            }}
+          >
+            {t("sector.title")}
           </div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-faint)', marginTop: 4 }}>
-            {t('sector.subtitle')}
+          <div
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 10,
+              color: "var(--text-faint)",
+              marginTop: 4,
+            }}
+          >
+            {t("sector.subtitle")}
           </div>
           <div className="sector-map-stat-grid" style={{ marginTop: 10 }}>
             {statCards.map((card) => (
-              <div key={card.key} className={`sector-map-stat sector-map-stat--${card.key}`}>
+              <div
+                key={card.key}
+                className={`sector-map-stat sector-map-stat--${card.key}`}
+              >
                 <span>{card.label}</span>
                 <strong>{card.value}</strong>
               </div>
@@ -241,18 +323,35 @@ export function SectorMapPage() {
           </div>
           {anchorSystems.length > 0 && (
             <div style={{ marginTop: 10 }}>
-              <div style={{ fontSize: 10, color: 'var(--text-dim)', marginBottom: 6 }}>
-                {t('sector.systemSelector')}
+              <div
+                style={{
+                  fontSize: 10,
+                  color: "var(--text-dim)",
+                  marginBottom: 6,
+                }}
+              >
+                {t("sector.systemSelector")}
               </div>
-              <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2 }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 6,
+                  overflowX: "auto",
+                  paddingBottom: 2,
+                }}
+              >
                 {anchorSystems.map((anchor) => {
                   const active = selectedAnchor?.systemId === anchor.systemId;
                   const meta = [
                     anchor.colonyCount > 0
-                      ? t('sector.anchor.colonyCount', { count: anchor.colonyCount })
+                      ? t("sector.anchor.colonyCount", {
+                          count: anchor.colonyCount,
+                        })
                       : null,
                     anchor.shipCount > 0
-                      ? t('sector.anchor.shipCount', { count: anchor.shipCount })
+                      ? t("sector.anchor.shipCount", {
+                          count: anchor.shipCount,
+                        })
                       : null,
                   ].filter(Boolean);
 
@@ -260,49 +359,65 @@ export function SectorMapPage() {
                     <button
                       key={anchor.systemId}
                       type="button"
-                      onClick={() => selectAnchor(anchor.systemId, anchor.sector)}
+                      onClick={() =>
+                        selectAnchor(anchor.systemId, anchor.sector)
+                      }
                       style={{
-                        flex: '0 0 160px',
-                        textAlign: 'left',
+                        flex: "0 0 160px",
+                        textAlign: "left",
                         borderRadius: 8,
-                        border: active ? '1px solid var(--accent)' : '1px solid var(--line)',
-                        background: active ? 'rgba(91,215,255,0.14)' : 'rgba(8,12,22,0.74)',
-                        color: 'var(--text)',
-                        padding: '7px 8px',
+                        border: active
+                          ? "1px solid var(--accent)"
+                          : "1px solid var(--line)",
+                        background: active
+                          ? "rgba(91,215,255,0.14)"
+                          : "rgba(8,12,22,0.74)",
+                        color: "var(--text)",
+                        padding: "7px 8px",
                       }}
                     >
                       <div
                         style={{
                           fontSize: 11,
                           fontWeight: 700,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
                         }}
                       >
                         {anchor.title}
                       </div>
                       <div
                         style={{
-                          fontFamily: 'var(--font-mono)',
+                          fontFamily: "var(--font-mono)",
                           fontSize: 9,
-                          color: 'var(--text-faint)',
+                          color: "var(--text-faint)",
                           marginTop: 3,
                         }}
                       >
-                        {anchor.sector.join(':')}
+                        {anchor.sector.join(":")}
                       </div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 5 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexWrap: "wrap",
+                          gap: 4,
+                          marginTop: 5,
+                        }}
+                      >
                         {anchor.tags.map((tag) => (
                           <span
                             key={tag}
                             style={{
                               borderRadius: 999,
-                              border: '1px solid rgba(148,163,184,0.25)',
-                              color: tag === 'home' ? 'var(--accent)' : 'var(--text-dim)',
+                              border: "1px solid rgba(148,163,184,0.25)",
+                              color:
+                                tag === "home"
+                                  ? "var(--accent)"
+                                  : "var(--text-dim)",
                               fontSize: 8,
-                              padding: '1px 5px',
-                              whiteSpace: 'nowrap',
+                              padding: "1px 5px",
+                              whiteSpace: "nowrap",
                             }}
                           >
                             {tagLabel(tag)}
@@ -310,8 +425,14 @@ export function SectorMapPage() {
                         ))}
                       </div>
                       {meta.length > 0 && (
-                        <div style={{ fontSize: 9, color: 'var(--text-dim)', marginTop: 5 }}>
-                          {meta.join(' · ')}
+                        <div
+                          style={{
+                            fontSize: 9,
+                            color: "var(--text-dim)",
+                            marginTop: 5,
+                          }}
+                        >
+                          {meta.join(" · ")}
                         </div>
                       )}
                     </button>
@@ -320,58 +441,66 @@ export function SectorMapPage() {
               </div>
             </div>
           )}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-            <label style={{ fontSize: 10, color: 'var(--text-dim)' }}>
+          <div
+            style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}
+          >
+            <label style={{ fontSize: 10, color: "var(--text-dim)" }}>
               sx
               <input
                 type="number"
                 value={draftSx}
-                onChange={(e) => setDraftSx(Number.parseInt(e.target.value, 10) || 0)}
+                onChange={(e) =>
+                  setDraftSx(Number.parseInt(e.target.value, 10) || 0)
+                }
                 style={{
                   marginLeft: 4,
                   width: 56,
                   borderRadius: 6,
-                  border: '1px solid var(--line)',
-                  background: 'rgba(8,12,22,0.9)',
-                  color: 'var(--text)',
+                  border: "1px solid var(--line)",
+                  background: "rgba(8,12,22,0.9)",
+                  color: "var(--text)",
                   fontSize: 11,
-                  padding: '4px 6px',
+                  padding: "4px 6px",
                 }}
               />
             </label>
-            <label style={{ fontSize: 10, color: 'var(--text-dim)' }}>
+            <label style={{ fontSize: 10, color: "var(--text-dim)" }}>
               sy
               <input
                 type="number"
                 value={draftSy}
-                onChange={(e) => setDraftSy(Number.parseInt(e.target.value, 10) || 0)}
+                onChange={(e) =>
+                  setDraftSy(Number.parseInt(e.target.value, 10) || 0)
+                }
                 style={{
                   marginLeft: 4,
                   width: 56,
                   borderRadius: 6,
-                  border: '1px solid var(--line)',
-                  background: 'rgba(8,12,22,0.9)',
-                  color: 'var(--text)',
+                  border: "1px solid var(--line)",
+                  background: "rgba(8,12,22,0.9)",
+                  color: "var(--text)",
                   fontSize: 11,
-                  padding: '4px 6px',
+                  padding: "4px 6px",
                 }}
               />
             </label>
-            <label style={{ fontSize: 10, color: 'var(--text-dim)' }}>
+            <label style={{ fontSize: 10, color: "var(--text-dim)" }}>
               sz
               <input
                 type="number"
                 value={draftSz}
-                onChange={(e) => setDraftSz(Number.parseInt(e.target.value, 10) || 0)}
+                onChange={(e) =>
+                  setDraftSz(Number.parseInt(e.target.value, 10) || 0)
+                }
                 style={{
                   marginLeft: 4,
                   width: 56,
                   borderRadius: 6,
-                  border: '1px solid var(--line)',
-                  background: 'rgba(8,12,22,0.9)',
-                  color: 'var(--text)',
+                  border: "1px solid var(--line)",
+                  background: "rgba(8,12,22,0.9)",
+                  color: "var(--text)",
                   fontSize: 11,
-                  padding: '4px 6px',
+                  padding: "4px 6px",
                 }}
               />
             </label>
@@ -379,16 +508,16 @@ export function SectorMapPage() {
               type="button"
               onClick={applySector}
               style={{
-                alignSelf: 'flex-end',
+                alignSelf: "flex-end",
                 borderRadius: 8,
-                border: '1px solid var(--line)',
-                background: 'rgba(91,215,255,0.12)',
-                color: 'var(--accent)',
+                border: "1px solid var(--line)",
+                background: "rgba(91,215,255,0.12)",
+                color: "var(--accent)",
                 fontSize: 11,
-                padding: '6px 10px',
+                padding: "6px 10px",
               }}
             >
-              {t('common.go')}
+              {t("common.go")}
             </button>
           </div>
         </div>
@@ -399,27 +528,35 @@ export function SectorMapPage() {
       <div
         className="sector-map-stage"
         style={{
-          flex: '1 1 auto',
-          position: 'relative',
+          flex: "1 1 auto",
+          position: "relative",
           minHeight: 0,
-          width: '100%',
-          height: 'calc(100vh - 64px)',
+          width: "100%",
+          height: "calc(100vh - 64px)",
           paddingTop: anchorSystems.length > 0 ? 268 : 168,
           paddingBottom: 144,
-          boxSizing: 'border-box',
+          boxSizing: "border-box",
         }}
       >
         {error && (
-          <div style={{ padding: '0 16px', color: '#f87171', fontSize: 13 }}>
+          <div style={{ padding: "0 16px", color: "#f87171", fontSize: 13 }}>
             {(error as Error).message}
           </div>
         )}
         {isFetching && (
-          <div style={{ padding: '8px 16px', fontSize: 12, color: 'var(--text-dim)' }}>{t('sector.scanning')}</div>
+          <div
+            style={{
+              padding: "8px 16px",
+              fontSize: 12,
+              color: "var(--text-dim)",
+            }}
+          >
+            {t("sector.scanning")}
+          </div>
         )}
         <SectorRenderer
           entities={entities}
-          emptyLabel={t('sector.noContacts')}
+          emptyLabel={t("sector.noContacts")}
           selectedEntityId={selectedEntityId}
           onEntitySelect={selectEntity}
           getEntityLabel={entityLabel}
@@ -429,75 +566,95 @@ export function SectorMapPage() {
       <div
         className="sector-map-detail-dock"
         style={{
-          position: 'absolute',
+          position: "absolute",
           bottom: 88,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          pointerEvents: 'auto',
-          width: 'min(520px, 92vw)',
+          left: "50%",
+          transform: "translateX(-50%)",
+          pointerEvents: "auto",
+          width: "min(520px, 92vw)",
         }}
       >
         <div
           className="sector-map-detail-panel"
           style={{
-            background: 'rgba(8,12,22,0.85)',
-            border: '1px solid var(--line)',
+            background: "rgba(8,12,22,0.85)",
+            border: "1px solid var(--line)",
             borderRadius: 8,
-            padding: '10px 12px',
-            backdropFilter: 'blur(8px)',
+            padding: "10px 12px",
+            backdropFilter: "blur(8px)",
           }}
         >
-          <div className="sector-map-legend" aria-label={t('sector.legend.title')}>
+          <div
+            className="sector-map-legend"
+            aria-label={t("sector.legend.title")}
+          >
             <span className="sector-map-legend-item sector-map-legend-item--self">
-              {t('sector.legend.local')}
+              {t("sector.legend.local")}
             </span>
             <span className="sector-map-legend-item sector-map-legend-item--public">
-              {t('sector.legend.neutral')}
+              {t("sector.legend.neutral")}
             </span>
             <span className="sector-map-legend-item sector-map-legend-item--foreign">
-              {t('sector.legend.foreign')}
+              {t("sector.legend.foreign")}
             </span>
           </div>
 
           {selectedEntity && selectedDisplay ? (
-            <section className="sector-map-selected" aria-label={t('sector.detail.selected')}>
+            <section
+              className="sector-map-selected"
+              aria-label={t("sector.detail.selected")}
+            >
               <div className="sector-map-selected-head">
                 <div>
-                  <div className="sector-map-selected-title">{selectedDisplay.title}</div>
+                  <div className="sector-map-selected-title">
+                    {selectedDisplay.title}
+                  </div>
                   {selectedDisplay.subtitle && (
-                    <div className="sector-map-selected-subtitle">{selectedDisplay.subtitle}</div>
+                    <div className="sector-map-selected-subtitle">
+                      {selectedDisplay.subtitle}
+                    </div>
                   )}
                 </div>
                 <button
                   type="button"
                   className="sector-map-icon-btn"
-                  aria-label={t('common.close')}
+                  aria-label={t("common.close")}
                   onClick={() => setSelectedEntityId(null)}
                 >
                   <X size={16} />
                 </button>
               </div>
               <div className="sector-map-chip-row">
-                <span className={`sector-map-chip sector-map-chip--${selectedEntity.relation}`}>
+                <span
+                  className={`sector-map-chip sector-map-chip--${selectedEntity.relation}`}
+                >
                   {selectedDisplay.relationLabel}
                 </span>
-                <span className="sector-map-chip">{selectedDisplay.typeLabel}</span>
-                <span className="sector-map-chip">{selectedDisplay.visibilityLabel}</span>
+                <span className="sector-map-chip">
+                  {selectedDisplay.typeLabel}
+                </span>
+                <span className="sector-map-chip">
+                  {selectedDisplay.visibilityLabel}
+                </span>
               </div>
               <dl className="sector-map-detail-grid">
                 <div>
-                  <dt>{t('sector.detail.position')}</dt>
+                  <dt>{t("sector.detail.position")}</dt>
                   <dd>{selectedDisplay.positionLabel}</dd>
                 </div>
                 <div>
-                  <dt>{t('sector.detail.hidden')}</dt>
+                  <dt>{t("sector.detail.hidden")}</dt>
                   <dd>{sectorSummary.hiddenSummary}</dd>
                 </div>
               </dl>
-              <p className="sector-map-privacy-note">{selectedDisplay.privacyNote}</p>
+              <p className="sector-map-privacy-note">
+                {selectedDisplay.privacyNote}
+              </p>
             </section>
           ) : (
-            <p className="sector-map-empty-detail">{t('sector.detail.empty')}</p>
+            <p className="sector-map-empty-detail">
+              {t("sector.detail.empty")}
+            </p>
           )}
         </div>
       </div>

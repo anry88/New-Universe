@@ -13,17 +13,17 @@ The persistence model deliberately reuses `systems`, `discovered_systems`, `plan
 2. **Neutral systems** — Systems with `owner_id IS NULL` appear as `neutral_system` markers with summary visibility (public names only).
 3. **Own home** — The viewer's home system in the requested sector appears as `own_home_system` with full visibility.
 4. **Colonies** — Off-world colonies appear as `own_colony` or `foreign_colony`. Foreign colonies never expose another player's planet title as authoritative identity; the UI shows a generic label plus a masked handle derived from Telegram username/first name.
-5. **Fleets** — Non-destroyed ships docked at a planet (`status = idle`) and non-destroyed Jump Gate point deployments whose expedition is `stationed` appear as `own_ship` / `foreign_ship`. Cargo JSON is not exposed on this endpoint, and point deployments do not carry a `planetId`. Destroyed ship rows remain in storage for combat history/auditing but are not projected as presence.
+5. **Fleets** — Non-destroyed ships docked at a planet (`status = idle`), non-destroyed Jump Gate point deployments whose expedition is `stationed`, and active `in_flight` / `returning` expedition ships in the requested sector appear as `own_ship` / `foreign_ship`. Moving markers carry only projected sector position, a short movement vector, and `lastCombatTickAt` for polling/animation; cargo JSON is not exposed on this endpoint, and point deployments do not carry a `planetId`. Destroyed ship rows remain in storage for combat history/auditing but are not projected as presence.
 6. **Known public-system fleet contacts** — `GET /systems/:systemId/tactical-state` includes redacted `fleetContacts` for non-destroyed foreign Jump Gate contacts in `in_flight`, `returning`, or `stationed` state inside one visible requested system. These contacts carry only a masked owner alias, summary visibility, visible hull type, HP/combat summary, current tactical status, and the system-map point needed to place a red ship marker on the common-system map; they never expose foreign Home Systems. `GET /jump-gate/state` stays limited to gate state and known destination summaries.
 
 Every presence entity also carries an explicit model classification:
 
-| `entityType` | `relation` values | Source |
-|---|---|---|
-| `home` | `self` | Viewer-owned `systems.is_home` rows only. |
-| `colony` | `self`, `foreign` | Active `colonies` joined through their planet/system. |
-| `fleet` | `self`, `foreign` | Idle docked `ships` joined through their planet/system, plus `stationed` expedition rows joined through `result.destinationSystemId`. Moving per-system tactical contacts are exposed only by `/systems/:systemId/tactical-state`. |
-| `public_sector` | `public` | Neutral/common `systems.owner_id IS NULL` rows. |
+| `entityType`    | `relation` values | Source                                                                                                                                                                                                                                           |
+| --------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `home`          | `self`            | Viewer-owned `systems.is_home` rows only.                                                                                                                                                                                                        |
+| `colony`        | `self`, `foreign` | Active `colonies` joined through their planet/system.                                                                                                                                                                                            |
+| `fleet`         | `self`, `foreign` | Idle docked `ships` joined through their planet/system, `stationed` expedition rows joined through `result.destinationSystemId`, plus active `in_flight` / `returning` expedition rows projected into the requested sector with motion metadata. |
+| `public_sector` | `public`          | Neutral/common `systems.owner_id IS NULL` rows.                                                                                                                                                                                                  |
 
 ## Sector selector
 

@@ -14,8 +14,8 @@
  * Used both by the periodic combat worker (`workers/tick-combat.ts`) and by
  * the per-user online sync (`features/me/online-sync.ts`).
  */
-import { and, eq, gte, inArray, isNull, ne, sql } from 'drizzle-orm';
-import { db as defaultDb } from '../../db/index.js';
+import { and, eq, gte, inArray, isNull, ne, sql } from "drizzle-orm";
+import { db as defaultDb } from "../../db/index.js";
 import {
   ships,
   shipTypes,
@@ -26,20 +26,24 @@ import {
   buildings,
   buildingTypes,
   colonies,
-} from '../../db/schema.js';
-import { logger } from '../../lib/logger.js';
+} from "../../db/schema.js";
+import { logger } from "../../lib/logger.js";
 import {
   calculateExpeditionPosition,
   EXPEDITION_STATUS_STATIONED,
-} from '../../workers/tick-expeditions.js';
-import { SHIP_STATUS_DESTROYED, type CombatStats } from '@shared/types/combat.js';
-import { COMMAND_CENTER_TYPE_ID } from '@shared/config/buildingUpgradeEconomy.js';
+} from "../../workers/tick-expeditions.js";
+import {
+  SHIP_STATUS_DESTROYED,
+  type CombatStats,
+} from "@shared/types/combat.js";
+import { COMMAND_CENTER_TYPE_ID } from "@shared/config/buildingUpgradeEconomy.js";
 import {
   buildSystemMapLayouts,
   SYSTEM_MAP_WORLD_UNITS_PER_LY,
+  systemMapJumpGatePoint,
   type SystemMapPoint,
-} from '@shared/format/systemMapLayout.js';
-import { getResearchEffectsForUser } from '../research/effects.js';
+} from "@shared/format/systemMapLayout.js";
+import { getResearchEffectsForUser } from "../research/effects.js";
 import {
   type BomberActor,
   type BuildingTarget,
@@ -51,8 +55,8 @@ import {
   resolveBomberHits,
   SHIP_COMBAT_DAMAGE_TIME_SCALE,
   sumDpsPerBuilding,
-} from './engine.js';
-import { resolveShieldedDamage } from './shields.js';
+} from "./engine.js";
+import { resolveShieldedDamage } from "./shields.js";
 
 export interface ProcessDueCombatOptions {
   /** When set, the tick still runs globally; userId only scopes notifications. */
@@ -105,7 +109,7 @@ interface CombatSystemLayouts {
 }
 
 function pointFromResult(value: unknown): SystemMapPoint | null {
-  if (!value || typeof value !== 'object') return null;
+  if (!value || typeof value !== "object") return null;
   const maybe = value as { x?: unknown; y?: unknown };
   const x = Number(maybe.x);
   const y = Number(maybe.y);
@@ -140,7 +144,10 @@ async function loadSystemCombatLayouts(
   database: typeof defaultDb,
   aliveShips: ShipRow[],
 ): Promise<CombatSystemLayouts> {
-  const systemsById = new Map<string, { id: string; sectorX: number; sectorY: number; seed: number }>();
+  const systemsById = new Map<
+    string,
+    { id: string; sectorX: number; sectorY: number; seed: number }
+  >();
   for (const ship of aliveShips) {
     if (!ship.hostSystem) continue;
     systemsById.set(ship.hostSystem.id, {
@@ -178,7 +185,10 @@ async function loadSystemCombatLayouts(
     const systemPlanets = planetsBySystemId.get(systemId) ?? [];
     const layouts = buildSystemMapLayouts(systemPlanets, system.seed);
     for (const layout of layouts) {
-      planetPositions.set(layout.id, systemPointToCombatPosition(system, layout));
+      planetPositions.set(
+        layout.id,
+        systemPointToCombatPosition(system, layout),
+      );
     }
   }
 
@@ -212,21 +222,31 @@ export async function processDueCombat(
   }
 
   const inFlightShipIds = aliveShips
-    .filter((s) => s.status === 'moving')
+    .filter((s) => s.status === "moving")
     .map((s) => s.id);
-  const inFlightExpeditions = inFlightShipIds.length === 0
-    ? []
-    : await loadInFlightExpeditions(defaultDb, inFlightShipIds);
+  const inFlightExpeditions =
+    inFlightShipIds.length === 0
+      ? []
+      : await loadInFlightExpeditions(defaultDb, inFlightShipIds);
   const expeditionByShipId = new Map<string, ExpeditionRow>();
   for (const exp of inFlightExpeditions) {
     expeditionByShipId.set(exp.shipId, exp);
   }
   const combatLayouts = await loadSystemCombatLayouts(defaultDb, aliveShips);
-  const weaponRangeMultiplierByOwner = await loadWeaponRangeMultipliers(aliveShips);
+  const weaponRangeMultiplierByOwner =
+    await loadWeaponRangeMultipliers(aliveShips);
 
   const actors: CombatActor[] = aliveShips.map((ship) => {
-    const position = computePosition(ship, expeditionByShipId, now, combatLayouts);
-    const mergedStats = mergeCombatStats(ship.typeCombatStats, ship.combatStats);
+    const position = computePosition(
+      ship,
+      expeditionByShipId,
+      now,
+      combatLayouts,
+    );
+    const mergedStats = mergeCombatStats(
+      ship.typeCombatStats,
+      ship.combatStats,
+    );
     return {
       id: ship.id,
       ownerId: ship.ownerId,
@@ -236,12 +256,20 @@ export async function processDueCombat(
       defenderArmor: Math.max(0, mergedStats.armor ?? ship.typeArmor ?? 0),
       position,
       hostSystem: ship.hostSystem,
-      weaponRangeMultiplier: weaponRangeMultiplierByOwner.get(ship.ownerId) ?? 1,
-      lastCombatTickAtMs: ship.lastCombatTickAt ? ship.lastCombatTickAt.getTime() : null,
+      weaponRangeMultiplier:
+        weaponRangeMultiplierByOwner.get(ship.ownerId) ?? 1,
+      lastCombatTickAtMs: ship.lastCombatTickAt
+        ? ship.lastCombatTickAt.getTime()
+        : null,
     };
   });
 
-  const hits = resolveAttackerHits(actors);
+  const actorById = new Map(actors.map((a) => [a.id, a]));
+  const hits = scopeShipHitsToUser(
+    resolveAttackerHits(actors),
+    actorById,
+    options.userId,
+  );
   const shieldResult = resolveShieldedDamage(actors, hits, now.getTime(), {
     damageTimeScale: SHIP_COMBAT_DAMAGE_TIME_SCALE,
   });
@@ -269,7 +297,6 @@ export async function processDueCombat(
     };
   }
 
-  const actorById = new Map(actors.map((a) => [a.id, a]));
   const shipRowById = new Map(aliveShips.map((ship) => [ship.id, ship]));
   const destroyed: string[] = [];
   const updates: Array<{
@@ -302,11 +329,13 @@ export async function processDueCombat(
     if (newHp === 0) destroyed.push(defenderId);
   }
 
-  const touchedOnlyIds = Array.from(shieldResult.touchedDefenderIds).filter((id) => {
-    const actor = actorById.get(id);
-    const updated = updates.some((u) => u.shipId === id);
-    return actor && !updated;
-  });
+  const touchedOnlyIds = Array.from(shieldResult.touchedDefenderIds).filter(
+    (id) => {
+      const actor = actorById.get(id);
+      const updated = updates.some((u) => u.shipId === id);
+      return actor && !updated;
+    },
+  );
 
   if (
     updates.length === 0 &&
@@ -380,8 +409,12 @@ export async function processDueCombat(
         .filter((u) => u.destroyed)
         .map((u) => ({
           userId: u.ownerId,
-          type: 'ship_destroyed',
-          payload: { shipId: u.shipId, typeId: u.typeId, destroyedAt: now.toISOString() },
+          type: "ship_destroyed",
+          payload: {
+            shipId: u.shipId,
+            typeId: u.typeId,
+            destroyedAt: now.toISOString(),
+          },
         }));
       if (notifs.length > 0) {
         await tx.insert(notifications).values(notifs);
@@ -390,7 +423,7 @@ export async function processDueCombat(
   });
 
   if (destroyed.length > 0) {
-    logger.info({ destroyed }, 'Combat tick: ships destroyed');
+    logger.info({ destroyed }, "Combat tick: ships destroyed");
   }
 
   return {
@@ -452,7 +485,7 @@ async function insertCombatStartedNotifications(
       .where(
         and(
           eq(notifications.userId, item.userId),
-          eq(notifications.type, 'combat_started'),
+          eq(notifications.type, "combat_started"),
           gte(notifications.createdAt, cutoff),
           sql`${notifications.payload} ->> 'combatSpaceKey' = ${item.combatSpaceKey}`,
         ),
@@ -462,7 +495,7 @@ async function insertCombatStartedNotifications(
 
     await tx.insert(notifications).values({
       userId: item.userId,
-      type: 'combat_started',
+      type: "combat_started",
       payload: {
         combatSpaceKey: item.combatSpaceKey,
         locationName: item.locationName,
@@ -481,16 +514,32 @@ function combatSpaceKeyForActors(
   const systemId = defender.hostSystem?.id ?? attacker.hostSystem?.id;
   if (systemId) return `system:${systemId}`;
   const point = defender.position ?? attacker.position;
-  if (!point) return 'unknown';
+  if (!point) return "unknown";
   return `point:${Math.round(point.x)}:${Math.round(point.y)}`;
 }
 
-function combatLocationName(attacker: CombatActor, defender: CombatActor): string {
+function combatLocationName(
+  attacker: CombatActor,
+  defender: CombatActor,
+): string {
   return (
     (defender.hostSystem as any)?.name ??
     (attacker.hostSystem as any)?.name ??
-    'your fleet'
+    "your fleet"
   );
+}
+
+function scopeShipHitsToUser(
+  hits: AttackerHit[],
+  actorById: Map<string, CombatActor>,
+  userId?: string,
+): AttackerHit[] {
+  if (!userId) return hits;
+  return hits.filter((hit) => {
+    const attacker = actorById.get(hit.attackerId);
+    const defender = actorById.get(hit.defenderId);
+    return attacker?.ownerId === userId || defender?.ownerId === userId;
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -530,7 +579,7 @@ async function runBombingPass(
   // Build the bomber list from the same ship snapshot — bombers must be docked
   // at a host system (in-flight orbital strikes are out of scope for the MVP).
   const bombers: BomberActor[] = aliveShips
-    .filter((s) => s.status !== 'moving' && s.hostSystem)
+    .filter((s) => s.status !== "moving" && s.hostSystem)
     .map((s) => {
       const mergedStats = mergeCombatStats(s.typeCombatStats, s.combatStats);
       return {
@@ -544,26 +593,42 @@ async function runBombingPass(
         weaponRangeMultiplier: weaponRangeMultiplierByOwner.get(s.ownerId) ?? 1,
       };
     })
-    .filter((b) => b.combatStats.engagementRange === 'orbital' && b.hp > 0);
+    .filter((b) => b.combatStats.engagementRange === "orbital" && b.hp > 0);
 
   if (bombers.length === 0) {
-    return { buildingsDamaged: 0, buildingsDestroyed: [], coloniesAbandoned: [] };
+    return {
+      buildingsDamaged: 0,
+      buildingsDestroyed: [],
+      coloniesAbandoned: [],
+    };
   }
 
   const bomberSystemIds = Array.from(
-    new Set(bombers.map((b) => b.hostSystemId).filter((id): id is string => !!id)),
+    new Set(
+      bombers.map((b) => b.hostSystemId).filter((id): id is string => !!id),
+    ),
   );
 
-  const aliveBuildings = await loadAliveBuildingsForSystems(defaultDb, bomberSystemIds);
+  const aliveBuildings = await loadAliveBuildingsForSystems(
+    defaultDb,
+    bomberSystemIds,
+  );
   if (aliveBuildings.length === 0) {
-    return { buildingsDamaged: 0, buildingsDestroyed: [], coloniesAbandoned: [] };
+    return {
+      buildingsDamaged: 0,
+      buildingsDestroyed: [],
+      coloniesAbandoned: [],
+    };
   }
 
   const buildingsByPlanet = new Map<string, BuildingTarget[]>();
   for (const b of aliveBuildings) {
-    const targetClass: 'building' | 'command_center' =
-      b.typeId === COMMAND_CENTER_TYPE_ID ? 'command_center' : 'building';
-    const armor = Math.max(0, b.combatStats.armor ?? b.typeCombatStats.armor ?? 0);
+    const targetClass: "building" | "command_center" =
+      b.typeId === COMMAND_CENTER_TYPE_ID ? "command_center" : "building";
+    const armor = Math.max(
+      0,
+      b.combatStats.armor ?? b.typeCombatStats.armor ?? 0,
+    );
     const list = buildingsByPlanet.get(b.planetId) ?? [];
     list.push({
       id: b.id,
@@ -575,18 +640,35 @@ async function runBombingPass(
       hp: b.hp,
       destroyed: b.destroyedAt != null || b.hp <= 0,
       position: combatLayouts.planetPositions.get(b.planetId) ?? null,
-      lastCombatTickAtMs: b.lastCombatTickAt ? b.lastCombatTickAt.getTime() : null,
+      lastCombatTickAtMs: b.lastCombatTickAt
+        ? b.lastCombatTickAt.getTime()
+        : null,
     });
     buildingsByPlanet.set(b.planetId, list);
   }
 
   const hits = resolveBomberHits(bombers, buildingsByPlanet);
-  const dpsByBuilding = sumDpsPerBuilding(hits);
+  const bomberById = new Map(bombers.map((b) => [b.id, b]));
+  const buildingById = new Map(aliveBuildings.map((b) => [b.id, b]));
+  const scopedHits = options.userId
+    ? hits.filter((hit) => {
+        const bomber = bomberById.get(hit.bomberId);
+        const building = buildingById.get(hit.buildingId);
+        return (
+          bomber?.ownerId === options.userId ||
+          building?.colonyOwnerId === options.userId
+        );
+      })
+    : hits;
+  const dpsByBuilding = sumDpsPerBuilding(scopedHits);
   if (dpsByBuilding.size === 0) {
-    return { buildingsDamaged: 0, buildingsDestroyed: [], coloniesAbandoned: [] };
+    return {
+      buildingsDamaged: 0,
+      buildingsDestroyed: [],
+      coloniesAbandoned: [],
+    };
   }
 
-  const buildingById = new Map(aliveBuildings.map((b) => [b.id, b]));
   const buildingsDestroyed: string[] = [];
   const coloniesAbandoned: string[] = [];
 
@@ -605,7 +687,11 @@ async function runBombingPass(
     const b = buildingById.get(buildingId);
     if (!b) continue;
     const lastMs = b.lastCombatTickAt ? b.lastCombatTickAt.getTime() : null;
-    const damage = computeTickDamage({ lastCombatTickAtMs: lastMs }, totalDps, now.getTime());
+    const damage = computeTickDamage(
+      { lastCombatTickAtMs: lastMs },
+      totalDps,
+      now.getTime(),
+    );
     const damageApplied = Math.max(0, Math.round(damage));
     const newHp = Math.max(0, b.hp - damageApplied);
     if (damageApplied === 0) {
@@ -626,7 +712,11 @@ async function runBombingPass(
   }
 
   if (updates.length === 0 && firstTouchOnly.length === 0) {
-    return { buildingsDamaged: 0, buildingsDestroyed: [], coloniesAbandoned: [] };
+    return {
+      buildingsDamaged: 0,
+      buildingsDestroyed: [],
+      coloniesAbandoned: [],
+    };
   }
 
   // Planets whose Command Center is being killed this tick — they get a full
@@ -671,10 +761,14 @@ async function runBombingPass(
     }
 
     for (const planetId of planetsToWipe) {
-      const planetBuildings = aliveBuildings.filter((b) => b.planetId === planetId);
+      const planetBuildings = aliveBuildings.filter(
+        (b) => b.planetId === planetId,
+      );
       const colonyOwnerId =
-        planetBuildings.find((b) => b.colonyOwnerId != null)?.colonyOwnerId ?? null;
-      const colonyId = planetBuildings.find((b) => b.colonyId != null)?.colonyId ?? null;
+        planetBuildings.find((b) => b.colonyOwnerId != null)?.colonyOwnerId ??
+        null;
+      const colonyId =
+        planetBuildings.find((b) => b.colonyId != null)?.colonyId ?? null;
 
       // Delete EVERY row on the planet — including non-CC husks from previous
       // ticks that already had destroyedAt set, plus structures built between
@@ -684,7 +778,8 @@ async function runBombingPass(
         .where(eq(buildings.planetId, planetId))
         .returning({ id: buildings.id });
       for (const row of planetWipeResult) {
-        if (!buildingsDestroyed.includes(row.id)) buildingsDestroyed.push(row.id);
+        if (!buildingsDestroyed.includes(row.id))
+          buildingsDestroyed.push(row.id);
       }
       if (colonyId) {
         await tx.delete(colonies).where(eq(colonies.id, colonyId));
@@ -693,7 +788,7 @@ async function runBombingPass(
         if (!options.skipNotifications && colonyOwnerId) {
           await tx.insert(notifications).values({
             userId: colonyOwnerId,
-            type: 'colony_destroyed',
+            type: "colony_destroyed",
             payload: {
               planetId,
               planetName: planetBuildings[0]?.planetName,
@@ -710,12 +805,13 @@ async function runBombingPass(
         .filter((u) => u.destroyed && !u.isCommandCenter && u.ownerId)
         .map((u) => ({
           userId: u.ownerId!,
-          type: 'building_destroyed',
+          type: "building_destroyed",
           payload: {
             buildingId: u.buildingId,
             typeId: u.typeId,
             planetId: u.planetId,
-            planetName: aliveBuildings.find((b) => b.id === u.buildingId)?.planetName,
+            planetName: aliveBuildings.find((b) => b.id === u.buildingId)
+              ?.planetName,
             destroyedAt: now.toISOString(),
           },
         }));
@@ -728,7 +824,7 @@ async function runBombingPass(
   if (buildingsDestroyed.length > 0) {
     logger.info(
       { buildingsDestroyed, coloniesAbandoned },
-      'Combat tick: buildings destroyed by orbital bombing',
+      "Combat tick: buildings destroyed by orbital bombing",
     );
   }
 
@@ -786,7 +882,7 @@ async function loadAliveBuildingsForSystems(
     lastCombatTickAt: r.lastCombatTickAt,
     // The building row does not currently store its own combatStats; we fall
     // back to the type-level stats (armor/targetClass) for damage math.
-    combatStats: { targetClass: 'building' } as CombatStats,
+    combatStats: { targetClass: "building" } as CombatStats,
     typeCombatStats: r.typeCombatStats,
     colonyOwnerId: r.colonyOwnerId,
     colonyId: r.colonyId,
@@ -872,7 +968,11 @@ async function loadInFlightExpeditions(
     .where(
       and(
         inArray(expeditions.shipId, shipIds),
-        inArray(expeditions.status, ['in_flight', 'returning', EXPEDITION_STATUS_STATIONED]),
+        inArray(expeditions.status, [
+          "in_flight",
+          "returning",
+          EXPEDITION_STATUS_STATIONED,
+        ]),
       ),
     );
 
@@ -898,7 +998,7 @@ function computePosition(
   now: Date,
   combatLayouts: CombatSystemLayouts,
 ): { x: number; y: number } | null {
-  if (ship.status === 'moving') {
+  if (ship.status === "moving") {
     const exp = expeditionByShipId.get(ship.id);
     if (!exp) return null;
     if (exp.status === EXPEDITION_STATUS_STATIONED) {
@@ -914,12 +1014,12 @@ function computePosition(
     }
 
     const result = exp.result as Record<string, unknown> | null;
-    if (result?.routeMode === 'jump_gate') {
+    if (result?.routeMode === "jump_gate") {
       const gatePosition = computeJumpGatePointPosition(exp, result, now);
       if (gatePosition) return gatePosition;
     }
 
-    if (result?.routeMode !== 'jump_gate') {
+    if (result?.routeMode !== "jump_gate") {
       const origin = combatLayouts.planetPositions.get(exp.originPlanetId);
       if (origin) {
         const targetPlanet = exp.targetPlanetId
@@ -931,7 +1031,7 @@ function computePosition(
         };
         const t = expeditionProgress(exp, now);
         if (t !== null) {
-          const progress = exp.status === 'returning' ? 1 - t : t;
+          const progress = exp.status === "returning" ? 1 - t : t;
           return {
             x: origin.x + (target.x - origin.x) * progress,
             y: origin.y + (target.y - origin.y) * progress,
@@ -948,14 +1048,20 @@ function computePosition(
         result: exp.result,
         status: exp.status,
       } as Parameters<typeof calculateExpeditionPosition>[0],
-      { sectorX: exp.originSectorX, sectorY: exp.originSectorY, sectorZ: exp.originSectorZ },
+      {
+        sectorX: exp.originSectorX,
+        sectorY: exp.originSectorY,
+        sectorZ: exp.originSectorZ,
+      },
       now,
     );
     return { x: pos.x, y: pos.y };
   }
   if (!ship.hostSystem) return null;
   if (ship.locationPlanetId) {
-    const planetPosition = combatLayouts.planetPositions.get(ship.locationPlanetId);
+    const planetPosition = combatLayouts.planetPositions.get(
+      ship.locationPlanetId,
+    );
     if (planetPosition) return planetPosition;
   }
   return { x: ship.hostSystem.sectorX, y: ship.hostSystem.sectorY };
@@ -968,25 +1074,75 @@ function computeJumpGatePointPosition(
 ): { x: number; y: number } | null {
   const targetPoint = pointFromResult(result.targetSystemPoint);
   const originPoint = pointFromResult(result.originSystemPoint);
-  if (!targetPoint) return null;
+  const gatePoint = systemMapJumpGatePoint();
 
   const destinationSystemId =
-    typeof result.destinationSystemId === 'string' ? result.destinationSystemId : null;
+    typeof result.destinationSystemId === "string"
+      ? result.destinationSystemId
+      : null;
   const originSystemId =
-    typeof result.originSystemId === 'string' ? result.originSystemId : null;
-  const sameSystemPointRoute =
-    Boolean(destinationSystemId && originSystemId && destinationSystemId === originSystemId && originPoint);
-  if (!sameSystemPointRoute) return null;
+    typeof result.originSystemId === "string" ? result.originSystemId : null;
 
   const progress = expeditionProgress(exp, now);
   if (progress === null) return null;
 
-  const legProgress = exp.status === 'returning' ? 1 - progress : progress;
-  const point = interpolateSystemPoint(originPoint!, targetPoint, legProgress);
-  return systemPointToCombatPosition(
-    { sectorX: Number(exp.targetX), sectorY: Number(exp.targetY) },
-    point,
-  );
+  const distance = Number(result.distance);
+  const travelled =
+    Math.max(0, Math.min(1, progress)) *
+    (Number.isFinite(distance) ? distance : 0);
+
+  if (destinationSystemId && targetPoint) {
+    const targetLegDistance = Number(
+      result.targetGateDistance ?? result.distance ?? 0,
+    );
+    const originLegDistance = Number(result.originGateDistance ?? 0);
+    if (Number.isFinite(targetLegDistance) && targetLegDistance > 0) {
+      const targetLegProgress =
+        exp.status === "returning"
+          ? 1 - (travelled - originLegDistance) / targetLegDistance
+          : (travelled - originLegDistance) / targetLegDistance;
+      if (targetLegProgress >= 0 && targetLegProgress <= 1) {
+        const start =
+          originSystemId === destinationSystemId && originPoint
+            ? originPoint
+            : gatePoint;
+        const point = interpolateSystemPoint(
+          start,
+          targetPoint,
+          targetLegProgress,
+        );
+        return systemPointToCombatPosition(
+          { sectorX: Number(exp.targetX), sectorY: Number(exp.targetY) },
+          point,
+        );
+      }
+    }
+  }
+
+  if (originSystemId && originPoint) {
+    const originLegDistance = Number(
+      result.originGateDistance ?? result.distance ?? 0,
+    );
+    if (Number.isFinite(originLegDistance) && originLegDistance > 0) {
+      const originLegProgress =
+        exp.status === "returning"
+          ? 1 - travelled / originLegDistance
+          : travelled / originLegDistance;
+      if (originLegProgress >= 0 && originLegProgress <= 1) {
+        const point = interpolateSystemPoint(
+          originPoint,
+          gatePoint,
+          originLegProgress,
+        );
+        return systemPointToCombatPosition(
+          { sectorX: exp.originSectorX, sectorY: exp.originSectorY },
+          point,
+        );
+      }
+    }
+  }
+
+  return null;
 }
 
 function interpolateSystemPoint(
@@ -1019,9 +1175,16 @@ function expeditionProgress(exp: ExpeditionRow, now: Date): number | null {
 }
 
 // Re-export pure helpers for tests.
-export { resolveAttackerHits, computeTickDamage, sumDpsPerDefender } from './engine.js';
+export {
+  resolveAttackerHits,
+  computeTickDamage,
+  sumDpsPerDefender,
+} from "./engine.js";
 
-function mergeCombatStats(typeStats: CombatStats, instanceStats: CombatStats): CombatStats {
+function mergeCombatStats(
+  typeStats: CombatStats,
+  instanceStats: CombatStats,
+): CombatStats {
   // Ship instance currently stores the same defaults as the type. The type row
   // is authoritative for damageProfile / engagementRange (which are part of the
   // hull definition), while the instance row may override per-ship buffs later.

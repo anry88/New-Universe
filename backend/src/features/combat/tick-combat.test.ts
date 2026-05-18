@@ -1,6 +1,6 @@
-import { and, eq } from 'drizzle-orm';
-import { beforeAll, describe, expect, it } from 'vitest';
-import { db } from '../../db/index.js';
+import { and, eq } from "drizzle-orm";
+import { beforeAll, describe, expect, it } from "vitest";
+import { db } from "../../db/index.js";
 import {
   buildings,
   colonies,
@@ -12,16 +12,17 @@ import {
   shipTypes,
   systems,
   users,
-} from '../../db/schema.js';
-import { generateHomeSystem } from '../world/home-system-generator.js';
-import { seedShipTypes } from '../../db/seed/ship-types.js';
-import { seedResources } from '../../db/seed/resources.js';
-import { seedBuildingTypes } from '../../db/seed/building-types.js';
-import { processDueCombat } from './tick-combat.js';
-import { SHIP_STATUS_DESTROYED } from '@shared/types/combat.js';
-import { checkColonizationGates } from '../colonies/colonization-rules.js';
+} from "../../db/schema.js";
+import { generateHomeSystem } from "../world/home-system-generator.js";
+import { seedShipTypes } from "../../db/seed/ship-types.js";
+import { seedResources } from "../../db/seed/resources.js";
+import { seedBuildingTypes } from "../../db/seed/building-types.js";
+import { processDueCombat } from "./tick-combat.js";
+import { SHIP_STATUS_DESTROYED } from "@shared/types/combat.js";
+import { checkColonizationGates } from "../colonies/colonization-rules.js";
+import { systemMapJumpGatePoint } from "@shared/format/systemMapLayout.js";
 
-describe('combat tick — processDueCombat', () => {
+describe("combat tick — processDueCombat", () => {
   beforeAll(async () => {
     await seedResources();
     await seedBuildingTypes();
@@ -32,10 +33,16 @@ describe('combat tick — processDueCombat', () => {
     const tgId = BigInt(Math.floor(Math.random() * 1_000_000_000));
     const [user] = await db
       .insert(users)
-      .values({ tgId, tgUsername: `${label}_${Date.now()}`, tgFirstName: label })
+      .values({
+        tgId,
+        tgUsername: `${label}_${Date.now()}`,
+        tgFirstName: label,
+      })
       .returning();
     await generateHomeSystem(user.id);
-    const system = (await db.query.systems.findFirst({ where: eq(systems.ownerId, user.id) }))!;
+    const system = (await db.query.systems.findFirst({
+      where: eq(systems.ownerId, user.id),
+    }))!;
     const planet = (await db.query.planets.findFirst({
       where: eq(planets.systemId, system.id),
       orderBy: (p, { asc }) => asc(p.name),
@@ -60,7 +67,7 @@ describe('combat tick — processDueCombat', () => {
         ownerId: args.ownerId,
         typeId: args.typeId,
         locationPlanetId: args.planetId,
-        status: 'idle',
+        status: "idle",
         hp: args.hp ?? shipType.hp,
         maxHp: shipType.hp,
         combatStats: shipType.combatStats,
@@ -75,7 +82,10 @@ describe('combat tick — processDueCombat', () => {
    * to the defender's planet. Distance becomes zero, so range never matters.
    */
   async function relocate(shipId: string, planetId: string) {
-    await db.update(ships).set({ locationPlanetId: planetId }).where(eq(ships.id, shipId));
+    await db
+      .update(ships)
+      .set({ locationPlanetId: planetId })
+      .where(eq(ships.id, shipId));
   }
 
   async function createPublicCombatSystem(label: string) {
@@ -87,9 +97,9 @@ describe('combat tick — processDueCombat', () => {
         sectorX: Math.floor(Math.random() * 50_000) + 50_000,
         sectorY: Math.floor(Math.random() * 50_000) + 50_000,
         sectorZ: 0,
-        x: '10.00',
-        y: '20.00',
-        z: '0.00',
+        x: "10.00",
+        y: "20.00",
+        z: "0.00",
         name: `Combat ${label}`,
         seed: 777,
       })
@@ -99,7 +109,7 @@ describe('combat tick — processDueCombat', () => {
       .insert(planets)
       .values({
         systemId: system.id,
-        biome: 'rocky',
+        biome: "rocky",
         size: 12,
         slotCount: 8,
         name: `Combat ${label} I`,
@@ -109,69 +119,91 @@ describe('combat tick — processDueCombat', () => {
     return { system, planet };
   }
 
-  it('applies zero damage on first contact and stamps lastCombatTickAt', async () => {
-    const attackerOwner = await createUser('atk1');
-    const defenderOwner = await createUser('def1');
+  it("applies zero damage on first contact and stamps lastCombatTickAt", async () => {
+    const attackerOwner = await createUser("atk1");
+    const defenderOwner = await createUser("def1");
 
     const attacker = await spawnShip({
       ownerId: attackerOwner.userId,
       planetId: attackerOwner.planetId,
-      typeId: 'light_fighter',
+      typeId: "light_fighter",
     });
     const defender = await spawnShip({
       ownerId: defenderOwner.userId,
       planetId: defenderOwner.planetId,
-      typeId: 'scout',
+      typeId: "scout",
     });
     await relocate(attacker.id, defenderOwner.planetId);
 
-    const t0 = new Date('2026-06-01T00:00:00.000Z');
+    const t0 = new Date("2026-06-01T00:00:00.000Z");
     const res = await processDueCombat({ now: t0, skipNotifications: true });
 
     // Other ships from previous tests may also be in the DB; assert on OUR pair only.
     expect(res.destroyed).not.toContain(defender.id);
 
-    const stamped = await db.query.ships.findFirst({ where: eq(ships.id, defender.id) });
+    const stamped = await db.query.ships.findFirst({
+      where: eq(ships.id, defender.id),
+    });
     expect(stamped!.hp).toBe(40); // scout baseline HP — unchanged on first contact
-    expect(stamped!.status).toBe('idle');
+    expect(stamped!.status).toBe("idle");
     expect(stamped!.lastCombatTickAt).not.toBeNull();
   });
 
-  it('destroys a civilian scout only after sustained light_fighter fire', async () => {
-    const attackerOwner = await createUser('atk2');
-    const defenderOwner = await createUser('def2');
+  it("destroys a civilian scout only after sustained light_fighter fire", async () => {
+    const attackerOwner = await createUser("atk2");
+    const defenderOwner = await createUser("def2");
 
     const attacker = await spawnShip({
       ownerId: attackerOwner.userId,
       planetId: attackerOwner.planetId,
-      typeId: 'light_fighter',
+      typeId: "light_fighter",
     });
     const defender = await spawnShip({
       ownerId: defenderOwner.userId,
       planetId: defenderOwner.planetId,
-      typeId: 'scout',
+      typeId: "scout",
     });
     await relocate(attacker.id, defenderOwner.planetId);
 
-    const t0 = new Date('2026-06-01T00:00:00.000Z');
+    const t0 = new Date("2026-06-01T00:00:00.000Z");
     await processDueCombat({ now: t0, skipNotifications: true });
 
     // 5 seconds later is capped and then scaled by the ship-combat pacing
     // multiplier, so the scout survives the first damage pulse.
     const t1 = new Date(t0.getTime() + 5_000);
-    const firstPulse = await processDueCombat({ now: t1, skipNotifications: true });
+    const firstPulse = await processDueCombat({
+      now: t1,
+      skipNotifications: true,
+    });
 
     expect(firstPulse.destroyed).not.toContain(defender.id);
-    const damaged = await db.query.ships.findFirst({ where: eq(ships.id, defender.id) });
-    expect(damaged!.status).toBe('idle');
+    const damaged = await db.query.ships.findFirst({
+      where: eq(ships.id, defender.id),
+    });
+    expect(damaged!.status).toBe("idle");
     expect(damaged!.hp).toBeGreaterThan(0);
     expect(damaged!.hp).toBeLessThan(40);
 
     const t2 = new Date(t0.getTime() + 10_000);
-    const res = await processDueCombat({ now: t2, skipNotifications: false });
+    const secondPulse = await processDueCombat({
+      now: t2,
+      skipNotifications: true,
+    });
+    expect(secondPulse.destroyed).not.toContain(defender.id);
+
+    const t3 = new Date(t0.getTime() + 15_000);
+    await processDueCombat({ now: t3, skipNotifications: true });
+    const t4 = new Date(t0.getTime() + 20_000);
+    await processDueCombat({ now: t4, skipNotifications: true });
+    const t5 = new Date(t0.getTime() + 25_000);
+    await processDueCombat({ now: t5, skipNotifications: true });
+    const t6 = new Date(t0.getTime() + 30_000);
+    const res = await processDueCombat({ now: t6, skipNotifications: false });
     expect(res.destroyed).toContain(defender.id);
 
-    const dead = await db.query.ships.findFirst({ where: eq(ships.id, defender.id) });
+    const dead = await db.query.ships.findFirst({
+      where: eq(ships.id, defender.id),
+    });
     expect(dead!.status).toBe(SHIP_STATUS_DESTROYED);
     expect(dead!.hp).toBe(0);
     expect(dead!.destroyedAt).not.toBeNull();
@@ -179,50 +211,56 @@ describe('combat tick — processDueCombat', () => {
     const notif = await db.query.notifications.findFirst({
       where: and(
         eq(notifications.userId, defenderOwner.userId),
-        eq(notifications.type, 'ship_destroyed'),
+        eq(notifications.type, "ship_destroyed"),
       ),
     });
     expect(notif).toBeDefined();
   });
 
-  it('resolves same-system Jump Gate point-to-point movement in system-map coordinates', async () => {
-    const attackerOwner = await createUser('atk_point');
-    const defenderOwner = await createUser('def_point');
-    const { system, planet } = await createPublicCombatSystem('point-route');
-    const now = new Date('2026-06-01T00:00:30.000Z');
+  it("resolves same-system Jump Gate point-to-point movement in system-map coordinates", async () => {
+    const attackerOwner = await createUser("atk_point");
+    const defenderOwner = await createUser("def_point");
+    const { system, planet } = await createPublicCombatSystem("point-route");
+    const now = new Date("2026-06-01T00:00:30.000Z");
 
     const attacker = await spawnShip({
       ownerId: attackerOwner.userId,
       planetId: attackerOwner.planetId,
-      typeId: 'light_fighter',
+      typeId: "light_fighter",
     });
     const defender = await spawnShip({
       ownerId: defenderOwner.userId,
       planetId: defenderOwner.planetId,
-      typeId: 'light_fighter',
+      typeId: "light_fighter",
     });
 
-    await db.update(ships).set({
-      locationPlanetId: null,
-      status: 'moving',
-    }).where(eq(ships.id, attacker.id));
-    await db.update(ships).set({
-      locationPlanetId: null,
-      status: 'moving',
-    }).where(eq(ships.id, defender.id));
+    await db
+      .update(ships)
+      .set({
+        locationPlanetId: null,
+        status: "moving",
+      })
+      .where(eq(ships.id, attacker.id));
+    await db
+      .update(ships)
+      .set({
+        locationPlanetId: null,
+        status: "moving",
+      })
+      .where(eq(ships.id, defender.id));
 
     await db.insert(expeditions).values([
       {
         shipId: attacker.id,
-        type: 'light_fighter',
+        type: "light_fighter",
         originPlanetId: planet.id,
         targetX: system.sectorX.toString(),
         targetY: system.sectorY.toString(),
         targetZ: system.sectorZ.toString(),
-        status: 'in_flight',
-        eta: new Date('2026-06-01T00:01:00.000Z'),
+        status: "in_flight",
+        eta: new Date("2026-06-01T00:01:00.000Z"),
         result: {
-          routeMode: 'jump_gate',
+          routeMode: "jump_gate",
           originSystemId: system.id,
           destinationSystemId: system.id,
           originSystemPoint: { x: 0, y: 0 },
@@ -236,15 +274,15 @@ describe('combat tick — processDueCombat', () => {
       },
       {
         shipId: defender.id,
-        type: 'light_fighter',
+        type: "light_fighter",
         originPlanetId: planet.id,
         targetX: system.sectorX.toString(),
         targetY: system.sectorY.toString(),
         targetZ: system.sectorZ.toString(),
-        status: 'stationed',
-        eta: new Date('2026-06-01T00:00:00.000Z'),
+        status: "stationed",
+        eta: new Date("2026-06-01T00:00:00.000Z"),
         result: {
-          routeMode: 'jump_gate',
+          routeMode: "jump_gate",
           destinationSystemId: system.id,
           targetSystemPoint: { x: 50, y: 0 },
         },
@@ -253,29 +291,123 @@ describe('combat tick — processDueCombat', () => {
 
     await processDueCombat({ now, skipNotifications: true });
 
-    const touchedAttacker = await db.query.ships.findFirst({ where: eq(ships.id, attacker.id) });
-    const touchedDefender = await db.query.ships.findFirst({ where: eq(ships.id, defender.id) });
+    const touchedAttacker = await db.query.ships.findFirst({
+      where: eq(ships.id, attacker.id),
+    });
+    const touchedDefender = await db.query.ships.findFirst({
+      where: eq(ships.id, defender.id),
+    });
     expect(touchedAttacker!.lastCombatTickAt?.getTime()).toBe(now.getTime());
     expect(touchedDefender!.lastCombatTickAt?.getTime()).toBe(now.getTime());
   });
 
-  it('a military light hull survives materially longer than a civilian under the same fire', async () => {
-    const attackerOwner = await createUser('atk3');
-    const defenderOwner = await createUser('def3');
+  it("resolves destination Jump Gate leg combat away from the launch planet", async () => {
+    const attackerOwner = await createUser("atk_dest_leg");
+    const defenderOwner = await createUser("def_dest_leg");
+    const { system, planet } =
+      await createPublicCombatSystem("destination-leg");
+    const now = new Date("2026-06-01T00:00:30.000Z");
+    const gate = systemMapJumpGatePoint();
+    const targetPoint = { x: 100, y: 0 };
+    const midpoint = {
+      x: gate.x + (targetPoint.x - gate.x) * 0.5,
+      y: gate.y + (targetPoint.y - gate.y) * 0.5,
+    };
 
     const attacker = await spawnShip({
       ownerId: attackerOwner.userId,
       planetId: attackerOwner.planetId,
-      typeId: 'light_fighter',
+      typeId: "light_fighter",
     });
     const defender = await spawnShip({
       ownerId: defenderOwner.userId,
       planetId: defenderOwner.planetId,
-      typeId: 'light_fighter',
+      typeId: "light_fighter",
+    });
+
+    await db
+      .update(ships)
+      .set({
+        locationPlanetId: null,
+        status: "moving",
+      })
+      .where(eq(ships.id, attacker.id));
+    await db
+      .update(ships)
+      .set({
+        locationPlanetId: null,
+        status: "moving",
+      })
+      .where(eq(ships.id, defender.id));
+
+    await db.insert(expeditions).values([
+      {
+        shipId: attacker.id,
+        type: "light_fighter",
+        originPlanetId: attackerOwner.planetId,
+        targetX: system.sectorX.toString(),
+        targetY: system.sectorY.toString(),
+        targetZ: system.sectorZ.toString(),
+        status: "in_flight",
+        eta: new Date("2026-06-01T00:01:00.000Z"),
+        result: {
+          routeMode: "jump_gate",
+          originSystemId: attackerOwner.systemId,
+          destinationSystemId: system.id,
+          originGateDistance: 0,
+          targetGateDistance: 1,
+          distance: 1,
+          speed: 1,
+          engineFactor: 1,
+          targetSystemPoint: targetPoint,
+        },
+      },
+      {
+        shipId: defender.id,
+        type: "light_fighter",
+        originPlanetId: planet.id,
+        targetX: system.sectorX.toString(),
+        targetY: system.sectorY.toString(),
+        targetZ: system.sectorZ.toString(),
+        status: "stationed",
+        eta: new Date("2026-06-01T00:00:00.000Z"),
+        result: {
+          routeMode: "jump_gate",
+          destinationSystemId: system.id,
+          targetSystemPoint: midpoint,
+        },
+      },
+    ]);
+
+    await processDueCombat({ now, skipNotifications: true });
+
+    const touchedAttacker = await db.query.ships.findFirst({
+      where: eq(ships.id, attacker.id),
+    });
+    const touchedDefender = await db.query.ships.findFirst({
+      where: eq(ships.id, defender.id),
+    });
+    expect(touchedAttacker!.lastCombatTickAt?.getTime()).toBe(now.getTime());
+    expect(touchedDefender!.lastCombatTickAt?.getTime()).toBe(now.getTime());
+  });
+
+  it("a military light hull survives materially longer than a civilian under the same fire", async () => {
+    const attackerOwner = await createUser("atk3");
+    const defenderOwner = await createUser("def3");
+
+    const attacker = await spawnShip({
+      ownerId: attackerOwner.userId,
+      planetId: attackerOwner.planetId,
+      typeId: "light_fighter",
+    });
+    const defender = await spawnShip({
+      ownerId: defenderOwner.userId,
+      planetId: defenderOwner.planetId,
+      typeId: "light_fighter",
     });
     await relocate(attacker.id, defenderOwner.planetId);
 
-    const t0 = new Date('2026-06-01T00:00:00.000Z');
+    const t0 = new Date("2026-06-01T00:00:00.000Z");
     await processDueCombat({ now: t0, skipNotifications: true });
 
     // 5 seconds is capped to the visible-combat damage window; the military hull still survives.
@@ -283,34 +415,36 @@ describe('combat tick — processDueCombat', () => {
     const res1 = await processDueCombat({ now: t1, skipNotifications: true });
     expect(res1.destroyed).not.toContain(defender.id);
 
-    const mid = await db.query.ships.findFirst({ where: eq(ships.id, defender.id) });
+    const mid = await db.query.ships.findFirst({
+      where: eq(ships.id, defender.id),
+    });
     expect(mid!.hp).toBeGreaterThan(0);
     expect(mid!.hp).toBeLessThan(200);
     expect(mid!.hp).toBeGreaterThan(40); // still materially tougher than a scout under the same pulse
   });
 
-  it('does not apply stale combat time as burst damage when a fresh attacker arrives', async () => {
-    const attackerOwner = await createUser('atkReengage');
-    const defenderOwner = await createUser('defReengage');
-    const staleTime = new Date('2026-06-01T00:00:00.000Z');
+  it("does not apply stale combat time as burst damage when a fresh attacker arrives", async () => {
+    const attackerOwner = await createUser("atkReengage");
+    const defenderOwner = await createUser("defReengage");
+    const staleTime = new Date("2026-06-01T00:00:00.000Z");
     const now = new Date(staleTime.getTime() + 60_000);
 
     const attacker = await spawnShip({
       ownerId: attackerOwner.userId,
       planetId: attackerOwner.planetId,
-      typeId: 'light_fighter',
+      typeId: "light_fighter",
     });
     const defenderA = await spawnShip({
       ownerId: defenderOwner.userId,
       planetId: defenderOwner.planetId,
-      typeId: 'light_fighter',
+      typeId: "light_fighter",
       hp: 98,
       lastCombatTickAt: staleTime,
     });
     const defenderB = await spawnShip({
       ownerId: defenderOwner.userId,
       planetId: defenderOwner.planetId,
-      typeId: 'light_fighter',
+      typeId: "light_fighter",
       hp: 98,
       lastCombatTickAt: staleTime,
     });
@@ -318,99 +452,168 @@ describe('combat tick — processDueCombat', () => {
 
     await processDueCombat({ now, skipNotifications: true });
 
-    const freshAttacker = await db.query.ships.findFirst({ where: eq(ships.id, attacker.id) });
-    const stillAliveA = await db.query.ships.findFirst({ where: eq(ships.id, defenderA.id) });
-    const stillAliveB = await db.query.ships.findFirst({ where: eq(ships.id, defenderB.id) });
+    const freshAttacker = await db.query.ships.findFirst({
+      where: eq(ships.id, attacker.id),
+    });
+    const stillAliveA = await db.query.ships.findFirst({
+      where: eq(ships.id, defenderA.id),
+    });
+    const stillAliveB = await db.query.ships.findFirst({
+      where: eq(ships.id, defenderB.id),
+    });
 
     expect(freshAttacker!.hp).toBe(200);
     expect(stillAliveA!.hp).toBe(98);
     expect(stillAliveB!.hp).toBe(98);
-    expect(stillAliveA!.status).toBe('idle');
-    expect(stillAliveB!.status).toBe('idle');
+    expect(stillAliveA!.status).toBe("idle");
+    expect(stillAliveB!.status).toBe("idle");
     expect(
-      [stillAliveA!.lastCombatTickAt?.getTime(), stillAliveB!.lastCombatTickAt?.getTime()]
-        .includes(now.getTime()),
+      [
+        stillAliveA!.lastCombatTickAt?.getTime(),
+        stillAliveB!.lastCombatTickAt?.getTime(),
+      ].includes(now.getTime()),
     ).toBe(true);
     expect(freshAttacker!.lastCombatTickAt?.getTime()).toBe(now.getTime());
   });
 
-  it('is idempotent — running twice in succession does not double damage', async () => {
-    const attackerOwner = await createUser('atk4');
-    const defenderOwner = await createUser('def4');
+  it("is idempotent — running twice in succession does not double damage", async () => {
+    const attackerOwner = await createUser("atk4");
+    const defenderOwner = await createUser("def4");
 
     const attacker = await spawnShip({
       ownerId: attackerOwner.userId,
       planetId: attackerOwner.planetId,
-      typeId: 'light_fighter',
+      typeId: "light_fighter",
     });
     const defender = await spawnShip({
       ownerId: defenderOwner.userId,
       planetId: defenderOwner.planetId,
-      typeId: 'light_fighter',
+      typeId: "light_fighter",
     });
     await relocate(attacker.id, defenderOwner.planetId);
 
-    const t0 = new Date('2026-06-01T00:00:00.000Z');
+    const t0 = new Date("2026-06-01T00:00:00.000Z");
     await processDueCombat({ now: t0, skipNotifications: true });
 
     const t1 = new Date(t0.getTime() + 4_000);
     await processDueCombat({ now: t1, skipNotifications: true });
-    const afterFirst = await db.query.ships.findFirst({ where: eq(ships.id, defender.id) });
+    const afterFirst = await db.query.ships.findFirst({
+      where: eq(ships.id, defender.id),
+    });
 
     // Run the same tick again at the same instant.
     await processDueCombat({ now: t1, skipNotifications: true });
-    const afterSecond = await db.query.ships.findFirst({ where: eq(ships.id, defender.id) });
+    const afterSecond = await db.query.ships.findFirst({
+      where: eq(ships.id, defender.id),
+    });
 
     expect(afterSecond!.hp).toBe(afterFirst!.hp);
   });
 
-  it('destroyed ships cannot be re-attacked and stay at 0 hp on subsequent ticks', async () => {
-    const attackerOwner = await createUser('atk5');
-    const defenderOwner = await createUser('def5');
+  it("user-scoped online combat sync does not advance unrelated fights", async () => {
+    const activeAttackerOwner = await createUser("atkScoped");
+    const activeDefenderOwner = await createUser("defScoped");
+    const unrelatedAttackerOwner = await createUser("atkOther");
+    const unrelatedDefenderOwner = await createUser("defOther");
+
+    const activeAttacker = await spawnShip({
+      ownerId: activeAttackerOwner.userId,
+      planetId: activeAttackerOwner.planetId,
+      typeId: "light_fighter",
+    });
+    const activeDefender = await spawnShip({
+      ownerId: activeDefenderOwner.userId,
+      planetId: activeDefenderOwner.planetId,
+      typeId: "scout",
+    });
+    const unrelatedAttacker = await spawnShip({
+      ownerId: unrelatedAttackerOwner.userId,
+      planetId: unrelatedAttackerOwner.planetId,
+      typeId: "light_fighter",
+    });
+    const unrelatedDefender = await spawnShip({
+      ownerId: unrelatedDefenderOwner.userId,
+      planetId: unrelatedDefenderOwner.planetId,
+      typeId: "scout",
+    });
+
+    await relocate(activeAttacker.id, activeDefenderOwner.planetId);
+    await relocate(unrelatedAttacker.id, unrelatedDefenderOwner.planetId);
+
+    const t0 = new Date("2026-06-01T00:00:00.000Z");
+    await processDueCombat({
+      userId: activeAttackerOwner.userId,
+      now: t0,
+      skipNotifications: true,
+    });
+    const t1 = new Date(t0.getTime() + 5_000);
+    await processDueCombat({
+      userId: activeAttackerOwner.userId,
+      now: t1,
+      skipNotifications: true,
+    });
+
+    const activeAfter = await db.query.ships.findFirst({
+      where: eq(ships.id, activeDefender.id),
+    });
+    const unrelatedAfter = await db.query.ships.findFirst({
+      where: eq(ships.id, unrelatedDefender.id),
+    });
+
+    expect(activeAfter!.hp).toBeLessThan(40);
+    expect(activeAfter!.lastCombatTickAt?.getTime()).toBe(t1.getTime());
+    expect(unrelatedAfter!.hp).toBe(40);
+    expect(unrelatedAfter!.lastCombatTickAt).toBeNull();
+  });
+
+  it("destroyed ships cannot be re-attacked and stay at 0 hp on subsequent ticks", async () => {
+    const attackerOwner = await createUser("atk5");
+    const defenderOwner = await createUser("def5");
 
     const attacker = await spawnShip({
       ownerId: attackerOwner.userId,
       planetId: attackerOwner.planetId,
-      typeId: 'light_fighter',
+      typeId: "light_fighter",
     });
     const defender = await spawnShip({
       ownerId: defenderOwner.userId,
       planetId: defenderOwner.planetId,
-      typeId: 'scout',
+      typeId: "scout",
     });
     await relocate(attacker.id, defenderOwner.planetId);
 
-    const t0 = new Date('2026-06-01T00:00:00.000Z');
+    const t0 = new Date("2026-06-01T00:00:00.000Z");
     await processDueCombat({ now: t0, skipNotifications: true });
+    for (const seconds of [5, 10, 15, 20, 25, 30]) {
+      await processDueCombat({
+        now: new Date(t0.getTime() + seconds * 1000),
+        skipNotifications: true,
+      });
+    }
     await processDueCombat({
-      now: new Date(t0.getTime() + 5_000),
+      now: new Date(t0.getTime() + 35_000),
       skipNotifications: true,
     });
-    await processDueCombat({
-      now: new Date(t0.getTime() + 10_000),
-      skipNotifications: true,
+    const final = await db.query.ships.findFirst({
+      where: eq(ships.id, defender.id),
     });
-
-    const t2 = new Date(t0.getTime() + 60_000);
-    await processDueCombat({ now: t2, skipNotifications: true });
-    const final = await db.query.ships.findFirst({ where: eq(ships.id, defender.id) });
     expect(final!.status).toBe(SHIP_STATUS_DESTROYED);
     expect(final!.hp).toBe(0);
   });
 
-  it('destruction cancels in-flight expeditions for the destroyed ship', async () => {
-    const attackerOwner = await createUser('atk6');
-    const defenderOwner = await createUser('def6');
+  it("destruction cancels in-flight expeditions for the destroyed ship", async () => {
+    const attackerOwner = await createUser("atk6");
+    const defenderOwner = await createUser("def6");
 
     const attacker = await spawnShip({
       ownerId: attackerOwner.userId,
       planetId: attackerOwner.planetId,
-      typeId: 'light_fighter',
+      typeId: "light_fighter",
     });
     const defender = await spawnShip({
       ownerId: defenderOwner.userId,
       planetId: defenderOwner.planetId,
-      typeId: 'scout',
+      typeId: "scout",
     });
     await relocate(attacker.id, defenderOwner.planetId);
 
@@ -418,99 +621,118 @@ describe('combat tick — processDueCombat', () => {
       .insert(expeditions)
       .values({
         shipId: defender.id,
-        type: 'scout',
+        type: "scout",
         originPlanetId: defenderOwner.planetId,
-        targetX: '0',
-        targetY: '0',
-        targetZ: '0',
-        status: 'in_flight',
+        targetX: "0",
+        targetY: "0",
+        targetZ: "0",
+        status: "in_flight",
         eta: new Date(Date.now() + 600_000),
         result: { distance: 1, speed: 1, engineFactor: 1, returnTrip: false },
       })
       .returning();
 
-    const t0 = new Date('2026-06-01T00:00:00.000Z');
+    const t0 = new Date("2026-06-01T00:00:00.000Z");
     await processDueCombat({ now: t0, skipNotifications: true });
-    await processDueCombat({
-      now: new Date(t0.getTime() + 5_000),
-      skipNotifications: true,
-    });
-    await processDueCombat({
-      now: new Date(t0.getTime() + 10_000),
-      skipNotifications: true,
-    });
+    for (const seconds of [5, 10, 15, 20, 25, 30]) {
+      await processDueCombat({
+        now: new Date(t0.getTime() + seconds * 1000),
+        skipNotifications: true,
+      });
+    }
 
-    const surviving = await db.query.expeditions.findFirst({ where: eq(expeditions.id, exp.id) });
+    const surviving = await db.query.expeditions.findFirst({
+      where: eq(expeditions.id, exp.id),
+    });
     expect(surviving).toBeUndefined();
   });
 
-  it('does NOT damage a defender protected by a foreign home system', async () => {
-    const attackerOwner = await createUser('atk7');
-    const defenderOwner = await createUser('def7');
+  it("does NOT damage a defender protected by a foreign home system", async () => {
+    const attackerOwner = await createUser("atk7");
+    const defenderOwner = await createUser("def7");
 
     // Attacker sits in their own home (not at the defender's planet).
     await spawnShip({
       ownerId: attackerOwner.userId,
       planetId: attackerOwner.planetId,
-      typeId: 'light_laser', // long range — would reach IF allowed
+      typeId: "light_laser", // long range — would reach IF allowed
     });
     const defender = await spawnShip({
       ownerId: defenderOwner.userId,
       planetId: defenderOwner.planetId,
-      typeId: 'scout',
+      typeId: "scout",
     });
 
-    const t0 = new Date('2026-06-01T00:00:00.000Z');
+    const t0 = new Date("2026-06-01T00:00:00.000Z");
     await processDueCombat({ now: t0, skipNotifications: true });
     await processDueCombat({
       now: new Date(t0.getTime() + 60_000),
       skipNotifications: true,
     });
 
-    const stillSafe = await db.query.ships.findFirst({ where: eq(ships.id, defender.id) });
-    expect(stillSafe!.status).toBe('idle');
+    const stillSafe = await db.query.ships.findFirst({
+      where: eq(ships.id, defender.id),
+    });
+    expect(stillSafe!.status).toBe("idle");
     expect(stillSafe!.hp).toBe(40);
   });
 
-  it('shield ships absorb incoming fire for allied ships and recharge after combat breaks', async () => {
-    const attackerOwner = await createUser('atkShield');
-    const defenderOwner = await createUser('defShield');
+  it("shield ships absorb incoming fire for allied ships and recharge after combat breaks", async () => {
+    const attackerOwner = await createUser("atkShield");
+    const defenderOwner = await createUser("defShield");
 
     const attacker = await spawnShip({
       ownerId: attackerOwner.userId,
       planetId: attackerOwner.planetId,
-      typeId: 'light_fighter',
+      typeId: "light_fighter",
     });
     const defender = await spawnShip({
       ownerId: defenderOwner.userId,
       planetId: defenderOwner.planetId,
-      typeId: 'scout',
+      typeId: "scout",
     });
     const shield = await spawnShip({
       ownerId: defenderOwner.userId,
       planetId: defenderOwner.planetId,
-      typeId: 'small_shield_ship',
+      typeId: "small_shield_ship",
     });
     await relocate(attacker.id, defenderOwner.planetId);
 
-    const t0 = new Date('2026-06-01T00:00:00.000Z');
+    const t0 = new Date("2026-06-01T00:00:00.000Z");
     await processDueCombat({ now: t0, skipNotifications: true });
-    await processDueCombat({ now: new Date(t0.getTime() + 5_000), skipNotifications: true });
+    await processDueCombat({
+      now: new Date(t0.getTime() + 5_000),
+      skipNotifications: true,
+    });
 
-    const protectedScout = await db.query.ships.findFirst({ where: eq(ships.id, defender.id) });
-    const shieldAfterDamage = await db.query.ships.findFirst({ where: eq(ships.id, shield.id) });
+    const protectedScout = await db.query.ships.findFirst({
+      where: eq(ships.id, defender.id),
+    });
+    const shieldAfterDamage = await db.query.ships.findFirst({
+      where: eq(ships.id, shield.id),
+    });
     expect(protectedScout!.hp).toBe(40);
     expect(shieldAfterDamage!.hp).toBe(320);
-    expect(shieldAfterDamage!.combatStats.shields?.currentHp).toBe(668.5);
+    expect(shieldAfterDamage!.combatStats.shields?.currentHp).toBe(692.8);
 
-    await db.update(ships).set({ status: SHIP_STATUS_DESTROYED, hp: 0 }).where(eq(ships.id, attacker.id));
-    await processDueCombat({ now: new Date(t0.getTime() + 25_000), skipNotifications: true });
+    await db
+      .update(ships)
+      .set({ status: SHIP_STATUS_DESTROYED, hp: 0 })
+      .where(eq(ships.id, attacker.id));
+    await processDueCombat({
+      now: new Date(t0.getTime() + 25_000),
+      skipNotifications: true,
+    });
 
-    const shieldAfterRecharge = await db.query.ships.findFirst({ where: eq(ships.id, shield.id) });
+    const shieldAfterRecharge = await db.query.ships.findFirst({
+      where: eq(ships.id, shield.id),
+    });
     expect(shieldAfterRecharge!.combatStats.shields?.currentHp).toBeGreaterThan(
       shieldAfterDamage!.combatStats.shields!.currentHp!,
     );
-    expect(shieldAfterRecharge!.combatStats.shields?.currentHp).toBeLessThanOrEqual(700);
+    expect(
+      shieldAfterRecharge!.combatStats.shields?.currentHp,
+    ).toBeLessThanOrEqual(700);
   });
 
   /**
@@ -535,7 +757,7 @@ describe('combat tick — processDueCombat', () => {
     const cc = await db.query.buildings.findFirst({
       where: and(
         eq(buildings.planetId, def.planetId),
-        eq(buildings.typeId, 'command_center'),
+        eq(buildings.typeId, "command_center"),
       ),
     });
     expect(cc).toBeDefined();
@@ -546,7 +768,7 @@ describe('combat tick — processDueCombat', () => {
         .insert(buildings)
         .values({
           planetId: def.planetId,
-          typeId: 'mine',
+          typeId: "mine",
           slotIndex: 1,
           level: 1,
           hp: 1000,
@@ -559,50 +781,63 @@ describe('combat tick — processDueCombat', () => {
     const bomber = await spawnShip({
       ownerId: atk.userId,
       planetId: atk.planetId,
-      typeId: 'light_bomber',
+      typeId: "light_bomber",
     });
     await relocate(bomber.id, def.planetId);
 
     return { atk, def, ccId: cc!.id, mineId, bomberId: bomber.id };
   }
 
-  it('bomber damages a non-CC building first; HP drops gradually under orbital fire', async () => {
-    const s = await setupBombingScenario('A');
-    const t0 = new Date('2026-07-01T00:00:00.000Z');
+  it("bomber damages a non-CC building first; HP drops gradually under orbital fire", async () => {
+    const s = await setupBombingScenario("A");
+    const t0 = new Date("2026-07-01T00:00:00.000Z");
 
     await processDueCombat({ now: t0, skipNotifications: true });
-    const mineAfterFirst = await db.query.buildings.findFirst({ where: eq(buildings.id, s.mineId!) });
+    const mineAfterFirst = await db.query.buildings.findFirst({
+      where: eq(buildings.id, s.mineId!),
+    });
     expect(mineAfterFirst!.hp).toBe(1000); // first-touch — no damage yet
     expect(mineAfterFirst!.lastCombatTickAt).not.toBeNull();
 
     // 5 seconds later is capped to the visible-combat damage window, so damage is gradual.
-    await processDueCombat({ now: new Date(t0.getTime() + 5_000), skipNotifications: true });
-    const mineHalf = await db.query.buildings.findFirst({ where: eq(buildings.id, s.mineId!) });
+    await processDueCombat({
+      now: new Date(t0.getTime() + 5_000),
+      skipNotifications: true,
+    });
+    const mineHalf = await db.query.buildings.findFirst({
+      where: eq(buildings.id, s.mineId!),
+    });
     expect(mineHalf!.hp).toBeGreaterThan(0);
     expect(mineHalf!.hp).toBeLessThan(1000);
 
     // Meanwhile CC is still untouched because the non-CC target is alive.
-    const ccUntouched = await db.query.buildings.findFirst({ where: eq(buildings.id, s.ccId) });
+    const ccUntouched = await db.query.buildings.findFirst({
+      where: eq(buildings.id, s.ccId),
+    });
     expect(ccUntouched!.hp).toBe(1000);
   });
 
-  it('bombing is idempotent — running the tick twice in succession does not double damage', async () => {
-    const s = await setupBombingScenario('B');
-    const t0 = new Date('2026-07-01T00:00:00.000Z');
+  it("bombing is idempotent — running the tick twice in succession does not double damage", async () => {
+    const s = await setupBombingScenario("B");
+    const t0 = new Date("2026-07-01T00:00:00.000Z");
 
     await processDueCombat({ now: t0, skipNotifications: true });
     const t1 = new Date(t0.getTime() + 4_000);
     await processDueCombat({ now: t1, skipNotifications: true });
-    const afterFirst = await db.query.buildings.findFirst({ where: eq(buildings.id, s.mineId!) });
+    const afterFirst = await db.query.buildings.findFirst({
+      where: eq(buildings.id, s.mineId!),
+    });
 
     await processDueCombat({ now: t1, skipNotifications: true });
-    const afterSecond = await db.query.buildings.findFirst({ where: eq(buildings.id, s.mineId!) });
+    const afterSecond = await db.query.buildings.findFirst({
+      where: eq(buildings.id, s.mineId!),
+    });
     expect(afterSecond!.hp).toBe(afterFirst!.hp);
   });
 
-  it('non-CC building must be destroyed before the Command Center takes any damage', async () => {
-    const s = await setupBombingScenario('C');
-    const t0 = new Date('2026-07-01T00:00:00.000Z');
+  it("non-CC building must be destroyed before the Command Center takes any damage", async () => {
+    const s = await setupBombingScenario("C");
+    const t0 = new Date("2026-07-01T00:00:00.000Z");
 
     await processDueCombat({ now: t0, skipNotifications: true });
     for (const seconds of [10, 20, 30, 40]) {
@@ -611,12 +846,16 @@ describe('combat tick — processDueCombat', () => {
         skipNotifications: true,
       });
     }
-    const mine = await db.query.buildings.findFirst({ where: eq(buildings.id, s.mineId!) });
+    const mine = await db.query.buildings.findFirst({
+      where: eq(buildings.id, s.mineId!),
+    });
     // mine is now destroyed (hp=0, destroyedAt set), still a row
     expect(mine!.hp).toBe(0);
     expect(mine!.destroyedAt).not.toBeNull();
 
-    const ccBefore = await db.query.buildings.findFirst({ where: eq(buildings.id, s.ccId) });
+    const ccBefore = await db.query.buildings.findFirst({
+      where: eq(buildings.id, s.ccId),
+    });
     expect(ccBefore!.hp).toBe(1000); // CC untouched up to this point
 
     // Next tick the bomber switches to the CC: first-touch stamps
@@ -626,7 +865,9 @@ describe('combat tick — processDueCombat', () => {
       now: new Date(t0.getTime() + 50_000),
       skipNotifications: true,
     });
-    const ccAfterFirstTouch = await db.query.buildings.findFirst({ where: eq(buildings.id, s.ccId) });
+    const ccAfterFirstTouch = await db.query.buildings.findFirst({
+      where: eq(buildings.id, s.ccId),
+    });
     expect(ccAfterFirstTouch!.hp).toBe(1000);
     expect(ccAfterFirstTouch!.lastCombatTickAt).not.toBeNull();
 
@@ -634,21 +875,23 @@ describe('combat tick — processDueCombat', () => {
       now: new Date(t0.getTime() + 60_000),
       skipNotifications: true,
     });
-    const ccDamaged = await db.query.buildings.findFirst({ where: eq(buildings.id, s.ccId) });
+    const ccDamaged = await db.query.buildings.findFirst({
+      where: eq(buildings.id, s.ccId),
+    });
     // CC may be wiped (cascade) once it reaches 0 HP. Either way: it took damage.
     expect(ccDamaged === undefined || ccDamaged.hp < 1000).toBe(true);
   });
 
-  it('killing the Command Center wipes the colony and every building on the planet', async () => {
-    const s = await setupBombingScenario('D');
+  it("killing the Command Center wipes the colony and every building on the planet", async () => {
+    const s = await setupBombingScenario("D");
 
     // Skip the mine straight to "destroyed" so the bomber jumps to the CC.
     await db
       .update(buildings)
-      .set({ hp: 0, destroyedAt: new Date('2026-06-30T23:00:00.000Z') })
+      .set({ hp: 0, destroyedAt: new Date("2026-06-30T23:00:00.000Z") })
       .where(eq(buildings.id, s.mineId!));
 
-    const t0 = new Date('2026-07-01T00:00:00.000Z');
+    const t0 = new Date("2026-07-01T00:00:00.000Z");
     await processDueCombat({ now: t0, skipNotifications: true });
 
     for (const seconds of [10, 20, 30, 40]) {
@@ -670,9 +913,9 @@ describe('combat tick — processDueCombat', () => {
     expect(remainingColony).toBeUndefined();
   });
 
-  it('bombs nothing when the target planet has no hostile buildings', async () => {
-    const atk = await createUser('atkNoTarget');
-    const def = await createUser('defNoTarget');
+  it("bombs nothing when the target planet has no hostile buildings", async () => {
+    const atk = await createUser("atkNoTarget");
+    const def = await createUser("defNoTarget");
 
     // No colony, no buildings on the defender's planet (we wipe the auto-generated CC).
     await db.delete(buildings).where(eq(buildings.planetId, def.planetId));
@@ -680,20 +923,23 @@ describe('combat tick — processDueCombat', () => {
     const bomber = await spawnShip({
       ownerId: atk.userId,
       planetId: atk.planetId,
-      typeId: 'light_bomber',
+      typeId: "light_bomber",
     });
     await relocate(bomber.id, def.planetId);
 
-    const t0 = new Date('2026-07-01T00:00:00.000Z');
+    const t0 = new Date("2026-07-01T00:00:00.000Z");
     const r1 = await processDueCombat({ now: t0, skipNotifications: true });
-    const r2 = await processDueCombat({ now: new Date(t0.getTime() + 30_000), skipNotifications: true });
+    const r2 = await processDueCombat({
+      now: new Date(t0.getTime() + 30_000),
+      skipNotifications: true,
+    });
     expect(r1.buildingsDestroyed).toEqual([]);
     expect(r2.buildingsDestroyed).toEqual([]);
   });
 
-  it('colonization is blocked while hostile buildings remain and unblocks after cleanup', async () => {
-    const atk = await createUser('atkColonyBlock');
-    const otherOwner = await createUser('defColonyBlock');
+  it("colonization is blocked while hostile buildings remain and unblocks after cleanup", async () => {
+    const atk = await createUser("atkColonyBlock");
+    const otherOwner = await createUser("defColonyBlock");
 
     // Build a neutral (non-home) system + planet so the colonization gate
     // does not short-circuit on `colony_protected_home` before the hostile-
@@ -701,10 +947,10 @@ describe('combat tick — processDueCombat', () => {
     const [neutralSystem] = await db
       .insert(systems)
       .values({
-        name: 'Test Neutral',
-        x: '50',
-        y: '50',
-        z: '0',
+        name: "Test Neutral",
+        x: "50",
+        y: "50",
+        z: "0",
         sectorX: 50,
         sectorY: 50,
         sectorZ: 0,
@@ -716,8 +962,8 @@ describe('combat tick — processDueCombat', () => {
       .insert(planets)
       .values({
         systemId: neutralSystem.id,
-        name: 'Neutral-1',
-        biome: 'rocky',
+        name: "Neutral-1",
+        biome: "rocky",
         slotCount: 4,
         size: 1,
       })
@@ -730,7 +976,7 @@ describe('combat tick — processDueCombat', () => {
     });
     await db.insert(buildings).values({
       planetId: neutralPlanet.id,
-      typeId: 'command_center',
+      typeId: "command_center",
       slotIndex: 0,
       level: 1,
       hp: 1000,
@@ -738,7 +984,7 @@ describe('combat tick — processDueCombat', () => {
     });
     await db.insert(buildings).values({
       planetId: neutralPlanet.id,
-      typeId: 'mine',
+      typeId: "mine",
       slotIndex: 1,
       level: 1,
       hp: 1000,
@@ -752,46 +998,52 @@ describe('combat tick — processDueCombat', () => {
       enforceDistance: false,
     });
     expect(blocked.allowed).toBe(false);
-    expect(blocked.code).toBe('colony_blocked_hostile_buildings');
+    expect(blocked.code).toBe("colony_blocked_hostile_buildings");
 
     // Simulate a successful bombing run: cascade cleanup removes the colony
     // and every building.
     await db.delete(buildings).where(eq(buildings.planetId, neutralPlanet.id));
     await db.delete(colonies).where(eq(colonies.planetId, neutralPlanet.id));
 
-    const unblocked = await checkColonizationGates(atk.userId, neutralPlanet.id, {
-      enforceDistance: false,
-    });
+    const unblocked = await checkColonizationGates(
+      atk.userId,
+      neutralPlanet.id,
+      {
+        enforceDistance: false,
+      },
+    );
     // After the planet is cleared, the hostile-buildings gate no longer fires;
     // the next applicable gate is the engineering research requirement.
-    expect(unblocked.code).toBe('colony_research_required');
+    expect(unblocked.code).toBe("colony_research_required");
   });
 
-  it('skips bombers — they target buildings, not ships', async () => {
-    const attackerOwner = await createUser('atk8');
-    const defenderOwner = await createUser('def8');
+  it("skips bombers — they target buildings, not ships", async () => {
+    const attackerOwner = await createUser("atk8");
+    const defenderOwner = await createUser("def8");
 
     const attacker = await spawnShip({
       ownerId: attackerOwner.userId,
       planetId: attackerOwner.planetId,
-      typeId: 'light_bomber',
+      typeId: "light_bomber",
     });
     const defender = await spawnShip({
       ownerId: defenderOwner.userId,
       planetId: defenderOwner.planetId,
-      typeId: 'scout',
+      typeId: "scout",
     });
     await relocate(attacker.id, defenderOwner.planetId);
 
-    const t0 = new Date('2026-06-01T00:00:00.000Z');
+    const t0 = new Date("2026-06-01T00:00:00.000Z");
     await processDueCombat({ now: t0, skipNotifications: true });
     await processDueCombat({
       now: new Date(t0.getTime() + 30_000),
       skipNotifications: true,
     });
 
-    const safe = await db.query.ships.findFirst({ where: eq(ships.id, defender.id) });
+    const safe = await db.query.ships.findFirst({
+      where: eq(ships.id, defender.id),
+    });
     expect(safe!.hp).toBe(40);
-    expect(safe!.status).toBe('idle');
+    expect(safe!.status).toBe("idle");
   });
 });
