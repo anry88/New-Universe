@@ -29,11 +29,17 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Shield } from "lucide-react";
+import { Shield, X } from "lucide-react";
 import type { HomeSystem, Planet } from "@shared/types/world";
-import type { Ship } from "@shared/types/ships";
+import type { Ship, ShipType } from "@shared/types/ships";
 import type { Expedition } from "@shared/types/expeditions";
 import type { JumpGateFleetContactSummary } from "@shared/types/jump-gate";
+import {
+  missilePayloadSustainedDps,
+  type CombatStats,
+  type DamageType,
+  type EngagementRange,
+} from "@shared/types/combat";
 import {
   buildSystemMapLayouts,
   buildSystemMapOrbitGuideRadii,
@@ -45,9 +51,10 @@ import {
 import { BIOME_META, PlanetSvg, getBiomeTag, resolveBiome } from "./planets";
 import { SunSvg } from "./sun";
 import { FoundColonyDialog } from "../FoundColonyDialog";
+import { ShieldStatus } from "../ShieldStatus";
 import { useI18n } from "../../lib/i18n";
 import { getResourceLabel, ResourceIcon } from "./resources";
-import { ShipIcon } from "./ships";
+import { getShipLabel, ShipIcon, ShipIconBadge } from "./ships";
 
 /** When set, the map is used to pick a sector jump vector from the home star: tap = set course, drag = pan. */
 export interface ExpeditionPickConfig {
@@ -72,6 +79,7 @@ export interface ExpeditionPickConfig {
 interface CosmicSystemRendererProps {
   system: HomeSystem;
   ships: Ship[];
+  shipTypes?: ShipType[];
   expeditions: Expedition[];
   fleetContacts?: JumpGateFleetContactSummary[];
   onPlanetClick: (planet: Planet) => void;
@@ -112,9 +120,38 @@ const ACTIVE_MAP_EXPEDITION_STATUSES = new Set([
   "returning",
   "stationed",
 ]);
+const COMBAT_PROJECTILE_LIMIT = 6;
 
 /** Below this drag distance (CSS px), a one-finger gesture counts as a tap for expedition aiming. */
 const EXPEDITION_TAP_THRESHOLD_PX = 14;
+
+type MapShipSelection =
+  | { kind: "own"; id: string }
+  | { kind: "foreign"; id: string };
+
+type WeaponVisualKind = "kinetic" | "beam" | "missile" | "thermal" | "shield" | "neutral";
+
+interface ShipMarkerSnapshot {
+  ship: Ship;
+  x: number;
+  y: number;
+  angle: number;
+  isMoving: boolean;
+  isReturning: boolean;
+  isInCombat: boolean;
+  tone: string;
+  weaponKind: WeaponVisualKind;
+}
+
+interface CombatProjectileSegment {
+  id: string;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  kind: WeaponVisualKind;
+  delayMs: number;
+}
 
 function isDiscoveredPlanet(planet: Planet): boolean {
   return planet.isDiscovered !== false;
@@ -124,6 +161,67 @@ function timestamp(value?: string | null): number | null {
   if (!value) return null;
   const ms = new Date(value).getTime();
   return Number.isFinite(ms) ? ms : null;
+}
+
+function isRecentCombat(value: string | null | undefined, now: number): boolean {
+  const lastCombatMs = timestamp(value);
+  return lastCombatMs != null && now - lastCombatMs <= RECENT_COMBAT_WINDOW_MS;
+}
+
+function hpPercent(hp: number | undefined, maxHp: number | undefined): number {
+  const max = Math.max(0, maxHp ?? 0);
+  if (max <= 0) return 0;
+  return Math.max(0, Math.min(100, ((hp ?? 0) / max) * 100));
+}
+
+function hpTone(percent: number): string {
+  if (percent <= 25) return "#ef4444";
+  if (percent <= 60) return "#fcd34d";
+  return "#5BFFA9";
+}
+
+export function weaponVisualForCombatStats(
+  stats: CombatStats | null | undefined,
+): WeaponVisualKind {
+  if (stats?.missilePayload) return "missile";
+  const damageType = stats?.damageProfile?.damageType as DamageType | undefined;
+  if (damageType === "energy") return "beam";
+  if (damageType === "explosive") return "missile";
+  if (damageType === "thermal") return "thermal";
+  if (damageType === "kinetic") return "kinetic";
+  if (stats?.shields) return "shield";
+  return "neutral";
+}
+
+function weaponTone(kind: WeaponVisualKind): string {
+  switch (kind) {
+    case "beam":
+      return "#60a5fa";
+    case "missile":
+      return "#f97316";
+    case "thermal":
+      return "#fb7185";
+    case "shield":
+      return "#38bdf8";
+    case "kinetic":
+      return "#facc15";
+    default:
+      return "#cbd5e1";
+  }
+}
+
+function combatDps(stats: CombatStats | null | undefined): number {
+  return Math.round(
+    Math.max(
+      0,
+      Number(stats?.damageProfile?.dps ?? 0) +
+        missilePayloadSustainedDps(stats?.missilePayload),
+    ),
+  );
+}
+
+function rangeLabelKey(range: EngagementRange | undefined): string | null {
+  return range ? `ships.range.${range}` : null;
 }
 
 function clientToWorldCoords(
@@ -620,195 +718,406 @@ function jumpGateShipPointForSystem({
   };
 }
 
-const ShipMarkers = React.memo(function ShipMarkers({
+function buildShipMarkerSnapshots({
   ships,
   activeExpeditions,
   layoutByPlanetId,
   system,
-  isPicking,
+  now,
 }: {
   ships: Ship[];
   activeExpeditions: Expedition[];
   layoutByPlanetId: Map<string, PlanetLayout>;
   system: HomeSystem;
-  isPicking: boolean;
-}) {
-  const [now, setNow] = useState(() => Date.now());
-  const hasMovingShips =
-    activeExpeditions.length > 0 &&
-    ships.some((ship) => ship.status === "moving");
-  const hasRecentCombat = ships.some((ship) => {
-    if (ship.status === "destroyed") return false;
-    const lastCombat = timestamp(ship.lastCombatTickAt);
-    return lastCombat != null && now - lastCombat <= RECENT_COMBAT_WINDOW_MS;
+  now: number;
+}): ShipMarkerSnapshot[] {
+  const expeditionByShipId = new Map(activeExpeditions.map((exp) => [exp.shipId, exp]));
+
+  return ships.flatMap((ship, shipIdx) => {
+    if (!["idle", "moving"].includes(ship.status)) return [];
+
+    // For moving ships the location_planet_id is cleared at launch — fall
+    // back to the active expedition's origin so the marker still renders
+    // along its route instead of vanishing from the map.
+    const movingExpedition =
+      ship.status === "moving" ? expeditionByShipId.get(ship.id) : undefined;
+    const anchorPlanetId =
+      ship.locationPlanetId ?? movingExpedition?.originPlanetId ?? null;
+    const layout = anchorPlanetId
+      ? (layoutByPlanetId.get(anchorPlanetId) ?? null)
+      : null;
+
+    let sx: number | undefined;
+    let sy: number | undefined;
+    let angle = 0;
+    let isMoving = false;
+    let isReturning = false;
+
+    if (ship.status === "moving") {
+      const exp = movingExpedition;
+      if (exp && exp.result && typeof exp.result === "object") {
+        const res = exp.result as Record<string, number>;
+        if ((exp.result as Record<string, unknown>).routeMode === "jump_gate") {
+          const gatePoint = jumpGateShipPointForSystem({
+            exp,
+            layout,
+            layoutByPlanetId,
+            system,
+            now,
+          });
+          if (!gatePoint) return [];
+          sx = gatePoint.point.x;
+          sy = gatePoint.point.y;
+          angle = gatePoint.angle;
+          isReturning = gatePoint.returning;
+          isMoving = exp.status !== "stationed";
+        } else if (!layout) {
+          return [];
+        } else if (res.distance !== undefined && res.speed) {
+          const durationMs =
+            ((res.distance * 60) / res.speed) *
+            (res.engineFactor || 1) *
+            1000;
+          const etaMs = new Date(exp.eta).getTime();
+          let progress = 0;
+          if (exp.status === "in_flight") {
+            progress = 1 - (etaMs - now) / durationMs;
+          } else {
+            progress = (etaMs - now) / durationMs;
+            isReturning = true;
+          }
+          progress = Math.max(0, Math.min(1, progress));
+
+          const targetPlanet = exp.targetPlanetId
+            ? layoutByPlanetId.get(exp.targetPlanetId)
+            : null;
+          const resultRouteMode = (exp.result as Record<string, unknown> | null | undefined)?.routeMode;
+          let endX: number;
+          let endY: number;
+          if (targetPlanet) {
+            endX = targetPlanet.x;
+            endY = targetPlanet.y;
+          } else if (resultRouteMode === "jump_gate") {
+            const gatePoint = systemMapJumpGatePoint();
+            endX = gatePoint.x;
+            endY = gatePoint.y;
+          } else {
+            const endpoint = sectorDeltaToSystemMapPoint(
+              { x: layout.x, y: layout.y },
+              Number(exp.targetX) - system.sectorX,
+              Number(exp.targetY) - system.sectorY,
+            );
+            endX = endpoint.x;
+            endY = endpoint.y;
+          }
+
+          const targetAngle = Math.atan2(endY - layout.y, endX - layout.x);
+          sx = layout.x + (endX - layout.x) * progress;
+          sy = layout.y + (endY - layout.y) * progress;
+
+          angle = targetAngle + (isReturning ? Math.PI : 0);
+          isMoving = true;
+        }
+      }
+    }
+
+    if (!isMoving) {
+      if (!layout && sx === undefined && sy === undefined) return [];
+      if (!layout) {
+        angle = angle || 0;
+      } else {
+        const dockRadius = Math.min(14, Math.max(5, layout.spriteSize * 0.24));
+        const a = layout.angle + 0.18 + shipIdx * 0.74;
+        sx = layout.x + Math.cos(a) * dockRadius;
+        sy = layout.y + Math.sin(a) * dockRadius;
+        angle = a + Math.PI / 2;
+      }
+    }
+
+    const isInCombat = isRecentCombat(ship.lastCombatTickAt, now);
+    const tone = isInCombat
+      ? "#EF4444"
+      : isMoving
+        ? isReturning
+          ? "#F4B84A"
+          : "#5BD7FF"
+        : "#5BFFA9";
+
+    if (sx === undefined || sy === undefined) return [];
+
+    return [
+      {
+        ship,
+        x: sx,
+        y: sy,
+        angle,
+        isMoving,
+        isReturning,
+        isInCombat,
+        tone,
+        weaponKind: weaponVisualForCombatStats(ship.combatStats),
+      },
+    ];
   });
-  const expeditionByShipId = useMemo(
-    () => new Map(activeExpeditions.map((exp) => [exp.shipId, exp])),
-    [activeExpeditions],
+}
+
+function ShipHealthBar({
+  hp,
+  maxHp,
+  angle = 0,
+  isForeign = false,
+}: {
+  hp: number | undefined;
+  maxHp: number | undefined;
+  angle?: number;
+  isForeign?: boolean;
+}) {
+  const pct = hpPercent(hp, maxHp);
+  if (pct <= 0 && (maxHp ?? 0) <= 0) return null;
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: "50%",
+        bottom: -8,
+        width: 34,
+        height: 4,
+        transform: `translateX(-50%) rotate(${-angle}rad)`,
+        borderRadius: 999,
+        overflow: "hidden",
+        background: isForeign ? "rgba(127,29,29,0.62)" : "rgba(15,23,42,0.75)",
+        border: "1px solid rgba(255,255,255,0.18)",
+        pointerEvents: "none",
+      }}
+    >
+      <div
+        style={{
+          width: `${pct}%`,
+          height: "100%",
+          background: hpTone(pct),
+          boxShadow: `0 0 8px ${hpTone(pct)}`,
+        }}
+      />
+    </div>
   );
+}
 
-  useEffect(() => {
-    if (!hasMovingShips && !hasRecentCombat) return;
-    setNow(Date.now());
-    const timer = setInterval(() => setNow(Date.now()), SHIP_MARKER_TICK_MS);
-    return () => clearInterval(timer);
-  }, [hasMovingShips, hasRecentCombat, activeExpeditions]);
-
+const ShipMarkers = React.memo(function ShipMarkers({
+  markers,
+  isPicking,
+  selectedShipId,
+  onSelectShip,
+}: {
+  markers: ShipMarkerSnapshot[];
+  isPicking: boolean;
+  selectedShipId: string | null;
+  onSelectShip: (shipId: string) => void;
+}) {
   return (
     <>
-      {ships.map((ship, shipIdx) => {
-        if (!["idle", "moving"].includes(ship.status)) return null;
-
-        // For moving ships the location_planet_id is cleared at launch — fall
-        // back to the active expedition's origin so the marker still renders
-        // along its route instead of vanishing from the map.
-        const movingExpedition =
-          ship.status === "moving" ? expeditionByShipId.get(ship.id) : undefined;
-        const anchorPlanetId =
-          ship.locationPlanetId ?? movingExpedition?.originPlanetId ?? null;
-        const layout = anchorPlanetId
-          ? (layoutByPlanetId.get(anchorPlanetId) ?? null)
-          : null;
-
-        let sx,
-          sy,
-          angle = 0;
-        let isMoving = false;
-        let isReturning = false;
-
-        if (ship.status === "moving") {
-          const exp = movingExpedition;
-          if (exp && exp.result && typeof exp.result === "object") {
-            const res = exp.result as Record<string, number>;
-            if ((exp.result as Record<string, unknown>).routeMode === "jump_gate") {
-              const gatePoint = jumpGateShipPointForSystem({
-                exp,
-                layout,
-                layoutByPlanetId,
-                system,
-                now,
-              });
-              if (!gatePoint) return null;
-              sx = gatePoint.point.x;
-              sy = gatePoint.point.y;
-              angle = gatePoint.angle;
-              isReturning = gatePoint.returning;
-              isMoving = exp.status !== "stationed";
-            } else if (!layout) {
-              return null;
-            } else if (res.distance !== undefined && res.speed) {
-              const durationMs =
-                ((res.distance * 60) / res.speed) *
-                (res.engineFactor || 1) *
-                1000;
-              const etaMs = new Date(exp.eta).getTime();
-              let progress = 0;
-              if (exp.status === "in_flight") {
-                progress = 1 - (etaMs - now) / durationMs;
-              } else {
-                progress = (etaMs - now) / durationMs;
-                isReturning = true;
-              }
-              progress = Math.max(0, Math.min(1, progress));
-
-              const targetPlanet = exp.targetPlanetId
-                ? layoutByPlanetId.get(exp.targetPlanetId)
-                : null;
-              const resultRouteMode = (exp.result as Record<string, unknown> | null | undefined)?.routeMode;
-              let endX: number;
-              let endY: number;
-              if (targetPlanet) {
-                endX = targetPlanet.x;
-                endY = targetPlanet.y;
-              } else if (resultRouteMode === "jump_gate") {
-                const gatePoint = systemMapJumpGatePoint();
-                endX = gatePoint.x;
-                endY = gatePoint.y;
-              } else {
-                const endpoint = sectorDeltaToSystemMapPoint(
-                  { x: layout.x, y: layout.y },
-                  Number(exp.targetX) - system.sectorX,
-                  Number(exp.targetY) - system.sectorY,
-                );
-                endX = endpoint.x;
-                endY = endpoint.y;
-              }
-
-              const targetAngle = Math.atan2(endY - layout.y, endX - layout.x);
-              sx = layout.x + (endX - layout.x) * progress;
-              sy = layout.y + (endY - layout.y) * progress;
-
-              angle = targetAngle + (isReturning ? Math.PI : 0);
-              isMoving = true;
-            }
-          }
-        }
-
-        if (!isMoving) {
-          if (!layout && sx === undefined && sy === undefined) return null;
-          if (!layout) {
-            angle = angle || 0;
-          } else {
-            const dockRadius = Math.min(14, Math.max(5, layout.spriteSize * 0.24));
-            const a = layout.angle + 0.18 + shipIdx * 0.74;
-            sx = layout.x + Math.cos(a) * dockRadius;
-            sy = layout.y + Math.sin(a) * dockRadius;
-            angle = a + Math.PI / 2;
-          }
-        }
-
-        const lastCombatMs = timestamp(ship.lastCombatTickAt);
-        const isInCombat =
-          lastCombatMs != null && now - lastCombatMs <= RECENT_COMBAT_WINDOW_MS;
-        const tone = isInCombat
-          ? "#EF4444"
-          : isMoving
-          ? isReturning
-            ? "#F4B84A"
-            : "#5BD7FF"
-          : "#5BFFA9";
+      {markers.map((marker) => {
+        const isSelected = selectedShipId === marker.ship.id;
 
         return (
-          <div
-            key={ship.id}
+          <button
+            key={marker.ship.id}
+            type="button"
+            data-testid={`map-ship-${marker.ship.id}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelectShip(marker.ship.id);
+            }}
             style={{
               position: "absolute",
-              left: sx! - 12,
-              top: sy! - 12,
-              width: 24,
-              height: 24,
-              color: tone,
-              transform: `rotate(${angle}rad)`,
-              filter: isInCombat
-                ? "drop-shadow(0 0 8px rgba(239,68,68,0.75))"
-                : isMoving
-                ? "drop-shadow(0 0 6px currentColor)"
-                : "drop-shadow(0 0 4px rgba(91,255,169,0.4))",
+              left: marker.x - 14,
+              top: marker.y - 14,
+              width: 28,
+              height: 28,
+              color: marker.tone,
+              transform: `rotate(${marker.angle}rad)`,
+              filter: marker.isInCombat
+                ? "drop-shadow(0 0 10px rgba(239,68,68,0.86))"
+                : marker.isMoving
+                  ? "drop-shadow(0 0 7px currentColor)"
+                  : "drop-shadow(0 0 4px rgba(91,255,169,0.4))",
               pointerEvents: isPicking ? "none" : "auto",
-              transition: isMoving
+              transition: marker.isMoving
                 ? `left ${SHIP_MARKER_TICK_MS}ms linear, top ${SHIP_MARKER_TICK_MS}ms linear`
                 : "none",
+              border: isSelected ? "1px solid currentColor" : 0,
+              borderRadius: 8,
+              background: isSelected ? "rgba(8,12,22,0.78)" : "transparent",
+              padding: 2,
+              cursor: isPicking ? "inherit" : "pointer",
+              zIndex: marker.isInCombat ? 7 : 5,
             }}
           >
-            <ShipIcon typeId={ship.typeId} size={24} tone="currentColor" />
-            {ship.combatStats?.shields && (
-              <div style={{ position: 'absolute', right: -4, top: -4, filter: 'drop-shadow(0 0 4px #60a5fa)' }}>
+            <ShipIcon typeId={marker.ship.typeId} size={24} tone="currentColor" />
+            {marker.ship.combatStats?.shields && (
+              <div
+                style={{
+                  position: "absolute",
+                  right: -4,
+                  top: -4,
+                  filter: "drop-shadow(0 0 4px #60a5fa)",
+                  transform: `rotate(${-marker.angle}rad)`,
+                }}
+              >
                 <Shield size={10} color="#60a5fa" />
               </div>
             )}
-          </div>
+            <ShipHealthBar
+              hp={marker.ship.hp}
+              maxHp={marker.ship.maxHp}
+              angle={marker.angle}
+            />
+          </button>
         );
       })}
     </>
   );
 });
 
+function nearestContactForMarker(
+  marker: ShipMarkerSnapshot,
+  contacts: JumpGateFleetContactSummary[],
+): JumpGateFleetContactSummary | null {
+  let best: JumpGateFleetContactSummary | null = null;
+  let bestDistance = Infinity;
+  for (const contact of contacts) {
+    const dist = Math.hypot(marker.x - contact.point.x, marker.y - contact.point.y);
+    if (dist < bestDistance) {
+      best = contact;
+      bestDistance = dist;
+    }
+  }
+  return best;
+}
+
+function nearestMarkerForContact(
+  contact: JumpGateFleetContactSummary,
+  markers: ShipMarkerSnapshot[],
+): ShipMarkerSnapshot | null {
+  let best: ShipMarkerSnapshot | null = null;
+  let bestDistance = Infinity;
+  for (const marker of markers) {
+    const dist = Math.hypot(marker.x - contact.point.x, marker.y - contact.point.y);
+    if (dist < bestDistance) {
+      best = marker;
+      bestDistance = dist;
+    }
+  }
+  return best;
+}
+
+const CombatEffectsLayer = React.memo(function CombatEffectsLayer({
+  markers,
+  contacts,
+  now,
+}: {
+  markers: ShipMarkerSnapshot[];
+  contacts: JumpGateFleetContactSummary[];
+  now: number;
+}) {
+  const segments: CombatProjectileSegment[] = [];
+  const combatMarkers = markers.filter((marker) => marker.isInCombat);
+
+  combatMarkers.forEach((marker, index) => {
+    const contact = nearestContactForMarker(marker, contacts);
+    if (!contact) return;
+    segments.push({
+      id: `own-${marker.ship.id}-${contact.id}`,
+      x1: marker.x,
+      y1: marker.y,
+      x2: contact.point.x,
+      y2: contact.point.y,
+      kind: marker.weaponKind,
+      delayMs: index * 130,
+    });
+  });
+
+  contacts.forEach((contact, index) => {
+    if (!isRecentCombat(contact.lastCombatTickAt, now)) return;
+    const marker = nearestMarkerForContact(contact, markers);
+    if (!marker) return;
+    segments.push({
+      id: `foreign-${contact.id}-${marker.ship.id}`,
+      x1: contact.point.x,
+      y1: contact.point.y,
+      x2: marker.x,
+      y2: marker.y,
+      kind: weaponVisualForCombatStats(contact.combatStats),
+      delayMs: 90 + index * 150,
+    });
+  });
+
+  return (
+    <>
+      {segments.slice(0, COMBAT_PROJECTILE_LIMIT).map((segment) => (
+        <CombatProjectile key={segment.id} segment={segment} />
+      ))}
+    </>
+  );
+});
+
+function CombatProjectile({ segment }: { segment: CombatProjectileSegment }) {
+  const length = Math.hypot(segment.x2 - segment.x1, segment.y2 - segment.y1);
+  if (length < 8) return null;
+  const tone = weaponTone(segment.kind);
+  const angle = Math.atan2(segment.y2 - segment.y1, segment.x2 - segment.x1);
+  const isBeam = segment.kind === "beam";
+
+  return (
+    <div
+      className={`combat-projectile-line combat-projectile-line--${segment.kind}`}
+      style={{
+        position: "absolute",
+        left: segment.x1,
+        top: segment.y1,
+        width: length,
+        height: isBeam ? 3 : 8,
+        transform: `rotate(${angle}rad)`,
+        transformOrigin: "0 50%",
+        color: tone,
+        pointerEvents: "none",
+        zIndex: 4,
+      }}
+    >
+      <span
+        className="combat-projectile-trail"
+        style={{
+          background: isBeam
+            ? `linear-gradient(90deg, transparent, ${tone}, transparent)`
+            : `linear-gradient(90deg, transparent, ${tone})`,
+          animationDelay: `${segment.delayMs}ms`,
+        }}
+      />
+      {!isBeam ? (
+        <span
+          className="combat-projectile-bolt"
+          style={{
+            background: tone,
+            boxShadow: `0 0 12px ${tone}`,
+            animationDelay: `${segment.delayMs}ms`,
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
 const FleetContactMarkers = React.memo(function FleetContactMarkers({
   contacts,
   isPicking,
+  now,
+  selectedContactId,
+  onSelectContact,
 }: {
   contacts: JumpGateFleetContactSummary[];
   isPicking: boolean;
+  now: number;
+  selectedContactId: string | null;
+  onSelectContact: (contactId: string) => void;
 }) {
   const { t } = useI18n();
   const pointTotals = useMemo(() => {
@@ -835,54 +1144,237 @@ const FleetContactMarkers = React.memo(function FleetContactMarkers({
         const title = contact.ownerAlias
           ? t("sector.entity.foreignSource", { source: contact.ownerAlias })
           : t("sector.entity.unknownFleet");
+        const isSelected = selectedContactId === contact.id;
+        const isInCombat = isRecentCombat(contact.lastCombatTickAt, now);
+        const tone = isInCombat ? "#FF5A6E" : "#EF4444";
 
         return (
-          <div
+          <button
             key={contact.id}
+            type="button"
+            data-testid={`map-foreign-ship-${contact.id}`}
             title={title}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelectContact(contact.id);
+            }}
             style={{
               position: "absolute",
               left: x - 14,
               top: y - 14,
               width: 28,
               height: 28,
-              color: "#EF4444",
-              border: "1px solid rgba(248,113,113,0.92)",
-              borderRadius: "50%",
+              color: tone,
+              border: isSelected
+                ? "1px solid rgba(255,255,255,0.88)"
+                : "1px solid rgba(248,113,113,0.82)",
+              borderRadius: 8,
               background:
-                "radial-gradient(circle, rgba(239,68,68,0.24), rgba(8,12,22,0.76) 68%)",
-              boxShadow: "0 0 14px rgba(239,68,68,0.42)",
+                "radial-gradient(circle at 50% 42%, rgba(239,68,68,0.25), rgba(8,12,22,0.78) 70%)",
+              boxShadow: isInCombat
+                ? "0 0 18px rgba(248,113,113,0.72)"
+                : "0 0 14px rgba(239,68,68,0.38)",
               pointerEvents: isPicking ? "none" : "auto",
-              zIndex: 5,
+              zIndex: isInCombat || isSelected ? 7 : 5,
+              padding: 1,
+              cursor: isPicking ? "inherit" : "pointer",
             }}
           >
             <ShipIcon typeId={contact.shipTypeId} size={26} tone="currentColor" />
-            <span
-              style={{
-                position: "absolute",
-                right: -4,
-                top: -5,
-                width: 13,
-                height: 13,
-                borderRadius: "50%",
-                display: "grid",
-                placeItems: "center",
-                border: "1px solid rgba(255,251,235,0.86)",
-                background: "rgba(127,29,29,0.94)",
-                color: "#FFFBEB",
-                fontSize: 9,
-                fontWeight: 900,
-                lineHeight: 1,
-              }}
-            >
-              ?
-            </span>
-          </div>
+            <ShipHealthBar
+              hp={contact.hp}
+              maxHp={contact.maxHp}
+              isForeign
+            />
+          </button>
         );
       })}
     </>
   );
 });
+
+function statusLabelForMapShip(status: string | undefined, t: (key: string) => string): string {
+  if (status === "idle") return t("ships.orbit");
+  if (status === "moving") return t("ships.inTransit");
+  if (status === "building") return t("ships.building");
+  return t("common.status");
+}
+
+function SelectedMapShipCard({
+  selection,
+  ownShip,
+  contact,
+  shipType,
+  onClose,
+}: {
+  selection: MapShipSelection;
+  ownShip: Ship | null;
+  contact: JumpGateFleetContactSummary | null;
+  shipType: ShipType | null;
+  onClose: () => void;
+}) {
+  const { locale, t } = useI18n();
+  const isForeign = selection.kind === "foreign";
+  const typeId = ownShip?.typeId ?? contact?.shipTypeId ?? shipType?.id ?? null;
+  const stats = ownShip?.combatStats ?? contact?.combatStats ?? shipType?.combatStats;
+  const hp = ownShip?.hp ?? contact?.hp ?? shipType?.hp ?? 0;
+  const maxHp = ownShip?.maxHp ?? contact?.maxHp ?? shipType?.hp ?? 0;
+  const hullPct = hpPercent(hp, maxHp);
+  const rangeKey = rangeLabelKey(stats?.engagementRange);
+  const dps = combatDps(stats) || shipType?.dps || 0;
+  const weaponKind = weaponVisualForCombatStats(stats);
+  const title = typeId ? getShipLabel(typeId, locale) : t("sector.entity.unknownFleet");
+  const status = isForeign
+    ? t("map.shipStatus.hostile")
+    : isRecentCombat(ownShip?.lastCombatTickAt, Date.now())
+      ? t("ships.state.combat")
+      : statusLabelForMapShip(ownShip?.status, t);
+
+  return (
+    <div
+      className="cosmic-selection-card animate-in slide-in-from-bottom-4 duration-300"
+      data-testid="map-ship-card"
+      style={{
+        position: "absolute",
+        left: "50%",
+        bottom: 110,
+        transform: "translateX(-50%)",
+        width: "calc(100% - 32px)",
+        maxWidth: 380,
+        padding: "12px 14px",
+        border: isForeign
+          ? "1px solid rgba(248,113,113,0.5)"
+          : "1px solid var(--line-strong)",
+        borderRadius: 12,
+        background: isForeign ? "rgba(36,12,20,0.92)" : "rgba(14,20,36,0.92)",
+        backdropFilter: "blur(10px)",
+        color: "var(--text)",
+        zIndex: 6,
+        pointerEvents: "auto",
+      }}
+    >
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "44px minmax(0, 1fr) 28px",
+          gap: 10,
+          alignItems: "center",
+        }}
+      >
+        <ShipIconBadge
+          typeId={typeId}
+          tone={isForeign ? "#EF4444" : undefined}
+          status={ownShip?.status ?? "idle"}
+          size={34}
+          title={title}
+        />
+        <div style={{ minWidth: 0 }}>
+          <div
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 9,
+              letterSpacing: "0.16em",
+              color: isForeign ? "#fca5a5" : "var(--accent)",
+              marginBottom: 3,
+            }}
+          >
+            {(isForeign ? t("map.shipContact.hostile") : t("map.shipContact.own")).toUpperCase()} · {status}
+          </div>
+          <div
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 17,
+              fontWeight: 600,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {title}
+          </div>
+        </div>
+        <button
+          type="button"
+          aria-label={t("common.close")}
+          onClick={onClose}
+          style={{
+            width: 28,
+            height: 28,
+            display: "grid",
+            placeItems: "center",
+            borderRadius: 8,
+            border: "1px solid var(--line)",
+            background: "rgba(5,8,17,0.6)",
+            color: "var(--text-dim)",
+            padding: 0,
+          }}
+        >
+          <X size={16} />
+        </button>
+      </div>
+
+      <div className="qstrip-bar" style={{ marginTop: 10, height: 5 }}>
+        <div
+          className="qstrip-fill"
+          style={{
+            width: `${hullPct}%`,
+            background: hpTone(hullPct),
+            boxShadow: `0 0 8px ${hpTone(hullPct)}`,
+          }}
+        />
+      </div>
+
+      <div
+        className="ship-stats"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 8,
+          marginTop: 10,
+          justifyContent: "stretch",
+        }}
+      >
+        <div className="ship-stat" style={{ textAlign: "left" }}>
+          <span>{t("ships.hp")}</span>
+          <b style={{ color: hpTone(hullPct) }}>
+            {Math.max(0, Math.round(hp))} / {Math.max(0, Math.round(maxHp))}
+          </b>
+        </div>
+        <div className="ship-stat" style={{ textAlign: "left" }}>
+          <span>{t("ships.dps")}</span>
+          <b>{dps}</b>
+        </div>
+        <div className="ship-stat" style={{ textAlign: "left" }}>
+          <span>{t("map.weapon")}</span>
+          <b>{t(`map.weapon.${weaponKind}`)}</b>
+        </div>
+        <div className="ship-stat" style={{ textAlign: "left" }}>
+          <span>{t("map.range")}</span>
+          <b>{rangeKey ? t(rangeKey) : t("common.unknown")}</b>
+        </div>
+        {!isForeign ? (
+          <>
+            <div className="ship-stat" style={{ textAlign: "left" }}>
+              <span>{t("expedition.fuel")}</span>
+              <b>{ownShip?.fuel ?? 0} / {shipType?.fuelCapacity ?? 0}</b>
+            </div>
+            <div className="ship-stat" style={{ textAlign: "left" }}>
+              <span>{t("expedition.jumpFuel")}</span>
+              <b>{ownShip?.jumpFuel ?? 0} / {shipType?.jumpFuelCapacity ?? 0}</b>
+            </div>
+          </>
+        ) : contact?.ownerAlias ? (
+          <div className="ship-stat" style={{ textAlign: "left", gridColumn: "1 / -1" }}>
+            <span>{t("map.owner")}</span>
+            <b>{contact.ownerAlias}</b>
+          </div>
+        ) : null}
+      </div>
+
+      <ShieldStatus shields={stats?.shields} />
+    </div>
+  );
+}
 
 const DraftExpeditionTrail = React.memo(function DraftExpeditionTrail({
   launch,
@@ -938,6 +1430,7 @@ const DraftExpeditionTrail = React.memo(function DraftExpeditionTrail({
 export function CosmicSystemRenderer({
   system,
   ships,
+  shipTypes = [],
   expeditions,
   fleetContacts = [],
   onPlanetClick,
@@ -953,6 +1446,8 @@ export function CosmicSystemRenderer({
   const containerRef = useRef<HTMLDivElement>(null);
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 0.3 });
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedShip, setSelectedShip] = useState<MapShipSelection | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   const [pointerCount, setPointerCount] = useState(0);
   const [isColonyDialogOpen, setIsColonyDialogOpen] = useState(false);
   const shouldCloseSelectionOnTapRef = useRef(false);
@@ -996,6 +1491,38 @@ export function CosmicSystemRenderer({
     [fleetContacts, system.id],
   );
 
+  const shipTypeById = useMemo(
+    () => new Map(shipTypes.map((shipType) => [shipType.id, shipType])),
+    [shipTypes],
+  );
+
+  const hasMovingShips =
+    activeExpeditions.length > 0 &&
+    ships.some((ship) => ship.status === "moving");
+  const hasRecentCombat = ships.some((ship) => {
+    if (ship.status === "destroyed") return false;
+    return isRecentCombat(ship.lastCombatTickAt, now);
+  }) || visibleFleetContacts.some((contact) => isRecentCombat(contact.lastCombatTickAt, now));
+
+  useEffect(() => {
+    if (!hasMovingShips && !hasRecentCombat) return;
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), SHIP_MARKER_TICK_MS);
+    return () => clearInterval(timer);
+  }, [hasMovingShips, hasRecentCombat]);
+
+  const shipMarkerSnapshots = useMemo(
+    () =>
+      buildShipMarkerSnapshots({
+        ships,
+        activeExpeditions,
+        layoutByPlanetId,
+        system,
+        now,
+      }),
+    [activeExpeditions, layoutByPlanetId, now, ships, system],
+  );
+
   const expeditionTrailSegments = useMemo(
     () =>
       buildExpeditionTrailSegments(activeExpeditions, layoutByPlanetId, system),
@@ -1009,6 +1536,26 @@ export function CosmicSystemRenderer({
         : null,
     [layouts, selectedId],
   );
+
+  const selectedOwnShip =
+    selectedShip?.kind === "own"
+      ? (ships.find((ship) => ship.id === selectedShip.id) ?? null)
+      : null;
+  const selectedForeignContact =
+    selectedShip?.kind === "foreign"
+      ? (visibleFleetContacts.find((contact) => contact.id === selectedShip.id) ?? null)
+      : null;
+  const selectedShipType = selectedOwnShip
+    ? (shipTypeById.get(selectedOwnShip.typeId) ?? null)
+    : selectedForeignContact?.shipTypeId
+      ? (shipTypeById.get(selectedForeignContact.shipTypeId) ?? null)
+      : null;
+  const selectedMapShip =
+    selectedShip &&
+    ((selectedShip.kind === "own" && selectedOwnShip) ||
+      (selectedShip.kind === "foreign" && selectedForeignContact))
+      ? selectedShip
+      : null;
 
   const mineableResources = useMemo(() => {
     if (!selected?.planet.resources) return [];
@@ -1057,6 +1604,17 @@ export function CosmicSystemRenderer({
 
   const selectPlanet = useCallback((planetId: string) => {
     setSelectedId(planetId);
+    setSelectedShip(null);
+  }, []);
+
+  const selectOwnShip = useCallback((shipId: string) => {
+    setSelectedShip({ kind: "own", id: shipId });
+    setSelectedId(null);
+  }, []);
+
+  const selectForeignContact = useCallback((contactId: string) => {
+    setSelectedShip({ kind: "foreign", id: contactId });
+    setSelectedId(null);
   }, []);
 
   const emitPickSectorDelta = useCallback(
@@ -1373,11 +1931,12 @@ export function CosmicSystemRenderer({
         !pickCfg &&
         startedWithOnePointer &&
         shouldCloseSelectionOnTapRef.current &&
-        selectedId !== null &&
+        (selectedId !== null || selectedShip !== null) &&
         movedFromDownAll < EXPEDITION_TAP_THRESHOLD_PX &&
         !wasAimTap
       ) {
         setSelectedId(null);
+        setSelectedShip(null);
       }
 
       shouldCloseSelectionOnTapRef.current = false;
@@ -1388,6 +1947,7 @@ export function CosmicSystemRenderer({
       emitPickFromClientPoint,
       expeditionPick,
       selectedId,
+      selectedShip,
     ],
   );
 
@@ -1586,15 +2146,25 @@ export function CosmicSystemRenderer({
           />
 
           {/* Ship markers use the shared Cosmic Atlas hull set near parking orbit or on trails. */}
+          <CombatEffectsLayer
+            markers={shipMarkerSnapshots}
+            contacts={visibleFleetContacts}
+            now={now}
+          />
           <ShipMarkers
-            ships={ships}
-            activeExpeditions={activeExpeditions}
-            layoutByPlanetId={layoutByPlanetId}
-            system={system}
+            markers={shipMarkerSnapshots}
             isPicking={isPicking}
+            selectedShipId={selectedShip?.kind === "own" ? selectedShip.id : null}
+            onSelectShip={selectOwnShip}
           />
 
-          <FleetContactMarkers contacts={visibleFleetContacts} isPicking={isPicking} />
+          <FleetContactMarkers
+            contacts={visibleFleetContacts}
+            isPicking={isPicking}
+            now={now}
+            selectedContactId={selectedShip?.kind === "foreign" ? selectedShip.id : null}
+            onSelectContact={selectForeignContact}
+          />
 
           {/* Draft course for expedition launcher (vector from home star, shown from launch planet). */}
           {expeditionPick &&
@@ -1693,8 +2263,18 @@ export function CosmicSystemRenderer({
         }).toUpperCase()}
       </button>
 
+      {!expeditionPick && selectedMapShip ? (
+        <SelectedMapShipCard
+          selection={selectedMapShip}
+          ownShip={selectedOwnShip}
+          contact={selectedForeignContact}
+          shipType={selectedShipType}
+          onClose={() => setSelectedShip(null)}
+        />
+      ) : null}
+
       {/* Selected planet info card */}
-      {!expeditionPick && selected && (
+      {!expeditionPick && selected && !selectedMapShip && (
         <div
           className="cosmic-selection-card animate-in slide-in-from-bottom-4 duration-300"
           data-testid="selection-card"

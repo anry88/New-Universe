@@ -388,8 +388,12 @@ describe('getJumpGateState', () => {
       visibility: 'summary',
       point: { x: 72, y: -24 },
       stationedAt: '2026-05-13T01:00:00.000Z',
-      shipTypeId: null,
+      shipTypeId: shipType.id,
+      hp: 100,
+      maxHp: 100,
     });
+    expect(destination.fleetContacts[0]?.combatStats).toMatchObject({ targetClass: 'civilian' });
+    expect(destination.fleetContacts[0]?.lastCombatTickAt).toBeNull();
     expect(destination.fleetContacts[0]?.ownerAlias).toContain('@rival_fleet');
   });
 

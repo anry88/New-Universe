@@ -393,6 +393,11 @@ async function loadKnownDestinationFleetContacts(
   const rows = await database
     .select({
       shipId: ships.id,
+      shipTypeId: ships.typeId,
+      shipHp: ships.hp,
+      shipMaxHp: ships.maxHp,
+      shipCombatStats: ships.combatStats,
+      shipLastCombatTickAt: ships.lastCombatTickAt,
       systemId: systems.id,
       result: expeditions.result,
       eta: expeditions.eta,
@@ -423,7 +428,11 @@ async function loadKnownDestinationFleetContacts(
       relation: 'foreign',
       visibility: 'summary',
       ownerAlias: maskPublicAlias(row),
-      shipTypeId: null,
+      shipTypeId: row.shipTypeId,
+      hp: row.shipHp,
+      maxHp: row.shipMaxHp,
+      combatStats: row.shipCombatStats,
+      lastCombatTickAt: serializeDate(row.shipLastCombatTickAt),
       point,
       stationedAt: serializeDate(row.eta),
     });

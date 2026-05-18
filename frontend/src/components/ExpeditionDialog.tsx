@@ -833,6 +833,7 @@ export function ExpeditionDialog({
             <CosmicSystemRenderer
               system={renderedSystem}
               ships={meData?.ships ?? []}
+              shipTypes={[shipType]}
               expeditions={meData?.expeditions ?? []}
               fleetContacts={
                 routeMode === "jump_gate" && selectedDestination?.systemId === renderedSystem.id

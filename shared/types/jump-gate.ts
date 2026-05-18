@@ -1,5 +1,6 @@
 import type { ResearchRequirementRef } from './research.js';
 import type { PlanetResource } from './world.js';
+import type { CombatStats } from './combat.js';
 
 export type JumpGateCalibrationStatus = 'locked' | 'idle' | 'calibrating' | 'ready';
 export type JumpGateCalibrationMode = 'random' | 'known';
@@ -64,6 +65,10 @@ export interface JumpGateFleetContactSummary {
   visibility: 'summary';
   ownerAlias: string | null;
   shipTypeId: string | null;
+  hp?: number;
+  maxHp?: number;
+  combatStats?: CombatStats;
+  lastCombatTickAt?: string | null;
   point: { x: number; y: number };
   stationedAt: string | null;
 }
