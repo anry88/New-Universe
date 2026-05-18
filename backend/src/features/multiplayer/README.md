@@ -4,8 +4,8 @@ Sector-scale multiplayer visibility — projects what another player may learn a
 
 ## Files
 
-- **`presence.ts`** — exports `getSectorPresence(viewerId, sectorX, sectorY, sectorZ)` returning `SectorPresencePayload` and `getSectorSystemAnchors(viewerId)` returning `SectorSystemAnchorsPayload` (`@shared/types/multiplayer`). Filters foreign homeworlds entirely, marks each payload with explicit home/colony/fleet/public-sector metadata, includes non-destroyed docked idle ships and non-destroyed `stationed` Jump Gate point deployments as fleet markers, masks foreign actors via truncated Telegram handles, and feeds the frontend Sector selector with Home/discovered/colony/fleet anchors.
-- **`presence.test.ts`** — Vitest checks foreign homes stay hidden, destroyed ships stay out of presence/anchor payloads, two-player sector presence distinguishes home/public/colony/fleet entities, and the system-anchor selector filters protected home systems.
+- **`presence.ts`** — exports `getSectorPresence(viewerId, sectorX, sectorY, sectorZ)` returning `SectorPresencePayload` and `getSectorSystemAnchors(viewerId)` returning `SectorSystemAnchorsPayload` (`@shared/types/multiplayer`). Filters foreign homeworlds entirely, marks each payload with explicit home/colony/fleet/public-sector metadata, includes non-destroyed docked idle ships, non-destroyed `stationed` Jump Gate point deployments, and active `in_flight` / `returning` expedition ships as fleet markers with projected sector position, movement vector, and recent-combat timestamp, masks foreign actors via truncated Telegram handles, and feeds the frontend Sector selector with Home/discovered/colony/fleet anchors.
+- **`presence.test.ts`** — Vitest checks foreign homes stay hidden, destroyed ships stay out of presence/anchor payloads, two-player sector presence distinguishes home/public/colony/fleet entities, active moving fleet markers carry motion metadata, and the system-anchor selector filters protected home systems.
 
 ## Adding visibility rules
 

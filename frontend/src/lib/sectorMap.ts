@@ -2,7 +2,7 @@ import type {
   PresenceEntityRelation,
   PresenceEntityType,
   SectorPresenceEntity,
-} from '@shared/types/multiplayer';
+} from "@shared/types/multiplayer";
 
 type TranslateParams = Record<string, string | number>;
 type TranslateFn = (key: string, params?: TranslateParams) => string;
@@ -25,6 +25,8 @@ export interface SectorEntityDisplay {
   isUnknown: boolean;
 }
 
+const RECENT_SECTOR_COMBAT_WINDOW_MS = 30_000;
+
 function emptySectorSummary(): SectorEntitySummary {
   return {
     total: 0,
@@ -44,11 +46,15 @@ function emptySectorSummary(): SectorEntitySummary {
 }
 
 function formatCoordinate(value: number): string {
-  if (!Number.isFinite(value)) return '0';
-  return Math.abs(value % 1) < 0.05 ? String(Math.round(value)) : value.toFixed(1);
+  if (!Number.isFinite(value)) return "0";
+  return Math.abs(value % 1) < 0.05
+    ? String(Math.round(value))
+    : value.toFixed(1);
 }
 
-export function summarizeSectorEntities(entities: SectorPresenceEntity[]): SectorEntitySummary {
+export function summarizeSectorEntities(
+  entities: SectorPresenceEntity[],
+): SectorEntitySummary {
   const summary = emptySectorSummary();
 
   for (const entity of entities) {
@@ -64,38 +70,79 @@ export function summarizeSectorEntities(entities: SectorPresenceEntity[]): Secto
 }
 
 export function sectorEntityKey(entity: SectorPresenceEntity): string {
+  if (entity.shipId) {
+    return [
+      entity.kind,
+      entity.relation,
+      entity.entityType,
+      entity.systemId,
+      entity.shipId,
+    ].join("|");
+  }
+  if (entity.planetId) {
+    return [
+      entity.kind,
+      entity.relation,
+      entity.entityType,
+      entity.systemId,
+      entity.planetId,
+    ].join("|");
+  }
+
   return [
     entity.kind,
     entity.relation,
     entity.entityType,
     entity.systemId,
-    entity.planetId ?? '',
-    entity.shipId ?? '',
+    entity.planetId ?? "",
+    entity.shipId ?? "",
     String(entity.worldPosition.x),
     String(entity.worldPosition.y),
     String(entity.worldPosition.z),
-  ].join('|');
+  ].join("|");
+}
+
+export function hasLiveSectorActivity(
+  payload: { entities?: SectorPresenceEntity[] } | null | undefined,
+  now = Date.now(),
+): boolean {
+  return Boolean(
+    payload?.entities?.some((entity) => {
+      if (entity.motion?.state === "moving") return true;
+      if (!entity.lastCombatTickAt) return false;
+      const combatAt = new Date(entity.lastCombatTickAt).getTime();
+      return (
+        Number.isFinite(combatAt) &&
+        now - combatAt <= RECENT_SECTOR_COMBAT_WINDOW_MS
+      );
+    }),
+  );
 }
 
 export function sectorEntityTypeLabelKey(type: PresenceEntityType): string {
   return `sector.type.${type}`;
 }
 
-export function sectorEntityRelationLabelKey(relation: PresenceEntityRelation): string {
+export function sectorEntityRelationLabelKey(
+  relation: PresenceEntityRelation,
+): string {
   return `sector.relation.${relation}`;
 }
 
 export function isUnknownSectorEntity(entity: SectorPresenceEntity): boolean {
-  return entity.relation === 'foreign' && entity.visibility === 'summary';
+  return entity.relation === "foreign" && entity.visibility === "summary";
 }
 
-export function sectorEntityDisplay(entity: SectorPresenceEntity, t: TranslateFn): SectorEntityDisplay {
+export function sectorEntityDisplay(
+  entity: SectorPresenceEntity,
+  t: TranslateFn,
+): SectorEntityDisplay {
   const isUnknown = isUnknownSectorEntity(entity);
   const title = isUnknown ? unknownTitle(entity.entityType, t) : entity.title;
   const subtitle = isUnknown
     ? entity.subtitle
-      ? t('sector.entity.foreignSource', { source: entity.subtitle })
-      : t('sector.entity.foreignSourceUnknown')
+      ? t("sector.entity.foreignSource", { source: entity.subtitle })
+      : t("sector.entity.foreignSourceUnknown")
     : entity.subtitle;
 
   return {
@@ -104,7 +151,9 @@ export function sectorEntityDisplay(entity: SectorPresenceEntity, t: TranslateFn
     relationLabel: t(sectorEntityRelationLabelKey(entity.relation)),
     typeLabel: t(sectorEntityTypeLabelKey(entity.entityType)),
     visibilityLabel: t(
-      entity.visibility === 'full' ? 'sector.visibility.full' : 'sector.visibility.summary',
+      entity.visibility === "full"
+        ? "sector.visibility.full"
+        : "sector.visibility.summary",
     ),
     privacyNote: privacyNote(entity, t),
     positionLabel: `${formatCoordinate(entity.worldPosition.x)} / ${formatCoordinate(
@@ -115,13 +164,13 @@ export function sectorEntityDisplay(entity: SectorPresenceEntity, t: TranslateFn
 }
 
 function unknownTitle(entityType: PresenceEntityType, t: TranslateFn): string {
-  if (entityType === 'colony') return t('sector.entity.unknownColony');
-  if (entityType === 'fleet') return t('sector.entity.unknownFleet');
-  return t('sector.entity.unknownContact');
+  if (entityType === "colony") return t("sector.entity.unknownColony");
+  if (entityType === "fleet") return t("sector.entity.unknownFleet");
+  return t("sector.entity.unknownContact");
 }
 
 function privacyNote(entity: SectorPresenceEntity, t: TranslateFn): string {
-  if (entity.visibility === 'full') return t('sector.visibility.fullNote');
-  if (entity.relation === 'public') return t('sector.visibility.publicNote');
-  return t('sector.visibility.summaryNote');
+  if (entity.visibility === "full") return t("sector.visibility.fullNote");
+  if (entity.relation === "public") return t("sector.visibility.publicNote");
+  return t("sector.visibility.summaryNote");
 }

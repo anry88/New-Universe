@@ -1,11 +1,11 @@
-import { useEffect, useRef } from 'react';
-import * as PIXI from 'pixi.js';
+import { useEffect, useRef } from "react";
+import * as PIXI from "pixi.js";
 import type {
   PresenceEntityRelation,
   PresenceEntityType,
   SectorPresenceEntity,
-} from '@shared/types/multiplayer';
-import { isUnknownSectorEntity, sectorEntityKey } from '../../lib/sectorMap';
+} from "@shared/types/multiplayer";
+import { isUnknownSectorEntity, sectorEntityKey } from "../../lib/sectorMap";
 
 const RELATION_COLORS: Record<
   PresenceEntityRelation,
@@ -13,7 +13,12 @@ const RELATION_COLORS: Record<
 > = {
   self: { fill: 0x22d3ee, stroke: 0x7dd3fc, label: 0xdff7ff, halo: 0x155e75 },
   public: { fill: 0x64748b, stroke: 0x94a3b8, label: 0xcbd5e1, halo: 0x334155 },
-  foreign: { fill: 0xf97316, stroke: 0xfbbf24, label: 0xffedd5, halo: 0x7c2d12 },
+  foreign: {
+    fill: 0xf97316,
+    stroke: 0xfbbf24,
+    label: 0xffedd5,
+    halo: 0x7c2d12,
+  },
 };
 
 const ENTITY_TYPE_COLORS: Partial<
@@ -114,7 +119,7 @@ export function SectorRenderer({
         style: {
           fill: 0x94a3b8,
           fontSize: 13,
-          fontFamily: 'system-ui, sans-serif',
+          fontFamily: "system-ui, sans-serif",
         },
       });
       msg.anchor.set(0.5);
@@ -140,8 +145,10 @@ export function SectorRenderer({
       const indexAtPosition = positionSeen.get(positionKey) ?? 0;
       positionSeen.set(positionKey, indexAtPosition + 1);
 
-      const spread = totalAtPosition > 1 ? Math.min(34, 12 + totalAtPosition * 3) : 0;
-      const angle = (Math.PI * 2 * indexAtPosition) / totalAtPosition - Math.PI / 2;
+      const spread =
+        totalAtPosition > 1 ? Math.min(34, 12 + totalAtPosition * 3) : 0;
+      const angle =
+        (Math.PI * 2 * indexAtPosition) / totalAtPosition - Math.PI / 2;
       const x = clamp(base.x + Math.cos(angle) * spread, 24, width - 24);
       const y = clamp(base.y + Math.sin(angle) * spread, 32, height - 32);
       const selected = key === selectedEntityId;
@@ -150,21 +157,21 @@ export function SectorRenderer({
       marker.x = x;
       marker.y = y;
       if (onEntitySelect) {
-        marker.eventMode = 'static';
-        marker.cursor = 'pointer';
-        marker.on('pointertap', () => onEntitySelect(entity));
+        marker.eventMode = "static";
+        marker.cursor = "pointer";
+        marker.on("pointertap", () => onEntitySelect(entity));
       }
       markerLayer.addChild(marker);
 
-      if (selected || entity.relation !== 'foreign') {
+      if (selected || entity.relation !== "foreign") {
         const label = new PIXI.Text({
           text: getEntityLabel?.(entity) ?? entity.title,
           style: {
             fill: selected ? 0xffffff : markerLabelColor(entity),
             fontSize: selected ? 12 : 10,
-            fontFamily: 'system-ui, sans-serif',
-            fontWeight: selected ? '700' : '500',
-            align: 'center',
+            fontFamily: "system-ui, sans-serif",
+            fontWeight: selected ? "700" : "500",
+            align: "center",
             wordWrap: true,
             wordWrapWidth: 128,
           },
@@ -181,7 +188,9 @@ export function SectorRenderer({
 }
 
 function drawBackground(stage: PIXI.Container, width: number, height: number) {
-  const bg = new PIXI.Graphics().rect(0, 0, width, height).fill({ color: 0x07101d });
+  const bg = new PIXI.Graphics()
+    .rect(0, 0, width, height)
+    .fill({ color: 0x07101d });
   stage.addChild(bg);
 
   const stars = new PIXI.Graphics();
@@ -189,7 +198,9 @@ function drawBackground(stage: PIXI.Container, width: number, height: number) {
     const x = pseudoRandom(i, 3) * width;
     const y = pseudoRandom(i, 17) * height;
     const radius = i % 9 === 0 ? 1.2 : 0.7;
-    stars.circle(x, y, radius).fill({ color: 0xcbd5e1, alpha: i % 9 === 0 ? 0.38 : 0.18 });
+    stars
+      .circle(x, y, radius)
+      .fill({ color: 0xcbd5e1, alpha: i % 9 === 0 ? 0.38 : 0.18 });
   }
   stage.addChild(stars);
 
@@ -257,19 +268,27 @@ function projectEntity(
   height: number,
 ) {
   const pad = Math.max(42, Math.min(width, height) * 0.14);
-  const scale = Math.min((width - pad * 2) / bounds.spanX, (height - pad * 2) / bounds.spanY);
+  const scale = Math.min(
+    (width - pad * 2) / bounds.spanX,
+    (height - pad * 2) / bounds.spanY,
+  );
   return {
     x: width / 2 + (entity.worldPosition.x - bounds.centerX) * scale,
     y: height / 2 + (entity.worldPosition.y - bounds.centerY) * scale,
   };
 }
 
-function drawMarker(entity: SectorPresenceEntity, selected: boolean): PIXI.Container {
+function drawMarker(
+  entity: SectorPresenceEntity,
+  selected: boolean,
+): PIXI.Container {
   const container = new PIXI.Container();
   const palette = markerPalette(entity);
-  const radius = entity.visibility === 'full' ? 8 : 7;
+  const radius = entity.visibility === "full" ? 8 : 7;
 
-  const hit = new PIXI.Graphics().circle(0, 0, 24).fill({ color: 0xffffff, alpha: 0.001 });
+  const hit = new PIXI.Graphics()
+    .circle(0, 0, 24)
+    .fill({ color: 0xffffff, alpha: 0.001 });
   container.addChild(hit);
 
   if (selected) {
@@ -283,14 +302,30 @@ function drawMarker(entity: SectorPresenceEntity, selected: boolean): PIXI.Conta
 
   const halo = new PIXI.Graphics()
     .circle(0, 0, radius + 8)
-    .fill({ color: palette.halo, alpha: entity.visibility === 'full' ? 0.34 : 0.22 });
+    .fill({
+      color: palette.halo,
+      alpha: entity.visibility === "full" ? 0.34 : 0.22,
+    });
   container.addChild(halo);
 
   const shape = new PIXI.Graphics();
-  if (entity.entityType === 'fleet') {
+  if (entity.entityType === "fleet") {
+    if (entity.motion?.state === "moving") {
+      shape
+        .moveTo(-3, radius + 8)
+        .lineTo(0, radius + 18)
+        .lineTo(3, radius + 8)
+        .fill({
+          color: entity.relation === "foreign" ? 0xfca5a5 : 0x93c5fd,
+          alpha: 0.58,
+        });
+    }
     shape
       .circle(0, 0, radius + 5)
-      .fill({ color: palette.halo, alpha: entity.visibility === 'full' ? 0.22 : 0.12 })
+      .fill({
+        color: palette.halo,
+        alpha: entity.visibility === "full" ? 0.22 : 0.12,
+      })
       .moveTo(-radius - 6, radius + 4)
       .lineTo(-2, -radius - 6)
       .quadraticCurveTo(0, -radius - 9, 2, -radius - 6)
@@ -299,18 +334,37 @@ function drawMarker(entity: SectorPresenceEntity, selected: boolean): PIXI.Conta
       .lineTo(0, radius + 8)
       .lineTo(-4, radius + 1)
       .lineTo(-radius - 6, radius + 4)
-      .fill({ color: palette.fill, alpha: entity.visibility === 'full' ? 0.95 : 0.56 })
-      .stroke({ width: selected ? 2 : 1.2, color: palette.stroke, alpha: 0.98 });
-  } else if (entity.entityType === 'colony') {
+      .fill({
+        color: palette.fill,
+        alpha: entity.visibility === "full" ? 0.95 : 0.56,
+      })
+      .stroke({
+        width: selected ? 2 : 1.2,
+        color: palette.stroke,
+        alpha: 0.98,
+      });
+    shape.rotation = fleetMarkerRotation(entity);
+  } else if (entity.entityType === "colony") {
     shape
       .poly([0, -radius - 3, radius + 3, 0, 0, radius + 3, -radius - 3, 0])
-      .fill({ color: palette.fill, alpha: entity.visibility === 'full' ? 0.95 : 0.52 })
-      .stroke({ width: selected ? 2 : 1.2, color: palette.stroke, alpha: 0.98 });
-  } else if (entity.entityType === 'home') {
+      .fill({
+        color: palette.fill,
+        alpha: entity.visibility === "full" ? 0.95 : 0.52,
+      })
+      .stroke({
+        width: selected ? 2 : 1.2,
+        color: palette.stroke,
+        alpha: 0.98,
+      });
+  } else if (entity.entityType === "home") {
     shape
       .circle(0, 0, radius + 1)
       .fill({ color: palette.fill, alpha: 0.98 })
-      .stroke({ width: selected ? 2 : 1.2, color: palette.stroke, alpha: 0.98 });
+      .stroke({
+        width: selected ? 2 : 1.2,
+        color: palette.stroke,
+        alpha: 0.98,
+      });
   } else {
     shape
       .rect(-radius, -radius, radius * 2, radius * 2)
@@ -319,7 +373,7 @@ function drawMarker(entity: SectorPresenceEntity, selected: boolean): PIXI.Conta
   }
   container.addChild(shape);
 
-  if (entity.entityType === 'home') {
+  if (entity.entityType === "home") {
     const cross = new PIXI.Graphics()
       .moveTo(-radius - 5, 0)
       .lineTo(radius + 5, 0)
@@ -331,12 +385,12 @@ function drawMarker(entity: SectorPresenceEntity, selected: boolean): PIXI.Conta
 
   if (isUnknownSectorEntity(entity)) {
     const unknown = new PIXI.Text({
-      text: '?',
+      text: "?",
       style: {
         fill: 0xfffbeb,
         fontSize: 10,
-        fontFamily: 'system-ui, sans-serif',
-        fontWeight: '700',
+        fontFamily: "system-ui, sans-serif",
+        fontWeight: "700",
       },
     });
     unknown.anchor.set(0.5);
@@ -346,19 +400,25 @@ function drawMarker(entity: SectorPresenceEntity, selected: boolean): PIXI.Conta
   return container;
 }
 
+function fleetMarkerRotation(entity: SectorPresenceEntity): number {
+  const motion = entity.motion;
+  if (!motion || Math.hypot(motion.dx, motion.dy) < 0.01) return 0;
+  return Math.atan2(motion.dy, motion.dx) + Math.PI / 2;
+}
+
 function markerPalette(entity: SectorPresenceEntity) {
-  if (entity.relation === 'foreign') {
+  if (entity.relation === "foreign") {
     return FOREIGN_TYPE_COLORS[entity.entityType] ?? RELATION_COLORS.foreign;
   }
-  if (entity.relation === 'self') {
+  if (entity.relation === "self") {
     return ENTITY_TYPE_COLORS[entity.entityType] ?? RELATION_COLORS.self;
   }
   return RELATION_COLORS.public;
 }
 
 function markerLabelColor(entity: SectorPresenceEntity): number {
-  if (entity.relation === 'foreign') return RELATION_COLORS.foreign.label;
-  if (entity.relation === 'self') return RELATION_COLORS.self.label;
+  if (entity.relation === "foreign") return RELATION_COLORS.foreign.label;
+  if (entity.relation === "self") return RELATION_COLORS.self.label;
   return RELATION_COLORS.public.label;
 }
 

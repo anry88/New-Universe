@@ -66,13 +66,12 @@ Telegram Stars diamond-pack monetization.
 - **`service.ts`** — shared Stars logic for pack listing, invoice payloads with checkout ids, pre-checkout validation, idempotent successful-payment delivery, explicit checkout confirmation/recovery from Telegram transaction history with current diamond balance for already-delivered checkouts, transaction-history reconciliation for missed payments, `/paysupport` request storage, admin refund/reject/ask operations, Bot API `refundStarPayment`, and refund diamond reversal.
 - **`monetization.test.ts`** — pack-ladder, invoice, payment idempotency, checkout confirmation/recovery, missed-payment reconciliation, support request, and refund coverage.
 
-
 ## `multiplayer/`
 
 Sector map visibility for Phase 3.
 
 - **`README.md`** — [multiplayer/presence documentation](./multiplayer/README.md).
-- **`presence.ts`** — `getSectorPresence(viewerId, sectorX, sectorY, sectorZ)` builds explicit home/colony/fleet/public-sector `SectorPresencePayload` markers for `GET /multiplayer/sectors/:sx/:sy/:sz/presence`, while `getSectorSystemAnchors(viewerId)` builds the Home/discovered/colony/fleet selector for `GET /multiplayer/systems`.
+- **`presence.ts`** — `getSectorPresence(viewerId, sectorX, sectorY, sectorZ)` builds explicit home/colony/fleet/public-sector `SectorPresencePayload` markers for `GET /multiplayer/sectors/:sx/:sy/:sz/presence`, including non-destroyed docked, stationed, and active `in_flight`/`returning` fleet positions with movement vectors/recent-combat timestamps for live sector radar, while `getSectorSystemAnchors(viewerId)` builds the Home/discovered/colony/fleet selector for `GET /multiplayer/systems`.
 - **`presence.test.ts`** — asserts foreign homeworlds never appear and foreign colonies are masked.
 
 ## `me/`
@@ -93,7 +92,7 @@ Building construction and queue management. [Detailed documentation](./buildings
   3. Checks that the planet has a free slot (`buildingCount < planet.slotCount`).
   4. Ensures the build queue is not full (max 1 concurrent build without premium).
   5. Verifies all dependency buildings exist at the required level.
-  5a. Applies shared planet-specific gates: mines require solid mineral deposits (including ice), drills require gas deposits, oil pumps require oil or methane, and biomass harvesters require water or biomass. Refineries are processors and can use either oil or methane recipes, so they are not tied to an oil deposit.
+     5a. Applies shared planet-specific gates: mines require solid mineral deposits (including ice), drills require gas deposits, oil pumps require oil or methane, and biomass harvesters require water or biomass. Refineries are processors and can use either oil or methane recipes, so they are not tied to an oil deposit.
   6. Deducts resource costs via `spendResources` (from `features/resources/transactions.ts`).
   7. Creates a `buildings` row with `queueAction='build'` and `queueCompletesAt = now + baseTime`.
   8. After the transaction commits, optionally schedules a BullMQ delayed job through the shared `completion-queue.ts` producer when `ENABLE_BULLMQ=true`; otherwise the periodic Postgres worker and active-session sync finalize due rows.
@@ -208,7 +207,7 @@ Server-authoritative ship-vs-ship combat ticks.
   - `resolveBomberHits(bombers, buildingsByPlanet)` (P3-COM-007) routes `engagementRange='orbital'` ships against enemy buildings in the bomber's host system. Per-planet target is chosen via `selectBomberTargetForPlanet`: non-CC buildings (lowest id) before any Command Center.
   - `computeTickDamage(defender, totalDps, nowMs, { timeScale? })` returns elapsed-time damage capped by a short visible-combat window, so one worker tick cannot erase ships from a stale or delayed engagement; ship-vs-ship callers use `SHIP_COMBAT_DAMAGE_TIME_SCALE` to make engagements last longer without rewriting catalog DPS/HP.
 - **`tick-combat.ts`** — `processDueCombat({ userId?, skipNotifications?, now? })` is the orchestrator.
-  - **Ship-vs-ship pass**: loads alive (`status != 'destroyed'`) ships joined with their host system, computes positions (planet coordinates at rest, system-map interpolation for same-system Jump Gate point routes, `calculateExpeditionPosition` fallback for other `'moving'` ships), runs the engine, routes incoming fire through active allied shields before hull HP, applies capped and time-scaled damage transactionally, marks first-contact/re-engagement combat with deduped `combat_started` notifications, marks destroyed hulls (`status='destroyed'`, `hp=0`, `destroyedAt`, drops in-flight expeditions), stamps `lastCombatTickAt`, emits `ship_destroyed` notifications.
+  - **Ship-vs-ship pass**: loads alive (`status != 'destroyed'`) ships joined with their host system, computes positions (planet coordinates at rest, system-map interpolation for same-system and destination-leg Jump Gate point routes, `calculateExpeditionPosition` fallback for other `'moving'` ships), runs the engine, scopes online `/me`-triggered ticks to hits involving the active user while periodic worker ticks remain global, routes incoming fire through active allied shields before hull HP, applies capped and time-scaled damage transactionally, marks first-contact/re-engagement combat with deduped `combat_started` notifications, marks destroyed hulls (`status='destroyed'`, `hp=0`, `destroyedAt`, drops in-flight expeditions), stamps `lastCombatTickAt`, emits `ship_destroyed` notifications.
   - **Bomber-vs-building pass** (P3-COM-007): loads all alive buildings (`destroyedAt IS NULL` and `hp > 0`) in any system that contains a bomber, joins with `building_types` for armor + `colonies` for owner, runs `resolveBomberHits`, applies elapsed-time damage with the same `lastCombatTickAt` idempotency pattern. Destroying the Command Center cascades: the entire planet's buildings + colony row are deleted in one transaction, the planet becomes a clean slate for re-colonization, and a `colony_destroyed` notification fires. Non-CC destruction emits `building_destroyed`.
   - Runs on a 10 s interval worker plus once per active-session `/me` call.
 - **`engine.test.ts`** — pure tests for engagement range, effective DPS, protection rules, one-target-per-attacker ship-vs-ship selection, rocket-carrier payload target/counter behavior, elapsed-time idempotency/re-engagement math, plus bomber target priority (CC last) and aggregation across multiple bombers.
