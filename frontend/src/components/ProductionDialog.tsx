@@ -8,6 +8,7 @@ import type {
 } from '@shared/types/production';
 import type { Locale } from '@shared/types/locale';
 import type { Building } from '@shared/types/world';
+import { productionSlotsForBuildingLevel } from '@shared/config/productionRecipes';
 import { apiFetch } from '../lib/api';
 import { canStartProduction, defaultProductionRecipeId, productionBlockedText } from '../lib/production';
 import { formatTimerDuration, timerSnapshot } from '../lib/timers';
@@ -145,6 +146,8 @@ export const ProductionDialog: React.FC<ProductionDialogProps> = ({
   const activeProcesses = orders.filter(
     (order) => (order.status === 'queued' || order.status === 'paused') && order.buildingId === building?.id,
   );
+  const activeSlots = preview?.activeSlots ?? activeProcesses.length;
+  const maxSlots = preview?.maxSlots ?? productionSlotsForBuildingLevel(building?.level ?? 1);
   const blocked = productionBlockedText(preview, locale);
 
   useEffect(() => {
@@ -279,6 +282,16 @@ export const ProductionDialog: React.FC<ProductionDialogProps> = ({
                   <span className="prod-detail-label">{t('production.duration')}</span>
                   <span className="prod-detail-value">{formatTimerDuration(preview.durationSec)}</span>
                 </div>
+                <div className="prod-detail-line">
+                  <span className="prod-detail-label">{t('production.slots')}</span>
+                  <span className="prod-detail-value">{t('production.slotUsage', { active: activeSlots, max: maxSlots })}</span>
+                </div>
+                {(preview.energyPerHour ?? 0) > 0 ? (
+                  <div className="prod-detail-line">
+                    <span className="prod-detail-label">{t('production.energyPerSlot')}</span>
+                    <span className="prod-detail-value">-{formatAmount(preview.energyPerHour ?? 0)}/h</span>
+                  </div>
+                ) : null}
                 {blocked ? <div className="prod-blocked">{blocked}</div> : null}
               </div>
             </section>

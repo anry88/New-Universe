@@ -82,7 +82,7 @@ export function solarEnergyMultiplier(planet: Pick<PlanetEnergyInput, 'id' | 'na
 }
 
 export function windEnergyMultiplier(planet: Pick<PlanetEnergyInput, 'size'>): number {
-  return roundEnergy(clamp(0.55 + planet.size / 24, 0.65, 1.6));
+  return roundEnergy(clamp(planet.size / 22, 0.45, 1.75));
 }
 
 function isOperational(building: PlanetEnergyBuildingRow): boolean {
@@ -135,7 +135,7 @@ function processEnergyConsumptionForBuilding(
   if (!isOperational(building) || activeProcessCount <= 0) return 0;
   if (!PROCESS_ENERGY_CONSUMER_TYPES.has(building.typeId)) return 0;
   return applyEnergyRequirement(
-    Math.max(0, Number(building.type?.energyConsumption ?? 0)) * building.level * activeProcessCount,
+    Math.max(0, Number(building.type?.energyConsumption ?? 0)) * activeProcessCount,
     effects,
   );
 }

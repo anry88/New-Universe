@@ -19,10 +19,67 @@ describe('planet energy formulas', () => {
 
   it('scales wind output by planet size as a mass proxy', () => {
     const small = windEnergyMultiplier({ size: 6 });
+    const homeCapital = windEnergyMultiplier({ size: 22 });
     const large = windEnergyMultiplier({ size: 24 });
 
+    expect(homeCapital).toBe(1);
     expect(large).toBeGreaterThan(small);
     expect(large / small).toBeGreaterThan(1.5);
+  });
+
+  it('makes a size-22 level-1 wind turbine produce 75 energy before research', () => {
+    const now = new Date();
+    const state = resolvePlanetEnergyStateFromSnapshot(
+      {
+        id: 'home-capital',
+        name: 'home-1',
+        biome: 'green',
+        size: 22,
+        buildings: [
+          {
+            id: 'wind-home',
+            typeId: 'wind_turbine',
+            level: 1,
+            queueAction: null,
+            type: { id: 'wind_turbine', baseOutput: { energy: 75 }, energyConsumption: 0 },
+          },
+        ],
+      },
+      { amount: '0', lastUpdateAt: now },
+      { now },
+    );
+
+    expect(state.produced).toBe(75);
+  });
+
+  it('charges active recipe energy per occupied production slot, not per building level', () => {
+    const now = new Date();
+    const state = resolvePlanetEnergyStateFromSnapshot(
+      {
+        id: 'production-energy-slots',
+        name: 'home-2',
+        biome: 'green',
+        size: 22,
+        buildings: [
+          {
+            id: 'smelter-l5',
+            typeId: 'smelter',
+            level: 5,
+            queueAction: null,
+            type: { id: 'smelter', baseOutput: {}, energyConsumption: 30 },
+          },
+        ],
+        activeProductionOrders: [
+          { buildingId: 'smelter-l5', status: 'queued' },
+          { buildingId: 'smelter-l5', status: 'queued' },
+        ],
+      },
+      { amount: '100', lastUpdateAt: now },
+      { now },
+    );
+
+    expect(state.consumed).toBe(60);
+    expect(state.buildingStates['smelter-l5'].consumption).toBe(60);
   });
 
   it('applies completed Energy research to production, storage, and demand', async () => {

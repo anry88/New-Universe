@@ -36,6 +36,8 @@ export interface ProductionPreviewResponse {
   durationSec: number;
   completesAt: string;
   energyPerHour?: number;
+  activeSlots?: number;
+  maxSlots?: number;
   canStart: boolean;
   blockedReason?: {
     code:
@@ -44,7 +46,8 @@ export interface ProductionPreviewResponse {
       | 'production_invalid_quantity'
       | 'production_insufficient_resources'
       | 'production_insufficient_energy'
-      | 'production_output_capacity';
+      | 'production_output_capacity'
+      | 'production_slots_full';
     message: { ru: string; en: string };
     details?: Record<string, unknown>;
   };

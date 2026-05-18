@@ -293,20 +293,19 @@ describe('Combat regression suite', () => {
     }).returning();
 
     const t0 = new Date('2026-08-01T00:00:00Z');
-    await processDueCombat({ now: t0, skipNotifications: true }); // Stamp all
-    
-    // 10 seconds later - SHIP COMBAT and some bombing
-    const t1 = new Date(t0.getTime() + 10_000);
-    const combatRes = await processDueCombat({ now: t1, skipNotifications: true });
-    expect(combatRes.destroyed, `${AREA.combat} Victim ship destroyed`).toContain(victimShip.id);
+    await processDueCombat({ now: t0, skipNotifications: true }); // Stamp initial contacts
 
-    // 1 minute later
-    const t2 = new Date(t1.getTime() + 60_000);
-    await processDueCombat({ now: t2, skipNotifications: true }); // CC gets stamped at T2
-    
-    // Another minute later
-    const t3 = new Date(t2.getTime() + 60_000);
-    await processDueCombat({ now: t3, skipNotifications: true }); // CC takes damage at T3
+    // Combat damage is capped per tick and long gaps are treated as
+    // re-engagements, so this regression advances at the worker cadence.
+    let victimDestroyed = false;
+    for (const seconds of [10, 20, 30, 40, 50, 60, 70, 80, 90]) {
+      const combatRes = await processDueCombat({
+        now: new Date(t0.getTime() + seconds * 1000),
+        skipNotifications: true,
+      });
+      victimDestroyed ||= combatRes.destroyed.includes(victimShip.id);
+    }
+    expect(victimDestroyed, `${AREA.combat} Victim ship destroyed`).toBe(true);
     
     const mineAfter = await db.query.buildings.findFirst({ where: eq(buildings.id, victimMine.id) });
     const ccAfter = await db.query.buildings.findFirst({ 

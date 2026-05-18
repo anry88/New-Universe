@@ -13,6 +13,23 @@ export interface ProductionRecipe {
   baseDurationSec: number;
 }
 
+export const PRODUCTION_SLOT_UNLOCK_LEVELS = [1, 3, 5, 7, 9] as const;
+export const MAX_PRODUCTION_SLOTS = PRODUCTION_SLOT_UNLOCK_LEVELS.length;
+export const PRODUCTION_LEVEL_SPEED_MULTIPLIER = 1.12;
+
+function normalizeBuildingLevel(level: number): number {
+  return Math.max(1, Math.floor(Number.isFinite(level) ? level : 1));
+}
+
+export function productionSlotsForBuildingLevel(level: number): number {
+  const normalizedLevel = normalizeBuildingLevel(level);
+  return Math.min(MAX_PRODUCTION_SLOTS, Math.max(1, Math.floor((normalizedLevel + 1) / 2)));
+}
+
+export function productionSpeedMultiplierForBuildingLevel(level: number): number {
+  return Math.pow(PRODUCTION_LEVEL_SPEED_MULTIPLIER, normalizeBuildingLevel(level) - 1);
+}
+
 export const PRODUCTION_RECIPES: ProductionRecipe[] = [
   {
     id: 'steel_from_iron_water',
