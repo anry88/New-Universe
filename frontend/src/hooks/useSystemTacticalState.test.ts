@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { SystemTacticalStateResponse } from "@shared/types/system-tactical";
-import { shouldPollSystemTacticalState } from "./useSystemTacticalState";
+import {
+  shouldPollSystemTacticalState,
+  systemTacticalRefetchInterval,
+} from "./useSystemTacticalState";
 
 function tacticalState(
   lastCombatTickAt: string | null,
+  status: "in_flight" | "returning" | "stationed" = "stationed",
 ): SystemTacticalStateResponse {
   return {
     systemId: "system-1",
@@ -14,7 +18,7 @@ function tacticalState(
         systemId: "system-1",
         relation: "foreign",
         visibility: "summary",
-        status: "stationed",
+        status,
         ownerAlias: "@rival",
         shipTypeId: "light_fighter",
         hp: 175,
@@ -56,6 +60,15 @@ describe("shouldPollSystemTacticalState", () => {
     ).toBe(false);
   });
 
+  it("continues polling while a visible foreign contact is moving", () => {
+    expect(
+      shouldPollSystemTacticalState(tacticalState(null, "in_flight")),
+    ).toBe(true);
+    expect(
+      shouldPollSystemTacticalState(tacticalState(null, "returning")),
+    ).toBe(true);
+  });
+
   it("does not poll empty or non-combat tactical responses", () => {
     expect(shouldPollSystemTacticalState(undefined)).toBe(false);
     expect(
@@ -66,5 +79,18 @@ describe("shouldPollSystemTacticalState", () => {
       }),
     ).toBe(false);
     expect(shouldPollSystemTacticalState(tacticalState(null))).toBe(false);
+  });
+
+  it("keeps a slow refresh even without active tactical contacts", () => {
+    expect(
+      systemTacticalRefetchInterval({
+        systemId: "system-1",
+        updatedAt: "2026-06-01T00:00:00.000Z",
+        fleetContacts: [],
+      }),
+    ).toBe(15_000);
+    expect(
+      systemTacticalRefetchInterval(tacticalState(null, "in_flight")),
+    ).toBe(5_000);
   });
 });

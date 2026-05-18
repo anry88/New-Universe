@@ -1,14 +1,15 @@
-import { and, eq, ne, sql } from 'drizzle-orm';
+import { and, eq, ne, sql } from "drizzle-orm";
 import type {
   SystemTacticalFleetContact,
+  SystemTacticalFleetMotion,
   SystemTacticalStateResponse,
-} from '@shared/types/system-tactical.js';
-import { SHIP_STATUS_DESTROYED } from '@shared/types/combat.js';
+} from "@shared/types/system-tactical.js";
+import { SHIP_STATUS_DESTROYED } from "@shared/types/combat.js";
 import {
   systemMapJumpGatePoint,
   type SystemMapPoint,
-} from '@shared/format/systemMapLayout.js';
-import { db as defaultDb } from '../../db/index.js';
+} from "@shared/format/systemMapLayout.js";
+import { db as defaultDb } from "../../db/index.js";
 import {
   colonies,
   discoveredSystems,
@@ -17,7 +18,7 @@ import {
   ships,
   systems,
   users,
-} from '../../db/schema.js';
+} from "../../db/schema.js";
 
 type SystemsDatabase = typeof defaultDb;
 
@@ -26,24 +27,36 @@ interface GetSystemTacticalStateOptions {
   now?: Date;
 }
 
-const TACTICAL_EXPEDITION_STATUSES = ['in_flight', 'returning', 'stationed'] as const;
-type TacticalExpeditionStatus = typeof TACTICAL_EXPEDITION_STATUSES[number];
+const TACTICAL_EXPEDITION_STATUSES = [
+  "in_flight",
+  "returning",
+  "stationed",
+] as const;
+type TacticalExpeditionStatus = (typeof TACTICAL_EXPEDITION_STATUSES)[number];
+
+interface TacticalExpeditionProjection {
+  point: SystemMapPoint;
+  motion: SystemTacticalFleetMotion | null;
+}
 
 function serializeDate(value: Date | string | null | undefined): string | null {
   if (!value) return null;
   return new Date(value).toISOString();
 }
 
-function maskPublicAlias(user: { tgUsername: string | null; tgFirstName: string | null }): string | null {
+function maskPublicAlias(user: {
+  tgUsername: string | null;
+  tgFirstName: string | null;
+}): string | null {
   if (user.tgUsername) return `@${user.tgUsername.slice(0, 12)}`;
   if (user.tgFirstName) return `${user.tgFirstName.slice(0, 1)}...`;
   return null;
 }
 
 function pointFromUnknown(value: unknown): SystemMapPoint | null {
-  if (!value || typeof value !== 'object') return null;
+  if (!value || typeof value !== "object") return null;
   const point = value as Record<string, unknown>;
-  return typeof point.x === 'number' && typeof point.y === 'number'
+  return typeof point.x === "number" && typeof point.y === "number"
     ? { x: point.x, y: point.y }
     : null;
 }
@@ -78,54 +91,94 @@ function interpolatePoint(
   };
 }
 
-function pointForTacticalExpedition(
+function motionBetweenPoints(
+  start: SystemMapPoint,
+  end: SystemMapPoint,
+  now: Date,
+): SystemTacticalFleetMotion | null {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  if (Math.hypot(dx, dy) < 0.01) return null;
+  return {
+    state: "moving",
+    dx,
+    dy,
+    updatedAt: now.toISOString(),
+  };
+}
+
+function projectionForTacticalExpedition(
   row: { status: TacticalExpeditionStatus; result: unknown; eta: Date },
   systemId: string,
   now: Date,
-): SystemMapPoint | null {
-  const result = row.result && typeof row.result === 'object'
-    ? row.result as Record<string, unknown>
-    : null;
-  if (!result || result.routeMode !== 'jump_gate') return null;
+): TacticalExpeditionProjection | null {
+  const result =
+    row.result && typeof row.result === "object"
+      ? (row.result as Record<string, unknown>)
+      : null;
+  if (!result || result.routeMode !== "jump_gate") return null;
 
   const destinationSystemId =
-    typeof result.destinationSystemId === 'string' ? result.destinationSystemId : null;
+    typeof result.destinationSystemId === "string"
+      ? result.destinationSystemId
+      : null;
   const originSystemId =
-    typeof result.originSystemId === 'string' ? result.originSystemId : null;
+    typeof result.originSystemId === "string" ? result.originSystemId : null;
   const targetPoint = pointFromUnknown(result.targetSystemPoint);
   const originPoint = pointFromUnknown(result.originSystemPoint);
   const gatePoint = systemMapJumpGatePoint();
 
-  if (row.status === 'stationed') {
-    return destinationSystemId === systemId ? targetPoint : null;
+  if (row.status === "stationed") {
+    return destinationSystemId === systemId && targetPoint
+      ? { point: targetPoint, motion: null }
+      : null;
   }
 
   const travelled = expeditionTravelled(result, row.eta, now);
   if (travelled === null) return null;
 
   if (destinationSystemId === systemId && targetPoint) {
-    const start = originSystemId === systemId && originPoint ? originPoint : gatePoint;
+    const start =
+      originSystemId === systemId && originPoint ? originPoint : gatePoint;
     const originLegDistance = Number(result.originGateDistance ?? 0);
-    const targetLegDistance = Number(result.targetGateDistance ?? result.distance ?? 0);
-    if (!Number.isFinite(targetLegDistance) || targetLegDistance <= 0) return null;
+    const targetLegDistance = Number(
+      result.targetGateDistance ?? result.distance ?? 0,
+    );
+    if (!Number.isFinite(targetLegDistance) || targetLegDistance <= 0)
+      return null;
     const targetLegProgress =
-      row.status === 'returning'
+      row.status === "returning"
         ? 1 - (travelled - originLegDistance) / targetLegDistance
         : (travelled - originLegDistance) / targetLegDistance;
     if (targetLegProgress < 0 || targetLegProgress > 1) return null;
-    return interpolatePoint(start, targetPoint, targetLegProgress);
+    return {
+      point: interpolatePoint(start, targetPoint, targetLegProgress),
+      motion:
+        row.status === "returning"
+          ? motionBetweenPoints(targetPoint, start, now)
+          : motionBetweenPoints(start, targetPoint, now),
+    };
   }
 
   if (originSystemId === systemId && originPoint) {
     const end = gatePoint;
-    const originLegDistance = Number(result.originGateDistance ?? result.distance ?? 0);
-    if (!Number.isFinite(originLegDistance) || originLegDistance <= 0) return null;
+    const originLegDistance = Number(
+      result.originGateDistance ?? result.distance ?? 0,
+    );
+    if (!Number.isFinite(originLegDistance) || originLegDistance <= 0)
+      return null;
     const originLegProgress =
-      row.status === 'returning'
+      row.status === "returning"
         ? 1 - travelled / originLegDistance
         : travelled / originLegDistance;
     if (originLegProgress < 0 || originLegProgress > 1) return null;
-    return interpolatePoint(originPoint, end, originLegProgress);
+    return {
+      point: interpolatePoint(originPoint, end, originLegProgress),
+      motion:
+        row.status === "returning"
+          ? motionBetweenPoints(end, originPoint, now)
+          : motionBetweenPoints(originPoint, end, now),
+    };
   }
 
   return null;
@@ -141,7 +194,8 @@ async function canViewSystemTacticalState(
   });
 
   if (!system) return false;
-  if (system.isHome && system.ownerId && system.ownerId !== userId) return false;
+  if (system.isHome && system.ownerId && system.ownerId !== userId)
+    return false;
   if (system.ownerId === userId) return true;
 
   const discovery = await database.query.discoveredSystems.findFirst({
@@ -223,33 +277,38 @@ export async function loadSystemFleetContacts(
     );
 
   return rows.flatMap((row) => {
-    const status = TACTICAL_EXPEDITION_STATUSES.includes(row.status as TacticalExpeditionStatus)
-      ? row.status as TacticalExpeditionStatus
+    const status = TACTICAL_EXPEDITION_STATUSES.includes(
+      row.status as TacticalExpeditionStatus,
+    )
+      ? (row.status as TacticalExpeditionStatus)
       : null;
     if (!status) return [];
 
-    const point = pointForTacticalExpedition(
+    const projection = projectionForTacticalExpedition(
       { status, result: row.result, eta: row.eta },
       systemId,
       now,
     );
-    if (!point) return [];
+    if (!projection) return [];
 
-    return [{
-      id: row.shipId,
-      systemId,
-      relation: 'foreign',
-      visibility: 'summary',
-      status,
-      ownerAlias: maskPublicAlias(row),
-      shipTypeId: row.shipTypeId,
-      hp: row.shipHp,
-      maxHp: row.shipMaxHp,
-      combatStats: row.shipCombatStats,
-      lastCombatTickAt: serializeDate(row.shipLastCombatTickAt),
-      point,
-      stationedAt: serializeDate(row.eta),
-    }];
+    return [
+      {
+        id: row.shipId,
+        systemId,
+        relation: "foreign",
+        visibility: "summary",
+        status,
+        ownerAlias: maskPublicAlias(row),
+        shipTypeId: row.shipTypeId,
+        hp: row.shipHp,
+        maxHp: row.shipMaxHp,
+        combatStats: row.shipCombatStats,
+        lastCombatTickAt: serializeDate(row.shipLastCombatTickAt),
+        point: projection.point,
+        motion: projection.motion,
+        stationedAt: serializeDate(row.eta),
+      },
+    ];
   });
 }
 
@@ -265,7 +324,12 @@ export async function getSystemTacticalState(
 
   return {
     systemId,
-    fleetContacts: await loadSystemFleetContacts(userId, systemId, database, now),
+    fleetContacts: await loadSystemFleetContacts(
+      userId,
+      systemId,
+      database,
+      now,
+    ),
     updatedAt: now.toISOString(),
   };
 }

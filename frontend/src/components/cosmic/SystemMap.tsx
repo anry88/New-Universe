@@ -136,7 +136,13 @@ type MapShipSelection =
   | { kind: "own"; id: string }
   | { kind: "foreign"; id: string };
 
-type WeaponVisualKind = "kinetic" | "beam" | "missile" | "thermal" | "shield" | "neutral";
+type WeaponVisualKind =
+  | "kinetic"
+  | "beam"
+  | "missile"
+  | "thermal"
+  | "shield"
+  | "neutral";
 
 interface ShipMarkerSnapshot {
   ship: Ship;
@@ -170,7 +176,10 @@ function timestamp(value?: string | null): number | null {
   return Number.isFinite(ms) ? ms : null;
 }
 
-function isRecentCombat(value: string | null | undefined, now: number): boolean {
+function isRecentCombat(
+  value: string | null | undefined,
+  now: number,
+): boolean {
   const lastCombatMs = timestamp(value);
   return lastCombatMs != null && now - lastCombatMs <= RECENT_COMBAT_WINDOW_MS;
 }
@@ -346,7 +355,9 @@ export function buildExpeditionTrailSegments(
     const result = exp.result as Record<string, unknown> | null | undefined;
     if (result?.routeMode === "jump_gate") {
       const originSystemId =
-        typeof result.originSystemId === "string" ? result.originSystemId : null;
+        typeof result.originSystemId === "string"
+          ? result.originSystemId
+          : null;
       const originSystemPoint = pointFromResult(result.originSystemPoint);
       if (result.destinationSystemId === system.id) {
         const gatePoint = systemMapJumpGatePoint();
@@ -357,7 +368,8 @@ export function buildExpeditionTrailSegments(
         const targetPlanet = exp.targetPlanetId
           ? layoutByPlanetId.get(exp.targetPlanetId)
           : null;
-        const targetPoint = targetPlanet ?? pointFromResult(result.targetSystemPoint);
+        const targetPoint =
+          targetPlanet ?? pointFromResult(result.targetSystemPoint);
         if (!targetPoint) return [];
 
         return [
@@ -395,11 +407,11 @@ export function buildExpeditionTrailSegments(
       ? { x: targetPlanet.x, y: targetPlanet.y }
       : result?.routeMode === "jump_gate"
         ? systemMapJumpGatePoint()
-      : sectorDeltaToSystemMapPoint(
-          { x: origin.x, y: origin.y },
-          Number(exp.targetX) - system.sectorX,
-          Number(exp.targetY) - system.sectorY,
-        );
+        : sectorDeltaToSystemMapPoint(
+            { x: origin.x, y: origin.y },
+            Number(exp.targetX) - system.sectorX,
+            Number(exp.targetY) - system.sectorY,
+          );
 
     return [
       {
@@ -418,6 +430,14 @@ export function fleetContactsForSystem(
   systemId: string,
 ): SystemTacticalFleetContact[] {
   return contacts.filter((contact) => contact.systemId === systemId);
+}
+
+export function fleetContactMotionAngle(
+  contact: Pick<SystemTacticalFleetContact, "motion">,
+): number | null {
+  const motion = contact.motion;
+  if (!motion || Math.hypot(motion.dx, motion.dy) < 0.01) return null;
+  return Math.atan2(motion.dy, motion.dx);
 }
 
 const ExpeditionTrailLayer = React.memo(function ExpeditionTrailLayer({
@@ -566,7 +586,10 @@ const PlanetMarkers = React.memo(function PlanetMarkers({
   );
 });
 
-function routeProgress(exp: Expedition, now: number): {
+function routeProgress(
+  exp: Expedition,
+  now: number,
+): {
   totalDistance: number;
   outboundTravelled: number;
   returnTravelled: number;
@@ -631,9 +654,7 @@ function jumpGateShipPointForSystem({
       ? result.destinationSystemId
       : null;
   const originSystemId =
-    typeof result.originSystemId === "string"
-      ? result.originSystemId
-      : null;
+    typeof result.originSystemId === "string" ? result.originSystemId : null;
   const originSystemPoint = pointFromResult(result.originSystemPoint);
   const progress = routeProgress(exp, now);
   if (!progress) return null;
@@ -659,7 +680,8 @@ function jumpGateShipPointForSystem({
         returning: false,
       };
     }
-    if (!Number.isFinite(targetLegDistance) || targetLegDistance <= 0) return null;
+    if (!Number.isFinite(targetLegDistance) || targetLegDistance <= 0)
+      return null;
 
     if (exp.status === "returning") {
       const legProgress = 1 - progress.returnTravelled / targetLegDistance;
@@ -687,7 +709,8 @@ function jumpGateShipPointForSystem({
   if (exp.status === "stationed") return null;
 
   const originLegDistance = Number(result.originGateDistance ?? 0);
-  if (!Number.isFinite(originLegDistance) || originLegDistance <= 0) return null;
+  if (!Number.isFinite(originLegDistance) || originLegDistance <= 0)
+    return null;
 
   if (isOriginSystem && originSystemPoint) {
     const legProgress = progress.outboundTravelled / originLegDistance;
@@ -695,7 +718,10 @@ function jumpGateShipPointForSystem({
     const point = interpolatePoint(originSystemPoint, gatePoint, legProgress);
     return {
       point,
-      angle: Math.atan2(gatePoint.y - originSystemPoint.y, gatePoint.x - originSystemPoint.x),
+      angle: Math.atan2(
+        gatePoint.y - originSystemPoint.y,
+        gatePoint.x - originSystemPoint.x,
+      ),
       returning: false,
     };
   }
@@ -703,7 +729,10 @@ function jumpGateShipPointForSystem({
   if (!layout) return null;
 
   if (exp.status === "returning") {
-    const originLegStart = Math.max(0, progress.totalDistance - originLegDistance);
+    const originLegStart = Math.max(
+      0,
+      progress.totalDistance - originLegDistance,
+    );
     const legProgress =
       (progress.returnTravelled - originLegStart) / originLegDistance;
     if (legProgress <= 0 || legProgress > 1) return null;
@@ -738,7 +767,9 @@ function buildShipMarkerSnapshots({
   system: HomeSystem;
   now: number;
 }): ShipMarkerSnapshot[] {
-  const expeditionByShipId = new Map(activeExpeditions.map((exp) => [exp.shipId, exp]));
+  const expeditionByShipId = new Map(
+    activeExpeditions.map((exp) => [exp.shipId, exp]),
+  );
 
   return ships.flatMap((ship, shipIdx) => {
     if (!["idle", "moving"].includes(ship.status)) return [];
@@ -782,9 +813,7 @@ function buildShipMarkerSnapshots({
           return [];
         } else if (res.distance !== undefined && res.speed) {
           const durationMs =
-            ((res.distance * 60) / res.speed) *
-            (res.engineFactor || 1) *
-            1000;
+            ((res.distance * 60) / res.speed) * (res.engineFactor || 1) * 1000;
           const etaMs = new Date(exp.eta).getTime();
           let progress = 0;
           if (exp.status === "in_flight") {
@@ -798,7 +827,9 @@ function buildShipMarkerSnapshots({
           const targetPlanet = exp.targetPlanetId
             ? layoutByPlanetId.get(exp.targetPlanetId)
             : null;
-          const resultRouteMode = (exp.result as Record<string, unknown> | null | undefined)?.routeMode;
+          const resultRouteMode = (
+            exp.result as Record<string, unknown> | null | undefined
+          )?.routeMode;
           let endX: number;
           let endY: number;
           if (targetPlanet) {
@@ -949,7 +980,9 @@ const ShipMarkers = React.memo(function ShipMarkers({
               transition: marker.isMoving
                 ? `left ${SHIP_MARKER_TICK_MS}ms linear, top ${SHIP_MARKER_TICK_MS}ms linear`
                 : "none",
-              border: isSelected ? "1px solid currentColor" : "1px solid transparent",
+              border: isSelected
+                ? "1px solid currentColor"
+                : "1px solid transparent",
               borderRadius: 8,
               background: isSelected ? "rgba(8,12,22,0.78)" : "transparent",
               padding: 2,
@@ -964,7 +997,11 @@ const ShipMarkers = React.memo(function ShipMarkers({
                 transform: `rotate(${marker.angle}rad)`,
               }}
             >
-              <ShipIcon typeId={marker.ship.typeId} size={24} tone="currentColor" />
+              <ShipIcon
+                typeId={marker.ship.typeId}
+                size={24}
+                tone="currentColor"
+              />
             </span>
             {marker.ship.combatStats?.shields && (
               <div
@@ -978,10 +1015,7 @@ const ShipMarkers = React.memo(function ShipMarkers({
                 <Shield size={10} color="#60a5fa" />
               </div>
             )}
-            <ShipHealthBar
-              hp={marker.ship.hp}
-              maxHp={marker.ship.maxHp}
-            />
+            <ShipHealthBar hp={marker.ship.hp} maxHp={marker.ship.maxHp} />
           </button>
         );
       })}
@@ -996,7 +1030,10 @@ function nearestContactForMarker(
   let best: SystemTacticalFleetContact | null = null;
   let bestDistance = Infinity;
   for (const contact of contacts) {
-    const dist = Math.hypot(marker.x - contact.point.x, marker.y - contact.point.y);
+    const dist = Math.hypot(
+      marker.x - contact.point.x,
+      marker.y - contact.point.y,
+    );
     if (dist < bestDistance) {
       best = contact;
       bestDistance = dist;
@@ -1012,7 +1049,10 @@ function nearestMarkerForContact(
   let best: ShipMarkerSnapshot | null = null;
   let bestDistance = Infinity;
   for (const marker of markers) {
-    const dist = Math.hypot(marker.x - contact.point.x, marker.y - contact.point.y);
+    const dist = Math.hypot(
+      marker.x - contact.point.x,
+      marker.y - contact.point.y,
+    );
     if (dist < bestDistance) {
       best = marker;
       bestDistance = dist;
@@ -1163,8 +1203,10 @@ const FleetContactMarkers = React.memo(function FleetContactMarkers({
         const totalAtPoint = pointTotals.get(pointKey) ?? 1;
         const indexAtPoint = pointSeen.get(pointKey) ?? 0;
         pointSeen.set(pointKey, indexAtPoint + 1);
-        const spread = totalAtPoint > 1 ? Math.min(22, 8 + totalAtPoint * 2) : 0;
-        const spreadAngle = (Math.PI * 2 * indexAtPoint) / totalAtPoint - Math.PI / 2;
+        const spread =
+          totalAtPoint > 1 ? Math.min(22, 8 + totalAtPoint * 2) : 0;
+        const spreadAngle =
+          (Math.PI * 2 * indexAtPoint) / totalAtPoint - Math.PI / 2;
         const x = contact.point.x + Math.cos(spreadAngle) * spread;
         const y = contact.point.y + Math.sin(spreadAngle) * spread;
         const title = contact.ownerAlias
@@ -1172,6 +1214,8 @@ const FleetContactMarkers = React.memo(function FleetContactMarkers({
           : t("sector.entity.unknownFleet");
         const isSelected = selectedContactId === contact.id;
         const isInCombat = isRecentCombat(contact.lastCombatTickAt, now);
+        const motionAngle = fleetContactMotionAngle(contact);
+        const isMoving = motionAngle != null;
         const tone = isInCombat ? "#FF5A6E" : "#EF4444";
 
         return (
@@ -1196,25 +1240,75 @@ const FleetContactMarkers = React.memo(function FleetContactMarkers({
                 ? "1px solid rgba(255,255,255,0.88)"
                 : "1px solid transparent",
               borderRadius: 8,
-              background:
-                isSelected
-                  ? "radial-gradient(circle at 50% 42%, rgba(239,68,68,0.25), rgba(8,12,22,0.78) 70%)"
-                  : "transparent",
+              background: isSelected
+                ? "radial-gradient(circle at 50% 42%, rgba(239,68,68,0.25), rgba(8,12,22,0.78) 70%)"
+                : "transparent",
               boxShadow: isInCombat
                 ? "0 0 18px rgba(248,113,113,0.72)"
                 : "0 0 14px rgba(239,68,68,0.38)",
               pointerEvents: isPicking ? "none" : "auto",
+              transition: isMoving ? "left 5s linear, top 5s linear" : "none",
               zIndex: isInCombat || isSelected ? 7 : 5,
               padding: 1,
               cursor: isPicking ? "inherit" : "pointer",
             }}
           >
-            <ShipIcon typeId={contact.shipTypeId} size={26} tone="currentColor" />
-            <ShipHealthBar
-              hp={contact.hp}
-              maxHp={contact.maxHp}
-              isForeign
-            />
+            {motionAngle != null ? (
+              <span
+                aria-hidden="true"
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  top: "50%",
+                  width: 8,
+                  height: 18,
+                  transform: `translate(-50%, -92%) rotate(${motionAngle + Math.PI / 2}rad)`,
+                  transformOrigin: "50% 100%",
+                  pointerEvents: "none",
+                  opacity: 0.9,
+                }}
+              >
+                <span
+                  style={{
+                    position: "absolute",
+                    left: 3,
+                    top: 4,
+                    width: 2,
+                    height: 14,
+                    borderRadius: 999,
+                    background: "currentColor",
+                    boxShadow: "0 0 8px currentColor",
+                  }}
+                />
+                <span
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    top: 0,
+                    width: 0,
+                    height: 0,
+                    borderLeft: "4px solid transparent",
+                    borderRight: "4px solid transparent",
+                    borderBottom: "6px solid currentColor",
+                  }}
+                />
+              </span>
+            ) : null}
+            <span
+              style={{
+                display: "grid",
+                placeItems: "center",
+                transform:
+                  motionAngle != null ? `rotate(${motionAngle}rad)` : "none",
+              }}
+            >
+              <ShipIcon
+                typeId={contact.shipTypeId}
+                size={26}
+                tone="currentColor"
+              />
+            </span>
+            <ShipHealthBar hp={contact.hp} maxHp={contact.maxHp} isForeign />
           </button>
         );
       })}
@@ -1222,7 +1316,10 @@ const FleetContactMarkers = React.memo(function FleetContactMarkers({
   );
 });
 
-function statusLabelForMapShip(status: string | undefined, t: (key: string) => string): string {
+function statusLabelForMapShip(
+  status: string | undefined,
+  t: (key: string) => string,
+): string {
   if (status === "idle") return t("ships.orbit");
   if (status === "moving") return t("ships.inTransit");
   if (status === "building") return t("ships.building");
@@ -1309,27 +1406,31 @@ function SelectedMapShipCard({
   const { locale, t } = useI18n();
   const isForeign = selection.kind === "foreign";
   const typeId = ownShip?.typeId ?? contact?.shipTypeId ?? shipType?.id ?? null;
-  const stats = ownShip?.combatStats ?? contact?.combatStats ?? shipType?.combatStats;
+  const stats =
+    ownShip?.combatStats ?? contact?.combatStats ?? shipType?.combatStats;
   const hp = ownShip?.hp ?? contact?.hp ?? shipType?.hp ?? 0;
   const maxHp = ownShip?.maxHp ?? contact?.maxHp ?? shipType?.hp ?? 0;
   const hullPct = hpPercent(hp, maxHp);
   const rangeKey = rangeLabelKey(stats?.engagementRange);
   const dps = combatDps(stats) || shipType?.dps || 0;
   const weaponKind = weaponVisualForCombatStats(stats);
-  const title = typeId ? getShipLabel(typeId, locale) : t("sector.entity.unknownFleet");
+  const title = typeId
+    ? getShipLabel(typeId, locale)
+    : t("sector.entity.unknownFleet");
   const status = isForeign
     ? t("map.shipStatus.hostile")
     : isRecentCombat(ownShip?.lastCombatTickAt, Date.now())
       ? t("ships.state.combat")
       : statusLabelForMapShip(ownShip?.status, t);
-  const ownAction = !isForeign && ownShip
-    ? actionForOwnMapShip({
-        ship: ownShip,
-        shipType,
-        activeExpedition,
-        t,
-      })
-    : null;
+  const ownAction =
+    !isForeign && ownShip
+      ? actionForOwnMapShip({
+          ship: ownShip,
+          shipType,
+          activeExpedition,
+          t,
+        })
+      : null;
 
   return (
     <div
@@ -1379,7 +1480,11 @@ function SelectedMapShipCard({
               marginBottom: 3,
             }}
           >
-            {(isForeign ? t("map.shipContact.hostile") : t("map.shipContact.own")).toUpperCase()} · {status}
+            {(isForeign
+              ? t("map.shipContact.hostile")
+              : t("map.shipContact.own")
+            ).toUpperCase()}{" "}
+            · {status}
           </div>
           <div
             style={{
@@ -1457,15 +1562,22 @@ function SelectedMapShipCard({
           <>
             <div className="ship-stat" style={{ textAlign: "left" }}>
               <span>{t("expedition.fuel")}</span>
-              <b>{ownShip?.fuel ?? 0} / {shipType?.fuelCapacity ?? 0}</b>
+              <b>
+                {ownShip?.fuel ?? 0} / {shipType?.fuelCapacity ?? 0}
+              </b>
             </div>
             <div className="ship-stat" style={{ textAlign: "left" }}>
               <span>{t("expedition.jumpFuel")}</span>
-              <b>{ownShip?.jumpFuel ?? 0} / {shipType?.jumpFuelCapacity ?? 0}</b>
+              <b>
+                {ownShip?.jumpFuel ?? 0} / {shipType?.jumpFuelCapacity ?? 0}
+              </b>
             </div>
           </>
         ) : contact?.ownerAlias ? (
-          <div className="ship-stat" style={{ textAlign: "left", gridColumn: "1 / -1" }}>
+          <div
+            className="ship-stat"
+            style={{ textAlign: "left", gridColumn: "1 / -1" }}
+          >
             <span>{t("map.owner")}</span>
             <b>{contact.ownerAlias}</b>
           </div>
@@ -1575,7 +1687,9 @@ export function CosmicSystemRenderer({
   const containerRef = useRef<HTMLDivElement>(null);
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 0.3 });
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [selectedShip, setSelectedShip] = useState<MapShipSelection | null>(null);
+  const [selectedShip, setSelectedShip] = useState<MapShipSelection | null>(
+    null,
+  );
   const [now, setNow] = useState(() => Date.now());
   const [pointerCount, setPointerCount] = useState(0);
   const [isColonyDialogOpen, setIsColonyDialogOpen] = useState(false);
@@ -1610,8 +1724,7 @@ export function CosmicSystemRenderer({
   );
 
   const activeExpeditions = useMemo(
-    () =>
-      expeditions.filter(isActiveMapExpedition),
+    () => expeditions.filter(isActiveMapExpedition),
     [expeditions],
   );
 
@@ -1628,17 +1741,24 @@ export function CosmicSystemRenderer({
   const hasMovingShips =
     activeExpeditions.length > 0 &&
     ships.some((ship) => ship.status === "moving");
-  const hasRecentCombat = ships.some((ship) => {
-    if (ship.status === "destroyed") return false;
-    return isRecentCombat(ship.lastCombatTickAt, now);
-  }) || visibleFleetContacts.some((contact) => isRecentCombat(contact.lastCombatTickAt, now));
+  const hasMovingFleetContacts = visibleFleetContacts.some(
+    (contact) => contact.status !== "stationed",
+  );
+  const hasRecentCombat =
+    ships.some((ship) => {
+      if (ship.status === "destroyed") return false;
+      return isRecentCombat(ship.lastCombatTickAt, now);
+    }) ||
+    visibleFleetContacts.some((contact) =>
+      isRecentCombat(contact.lastCombatTickAt, now),
+    );
 
   useEffect(() => {
-    if (!hasMovingShips && !hasRecentCombat) return;
+    if (!hasMovingShips && !hasMovingFleetContacts && !hasRecentCombat) return;
     setNow(Date.now());
     const timer = setInterval(() => setNow(Date.now()), SHIP_MARKER_TICK_MS);
     return () => clearInterval(timer);
-  }, [hasMovingShips, hasRecentCombat]);
+  }, [hasMovingShips, hasMovingFleetContacts, hasRecentCombat]);
 
   const shipMarkerSnapshots = useMemo(
     () =>
@@ -1671,11 +1791,15 @@ export function CosmicSystemRenderer({
       ? (ships.find((ship) => ship.id === selectedShip.id) ?? null)
       : null;
   const selectedOwnShipExpedition = selectedOwnShip
-    ? (activeExpeditions.find((expedition) => expedition.shipId === selectedOwnShip.id) ?? null)
+    ? (activeExpeditions.find(
+        (expedition) => expedition.shipId === selectedOwnShip.id,
+      ) ?? null)
     : null;
   const selectedForeignContact =
     selectedShip?.kind === "foreign"
-      ? (visibleFleetContacts.find((contact) => contact.id === selectedShip.id) ?? null)
+      ? (visibleFleetContacts.find(
+          (contact) => contact.id === selectedShip.id,
+        ) ?? null)
       : null;
   const selectedShipType = selectedOwnShip
     ? (shipTypeById.get(selectedOwnShip.typeId) ?? null)
@@ -1701,7 +1825,10 @@ export function CosmicSystemRenderer({
   }, [selected, locale]);
 
   const orbitRadii = useMemo(() => {
-    return buildSystemMapOrbitGuideRadii(system?.planets ?? [], minimumOrbitCount);
+    return buildSystemMapOrbitGuideRadii(
+      system?.planets ?? [],
+      minimumOrbitCount,
+    );
   }, [minimumOrbitCount, system?.planets]);
 
   const planetOuterRadius = useMemo(
@@ -1726,7 +1853,10 @@ export function CosmicSystemRenderer({
   }, [jumpGateOrbitRadius]);
   const jumpGatePosition = jumpGate?.position ?? defaultJumpGatePosition;
   const visibleOuterRadius = jumpGate
-    ? Math.max(planetOuterRadius, Math.hypot(jumpGatePosition.x, jumpGatePosition.y) + 64)
+    ? Math.max(
+        planetOuterRadius,
+        Math.hypot(jumpGatePosition.x, jumpGatePosition.y) + 64,
+      )
     : planetOuterRadius;
   const isPicking = Boolean(expeditionPick);
   const canPickPlanet = Boolean(expeditionPick?.onPickPlanet);
@@ -1825,7 +1955,10 @@ export function CosmicSystemRenderer({
         if (!pending) return;
 
         const currentLast = lastPickPointRef.current;
-        if (currentLast && Math.hypot(pending.x - currentLast.x, pending.y - currentLast.y) < 1) {
+        if (
+          currentLast &&
+          Math.hypot(pending.x - currentLast.x, pending.y - currentLast.y) < 1
+        ) {
           return;
         }
 
@@ -1997,7 +2130,8 @@ export function CosmicSystemRenderer({
           const launch = expeditionPick.launchPlanetId
             ? layoutByPlanetId.get(expeditionPick.launchPlanetId)
             : null;
-          const routeStart = expeditionPick.routeStartPoint ?? launch ?? { x: 0, y: 0 };
+          const routeStart = expeditionPick.routeStartPoint ??
+            launch ?? { x: 0, y: 0 };
           const distFromLaunch = Math.hypot(
             swx - routeStart.x,
             swy - routeStart.y,
@@ -2075,12 +2209,7 @@ export function CosmicSystemRenderer({
 
       expeditionPanArmRef.current = null;
     },
-    [
-      emitPickFromClientPoint,
-      expeditionPick,
-      selectedId,
-      selectedShip,
-    ],
+    [emitPickFromClientPoint, expeditionPick, selectedId, selectedShip],
   );
 
   // Wheel handler: must be passive: false to call preventDefault. React's
@@ -2180,7 +2309,9 @@ export function CosmicSystemRenderer({
           }}
         >
           {/* Orbit rings */}
-          {showOrbitRings ? <OrbitRings orbitRadii={orbitRadii} isPicking={isPicking} /> : null}
+          {showOrbitRings ? (
+            <OrbitRings orbitRadii={orbitRadii} isPicking={isPicking} />
+          ) : null}
 
           {/* Sun */}
           <div
@@ -2286,7 +2417,9 @@ export function CosmicSystemRenderer({
           <ShipMarkers
             markers={shipMarkerSnapshots}
             isPicking={isPicking}
-            selectedShipId={selectedShip?.kind === "own" ? selectedShip.id : null}
+            selectedShipId={
+              selectedShip?.kind === "own" ? selectedShip.id : null
+            }
             onSelectShip={selectOwnShip}
           />
 
@@ -2294,14 +2427,17 @@ export function CosmicSystemRenderer({
             contacts={visibleFleetContacts}
             isPicking={isPicking}
             now={now}
-            selectedContactId={selectedShip?.kind === "foreign" ? selectedShip.id : null}
+            selectedContactId={
+              selectedShip?.kind === "foreign" ? selectedShip.id : null
+            }
             onSelectContact={selectForeignContact}
           />
 
           {/* Draft course for expedition launcher (vector from home star, shown from launch planet). */}
           {expeditionPick &&
             (() => {
-              const launch = expeditionPick.routeStartPoint ??
+              const launch =
+                expeditionPick.routeStartPoint ??
                 (expeditionPick.launchPlanetId
                   ? layoutByPlanetId.get(expeditionPick.launchPlanetId)
                   : null);
@@ -2555,7 +2691,10 @@ export function CosmicSystemRenderer({
                     <span
                       style={{ display: "flex", alignItems: "center", gap: 6 }}
                     >
-                      <ResourceIcon resourceId={resource.resourceId} size={16} />
+                      <ResourceIcon
+                        resourceId={resource.resourceId}
+                        size={16}
+                      />
                       {getResourceLabel(resource.resourceId, locale)}
                     </span>
                     <span style={{ color: "var(--text-dim)" }}>
