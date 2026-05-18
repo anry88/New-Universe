@@ -3,6 +3,7 @@ import type { Expedition } from "@shared/types/expeditions";
 import type { SystemTacticalFleetContact } from "@shared/types/system-tactical";
 import type { HomeSystem } from "@shared/types/world";
 import {
+  buildCombatProjectileSegments,
   buildExpeditionTrailSegments,
   fleetContactMotionAngle,
   fleetContactsForSystem,
@@ -39,6 +40,37 @@ function expedition(overrides: Partial<Expedition>): Expedition {
       destinationSystemId: system.id,
       targetSystemPoint: { x: 72, y: -24 },
     },
+    ...overrides,
+  };
+}
+
+function contact(
+  id: string,
+  overrides: Partial<SystemTacticalFleetContact> = {},
+): SystemTacticalFleetContact {
+  return {
+    id,
+    systemId: system.id,
+    relation: "foreign",
+    visibility: "summary",
+    status: "stationed",
+    ownerAlias: "@rival",
+    shipTypeId: "light_fighter",
+    hp: 120,
+    maxHp: 200,
+    combatStats: {
+      targetClass: "military_light",
+      damageProfile: {
+        damageType: "kinetic",
+        dps: 30,
+        armorPenetration: 0.2,
+        shieldMultiplier: 1,
+      },
+      engagementRange: "close",
+    },
+    lastCombatTickAt: "2026-06-01T00:00:20.000Z",
+    point: { x: 10, y: 20 },
+    stationedAt: "2026-06-01T00:00:00.000Z",
     ...overrides,
   };
 }
@@ -152,6 +184,46 @@ describe("fleetContactMotionAngle", () => {
         },
       }),
     ).toBeNull();
+  });
+});
+
+describe("buildCombatProjectileSegments", () => {
+  it("draws close-range crossfire between recent foreign contacts", () => {
+    const segments = buildCombatProjectileSegments({
+      markers: [],
+      contacts: [
+        contact("medium-fighter", {
+          ownerAlias: "@medium",
+          shipTypeId: "medium_fighter",
+        }),
+        contact("light-fighter-a", { ownerAlias: "@light" }),
+      ],
+      now: new Date("2026-06-01T00:00:40.000Z").getTime(),
+    });
+
+    expect(segments).toHaveLength(2);
+    expect(segments.map((segment) => segment.id)).toEqual([
+      "foreign-medium-fighter-light-fighter-a",
+      "foreign-light-fighter-a-medium-fighter",
+    ]);
+    for (const segment of segments) {
+      expect(
+        Math.hypot(segment.x2 - segment.x1, segment.y2 - segment.y1),
+      ).toBeGreaterThanOrEqual(24);
+    }
+  });
+
+  it("does not create foreign crossfire between contacts from the same visible owner", () => {
+    const segments = buildCombatProjectileSegments({
+      markers: [],
+      contacts: [
+        contact("light-fighter-a", { ownerAlias: "@light" }),
+        contact("light-fighter-b", { ownerAlias: "@light" }),
+      ],
+      now: new Date("2026-06-01T00:00:40.000Z").getTime(),
+    });
+
+    expect(segments).toEqual([]);
   });
 });
 

@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { SystemTacticalStateResponse } from "@shared/types/system-tactical";
 import { apiFetch } from "../lib/api";
 import { useAuthStore } from "./useAuth";
@@ -34,10 +35,23 @@ export function systemTacticalRefetchInterval(
     : TACTICAL_IDLE_REFETCH_INTERVAL_MS;
 }
 
+export function shouldSyncPlayerStateFromTacticalState(
+  data: SystemTacticalStateResponse | undefined,
+  now = Date.now(),
+): boolean {
+  return Boolean(
+    data?.fleetContacts.some((contact) => {
+      const lastCombat = timestamp(contact.lastCombatTickAt);
+      return lastCombat != null && now - lastCombat <= RECENT_COMBAT_WINDOW_MS;
+    }),
+  );
+}
+
 export function useSystemTacticalState(systemId: string | null | undefined) {
   const token = useAuthStore((state) => state.token);
+  const queryClient = useQueryClient();
 
-  return useQuery({
+  const query = useQuery({
     queryKey: ["system-tactical-state", systemId],
     queryFn: () =>
       apiFetch<SystemTacticalStateResponse>(
@@ -49,5 +63,13 @@ export function useSystemTacticalState(systemId: string | null | undefined) {
       query.state.status === "error"
         ? false
         : systemTacticalRefetchInterval(query.state.data),
+    refetchIntervalInBackground: true,
   });
+
+  useEffect(() => {
+    if (!token || !shouldSyncPlayerStateFromTacticalState(query.data)) return;
+    queryClient.invalidateQueries({ queryKey: ["me"] });
+  }, [query.data, query.dataUpdatedAt, queryClient, token]);
+
+  return query;
 }

@@ -128,6 +128,8 @@ const ACTIVE_MAP_EXPEDITION_STATUSES = new Set([
   "stationed",
 ]);
 const COMBAT_PROJECTILE_LIMIT = 6;
+const MIN_COMBAT_PROJECTILE_LENGTH = 24;
+const CLOSE_COMBAT_PROJECTILE_LENGTH = 36;
 
 /** Below this drag distance (CSS px), a one-finger gesture counts as a tap for expedition aiming. */
 const EXPEDITION_TAP_THRESHOLD_PX = 14;
@@ -164,6 +166,14 @@ interface CombatProjectileSegment {
   y2: number;
   kind: WeaponVisualKind;
   delayMs: number;
+}
+
+function hashString(value: string): number {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash);
 }
 
 function isDiscoveredPlanet(planet: Planet): boolean {
@@ -1061,7 +1071,58 @@ function nearestMarkerForContact(
   return best;
 }
 
-const CombatEffectsLayer = React.memo(function CombatEffectsLayer({
+function nearestContactForContact(
+  contact: SystemTacticalFleetContact,
+  contacts: SystemTacticalFleetContact[],
+): SystemTacticalFleetContact | null {
+  let best: SystemTacticalFleetContact | null = null;
+  let bestDistance = Infinity;
+  for (const candidate of contacts) {
+    if (candidate.id === contact.id) continue;
+    if (
+      candidate.ownerAlias &&
+      contact.ownerAlias &&
+      candidate.ownerAlias === contact.ownerAlias
+    ) {
+      continue;
+    }
+    const dist = Math.hypot(
+      contact.point.x - candidate.point.x,
+      contact.point.y - candidate.point.y,
+    );
+    if (dist < bestDistance) {
+      best = candidate;
+      bestDistance = dist;
+    }
+  }
+  return best;
+}
+
+function normalizeCombatProjectileSegment(
+  segment: CombatProjectileSegment,
+): CombatProjectileSegment {
+  const dx = segment.x2 - segment.x1;
+  const dy = segment.y2 - segment.y1;
+  const length = Math.hypot(dx, dy);
+  if (length >= MIN_COMBAT_PROJECTILE_LENGTH) return segment;
+
+  const angle =
+    length > 0.01
+      ? Math.atan2(dy, dx)
+      : (hashString(segment.id) % 360) * (Math.PI / 180);
+  const cx = (segment.x1 + segment.x2) / 2;
+  const cy = (segment.y1 + segment.y2) / 2;
+  const halfLength = CLOSE_COMBAT_PROJECTILE_LENGTH / 2;
+  return {
+    ...segment,
+    x1: cx - Math.cos(angle) * halfLength,
+    y1: cy - Math.sin(angle) * halfLength,
+    x2: cx + Math.cos(angle) * halfLength,
+    y2: cy + Math.sin(angle) * halfLength,
+  };
+}
+
+export function buildCombatProjectileSegments({
   markers,
   contacts,
   now,
@@ -1069,9 +1130,12 @@ const CombatEffectsLayer = React.memo(function CombatEffectsLayer({
   markers: ShipMarkerSnapshot[];
   contacts: SystemTacticalFleetContact[];
   now: number;
-}) {
+}): CombatProjectileSegment[] {
   const segments: CombatProjectileSegment[] = [];
   const combatMarkers = markers.filter((marker) => marker.isInCombat);
+  const combatContacts = contacts.filter((contact) =>
+    isRecentCombat(contact.lastCombatTickAt, now),
+  );
 
   combatMarkers.forEach((marker, index) => {
     const contact = nearestContactForMarker(marker, contacts);
@@ -1087,24 +1151,53 @@ const CombatEffectsLayer = React.memo(function CombatEffectsLayer({
     });
   });
 
-  contacts.forEach((contact, index) => {
-    if (!isRecentCombat(contact.lastCombatTickAt, now)) return;
+  combatContacts.forEach((contact, index) => {
     const marker = nearestMarkerForContact(contact, markers);
-    if (!marker) return;
+    if (marker) {
+      segments.push({
+        id: `foreign-${contact.id}-${marker.ship.id}`,
+        x1: contact.point.x,
+        y1: contact.point.y,
+        x2: marker.x,
+        y2: marker.y,
+        kind: weaponVisualForCombatStats(contact.combatStats),
+        delayMs: 90 + index * 150,
+      });
+      return;
+    }
+
+    const target = nearestContactForContact(contact, combatContacts);
+    if (!target) return;
     segments.push({
-      id: `foreign-${contact.id}-${marker.ship.id}`,
+      id: `foreign-${contact.id}-${target.id}`,
       x1: contact.point.x,
       y1: contact.point.y,
-      x2: marker.x,
-      y2: marker.y,
+      x2: target.point.x,
+      y2: target.point.y,
       kind: weaponVisualForCombatStats(contact.combatStats),
       delayMs: 90 + index * 150,
     });
   });
 
+  return segments
+    .slice(0, COMBAT_PROJECTILE_LIMIT)
+    .map(normalizeCombatProjectileSegment);
+}
+
+const CombatEffectsLayer = React.memo(function CombatEffectsLayer({
+  markers,
+  contacts,
+  now,
+}: {
+  markers: ShipMarkerSnapshot[];
+  contacts: SystemTacticalFleetContact[];
+  now: number;
+}) {
+  const segments = buildCombatProjectileSegments({ markers, contacts, now });
+
   return (
     <>
-      {segments.slice(0, COMBAT_PROJECTILE_LIMIT).map((segment) => (
+      {segments.map((segment) => (
         <CombatProjectile key={segment.id} segment={segment} />
       ))}
     </>
