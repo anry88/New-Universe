@@ -151,7 +151,6 @@ function serializeDestination(
     seed: system.seed,
     planetCount,
     planets: [],
-    fleetContacts: [],
     discoveredAt: row.discoveredAt.toISOString(),
     source: row.source,
     lastVisitedAt: row.lastVisitedAt?.toISOString() ?? null,

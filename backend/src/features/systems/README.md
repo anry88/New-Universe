@@ -1,0 +1,15 @@
+# `backend/src/features/systems` directory
+
+System-scoped read models live here. These endpoints answer questions about one concrete system and avoid reusing broader discovery or Jump Gate state for live tactical UI.
+
+## Files
+
+- **`routes.ts`** — `systemsRoutes(app)` registers authenticated `GET /systems/:systemId/tactical-state`. The route requires a JWT session, validates the `systemId` param, and returns `404` when the system is not visible to the viewer.
+- **`tactical-state.ts`** — exports `getSystemTacticalState(userId, systemId)`. It allows the viewer's own systems, discovered public systems, systems with the viewer's colony, docked ships, or stationed ships, while keeping foreign Home Systems hidden. It returns only the requested system's redacted foreign `stationed` fleet contacts with safe owner alias, visible hull type, current HP, combat stats, recent-combat timestamp, and destination-system point.
+- **`tactical-state.test.ts`** — Vitest coverage for single-system tactical contact projection and undiscovered public-system protection.
+
+## Adding System Behavior
+
+1. Keep APIs scoped to one `systemId` unless the feature is explicitly a sector/galaxy query.
+2. Keep foreign Home System privacy checks before any tactical payload is assembled.
+3. Put shared response contracts in `shared/types/` and update this README plus the parent feature README when adding fields.

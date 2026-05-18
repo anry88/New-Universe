@@ -1,6 +1,5 @@
 import type { ResearchRequirementRef } from './research.js';
 import type { PlanetResource } from './world.js';
-import type { CombatStats } from './combat.js';
 
 export type JumpGateCalibrationStatus = 'locked' | 'idle' | 'calibrating' | 'ready';
 export type JumpGateCalibrationMode = 'random' | 'known';
@@ -52,25 +51,9 @@ export interface JumpGateKnownDestinationSummary {
   seed: number;
   planetCount: number;
   planets: JumpGateDestinationPlanetSummary[];
-  fleetContacts: JumpGateFleetContactSummary[];
   discoveredAt: string;
   source: JumpGateKnownDestinationSource;
   lastVisitedAt: string | null;
-}
-
-export interface JumpGateFleetContactSummary {
-  id: string;
-  systemId: string;
-  relation: 'foreign';
-  visibility: 'summary';
-  ownerAlias: string | null;
-  shipTypeId: string | null;
-  hp?: number;
-  maxHp?: number;
-  combatStats?: CombatStats;
-  lastCombatTickAt?: string | null;
-  point: { x: number; y: number };
-  stationedAt: string | null;
 }
 
 export interface JumpGateDestinationPlanetSummary {

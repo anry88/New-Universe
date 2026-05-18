@@ -17,6 +17,7 @@ import { apiFetch } from "../lib/api";
 import { useLaunchExpedition } from "../hooks/useExpeditions";
 import { useJumpGateState } from "../hooks/useJumpGateState";
 import { useMe } from "../hooks/useMe";
+import { useSystemTacticalState } from "../hooks/useSystemTacticalState";
 import {
   X,
   Send,
@@ -243,6 +244,9 @@ export function ExpeditionDialog({
     routeMode === "jump_gate" && selectedDestinationSystem
       ? selectedDestinationSystem
       : homeSystem;
+  const { data: tacticalState } = useSystemTacticalState(
+    routeMode === "jump_gate" ? renderedSystem?.id : null,
+  );
   const sameStationedDestination =
     isStationedOrigin &&
     selectedDestination?.systemId === stationedOriginSystemId;
@@ -836,8 +840,8 @@ export function ExpeditionDialog({
               shipTypes={[shipType]}
               expeditions={meData?.expeditions ?? []}
               fleetContacts={
-                routeMode === "jump_gate" && selectedDestination?.systemId === renderedSystem.id
-                  ? selectedDestination.fleetContacts
+                routeMode === "jump_gate" && tacticalState?.systemId === renderedSystem.id
+                  ? tacticalState.fleetContacts
                   : []
               }
               onPlanetClick={() => {}}

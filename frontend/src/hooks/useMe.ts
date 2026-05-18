@@ -91,7 +91,7 @@ export function useMe() {
 
     const id = window.setInterval(() => {
       queryClient.invalidateQueries({ queryKey: ["me"] });
-      queryClient.invalidateQueries({ queryKey: ["jump-gate-state"] });
+      queryClient.invalidateQueries({ queryKey: ["system-tactical-state"] });
     }, COMBAT_REFETCH_INTERVAL_MS);
     return () => window.clearInterval(id);
   }, [query.data, queryClient, token]);

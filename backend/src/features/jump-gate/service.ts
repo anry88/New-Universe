@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { systemMapOrbitRadiusForSlot } from '@shared/format/systemMapLayout.js';
 import {
   formatCommonSystemDisplayName,
@@ -8,7 +8,6 @@ import type {
   JumpGateAnchor,
   JumpGateCalibrationState,
   JumpGateDestinationPlanetSummary,
-  JumpGateFleetContactSummary,
   JumpGateKnownDestinationSummary,
   JumpGateLockedReason,
   JumpGateRandomJumpAvailability,
@@ -20,15 +19,12 @@ import {
   colonies,
   discoveredPlanets,
   discoveredSystems,
-  expeditions,
   jumpGates,
   planets,
   planetResources,
   resources as resourceDefinitions,
   richness,
-  ships,
   systems,
-  users,
 } from '../../db/schema.js';
 import { loadUserResearchLevels, meetsResearchRequirement } from '../research/gates.js';
 
@@ -48,25 +44,6 @@ interface GetJumpGateStateOptions {
 function serializeDate(value: Date | string | null | undefined): string | null {
   if (!value) return null;
   return new Date(value).toISOString();
-}
-
-function maskPublicAlias(user: { tgUsername: string | null; tgFirstName: string | null }): string | null {
-  if (user.tgUsername) return `@${user.tgUsername.slice(0, 12)}`;
-  if (user.tgFirstName) return `${user.tgFirstName.slice(0, 1)}...`;
-  return null;
-}
-
-function pointFromUnknown(value: unknown): { x: number; y: number } | null {
-  if (!value || typeof value !== 'object') return null;
-  const point = value as Record<string, unknown>;
-  return typeof point.x === 'number' && typeof point.y === 'number'
-    ? { x: point.x, y: point.y }
-    : null;
-}
-
-function targetSystemPointFromResult(result: unknown): { x: number; y: number } | null {
-  if (!result || typeof result !== 'object') return null;
-  return pointFromUnknown((result as Record<string, unknown>).targetSystemPoint);
 }
 
 function buildLockedCalibrationState(): JumpGateCalibrationState {
@@ -244,10 +221,7 @@ async function loadKnownDestinations(
     .limit(limit);
 
   const systemIds = rows.map((row) => row.systemId);
-  const [planetSummaries, fleetContacts] = await Promise.all([
-    loadKnownDestinationPlanets(userId, systemIds, database),
-    loadKnownDestinationFleetContacts(userId, systemIds, database),
-  ]);
+  const planetSummaries = await loadKnownDestinationPlanets(userId, systemIds, database);
 
   return rows.map((row) => ({
     systemId: row.systemId,
@@ -261,7 +235,6 @@ async function loadKnownDestinations(
     seed: row.seed,
     planetCount: Number(row.planetCount),
     planets: planetSummaries.get(row.systemId) ?? [],
-    fleetContacts: fleetContacts.get(row.systemId) ?? [],
     discoveredAt: row.discoveredAt.toISOString(),
     source: row.source,
     lastVisitedAt: serializeDate(row.lastVisitedAt),
@@ -381,65 +354,6 @@ async function loadKnownDestinationPlanets(
   }
 
   return summaries;
-}
-
-async function loadKnownDestinationFleetContacts(
-  userId: string,
-  systemIds: string[],
-  database: JumpGateDataSource,
-): Promise<Map<string, JumpGateFleetContactSummary[]>> {
-  if (systemIds.length === 0) return new Map();
-
-  const rows = await database
-    .select({
-      shipId: ships.id,
-      shipTypeId: ships.typeId,
-      shipHp: ships.hp,
-      shipMaxHp: ships.maxHp,
-      shipCombatStats: ships.combatStats,
-      shipLastCombatTickAt: ships.lastCombatTickAt,
-      systemId: systems.id,
-      result: expeditions.result,
-      eta: expeditions.eta,
-      tgUsername: users.tgUsername,
-      tgFirstName: users.tgFirstName,
-    })
-    .from(expeditions)
-    .innerJoin(ships, eq(ships.id, expeditions.shipId))
-    .innerJoin(systems, sql`${expeditions.result} ->> 'destinationSystemId' = ${systems.id}::text`)
-    .innerJoin(users, eq(users.id, ships.ownerId))
-    .where(
-      and(
-        inArray(systems.id, systemIds),
-        eq(expeditions.status, 'stationed'),
-        ne(ships.ownerId, userId),
-      ),
-    );
-
-  const contactsBySystemId = new Map<string, JumpGateFleetContactSummary[]>();
-  for (const row of rows) {
-    const point = targetSystemPointFromResult(row.result);
-    if (!point) continue;
-
-    const contacts = contactsBySystemId.get(row.systemId) ?? [];
-    contacts.push({
-      id: row.shipId,
-      systemId: row.systemId,
-      relation: 'foreign',
-      visibility: 'summary',
-      ownerAlias: maskPublicAlias(row),
-      shipTypeId: row.shipTypeId,
-      hp: row.shipHp,
-      maxHp: row.shipMaxHp,
-      combatStats: row.shipCombatStats,
-      lastCombatTickAt: serializeDate(row.shipLastCombatTickAt),
-      point,
-      stationedAt: serializeDate(row.eta),
-    });
-    contactsBySystemId.set(row.systemId, contacts);
-  }
-
-  return contactsBySystemId;
 }
 
 export async function getJumpGateState(
