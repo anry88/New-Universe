@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState, type CSSProperties } from 'react';
-import { AlertTriangle, CheckCircle2, ChevronLeft, Clock3, Gem, LoaderCircle, Sparkles } from 'lucide-react';
+import { useCallback, useEffect, useId, useState, type CSSProperties } from 'react';
+import { AlertTriangle, CheckCircle2, ChevronLeft, Clock3, LoaderCircle } from 'lucide-react';
 import type { ConfirmStarsCheckoutResponse } from '@shared/types/monetization';
 import { CosmicBackground, CosmicBottomNav } from '../components/cosmic/atoms';
+import { DiamondIcon } from '../components/cosmic/DiamondIcon';
 import { useConfirmStarsCheckout, useCreateStarsInvoice, useStarsDiamondPacks } from '../hooks/useMonetization';
 import { useMe } from '../hooks/useMe';
 import { useI18n } from '../lib/i18n';
@@ -69,24 +70,31 @@ function readActiveCheckout(): StarsCheckoutReference | null {
 }
 
 function TelegramStarIcon({ size = 16 }: { size?: number }) {
+  const gid = useId();
   return (
-    <span
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
       aria-hidden
-      style={{
-        width: size,
-        height: size,
-        display: 'inline-grid',
-        placeItems: 'center',
-        borderRadius: '50%',
-        color: '#fff8d1',
-        background: 'linear-gradient(145deg, #fef08a 0%, #fbbf24 45%, #f59e0b 100%)',
-        boxShadow: '0 0 0 1px rgba(180, 83, 9, 0.32), inset 0 1px 1px rgba(255, 255, 255, 0.55)',
-        fontSize: Math.max(10, Math.round(size * 0.76)),
-        lineHeight: 1,
-      }}
+      focusable={false}
+      style={{ flex: '0 0 auto' }}
     >
-      ★
-    </span>
+      <defs>
+        <linearGradient id={`${gid}-star`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#ffe580" />
+          <stop offset="55%" stopColor="#fbbf24" />
+          <stop offset="100%" stopColor="#f59e0b" />
+        </linearGradient>
+      </defs>
+      <path
+        d="M12 2.4 14.94 8.36 21.52 9.32 16.76 13.96 17.88 20.5 12 17.42 6.12 20.5 7.24 13.96 2.48 9.32 9.06 8.36Z"
+        fill={`url(#${gid}-star)`}
+        stroke="#d97706"
+        strokeWidth="0.9"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
@@ -285,7 +293,7 @@ export function ShopPage() {
           color: 'var(--text)',
         }}
       >
-        <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+        <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
           <button
             type="button"
             aria-label={t('common.back')}
@@ -294,12 +302,25 @@ export function ShopPage() {
           >
             <ChevronLeft size={18} />
           </button>
-          <div style={{ minWidth: 0 }}>
-            <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>{t('shop.title')}</h1>
-            <p style={{ margin: '3px 0 0', color: 'var(--text-dim)', fontSize: 12 }}>
-              {t('shop.balance', { diamonds: String(meData?.diamonds ?? 0) })}
-            </p>
-          </div>
+          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, flex: 1, minWidth: 0 }}>
+            {t('shop.title')}
+          </h1>
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '6px 10px',
+              borderRadius: 10,
+              background: 'rgba(167, 139, 250, 0.16)',
+              border: '1px solid rgba(167, 139, 250, 0.32)',
+            }}
+          >
+            <DiamondIcon size={18} title={t('shop.title')} />
+            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 14, color: '#efe6ff' }}>
+              {(meData?.diamonds ?? 0).toLocaleString()}
+            </span>
+          </span>
         </header>
 
         {packsQuery.isLoading && (
@@ -313,47 +334,76 @@ export function ShopPage() {
         )}
 
         <div style={{ display: 'grid', gap: 10 }}>
-          {packsQuery.data?.packs.map((pack) => (
+          {packsQuery.data?.packs.map((pack, _index, allPacks) => {
+            const basePack = allPacks[0];
+            const valuePercent = Math.round(
+              ((pack.diamonds / pack.priceStars) /
+                (basePack.diamonds / basePack.priceStars) -
+                1) *
+                100,
+            );
+            return (
             <button
               key={pack.id}
               type="button"
-              className="cosmic-card"
               style={{
+                position: 'relative',
                 display: 'grid',
-                gridTemplateColumns: '44px minmax(0, 1fr) auto',
+                gridTemplateColumns: '52px minmax(0, 1fr) auto',
                 alignItems: 'center',
                 gap: 12,
                 padding: 14,
                 textAlign: 'left',
-                borderColor: 'rgba(125, 211, 252, 0.24)',
+                borderRadius: 14,
+                border: '1px solid rgba(167, 139, 250, 0.32)',
+                background: 'linear-gradient(135deg, rgba(86, 68, 142, 0.42), rgba(42, 46, 74, 0.72))',
+                color: 'var(--text)',
+                boxShadow: '0 8px 22px rgba(2, 6, 23, 0.34)',
+                cursor: checkoutBusy ? 'wait' : 'pointer',
+                opacity: checkoutBusy ? 0.6 : 1,
               }}
               disabled={checkoutBusy}
               onClick={() => void startCheckout(pack.id)}
             >
+              {valuePercent > 0 && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: -9,
+                    right: 14,
+                    padding: '2px 9px',
+                    borderRadius: 999,
+                    background: 'linear-gradient(135deg, #4ade80, #16a34a)',
+                    color: '#04210f',
+                    fontSize: 11,
+                    fontWeight: 800,
+                    boxShadow: '0 3px 10px rgba(22, 163, 74, 0.45)',
+                  }}
+                  title={t('shop.valueHint')}
+                >
+                  {t('shop.valueBadge', { percent: String(valuePercent) })}
+                </span>
+              )}
               <span
                 style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 8,
+                  width: 52,
+                  height: 52,
+                  borderRadius: 12,
                   display: 'grid',
                   placeItems: 'center',
-                  color: '#e9d5ff',
-                  background: 'rgba(91, 215, 255, 0.12)',
-                  border: '1px solid rgba(91, 215, 255, 0.24)',
+                  background: 'rgba(167, 139, 250, 0.16)',
+                  border: '1px solid rgba(167, 139, 250, 0.3)',
                 }}
                 aria-hidden
               >
-                <Gem size={22} />
+                <DiamondIcon size={32} />
               </span>
-              <span style={{ minWidth: 0 }}>
-                <span style={{ display: 'block', fontWeight: 700, fontSize: 15 }}>
-                  {t('shop.packDiamonds', { diamonds: pack.diamonds.toLocaleString() })}
+              <span style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                <span style={{ fontWeight: 700, fontSize: 15 }}>
+                  {t(`shop.packName.${pack.id}`)}
                 </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-dim)', fontSize: 12 }}>
-                  <Sparkles size={13} />
-                  {pack.bonusPercentVsPrevious > 0
-                    ? t('shop.bonus', { percent: String(pack.bonusPercentVsPrevious) })
-                    : t('shop.basePack')}
+                <span style={{ color: 'var(--text-dim)', fontSize: 12.5 }}>
+                  {t('shop.packAmount', { diamonds: pack.diamonds.toLocaleString() })}
                 </span>
               </span>
               <span
@@ -361,11 +411,13 @@ export function ShopPage() {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 6,
-                  padding: '8px 10px',
-                  borderRadius: 8,
-                  background: 'rgba(244, 184, 74, 0.14)',
+                  padding: '8px 12px',
+                  borderRadius: 10,
+                  background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.22), rgba(245, 158, 11, 0.14))',
+                  border: '1px solid rgba(251, 191, 36, 0.32)',
                   color: '#fde68a',
                   fontWeight: 700,
+                  fontSize: 14,
                   whiteSpace: 'nowrap',
                 }}
               >
@@ -373,7 +425,8 @@ export function ShopPage() {
                 {pack.priceStars}
               </span>
             </button>
-          ))}
+            );
+          })}
         </div>
 
         {invoiceMutation.error && (
