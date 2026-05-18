@@ -1,15 +1,23 @@
 import { and, eq } from "drizzle-orm";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "../../db/index.js";
 import {
   buildings,
   colonies,
   discoveredPlanets,
+  discoveredSystems,
   expeditions,
+  jumpGates,
   notifications,
   planets,
+  planetResources,
+  productionOrders,
+  researchProgress,
+  richness,
   ships,
   shipTypes,
+  starPayments,
+  starPaymentSupportRequests,
   systems,
   users,
 } from "../../db/schema.js";
@@ -18,6 +26,7 @@ import { seedShipTypes } from "../../db/seed/ship-types.js";
 import { seedResources } from "../../db/seed/resources.js";
 import { seedBuildingTypes } from "../../db/seed/building-types.js";
 import { processDueCombat } from "./tick-combat.js";
+import { syncDuePlayerState } from "../me/online-sync.js";
 import { SHIP_STATUS_DESTROYED } from "@shared/types/combat.js";
 import { checkColonizationGates } from "../colonies/colonization-rules.js";
 import { systemMapJumpGatePoint } from "@shared/format/systemMapLayout.js";
@@ -27,6 +36,26 @@ describe("combat tick — processDueCombat", () => {
     await seedResources();
     await seedBuildingTypes();
     await seedShipTypes();
+  });
+
+  beforeEach(async () => {
+    await db.delete(starPaymentSupportRequests);
+    await db.delete(starPayments);
+    await db.delete(productionOrders);
+    await db.delete(notifications);
+    await db.delete(expeditions);
+    await db.delete(ships);
+    await db.delete(buildings);
+    await db.delete(colonies);
+    await db.delete(jumpGates);
+    await db.delete(discoveredPlanets);
+    await db.delete(discoveredSystems);
+    await db.delete(planetResources);
+    await db.delete(richness);
+    await db.delete(planets);
+    await db.delete(systems);
+    await db.delete(researchProgress);
+    await db.delete(users);
   });
 
   async function createUser(label: string) {
@@ -510,60 +539,90 @@ describe("combat tick — processDueCombat", () => {
     expect(afterSecond!.hp).toBe(afterFirst!.hp);
   });
 
-  it("user-scoped online combat sync does not advance unrelated fights", async () => {
-    const activeAttackerOwner = await createUser("atkScoped");
-    const activeDefenderOwner = await createUser("defScoped");
-    const unrelatedAttackerOwner = await createUser("atkOther");
-    const unrelatedDefenderOwner = await createUser("defOther");
+  it("keeps an identical one-vs-one fighter duel symmetric until both ships die together", async () => {
+    const attackerOwner = await createUser("atkDuel");
+    const defenderOwner = await createUser("defDuel");
+    const { planet } = await createPublicCombatSystem("symmetric-duel");
 
-    const activeAttacker = await spawnShip({
-      ownerId: activeAttackerOwner.userId,
-      planetId: activeAttackerOwner.planetId,
+    const attacker = await spawnShip({
+      ownerId: attackerOwner.userId,
+      planetId: planet.id,
       typeId: "light_fighter",
     });
-    const activeDefender = await spawnShip({
-      ownerId: activeDefenderOwner.userId,
-      planetId: activeDefenderOwner.planetId,
-      typeId: "scout",
-    });
-    const unrelatedAttacker = await spawnShip({
-      ownerId: unrelatedAttackerOwner.userId,
-      planetId: unrelatedAttackerOwner.planetId,
+    const defender = await spawnShip({
+      ownerId: defenderOwner.userId,
+      planetId: planet.id,
       typeId: "light_fighter",
     });
-    const unrelatedDefender = await spawnShip({
-      ownerId: unrelatedDefenderOwner.userId,
-      planetId: unrelatedDefenderOwner.planetId,
-      typeId: "scout",
-    });
-
-    await relocate(activeAttacker.id, activeDefenderOwner.planetId);
-    await relocate(unrelatedAttacker.id, unrelatedDefenderOwner.planetId);
 
     const t0 = new Date("2026-06-01T00:00:00.000Z");
-    await processDueCombat({
-      userId: activeAttackerOwner.userId,
-      now: t0,
-      skipNotifications: true,
+    let bothDestroyed = false;
+
+    for (const seconds of Array.from({ length: 45 }, (_, i) => i * 5)) {
+      const now = new Date(t0.getTime() + seconds * 1000);
+      const res = await processDueCombat({
+        now,
+        skipNotifications: true,
+      });
+
+      const [attackerAfter, defenderAfter] = await Promise.all([
+        db.query.ships.findFirst({ where: eq(ships.id, attacker.id) }),
+        db.query.ships.findFirst({ where: eq(ships.id, defender.id) }),
+      ]);
+
+      expect(attackerAfter!.hp).toBe(defenderAfter!.hp);
+      expect(attackerAfter!.status).toBe(defenderAfter!.status);
+
+      if (attackerAfter!.status === SHIP_STATUS_DESTROYED) {
+        expect(res.destroyed).toEqual(
+          expect.arrayContaining([attacker.id, defender.id]),
+        );
+        bothDestroyed = true;
+        break;
+      }
+    }
+
+    expect(bothDestroyed).toBe(true);
+  });
+
+  it("online player sync does not mutate combat state from a browser session", async () => {
+    const attackerOwner = await createUser("atkOnlineSync");
+    const defenderOwner = await createUser("defOnlineSync");
+    const { planet } = await createPublicCombatSystem("online-sync-readonly");
+    const staleCombatAt = new Date(
+      Math.floor((Date.now() - 60_000) / 1000) * 1000,
+    );
+
+    const attacker = await spawnShip({
+      ownerId: attackerOwner.userId,
+      planetId: planet.id,
+      typeId: "light_fighter",
+      lastCombatTickAt: staleCombatAt,
     });
-    const t1 = new Date(t0.getTime() + 5_000);
-    await processDueCombat({
-      userId: activeAttackerOwner.userId,
-      now: t1,
-      skipNotifications: true,
+    const defender = await spawnShip({
+      ownerId: defenderOwner.userId,
+      planetId: planet.id,
+      typeId: "light_fighter",
+      lastCombatTickAt: staleCombatAt,
     });
 
-    const activeAfter = await db.query.ships.findFirst({
-      where: eq(ships.id, activeDefender.id),
+    await syncDuePlayerState(attackerOwner.userId);
+
+    const attackerAfter = await db.query.ships.findFirst({
+      where: eq(ships.id, attacker.id),
     });
-    const unrelatedAfter = await db.query.ships.findFirst({
-      where: eq(ships.id, unrelatedDefender.id),
+    const defenderAfter = await db.query.ships.findFirst({
+      where: eq(ships.id, defender.id),
     });
 
-    expect(activeAfter!.hp).toBeLessThan(40);
-    expect(activeAfter!.lastCombatTickAt?.getTime()).toBe(t1.getTime());
-    expect(unrelatedAfter!.hp).toBe(40);
-    expect(unrelatedAfter!.lastCombatTickAt).toBeNull();
+    expect(attackerAfter!.hp).toBe(200);
+    expect(defenderAfter!.hp).toBe(200);
+    expect(attackerAfter!.lastCombatTickAt?.getTime()).toBe(
+      staleCombatAt.getTime(),
+    );
+    expect(defenderAfter!.lastCombatTickAt?.getTime()).toBe(
+      staleCombatAt.getTime(),
+    );
   });
 
   it("destroyed ships cannot be re-attacked and stay at 0 hp on subsequent ticks", async () => {

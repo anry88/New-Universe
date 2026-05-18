@@ -1,14 +1,15 @@
-import type { ShieldHooks } from '@shared/types/combat.js';
+import type { ShieldHooks } from "@shared/types/combat.js";
 import {
   computeTickDamage,
   type AttackerHit,
   type CombatActor,
-} from './engine.js';
+} from "./engine.js";
 
 export interface ShieldDamageResolution {
   directDamageByDefender: Map<string, number>;
   shieldUpdates: Map<string, ShieldHooks>;
   touchedDefenderIds: Set<string>;
+  shieldedDefenderIds: Set<string>;
   shieldsDamaged: Set<string>;
   shieldsBroken: Set<string>;
 }
@@ -63,6 +64,7 @@ export function resolveShieldedDamage(
 
   const directDamageByDefender = new Map<string, number>();
   const touchedDefenderIds = new Set<string>();
+  const shieldedDefenderIds = new Set<string>();
   const shieldsDamaged = new Set<string>();
   const shieldsBroken = new Set<string>();
 
@@ -84,6 +86,7 @@ export function resolveShieldedDamage(
       addDamage(directDamageByDefender, defender.id, directDamage);
       continue;
     }
+    shieldedDefenderIds.add(defender.id);
 
     let remainingShieldDamage = shieldDamage;
     for (const shield of covering) {
@@ -103,14 +106,18 @@ export function resolveShieldedDamage(
       );
       shield.runtime.hooks = nextHooks;
       shieldUpdates.set(shield.runtime.actor.id, nextHooks);
-      if (nextHooks.state === 'downtime') {
+      if (nextHooks.state === "downtime") {
         shieldsBroken.add(shield.runtime.actor.id);
       }
     }
 
     if (remainingShieldDamage > 0) {
       const overflowRatio = Math.min(1, remainingShieldDamage / shieldDamage);
-      addDamage(directDamageByDefender, defender.id, directDamage * overflowRatio);
+      addDamage(
+        directDamageByDefender,
+        defender.id,
+        directDamage * overflowRatio,
+      );
     }
   }
 
@@ -118,6 +125,7 @@ export function resolveShieldedDamage(
     directDamageByDefender,
     shieldUpdates,
     touchedDefenderIds,
+    shieldedDefenderIds,
     shieldsDamaged,
     shieldsBroken,
   };
@@ -133,35 +141,37 @@ export function normalizeShieldHooks(
 
   const radius = Math.max(0, finiteNumber(hooks.radius));
   const rechargeRate = Math.max(0, finiteNumber(hooks.rechargeRate));
-  const delayAfterDamageSec = Math.max(0, finiteNumber(hooks.delayAfterDamageSec));
+  const delayAfterDamageSec = Math.max(
+    0,
+    finiteNumber(hooks.delayAfterDamageSec),
+  );
   const downtimeSec = Math.max(0, finiteNumber(hooks.downtimeSec));
   const brokenUntilMs = parseTimeMs(hooks.brokenUntil);
   const lastDamagedMs = parseTimeMs(hooks.lastDamagedAt);
   const lastResolvedMs = parseTimeMs(hooks.lastResolvedAt);
 
-  let currentHp = clamp(
-    finiteNumber(hooks.currentHp ?? capacity),
-    0,
-    capacity,
-  );
-  let state: ShieldHooks['state'] = hooks.state;
+  let currentHp = clamp(finiteNumber(hooks.currentHp ?? capacity), 0, capacity);
+  let state: ShieldHooks["state"] = hooks.state;
   let brokenUntil = hooks.brokenUntil ?? null;
   let lastResolvedAt = hooks.lastResolvedAt ?? null;
 
   if (brokenUntilMs != null && nowMs < brokenUntilMs) {
     currentHp = 0;
-    state = 'downtime';
+    state = "downtime";
   } else {
-    const rechargeDelayUntil = lastDamagedMs == null
-      ? 0
-      : lastDamagedMs + delayAfterDamageSec * 1000;
+    const rechargeDelayUntil =
+      lastDamagedMs == null ? 0 : lastDamagedMs + delayAfterDamageSec * 1000;
     const rechargeAvailableFrom = Math.max(
       lastResolvedMs ?? 0,
       brokenUntilMs ?? 0,
       rechargeDelayUntil,
     );
 
-    if (currentHp < capacity && rechargeRate > 0 && nowMs > rechargeAvailableFrom) {
+    if (
+      currentHp < capacity &&
+      rechargeRate > 0 &&
+      nowMs > rechargeAvailableFrom
+    ) {
       currentHp = clamp(
         currentHp + rechargeRate * ((nowMs - rechargeAvailableFrom) / 1000),
         0,
@@ -171,11 +181,12 @@ export function normalizeShieldHooks(
     }
 
     brokenUntil = null;
-    state = currentHp >= capacity
-      ? 'active'
-      : currentHp > 0
-        ? 'recharging'
-        : 'recharging';
+    state =
+      currentHp >= capacity
+        ? "active"
+        : currentHp > 0
+          ? "recharging"
+          : "recharging";
   }
 
   return {
@@ -224,7 +235,7 @@ function canProjectShield(
   defender: CombatActor,
 ): boolean {
   if (actor.ownerId !== defender.ownerId) return false;
-  if (actor.status === 'destroyed' || actor.status === 'building') return false;
+  if (actor.status === "destroyed" || actor.status === "building") return false;
   if (actor.hp <= 0 || !actor.position) return false;
   if (runtime.currentHp <= 0) return false;
   if (!sameCombatSpace(actor, defender)) return false;
@@ -249,7 +260,11 @@ function applyShieldDamage(
   return {
     ...hooks,
     currentHp: nextHp,
-    state: broken ? 'downtime' : nextHp >= hooks.capacity ? 'active' : 'recharging',
+    state: broken
+      ? "downtime"
+      : nextHp >= hooks.capacity
+        ? "active"
+        : "recharging",
     lastDamagedAt: nowIso,
     brokenUntil: broken
       ? new Date(nowMs + hooks.downtimeSec * 1000).toISOString()
@@ -258,7 +273,11 @@ function applyShieldDamage(
   };
 }
 
-function addDamage(map: Map<string, number>, key: string, damage: number): void {
+function addDamage(
+  map: Map<string, number>,
+  key: string,
+  damage: number,
+): void {
   if (damage <= 0) return;
   map.set(key, (map.get(key) ?? 0) + damage);
 }
@@ -274,7 +293,8 @@ function shieldHooksChanged(
     finiteNumber(before.rechargeRate) !== after.rechargeRate ||
     finiteNumber(before.delayAfterDamageSec) !== after.delayAfterDamageSec ||
     finiteNumber(before.downtimeSec) !== after.downtimeSec ||
-    roundShieldHp(finiteNumber(before.currentHp ?? after.capacity)) !== after.currentHp ||
+    roundShieldHp(finiteNumber(before.currentHp ?? after.capacity)) !==
+      after.currentHp ||
     (before.state ?? null) !== (after.state ?? null) ||
     (before.lastDamagedAt ?? null) !== (after.lastDamagedAt ?? null) ||
     (before.brokenUntil ?? null) !== (after.brokenUntil ?? null) ||
