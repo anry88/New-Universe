@@ -105,6 +105,7 @@ const MIN_SCALE = 0.1;
 const MAX_SCALE = 5;
 const DISPLAY_SCALE_FACTOR = 0.3;
 const SHIP_MARKER_TICK_MS = 2500;
+const RECENT_COMBAT_WINDOW_MS = 30_000;
 const PICK_DELTA_EPSILON = 0.03;
 const ACTIVE_MAP_EXPEDITION_STATUSES = new Set([
   "in_flight",
@@ -117,6 +118,12 @@ const EXPEDITION_TAP_THRESHOLD_PX = 14;
 
 function isDiscoveredPlanet(planet: Planet): boolean {
   return planet.isDiscovered !== false;
+}
+
+function timestamp(value?: string | null): number | null {
+  if (!value) return null;
+  const ms = new Date(value).getTime();
+  return Number.isFinite(ms) ? ms : null;
 }
 
 function clientToWorldCoords(
@@ -630,17 +637,22 @@ const ShipMarkers = React.memo(function ShipMarkers({
   const hasMovingShips =
     activeExpeditions.length > 0 &&
     ships.some((ship) => ship.status === "moving");
+  const hasRecentCombat = ships.some((ship) => {
+    if (ship.status === "destroyed") return false;
+    const lastCombat = timestamp(ship.lastCombatTickAt);
+    return lastCombat != null && now - lastCombat <= RECENT_COMBAT_WINDOW_MS;
+  });
   const expeditionByShipId = useMemo(
     () => new Map(activeExpeditions.map((exp) => [exp.shipId, exp])),
     [activeExpeditions],
   );
 
   useEffect(() => {
-    if (!hasMovingShips) return;
+    if (!hasMovingShips && !hasRecentCombat) return;
     setNow(Date.now());
     const timer = setInterval(() => setNow(Date.now()), SHIP_MARKER_TICK_MS);
     return () => clearInterval(timer);
-  }, [hasMovingShips, activeExpeditions]);
+  }, [hasMovingShips, hasRecentCombat, activeExpeditions]);
 
   return (
     <>
@@ -745,7 +757,12 @@ const ShipMarkers = React.memo(function ShipMarkers({
           }
         }
 
-        const tone = isMoving
+        const lastCombatMs = timestamp(ship.lastCombatTickAt);
+        const isInCombat =
+          lastCombatMs != null && now - lastCombatMs <= RECENT_COMBAT_WINDOW_MS;
+        const tone = isInCombat
+          ? "#EF4444"
+          : isMoving
           ? isReturning
             ? "#F4B84A"
             : "#5BD7FF"
@@ -762,7 +779,9 @@ const ShipMarkers = React.memo(function ShipMarkers({
               height: 24,
               color: tone,
               transform: `rotate(${angle}rad)`,
-              filter: isMoving
+              filter: isInCombat
+                ? "drop-shadow(0 0 8px rgba(239,68,68,0.75))"
+                : isMoving
                 ? "drop-shadow(0 0 6px currentColor)"
                 : "drop-shadow(0 0 4px rgba(91,255,169,0.4))",
               pointerEvents: isPicking ? "none" : "auto",
@@ -827,12 +846,12 @@ const FleetContactMarkers = React.memo(function FleetContactMarkers({
               top: y - 14,
               width: 28,
               height: 28,
-              color: "#F97316",
-              border: "1px solid rgba(251,191,36,0.9)",
+              color: "#EF4444",
+              border: "1px solid rgba(248,113,113,0.92)",
               borderRadius: "50%",
               background:
-                "radial-gradient(circle, rgba(249,115,22,0.24), rgba(8,12,22,0.76) 68%)",
-              boxShadow: "0 0 14px rgba(249,115,22,0.36)",
+                "radial-gradient(circle, rgba(239,68,68,0.24), rgba(8,12,22,0.76) 68%)",
+              boxShadow: "0 0 14px rgba(239,68,68,0.42)",
               pointerEvents: isPicking ? "none" : "auto",
               zIndex: 5,
             }}
@@ -849,7 +868,7 @@ const FleetContactMarkers = React.memo(function FleetContactMarkers({
                 display: "grid",
                 placeItems: "center",
                 border: "1px solid rgba(255,251,235,0.86)",
-                background: "rgba(124,45,18,0.94)",
+                background: "rgba(127,29,29,0.94)",
                 color: "#FFFBEB",
                 fontSize: 9,
                 fontWeight: 900,

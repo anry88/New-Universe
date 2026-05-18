@@ -105,18 +105,19 @@ export interface CombatStats {
 export const SHIP_STATUS_DESTROYED = 'destroyed';
 
 /**
- * Engagement range mapped to a planar sector-grid radius. Numbers are tuning
- * constants for the combat tick engine — keep deterministic for tests.
+ * Engagement range mapped to the same planar light-year scale used by the
+ * system-map route and scout discovery corridor. Numbers are tuning constants
+ * for the combat tick engine — keep deterministic for tests.
  * - `close`:    short-range kinetic gunnery, brawl distance.
  * - `medium`:   standard ship-to-ship cannons.
- * - `long`:     beam weapons that can reach across nearby systems.
+ * - `long`:     beam/missile weapons at roughly scout-discovery corridor scale.
  * - `orbital`:  planet-bombing range, used for surface targets only.
  */
 export const ENGAGEMENT_RANGE_SECTOR_DISTANCE: Record<EngagementRange, number> = {
-  close: 1,
-  medium: 3,
-  long: 8,
-  orbital: 0,
+  close: 0.6,
+  medium: 1.2,
+  long: 2.2,
+  orbital: 2.2,
 };
 
 export function engagementRangeToSectorDistance(range: EngagementRange | undefined): number {

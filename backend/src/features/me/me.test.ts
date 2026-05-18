@@ -14,6 +14,7 @@ import {
   users,
 } from "../../db/schema.js";
 import { DEFAULT_NOTIFICATION_PREFERENCES } from "@shared/types/notifications.js";
+import { SHIP_STATUS_DESTROYED } from "@shared/types/combat.js";
 
 describe("Me Routes", () => {
   const botToken = env.TELEGRAM_BOT_TOKEN;
@@ -98,6 +99,80 @@ describe("Me Routes", () => {
     });
 
     expect(response.statusCode).toBe(401);
+  });
+
+  it("keeps destroyed ships out of the player state payload", async () => {
+    const app = Fastify();
+    await app.register(meRoutes, { prefix: "/me" });
+
+    const suffix = `${Date.now()}_${Math.floor(Math.random() * 1_000_000)}`;
+    const [user] = await db
+      .insert(users)
+      .values({
+        tgId: BigInt(Math.floor(Math.random() * 100000000)),
+        tgUsername: `me_destroyed_${suffix}`,
+      })
+      .returning();
+    const [system] = await db
+      .insert(systems)
+      .values({
+        name: `Destroyed Fleet ${suffix}`,
+        sectorX: 11,
+        sectorY: 12,
+        sectorZ: 0,
+        x: "0.00",
+        y: "0.00",
+        z: "0.00",
+        seed: 11,
+        ownerId: user.id,
+        isHome: true,
+      })
+      .returning();
+    const [planet] = await db
+      .insert(planets)
+      .values({
+        systemId: system.id,
+        name: `Destroyed Fleet I ${suffix}`,
+        biome: "green",
+        size: 10,
+        slotCount: 8,
+      })
+      .returning();
+
+    const [liveShip] = await db
+      .insert(ships)
+      .values({
+        ownerId: user.id,
+        typeId: "scout",
+        locationPlanetId: planet.id,
+        status: "idle",
+      })
+      .returning();
+    const [destroyedShip] = await db
+      .insert(ships)
+      .values({
+        ownerId: user.id,
+        typeId: "scout",
+        locationPlanetId: planet.id,
+        status: SHIP_STATUS_DESTROYED,
+        hp: 0,
+        destroyedAt: new Date(),
+      })
+      .returning();
+
+    const token = jwt.sign({ userId: user.id }, env.JWT_SECRET, {
+      expiresIn: "30d",
+    });
+    const response = await app.inject({
+      method: "GET",
+      url: "/me",
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.user.ships.map((ship: { id: string }) => ship.id)).toContain(liveShip.id);
+    expect(body.user.ships.map((ship: { id: string }) => ship.id)).not.toContain(destroyedShip.id);
   });
 
   it("updates preferred locale for the active user", async () => {

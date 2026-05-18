@@ -28,7 +28,7 @@ const FOREIGN_TYPE_COLORS: Partial<
   Record<PresenceEntityType, { fill: number; stroke: number; halo: number }>
 > = {
   colony: { fill: 0xf97316, stroke: 0xfbbf24, halo: 0x7c2d12 },
-  fleet: { fill: 0xe879f9, stroke: 0xf0abfc, halo: 0x86198f },
+  fleet: { fill: 0xef4444, stroke: 0xfca5a5, halo: 0x7f1d1d },
 };
 
 interface SectorRendererProps {

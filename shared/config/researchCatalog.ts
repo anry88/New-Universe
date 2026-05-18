@@ -20,6 +20,7 @@ export type ResearchEffectTarget =
   | 'energyEfficiency'
   | 'shipSpeed'
   | 'sensorRange'
+  | 'weaponRange'
   | 'buildTime';
 
 export interface ResearchLevelCatalogEntry extends ResearchDefinition {
@@ -216,46 +217,61 @@ export const RESEARCH_CATALOG: ResearchBranchCatalog[] = [
         'weapons',
         1,
         { ru: 'Вооружение I', en: 'Weapons I' },
-        { ru: 'Базовая подготовка вооружений', en: 'Basic weapons training.' },
+        {
+          ru: 'Базовая подготовка вооружений: +6% к дальности оружия',
+          en: 'Basic weapons training: +6% weapon range',
+        },
         { iron: 260, silicon: 130 },
         researchTime('core', 1),
-        [],
+        [{ target: 'weaponRange', multiplier: 1.06 }],
       ),
       mkLevel(
         'weapons',
         2,
         { ru: 'Вооружение II', en: 'Weapons II' },
-        { ru: 'Средняя подготовка вооружений', en: 'Intermediate combat systems training.' },
+        {
+          ru: 'Средняя подготовка вооружений: +12% к дальности оружия',
+          en: 'Intermediate combat systems training: +12% weapon range',
+        },
         { iron: 520, silicon: 260 },
         researchTime('core', 2),
-        [],
+        [{ target: 'weaponRange', multiplier: 1.12 }],
       ),
       mkLevel(
         'weapons',
         3,
         { ru: 'Вооружение III', en: 'Weapons III' },
-        { ru: 'Продвинутая подготовка вооружений', en: 'Advanced combat systems training.' },
+        {
+          ru: 'Продвинутая подготовка вооружений: +18% к дальности оружия',
+          en: 'Advanced combat systems training: +18% weapon range',
+        },
         { iron: 1300, silicon: 650 },
         researchTime('core', 3),
-        [],
+        [{ target: 'weaponRange', multiplier: 1.18 }],
       ),
       mkLevel(
         'weapons',
         4,
         { ru: 'Вооружение IV', en: 'Weapons IV' },
-        { ru: 'Экспертная подготовка вооружений', en: 'Expert combat systems training.' },
+        {
+          ru: 'Экспертная подготовка вооружений: +24% к дальности оружия',
+          en: 'Expert combat systems training: +24% weapon range',
+        },
         { iron: 3250, silicon: 1625 },
         researchTime('core', 4),
-        [],
+        [{ target: 'weaponRange', multiplier: 1.24 }],
       ),
       mkLevel(
         'weapons',
         5,
         { ru: 'Вооружение V', en: 'Weapons V' },
-        { ru: 'Мастерство вооружений', en: 'Mastery of combat systems.' },
+        {
+          ru: 'Мастерство вооружений: +30% к дальности оружия',
+          en: 'Mastery of combat systems: +30% weapon range',
+        },
         { iron: 8125, silicon: 4062 },
         researchTime('core', 5),
-        [],
+        [{ target: 'weaponRange', multiplier: 1.3 }],
       ),
     ],
   },

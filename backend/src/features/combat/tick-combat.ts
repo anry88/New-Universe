@@ -35,11 +35,18 @@ import {
 import { SHIP_STATUS_DESTROYED, type CombatStats } from '@shared/types/combat.js';
 import { COMMAND_CENTER_TYPE_ID } from '@shared/config/buildingUpgradeEconomy.js';
 import {
+  buildSystemMapLayouts,
+  SYSTEM_MAP_WORLD_UNITS_PER_LY,
+  type SystemMapPoint,
+} from '@shared/format/systemMapLayout.js';
+import { getResearchEffectsForUser } from '../research/effects.js';
+import {
   type BomberActor,
   type BuildingTarget,
   type CombatActor,
   type AttackerHit,
   computeTickDamage,
+  isFreshCombatTouch,
   resolveAttackerHits,
   resolveBomberHits,
   sumDpsPerBuilding,
@@ -73,12 +80,15 @@ interface ShipRow {
     ownerId: string | null;
     sectorX: number;
     sectorY: number;
+    seed: number;
   } | null;
 }
 
 interface ExpeditionRow {
   id: string;
   shipId: string;
+  originPlanetId: string;
+  targetPlanetId: string | null;
   status: string;
   targetX: string | null;
   targetY: string | null;
@@ -87,6 +97,91 @@ interface ExpeditionRow {
   originSectorX: number;
   originSectorY: number;
   originSectorZ: number;
+}
+
+interface CombatSystemLayouts {
+  planetPositions: Map<string, { x: number; y: number }>;
+}
+
+function pointFromResult(value: unknown): SystemMapPoint | null {
+  if (!value || typeof value !== 'object') return null;
+  const maybe = value as { x?: unknown; y?: unknown };
+  const x = Number(maybe.x);
+  const y = Number(maybe.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+  return { x, y };
+}
+
+function systemPointToCombatPosition(
+  system: { sectorX: number; sectorY: number },
+  point: SystemMapPoint,
+): { x: number; y: number } {
+  return {
+    x: Number(system.sectorX) + point.x / SYSTEM_MAP_WORLD_UNITS_PER_LY,
+    y: Number(system.sectorY) + point.y / SYSTEM_MAP_WORLD_UNITS_PER_LY,
+  };
+}
+
+async function loadWeaponRangeMultipliers(
+  aliveShips: ShipRow[],
+): Promise<Map<string, number>> {
+  const ownerIds = Array.from(new Set(aliveShips.map((ship) => ship.ownerId)));
+  const entries = await Promise.all(
+    ownerIds.map(async (ownerId) => {
+      const effects = await getResearchEffectsForUser(ownerId, defaultDb);
+      return [ownerId, effects.weaponRangeMultiplier] as const;
+    }),
+  );
+  return new Map(entries);
+}
+
+async function loadSystemCombatLayouts(
+  database: typeof defaultDb,
+  aliveShips: ShipRow[],
+): Promise<CombatSystemLayouts> {
+  const systemsById = new Map<string, { id: string; sectorX: number; sectorY: number; seed: number }>();
+  for (const ship of aliveShips) {
+    if (!ship.hostSystem) continue;
+    systemsById.set(ship.hostSystem.id, {
+      id: ship.hostSystem.id,
+      sectorX: ship.hostSystem.sectorX,
+      sectorY: ship.hostSystem.sectorY,
+      seed: ship.hostSystem.seed,
+    });
+  }
+
+  if (systemsById.size === 0) {
+    return { planetPositions: new Map() };
+  }
+
+  const planetRows = await database
+    .select({
+      id: planets.id,
+      systemId: planets.systemId,
+      name: planets.name,
+      biome: planets.biome,
+      size: planets.size,
+    })
+    .from(planets)
+    .where(inArray(planets.systemId, [...systemsById.keys()]));
+
+  const planetsBySystemId = new Map<string, typeof planetRows>();
+  for (const planet of planetRows) {
+    const list = planetsBySystemId.get(planet.systemId) ?? [];
+    list.push(planet);
+    planetsBySystemId.set(planet.systemId, list);
+  }
+
+  const planetPositions = new Map<string, { x: number; y: number }>();
+  for (const [systemId, system] of systemsById) {
+    const systemPlanets = planetsBySystemId.get(systemId) ?? [];
+    const layouts = buildSystemMapLayouts(systemPlanets, system.seed);
+    for (const layout of layouts) {
+      planetPositions.set(layout.id, systemPointToCombatPosition(system, layout));
+    }
+  }
+
+  return { planetPositions };
 }
 
 export async function processDueCombat(
@@ -125,9 +220,11 @@ export async function processDueCombat(
   for (const exp of inFlightExpeditions) {
     expeditionByShipId.set(exp.shipId, exp);
   }
+  const combatLayouts = await loadSystemCombatLayouts(defaultDb, aliveShips);
+  const weaponRangeMultiplierByOwner = await loadWeaponRangeMultipliers(aliveShips);
 
   const actors: CombatActor[] = aliveShips.map((ship) => {
-    const position = computePosition(ship, expeditionByShipId, now);
+    const position = computePosition(ship, expeditionByShipId, now, combatLayouts);
     const mergedStats = mergeCombatStats(ship.typeCombatStats, ship.combatStats);
     return {
       id: ship.id,
@@ -138,6 +235,7 @@ export async function processDueCombat(
       defenderArmor: Math.max(0, mergedStats.armor ?? ship.typeArmor ?? 0),
       position,
       hostSystem: ship.hostSystem,
+      weaponRangeMultiplier: weaponRangeMultiplierByOwner.get(ship.ownerId) ?? 1,
       lastCombatTickAtMs: ship.lastCombatTickAt ? ship.lastCombatTickAt.getTime() : null,
     };
   });
@@ -146,7 +244,13 @@ export async function processDueCombat(
   const shieldResult = resolveShieldedDamage(actors, hits, now.getTime());
   const damageByDefender = shieldResult.directDamageByDefender;
 
-  const bombingResult = await runBombingPass(aliveShips, now, options);
+  const bombingResult = await runBombingPass(
+    aliveShips,
+    now,
+    options,
+    combatLayouts,
+    weaponRangeMultiplierByOwner,
+  );
 
   if (
     damageByDefender.size === 0 &&
@@ -417,6 +521,8 @@ async function runBombingPass(
   aliveShips: ShipRow[],
   now: Date,
   options: ProcessDueCombatOptions,
+  combatLayouts: CombatSystemLayouts,
+  weaponRangeMultiplierByOwner: Map<string, number>,
 ): Promise<BombingPassResult> {
   // Build the bomber list from the same ship snapshot — bombers must be docked
   // at a host system (in-flight orbital strikes are out of scope for the MVP).
@@ -431,6 +537,8 @@ async function runBombingPass(
         hp: s.hp,
         combatStats: mergedStats,
         hostSystemId: s.hostSystem?.id ?? null,
+        position: computePosition(s, new Map(), now, combatLayouts),
+        weaponRangeMultiplier: weaponRangeMultiplierByOwner.get(s.ownerId) ?? 1,
       };
     })
     .filter((b) => b.combatStats.engagementRange === 'orbital' && b.hp > 0);
@@ -463,6 +571,7 @@ async function runBombingPass(
       armor,
       hp: b.hp,
       destroyed: b.destroyedAt != null || b.hp <= 0,
+      position: combatLayouts.planetPositions.get(b.planetId) ?? null,
       lastCombatTickAtMs: b.lastCombatTickAt ? b.lastCombatTickAt.getTime() : null,
     });
     buildingsByPlanet.set(b.planetId, list);
@@ -497,7 +606,9 @@ async function runBombingPass(
     const damageApplied = Math.max(0, Math.round(damage));
     const newHp = Math.max(0, b.hp - damageApplied);
     if (damageApplied === 0) {
-      if (lastMs == null) firstTouchOnly.push(buildingId);
+      if (isFreshCombatTouch({ lastCombatTickAtMs: lastMs }, now.getTime())) {
+        firstTouchOnly.push(buildingId);
+      }
       continue;
     }
     updates.push({
@@ -699,6 +810,7 @@ async function loadAliveShips(database: typeof defaultDb): Promise<ShipRow[]> {
       sysOwnerId: systems.ownerId,
       sysSectorX: systems.sectorX,
       sysSectorY: systems.sectorY,
+      sysSeed: systems.seed,
     })
     .from(ships)
     .innerJoin(shipTypes, eq(shipTypes.id, ships.typeId))
@@ -726,6 +838,7 @@ async function loadAliveShips(database: typeof defaultDb): Promise<ShipRow[]> {
           ownerId: r.sysOwnerId,
           sectorX: Number(r.sysSectorX),
           sectorY: Number(r.sysSectorY),
+          seed: Number(r.sysSeed),
         }
       : null,
   }));
@@ -739,6 +852,8 @@ async function loadInFlightExpeditions(
     .select({
       id: expeditions.id,
       shipId: expeditions.shipId,
+      originPlanetId: expeditions.originPlanetId,
+      targetPlanetId: expeditions.targetPlanetId,
       status: expeditions.status,
       targetX: expeditions.targetX,
       targetY: expeditions.targetY,
@@ -761,6 +876,8 @@ async function loadInFlightExpeditions(
   return rows.map((r) => ({
     id: r.id,
     shipId: r.shipId,
+    originPlanetId: r.originPlanetId,
+    targetPlanetId: r.targetPlanetId,
     status: r.status,
     targetX: r.targetX,
     targetY: r.targetY,
@@ -776,13 +893,45 @@ function computePosition(
   ship: ShipRow,
   expeditionByShipId: Map<string, ExpeditionRow>,
   now: Date,
+  combatLayouts: CombatSystemLayouts,
 ): { x: number; y: number } | null {
   if (ship.status === 'moving') {
     const exp = expeditionByShipId.get(ship.id);
     if (!exp) return null;
     if (exp.status === EXPEDITION_STATUS_STATIONED) {
+      const result = exp.result as Record<string, unknown> | null;
+      const stationedPoint = pointFromResult(result?.targetSystemPoint);
+      if (stationedPoint) {
+        return systemPointToCombatPosition(
+          { sectorX: Number(exp.targetX), sectorY: Number(exp.targetY) },
+          stationedPoint,
+        );
+      }
       return { x: Number(exp.targetX), y: Number(exp.targetY) };
     }
+
+    const result = exp.result as Record<string, unknown> | null;
+    if (result?.routeMode !== 'jump_gate') {
+      const origin = combatLayouts.planetPositions.get(exp.originPlanetId);
+      if (origin) {
+        const targetPlanet = exp.targetPlanetId
+          ? combatLayouts.planetPositions.get(exp.targetPlanetId)
+          : null;
+        const target = targetPlanet ?? {
+          x: origin.x + Number(exp.targetX) - exp.originSectorX,
+          y: origin.y + Number(exp.targetY) - exp.originSectorY,
+        };
+        const t = expeditionProgress(exp, now);
+        if (t !== null) {
+          const progress = exp.status === 'returning' ? 1 - t : t;
+          return {
+            x: origin.x + (target.x - origin.x) * progress,
+            y: origin.y + (target.y - origin.y) * progress,
+          };
+        }
+      }
+    }
+
     const pos = calculateExpeditionPosition(
       {
         targetX: exp.targetX,
@@ -797,7 +946,28 @@ function computePosition(
     return { x: pos.x, y: pos.y };
   }
   if (!ship.hostSystem) return null;
+  if (ship.locationPlanetId) {
+    const planetPosition = combatLayouts.planetPositions.get(ship.locationPlanetId);
+    if (planetPosition) return planetPosition;
+  }
   return { x: ship.hostSystem.sectorX, y: ship.hostSystem.sectorY };
+}
+
+function expeditionProgress(exp: ExpeditionRow, now: Date): number | null {
+  const result = exp.result as Record<string, unknown> | null;
+  const distance = Number(result?.distance);
+  const speed = Number(result?.speed);
+  const engineFactor = Number(result?.engineFactor ?? 1);
+  if (!Number.isFinite(distance) || !Number.isFinite(speed) || speed <= 0) {
+    return null;
+  }
+  const durationMs = ((distance * 60) / speed) * engineFactor * 1000;
+  if (!Number.isFinite(durationMs) || durationMs <= 0) return null;
+  const etaMs = exp.eta.getTime();
+  const startMs = etaMs - durationMs;
+  if (now.getTime() <= startMs) return 0;
+  if (now.getTime() >= etaMs) return 1;
+  return Math.max(0, Math.min(1, (now.getTime() - startMs) / durationMs));
 }
 
 // Re-export pure helpers for tests.

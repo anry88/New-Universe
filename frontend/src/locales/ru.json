@@ -297,6 +297,7 @@
   "research.effect.energyEfficiency": "Энергозатраты",
   "research.effect.shipSpeed": "Скорость кораблей",
   "research.effect.sensorRange": "Радиус сенсоров",
+  "research.effect.weaponRange": "Дальность оружия",
   "research.effect.buildTime": "Время строительства",
   "research.activeResearch": "Активное исследование",
   "research.remaining": "Осталось {time}",

@@ -209,6 +209,7 @@ export async function buildShip(
         ...newShip,
         queueCompletesAt: queueCompletesAt.toISOString(),
         queueStartedAt,
+        lastCombatTickAt: newShip.lastCombatTickAt?.toISOString() ?? null,
         cargoJson: newShip.cargoJson as Record<string, number>,
       },
       queueItem: {

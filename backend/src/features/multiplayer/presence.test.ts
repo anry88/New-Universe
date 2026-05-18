@@ -12,6 +12,7 @@ import {
   expeditions,
 } from '../../db/schema.js';
 import { getSectorPresence, getSectorSystemAnchors } from './presence.js';
+import { SHIP_STATUS_DESTROYED } from '@shared/types/combat.js';
 
 function randomSector() {
   const base = Math.floor(Math.random() * 40000) + 500;
@@ -206,6 +207,14 @@ describe('getSectorPresence', () => {
       locationPlanetId: null,
       status: 'moving',
     }).returning();
+    const [destroyedStationedShip] = await db.insert(ships).values({
+      ownerId: rival.id,
+      typeId: shipType.id,
+      locationPlanetId: null,
+      status: SHIP_STATUS_DESTROYED,
+      hp: 0,
+      destroyedAt: new Date(),
+    }).returning();
 
     await db.insert(expeditions).values([
       {
@@ -236,6 +245,21 @@ describe('getSectorPresence', () => {
           routeMode: 'jump_gate',
           destinationSystemId: neutralSys.id,
           targetSystemPoint: { x: 30, y: 40 },
+        },
+      },
+      {
+        shipId: destroyedStationedShip.id,
+        type: shipType.id,
+        originPlanetId: rivalColonyPlanet.id,
+        targetX: neutralSys.sectorX.toString(),
+        targetY: neutralSys.sectorY.toString(),
+        targetZ: neutralSys.sectorZ.toString(),
+        status: 'stationed',
+        eta: new Date(),
+        result: {
+          routeMode: 'jump_gate',
+          destinationSystemId: neutralSys.id,
+          targetSystemPoint: { x: 50, y: 60 },
         },
       },
     ]);
@@ -310,6 +334,7 @@ describe('getSectorPresence', () => {
       visibility: 'summary',
     });
     expect(foreignStationedFleet?.planetId).toBeUndefined();
+    expect(payload.entities.some((e) => e.shipId === destroyedStationedShip.id)).toBe(false);
   });
 });
 
@@ -357,11 +382,27 @@ describe('getSectorSystemAnchors', () => {
       locationPlanetId: commonPlanet.id,
       status: 'idle',
     });
+    await db.insert(ships).values({
+      ownerId: viewer.id,
+      typeId: shipType.id,
+      locationPlanetId: commonPlanet.id,
+      status: SHIP_STATUS_DESTROYED,
+      hp: 0,
+      destroyedAt: new Date(),
+    });
     const [stationedShip] = await db.insert(ships).values({
       ownerId: viewer.id,
       typeId: shipType.id,
       locationPlanetId: null,
       status: 'moving',
+    }).returning();
+    const [destroyedStationedShip] = await db.insert(ships).values({
+      ownerId: viewer.id,
+      typeId: shipType.id,
+      locationPlanetId: null,
+      status: SHIP_STATUS_DESTROYED,
+      hp: 0,
+      destroyedAt: new Date(),
     }).returning();
     await db.insert(expeditions).values({
       shipId: stationedShip.id,
@@ -376,6 +417,21 @@ describe('getSectorSystemAnchors', () => {
         routeMode: 'jump_gate',
         destinationSystemId: common.id,
         targetSystemPoint: { x: 12, y: 24 },
+      },
+    });
+    await db.insert(expeditions).values({
+      shipId: destroyedStationedShip.id,
+      type: shipType.id,
+      originPlanetId: commonPlanet.id,
+      targetX: common.sectorX.toString(),
+      targetY: common.sectorY.toString(),
+      targetZ: common.sectorZ.toString(),
+      status: 'stationed',
+      eta: new Date('2026-05-02T13:05:00.000Z'),
+      result: {
+        routeMode: 'jump_gate',
+        destinationSystemId: common.id,
+        targetSystemPoint: { x: 16, y: 30 },
       },
     });
 

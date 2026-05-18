@@ -297,6 +297,7 @@
   "research.effect.energyEfficiency": "Energy demand",
   "research.effect.shipSpeed": "Ship speed",
   "research.effect.sensorRange": "Sensor range",
+  "research.effect.weaponRange": "Weapon range",
   "research.effect.buildTime": "Build time",
   "research.activeResearch": "Active research",
   "research.remaining": "{time} remaining",

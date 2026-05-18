@@ -13,8 +13,8 @@ The persistence model deliberately reuses `systems`, `discovered_systems`, `plan
 2. **Neutral systems** — Systems with `owner_id IS NULL` appear as `neutral_system` markers with summary visibility (public names only).
 3. **Own home** — The viewer's home system in the requested sector appears as `own_home_system` with full visibility.
 4. **Colonies** — Off-world colonies appear as `own_colony` or `foreign_colony`. Foreign colonies never expose another player's planet title as authoritative identity; the UI shows a generic label plus a masked handle derived from Telegram username/first name.
-5. **Fleets** — Ships docked at a planet (`status = idle`) and Jump Gate point deployments whose expedition is `stationed` appear as `own_ship` / `foreign_ship`. Cargo JSON is not exposed on this endpoint, and point deployments do not carry a `planetId`.
-6. **Known public-system fleet contacts** — `GET /jump-gate/state` also includes redacted `fleetContacts` for foreign `stationed` point deployments inside the viewer's known public destinations. These contacts carry only a masked owner alias, summary visibility, and the destination-system point needed to place a marker on the common-system map; they never expose foreign Home Systems.
+5. **Fleets** — Non-destroyed ships docked at a planet (`status = idle`) and non-destroyed Jump Gate point deployments whose expedition is `stationed` appear as `own_ship` / `foreign_ship`. Cargo JSON is not exposed on this endpoint, and point deployments do not carry a `planetId`. Destroyed ship rows remain in storage for combat history/auditing but are not projected as presence.
+6. **Known public-system fleet contacts** — `GET /jump-gate/state` also includes redacted `fleetContacts` for non-destroyed foreign `stationed` point deployments inside the viewer's known public destinations. These contacts carry only a masked owner alias, summary visibility, and the destination-system point needed to place a red ship marker on the common-system map; they never expose foreign Home Systems.
 
 Every presence entity also carries an explicit model classification:
 

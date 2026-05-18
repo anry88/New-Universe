@@ -22,6 +22,7 @@ export interface Ship {
   hp: number;
   maxHp: number;
   combatStats: CombatStats;
+  lastCombatTickAt?: string | null;
 }
 
 export interface ShipQueueItem {

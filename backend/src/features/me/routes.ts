@@ -16,7 +16,7 @@ import {
   productionOrders,
   researchProgress,
 } from "../../db/schema.js";
-import { and, asc, eq, inArray, or } from "drizzle-orm";
+import { and, asc, eq, inArray, ne, or } from "drizzle-orm";
 import { syncTutorialProgress } from "../tutorial/service.js";
 import { homeSystemShortTag } from "@shared/format/homeSystemNaming.js";
 import { syncDuePlayerState } from "./online-sync.js";
@@ -59,6 +59,7 @@ import {
   maxColoniesForLogisticsLevel,
 } from "../../config/colonization-rules.js";
 import { loadExpansionColonies } from "../colonies/colonization-rules.js";
+import { SHIP_STATUS_DESTROYED } from "@shared/types/combat.js";
 
 type UserRow = typeof users.$inferSelect;
 type UpdatePreferencesRequestBody = Partial<UpdatePreferredLocaleRequest> | null;
@@ -203,7 +204,10 @@ export async function meRoutes(app: FastifyInstance) {
       }
 
       const userShips = await db.query.ships.findMany({
-        where: eq(ships.ownerId, user.id),
+        where: and(
+          eq(ships.ownerId, user.id),
+          ne(ships.status, SHIP_STATUS_DESTROYED),
+        ),
       });
       const enrichedShips = userShips.map((ship) => ({
         ...ship,

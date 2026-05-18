@@ -8,6 +8,7 @@ import {
   applySensorRange,
   applyShipSpeed,
   applyStorageCap,
+  applyWeaponRange,
   buildResearchEffectModifiers,
   computeResearchEffects,
   createResearchEffectsRequestCache,
@@ -25,6 +26,7 @@ describe('research effects engine', () => {
       { branch: 'logistics', level: 1 },
       { branch: 'mining', level: 3 },
       { branch: 'sensors', level: 3 },
+      { branch: 'weapons', level: 3 },
     ]);
 
     const fromOrderB = computeResearchEffects([
@@ -35,6 +37,7 @@ describe('research effects engine', () => {
       { branch: 'engineering', level: 2 },
       { branch: 'jump_drive', level: 2 },
       { branch: 'engines', level: 3 },
+      { branch: 'weapons', level: 3 },
     ]);
 
     expect(fromOrderA).toEqual(fromOrderB);
@@ -45,6 +48,7 @@ describe('research effects engine', () => {
     expect(fromOrderA.energyEfficiencyMultiplier).toBeCloseTo(0.92, 6);
     expect(fromOrderA.shipSpeedMultiplier).toBeCloseTo(1.196, 6); // 1.15 * 1.04
     expect(fromOrderA.sensorRangeMultiplier).toBeCloseTo(1.18, 6);
+    expect(fromOrderA.weaponRangeMultiplier).toBeCloseTo(1.18, 6);
     expect(fromOrderA.buildTimeMultiplier).toBeCloseTo(0.94, 6);
   });
 
@@ -55,6 +59,7 @@ describe('research effects engine', () => {
       { branch: 'energy', level: 4 },
       { branch: 'engines', level: 1 },
       { branch: 'sensors', level: 2 },
+      { branch: 'weapons', level: 2 },
       { branch: 'engineering', level: 3 },
     ]);
 
@@ -65,6 +70,7 @@ describe('research effects engine', () => {
     expect(applyEnergyRequirement(100, effects)).toBeCloseTo(87, 6);
     expect(applyShipSpeed(10, effects)).toBeCloseTo(10.5, 6);
     expect(applySensorRange(8, effects)).toBeCloseTo(8.96, 6);
+    expect(applyWeaponRange(2.2, effects)).toBeCloseTo(2.464, 6);
     expect(applyBuildTimeSeconds(300, effects)).toBe(273);
   });
 
