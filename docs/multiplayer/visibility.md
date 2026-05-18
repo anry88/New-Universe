@@ -14,7 +14,7 @@ The persistence model deliberately reuses `systems`, `discovered_systems`, `plan
 3. **Own home** — The viewer's home system in the requested sector appears as `own_home_system` with full visibility.
 4. **Colonies** — Off-world colonies appear as `own_colony` or `foreign_colony`. Foreign colonies never expose another player's planet title as authoritative identity; the UI shows a generic label plus a masked handle derived from Telegram username/first name.
 5. **Fleets** — Non-destroyed ships docked at a planet (`status = idle`) and non-destroyed Jump Gate point deployments whose expedition is `stationed` appear as `own_ship` / `foreign_ship`. Cargo JSON is not exposed on this endpoint, and point deployments do not carry a `planetId`. Destroyed ship rows remain in storage for combat history/auditing but are not projected as presence.
-6. **Known public-system fleet contacts** — `GET /systems/:systemId/tactical-state` includes redacted `fleetContacts` for non-destroyed foreign `stationed` point deployments inside one visible requested system. These contacts carry only a masked owner alias, summary visibility, visible hull type, HP/combat summary, and the destination-system point needed to place a red ship marker on the common-system map; they never expose foreign Home Systems. `GET /jump-gate/state` stays limited to gate state and known destination summaries.
+6. **Known public-system fleet contacts** — `GET /systems/:systemId/tactical-state` includes redacted `fleetContacts` for non-destroyed foreign Jump Gate contacts in `in_flight`, `returning`, or `stationed` state inside one visible requested system. These contacts carry only a masked owner alias, summary visibility, visible hull type, HP/combat summary, current tactical status, and the system-map point needed to place a red ship marker on the common-system map; they never expose foreign Home Systems. `GET /jump-gate/state` stays limited to gate state and known destination summaries.
 
 Every presence entity also carries an explicit model classification:
 
@@ -22,7 +22,7 @@ Every presence entity also carries an explicit model classification:
 |---|---|---|
 | `home` | `self` | Viewer-owned `systems.is_home` rows only. |
 | `colony` | `self`, `foreign` | Active `colonies` joined through their planet/system. |
-| `fleet` | `self`, `foreign` | Idle docked `ships` joined through their planet/system, plus `stationed` expedition rows joined through `result.destinationSystemId`. |
+| `fleet` | `self`, `foreign` | Idle docked `ships` joined through their planet/system, plus `stationed` expedition rows joined through `result.destinationSystemId`. Moving per-system tactical contacts are exposed only by `/systems/:systemId/tactical-state`. |
 | `public_sector` | `public` | Neutral/common `systems.owner_id IS NULL` rows. |
 
 ## Sector selector
@@ -32,7 +32,7 @@ Every presence entity also carries an explicit model classification:
 1. The viewer's home system.
 2. Discovered non-protected systems from `discovered_systems`, with the newest five tagged as `recent`.
 3. Systems containing the viewer's active colonies, even if the selector reached them through colony ownership rather than a discovery row.
-4. Systems containing the viewer's docked ships or stationed Jump Gate point deployments.
+4. Systems containing the viewer's docked ships or active Jump Gate point deployments.
 
 Anchors include sector coordinates, world position, `home`/`discovered`/`recent`/`colony`/`fleet` tags, and colony/ship counts. Foreign home systems are filtered from this list as a defense-in-depth rule, even if bad historical data inserted a stale discovery row.
 

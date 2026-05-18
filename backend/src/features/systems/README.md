@@ -5,8 +5,8 @@ System-scoped read models live here. These endpoints answer questions about one 
 ## Files
 
 - **`routes.ts`** — `systemsRoutes(app)` registers authenticated `GET /systems/:systemId/tactical-state`. The route requires a JWT session, validates the `systemId` param, and returns `404` when the system is not visible to the viewer.
-- **`tactical-state.ts`** — exports `getSystemTacticalState(userId, systemId)`. It allows the viewer's own systems, discovered public systems, systems with the viewer's colony, docked ships, or stationed ships, while keeping foreign Home Systems hidden. It returns only the requested system's redacted foreign `stationed` fleet contacts with safe owner alias, visible hull type, current HP, combat stats, recent-combat timestamp, and destination-system point.
-- **`tactical-state.test.ts`** — Vitest coverage for single-system tactical contact projection and undiscovered public-system protection.
+- **`tactical-state.ts`** — exports `getSystemTacticalState(userId, systemId)`. It allows the viewer's own systems, discovered public systems, systems with the viewer's colony, docked ships, or active tactical ships, while keeping foreign Home Systems hidden. It returns only the requested system's redacted foreign Jump Gate fleet contacts in `in_flight` / `returning` / `stationed` states with safe owner alias, visible hull type, current HP, combat stats, recent-combat timestamp, status, and a system-map point interpolated for moving same-system routes.
+- **`tactical-state.test.ts`** — Vitest coverage for single-system tactical contact projection, moving point-to-point contacts, and undiscovered public-system protection.
 
 ## Adding System Behavior
 
