@@ -24,6 +24,7 @@ import { resolveMissilePayloadDps } from './missiles.js';
  */
 export const COMBAT_TICK_MAX_DT_SEC = 3;
 export const COMBAT_REENGAGEMENT_RESET_SEC = 15;
+export const SHIP_COMBAT_DAMAGE_TIME_SCALE = 0.35;
 
 export interface CombatActor {
   id: string;
@@ -225,6 +226,7 @@ export function computeTickDamage(
   defender: Pick<CombatActor, 'lastCombatTickAtMs'>,
   totalDps: number,
   nowMs: number,
+  options: { timeScale?: number } = {},
 ): number {
   if (totalDps <= 0) return 0;
   if (isFreshCombatTouch(defender, nowMs)) return 0;
@@ -232,7 +234,13 @@ export function computeTickDamage(
   if (lastCombatTickAtMs == null) return 0;
   const dtMs = Math.max(0, nowMs - lastCombatTickAtMs);
   const dtSec = Math.min(COMBAT_TICK_MAX_DT_SEC, dtMs / 1000);
-  return totalDps * dtSec;
+  const timeScale = finitePositiveScale(options.timeScale);
+  return totalDps * dtSec * timeScale;
+}
+
+function finitePositiveScale(value: number | undefined): number {
+  if (value === undefined) return 1;
+  return Number.isFinite(value) && value > 0 ? value : 1;
 }
 
 export function isFreshCombatTouch(

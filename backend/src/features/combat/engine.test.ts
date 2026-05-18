@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   COMBAT_TICK_MAX_DT_SEC,
   COMBAT_REENGAGEMENT_RESET_SEC,
+  SHIP_COMBAT_DAMAGE_TIME_SCALE,
   computeTickDamage,
   isFreshCombatTouch,
   isDefenderProtectedFromAttacker,
@@ -296,6 +297,15 @@ describe('combat engine — computeTickDamage', () => {
     const defender = { lastCombatTickAtMs: 10_000 };
     // 2s elapsed, 30 dps → 60 damage
     expect(computeTickDamage(defender, 30, 12_000)).toBe(60);
+  });
+
+  it('can slow ship combat elapsed-time damage without changing catalog DPS', () => {
+    const defender = { lastCombatTickAtMs: 10_000 };
+    expect(
+      computeTickDamage(defender, 30, 12_000, {
+        timeScale: SHIP_COMBAT_DAMAGE_TIME_SCALE,
+      }),
+    ).toBe(60 * SHIP_COMBAT_DAMAGE_TIME_SCALE);
   });
 
   it('caps elapsed time at COMBAT_TICK_MAX_DT_SEC', () => {

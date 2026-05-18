@@ -137,7 +137,7 @@ describe('combat tick — processDueCombat', () => {
     expect(stamped!.lastCombatTickAt).not.toBeNull();
   });
 
-  it('destroys a civilian scout within seconds under light_fighter fire', async () => {
+  it('destroys a civilian scout only after sustained light_fighter fire', async () => {
     const attackerOwner = await createUser('atk2');
     const defenderOwner = await createUser('def2');
 
@@ -156,10 +156,19 @@ describe('combat tick — processDueCombat', () => {
     const t0 = new Date('2026-06-01T00:00:00.000Z');
     await processDueCombat({ now: t0, skipNotifications: true });
 
-    // 5 seconds later is capped to the visible-combat damage window; scout still dies.
+    // 5 seconds later is capped and then scaled by the ship-combat pacing
+    // multiplier, so the scout survives the first damage pulse.
     const t1 = new Date(t0.getTime() + 5_000);
-    const res = await processDueCombat({ now: t1, skipNotifications: false });
+    const firstPulse = await processDueCombat({ now: t1, skipNotifications: true });
 
+    expect(firstPulse.destroyed).not.toContain(defender.id);
+    const damaged = await db.query.ships.findFirst({ where: eq(ships.id, defender.id) });
+    expect(damaged!.status).toBe('idle');
+    expect(damaged!.hp).toBeGreaterThan(0);
+    expect(damaged!.hp).toBeLessThan(40);
+
+    const t2 = new Date(t0.getTime() + 10_000);
+    const res = await processDueCombat({ now: t2, skipNotifications: false });
     expect(res.destroyed).toContain(defender.id);
 
     const dead = await db.query.ships.findFirst({ where: eq(ships.id, defender.id) });
@@ -277,7 +286,7 @@ describe('combat tick — processDueCombat', () => {
     const mid = await db.query.ships.findFirst({ where: eq(ships.id, defender.id) });
     expect(mid!.hp).toBeGreaterThan(0);
     expect(mid!.hp).toBeLessThan(200);
-    expect(mid!.hp).toBeGreaterThan(40); // would already be dead if it were a scout
+    expect(mid!.hp).toBeGreaterThan(40); // still materially tougher than a scout under the same pulse
   });
 
   it('does not apply stale combat time as burst damage when a fresh attacker arrives', async () => {
@@ -377,6 +386,10 @@ describe('combat tick — processDueCombat', () => {
       now: new Date(t0.getTime() + 5_000),
       skipNotifications: true,
     });
+    await processDueCombat({
+      now: new Date(t0.getTime() + 10_000),
+      skipNotifications: true,
+    });
 
     const t2 = new Date(t0.getTime() + 60_000);
     await processDueCombat({ now: t2, skipNotifications: true });
@@ -420,6 +433,10 @@ describe('combat tick — processDueCombat', () => {
     await processDueCombat({ now: t0, skipNotifications: true });
     await processDueCombat({
       now: new Date(t0.getTime() + 5_000),
+      skipNotifications: true,
+    });
+    await processDueCombat({
+      now: new Date(t0.getTime() + 10_000),
       skipNotifications: true,
     });
 
@@ -484,7 +501,7 @@ describe('combat tick — processDueCombat', () => {
     const shieldAfterDamage = await db.query.ships.findFirst({ where: eq(ships.id, shield.id) });
     expect(protectedScout!.hp).toBe(40);
     expect(shieldAfterDamage!.hp).toBe(320);
-    expect(shieldAfterDamage!.combatStats.shields?.currentHp).toBe(610);
+    expect(shieldAfterDamage!.combatStats.shields?.currentHp).toBe(668.5);
 
     await db.update(ships).set({ status: SHIP_STATUS_DESTROYED, hp: 0 }).where(eq(ships.id, attacker.id));
     await processDueCombat({ now: new Date(t0.getTime() + 25_000), skipNotifications: true });
