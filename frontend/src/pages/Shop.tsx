@@ -10,15 +10,20 @@ import { trackFrontendEvent } from '../lib/analytics';
 import { useNavigate } from 'react-router-dom';
 import {
   CHECKOUT_AUTO_CONFIRM_DELAY_MS,
+  CHECKOUT_AUTO_CONFIRM_MAX_ATTEMPTS,
   CHECKOUT_CONFIRM_ATTEMPTS,
   CHECKOUT_CONFIRM_DELAY_MS,
+  CHECKOUT_TRANSIENT_STATUS_CLEAR_DELAY_MS,
   ACTIVE_STARS_CHECKOUT_STORAGE_KEY,
+  checkoutStatusFromInvoiceCallback,
   checkoutStatusKey,
   checkoutStatusTone,
   encodeStoredStarsCheckout,
   parseStoredStarsCheckout,
   shouldConfirmInvoiceStatus,
   shouldAutoConfirmCheckout,
+  shouldAutoClearCheckoutStatus,
+  type StarsCheckoutPersistenceSource,
   type StarsCheckoutReference,
 } from '../lib/stars-checkout';
 
@@ -53,8 +58,8 @@ function openInvoiceUrl(url: string, onStatus: (status: string) => void): boolea
   return false;
 }
 
-function saveActiveCheckout(checkout: StarsCheckoutReference) {
-  window.localStorage.setItem(ACTIVE_STARS_CHECKOUT_STORAGE_KEY, encodeStoredStarsCheckout(checkout));
+function saveActiveCheckout(checkout: StarsCheckoutReference, source: StarsCheckoutPersistenceSource) {
+  window.localStorage.setItem(ACTIVE_STARS_CHECKOUT_STORAGE_KEY, encodeStoredStarsCheckout(checkout, source));
 }
 
 function clearActiveCheckout() {
@@ -102,7 +107,7 @@ function CheckoutStatusIcon({ status }: { status: string }) {
   const tone = checkoutStatusTone(status);
   if (tone === 'success') return <CheckCircle2 size={20} />;
   if (tone === 'danger') return <AlertTriangle size={20} />;
-  if (status === 'confirming' || status === 'pendingDelivery' || status === 'pending') {
+  if (status === 'confirming' || status === 'pendingDelivery' || status === 'pending' || status === 'processing') {
     return <LoaderCircle size={20} className="animate-spin" />;
   }
   return <Clock3 size={20} />;
@@ -238,6 +243,31 @@ export function ShopPage() {
     return () => window.clearTimeout(id);
   }, [autoConfirmAttempts, checkoutConfirmPending, checkoutStatus, confirmCheckout, lastCheckout]);
 
+  useEffect(() => {
+    if (
+      (checkoutStatus !== 'pendingDelivery' && checkoutStatus !== 'pending') ||
+      !lastCheckout ||
+      checkoutConfirmPending ||
+      autoConfirmAttempts < CHECKOUT_AUTO_CONFIRM_MAX_ATTEMPTS
+    ) {
+      return;
+    }
+
+    clearActiveCheckout();
+    setLastCheckout(null);
+    setCheckoutStatus('failedDelivery');
+  }, [autoConfirmAttempts, checkoutConfirmPending, checkoutStatus, lastCheckout]);
+
+  useEffect(() => {
+    if (!shouldAutoClearCheckoutStatus(checkoutStatus)) return;
+
+    const id = window.setTimeout(() => {
+      setCheckoutStatus(null);
+    }, CHECKOUT_TRANSIENT_STATUS_CLEAR_DELAY_MS);
+
+    return () => window.clearTimeout(id);
+  }, [checkoutStatus]);
+
   const startCheckout = async (packId: string) => {
     setCheckoutStatus(null);
     setConfirmation(null);
@@ -250,7 +280,6 @@ export function ShopPage() {
         checkoutId: response.checkoutId,
       };
 
-      saveActiveCheckout(checkout);
       setLastCheckout(checkout);
       trackFrontendEvent('stars_checkout_started', {
         packDiamonds: response.pack.diamonds,
@@ -259,17 +288,19 @@ export function ShopPage() {
 
       const handlesStatus = openInvoiceUrl(response.invoiceUrl, (status) => {
         if (shouldConfirmInvoiceStatus(status)) {
+          saveActiveCheckout(checkout, 'paid');
           void confirmCheckout(checkout);
           return;
         }
 
-        if (status === 'cancelled' || status === 'failed') {
-          clearActiveCheckout();
-        }
-        setCheckoutStatus(status);
+        clearActiveCheckout();
+        setLastCheckout(null);
+        setAutoConfirmAttempts(0);
+        setCheckoutStatus(checkoutStatusFromInvoiceCallback(status));
       });
 
       if (!handlesStatus) {
+        saveActiveCheckout(checkout, 'fallback');
         setCheckoutStatus('pending');
       }
     } catch {
@@ -454,7 +485,7 @@ export function ShopPage() {
               <p style={{ margin: 0, color: '#fff7ed', fontSize: 14, fontWeight: 800 }}>
                 {t(checkoutStatusKey(checkoutStatus), checkoutStatusParams)}
               </p>
-              {(checkoutStatus === 'pending' || checkoutStatus === 'pendingDelivery') && (
+              {(checkoutStatus === 'pending' || checkoutStatus === 'pendingDelivery') && lastCheckout && (
                 <p style={{ margin: '6px 0 0', color: '#fde68a', fontSize: 12, lineHeight: 1.4 }}>
                   {t('shop.checkout.pendingDeliveryAuto')}
                 </p>

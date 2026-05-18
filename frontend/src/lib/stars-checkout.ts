@@ -2,6 +2,7 @@ export const CHECKOUT_CONFIRM_ATTEMPTS = 5;
 export const CHECKOUT_CONFIRM_DELAY_MS = 1_000;
 export const CHECKOUT_AUTO_CONFIRM_DELAY_MS = 2_000;
 export const CHECKOUT_AUTO_CONFIRM_MAX_ATTEMPTS = 60;
+export const CHECKOUT_TRANSIENT_STATUS_CLEAR_DELAY_MS = 8_000;
 export const ACTIVE_STARS_CHECKOUT_STORAGE_KEY = 'nu_active_stars_checkout';
 export const ACTIVE_STARS_CHECKOUT_MAX_AGE_MS = 30 * 60 * 1_000;
 
@@ -10,6 +11,7 @@ export const CHECKOUT_STATUS_KEYS = [
   'cancelled',
   'failed',
   'pending',
+  'processing',
   'confirming',
   'delivered',
   'pendingDelivery',
@@ -23,7 +25,10 @@ export type StarsCheckoutReference = {
   checkoutId: string;
 };
 
+export type StarsCheckoutPersistenceSource = 'paid' | 'fallback';
+
 export type StoredStarsCheckoutReference = StarsCheckoutReference & {
+  source: StarsCheckoutPersistenceSource;
   createdAtMs: number;
 };
 
@@ -35,7 +40,13 @@ export function checkoutStatusKey(status: string): string {
 
 export function checkoutStatusTone(status: string): CheckoutDisplayTone {
   if (status === 'delivered') return 'success';
-  if (status === 'pendingDelivery' || status === 'pending' || status === 'confirming' || status === 'paid') {
+  if (
+    status === 'pendingDelivery' ||
+    status === 'pending' ||
+    status === 'processing' ||
+    status === 'confirming' ||
+    status === 'paid'
+  ) {
     return 'warning';
   }
   if (status === 'failedDelivery' || status === 'failed' || status === 'cancelled') return 'danger';
@@ -43,7 +54,15 @@ export function checkoutStatusTone(status: string): CheckoutDisplayTone {
 }
 
 export function shouldConfirmInvoiceStatus(status: string): boolean {
-  return status === 'paid' || status === 'pending';
+  return status === 'paid';
+}
+
+export function checkoutStatusFromInvoiceCallback(status: string): string {
+  return status === 'pending' ? 'processing' : status;
+}
+
+export function shouldAutoClearCheckoutStatus(status: string | null): boolean {
+  return status === 'processing';
 }
 
 export function shouldAutoConfirmCheckout(input: {
@@ -62,11 +81,16 @@ export function shouldAutoConfirmCheckout(input: {
 
 export function encodeStoredStarsCheckout(
   checkout: StarsCheckoutReference,
-  nowMs = Date.now(),
+  sourceOrNowMs: StarsCheckoutPersistenceSource | number = 'paid',
+  maybeNowMs = Date.now(),
 ): string {
+  const source = typeof sourceOrNowMs === 'number' ? 'paid' : sourceOrNowMs;
+  const nowMs = typeof sourceOrNowMs === 'number' ? sourceOrNowMs : maybeNowMs;
+
   return JSON.stringify({
     packId: checkout.packId,
     checkoutId: checkout.checkoutId,
+    source,
     createdAtMs: nowMs,
   } satisfies StoredStarsCheckoutReference);
 }
@@ -84,6 +108,7 @@ export function parseStoredStarsCheckout(
       parsed.packId.length === 0 ||
       typeof parsed.checkoutId !== 'string' ||
       parsed.checkoutId.length === 0 ||
+      (parsed.source !== 'paid' && parsed.source !== 'fallback') ||
       typeof parsed.createdAtMs !== 'number' ||
       !Number.isFinite(parsed.createdAtMs) ||
       nowMs - parsed.createdAtMs > ACTIVE_STARS_CHECKOUT_MAX_AGE_MS

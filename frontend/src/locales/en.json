@@ -367,6 +367,7 @@
   "shop.checkout.cancelled": "Checkout cancelled.",
   "shop.checkout.failed": "Checkout failed.",
   "shop.checkout.pending": "Invoice opened. Checking diamond delivery...",
+  "shop.checkout.processing": "Telegram has not confirmed the payment yet. Diamonds unlock only after Telegram confirms it.",
   "shop.checkout.confirming": "Confirming Stars delivery...",
   "shop.checkout.delivered": "{diamonds} diamonds added. Balance: ◆ {balance}.",
   "shop.checkout.pendingDelivery": "Payment accepted. Diamond delivery is still syncing.",
