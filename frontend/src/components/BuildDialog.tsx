@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import type { BuildingType, BuildBlockedReason } from '@shared/types/buildings';
+import type { Planet } from '@shared/types/world';
 import {
   formatBuildBlockedMessage,
   resolveBuildingProductionRateForResource,
 } from '@shared/types/building-eligibility';
+import { buildingEnergyOutputForLevel } from '@shared/config/planetEnergy';
 import {
   BUILDING_CATEGORY_ORDER,
   getBuildingCategoryKey,
@@ -14,6 +16,12 @@ import {
 import { getResourceLabel, ResourceAmount, ResourceAmountList, ResourceIcon } from './cosmic/resources';
 import { useI18n } from '../lib/i18n';
 import { recipesForBuildingType } from '@shared/config/productionRecipes';
+
+function formatEnergyAmount(value: number): string {
+  return value.toLocaleString(undefined, {
+    maximumFractionDigits: value < 10 ? 2 : 1,
+  });
+}
 
 export interface BuildDialogResourceChoice {
   resourceId: string;
@@ -47,6 +55,8 @@ interface BuildDialogProps {
   };
   /** Energy anomaly worlds waive operational energy demand. */
   energyFree?: boolean;
+  /** Active planet context for planet-scaled previews such as wind output. */
+  planet?: Pick<Planet, 'id' | 'name' | 'biome' | 'size' | 'orbitIndex'>;
 }
 
 /**
@@ -69,6 +79,7 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
   accent = '#5BD7FF',
   currentEnergy,
   energyFree = false,
+  planet,
 }) => {
   const [explainedReason, setExplainedReason] = useState<BuildBlockedReason | null>(null);
   const [selectedResourceByType, setSelectedResourceByType] = useState<Record<string, string>>({});
@@ -158,6 +169,12 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
                   const idleEnergyConsumption = energyFree || consumesEnergyOnlyDuringProcess
                     ? 0
                     : Math.max(0, type.energyConsumption ?? 0);
+                  const energyOutput = buildingEnergyOutputForLevel({
+                    typeId: type.id,
+                    baseEnergy: output.energy ?? 0,
+                    level: 1,
+                    planet,
+                  });
                   const outputResourceId = selectedResourceId ?? output.resourceId;
                   const outputRate = outputResourceId && output.baseRate
                     ? resolveBuildingProductionRateForResource({
@@ -170,7 +187,7 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
                         resourceId: outputResourceId,
                       })
                     : 0;
-                  const projectedProduced = producedNow + (output.energy ?? 0);
+                  const projectedProduced = producedNow + energyOutput;
                   const projectedConsumed = consumedNow + idleEnergyConsumption;
                   const projectedNet = projectedProduced - projectedConsumed;
                   return (
@@ -283,9 +300,9 @@ export const BuildDialog: React.FC<BuildDialogProps> = ({
                               {t('build.energyCapacity')}: +{output.energyCap} E
                             </span>
                           )}
-                          {output.energy && (
+                          {energyOutput > 0 && (
                             <span className="bstat energy">
-                              {t('common.energy')}: +{output.energy}
+                              {t('common.energy')}: +{formatEnergyAmount(energyOutput)}
                             </span>
                           )}
                           {idleEnergyConsumption > 0 && (

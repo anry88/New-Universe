@@ -1,5 +1,12 @@
 import { and, eq, inArray, lte, sql } from 'drizzle-orm';
-import { PRODUCTION_RECIPES, findProductionRecipe, recipesForBuildingType } from '@shared/config/productionRecipes.js';
+import {
+  PRODUCTION_RECIPES,
+  findProductionRecipe,
+  productionSlotsForBuildingLevel,
+  productionSpeedMultiplierForBuildingLevel,
+  recipesForBuildingType,
+} from '@shared/config/productionRecipes.js';
+import { roundEnergyAmount } from '@shared/config/planetEnergy.js';
 import type {
   ProductionOrder,
   ProductionPreviewResponse,
@@ -69,7 +76,7 @@ function materialEfficiencyMultiplier(level: number, effects: ResearchEffects): 
 }
 
 function durationForQuantity(baseDurationSec: number, quantity: number, level: number, effects: ResearchEffects): number {
-  const levelSpeed = 1 + Math.max(0, level - 1) * 0.08;
+  const levelSpeed = productionSpeedMultiplierForBuildingLevel(level);
   const baseSeconds = Math.max(1, Math.ceil((baseDurationSec * quantity) / levelSpeed));
   return applyBuildTimeSeconds(baseSeconds, effects);
 }
@@ -77,18 +84,38 @@ function durationForQuantity(baseDurationSec: number, quantity: number, level: n
 function productionEnergyPerHour(input: {
   recipeOutputResourceId: string;
   buildingTypeId: string;
-  buildingLevel: number;
   energyConsumption: number;
   effects: ResearchEffects;
 }): number {
   if (input.recipeOutputResourceId === ENERGY_RESOURCE_ID || STORED_ENERGY_PROCESS_TYPES.has(input.buildingTypeId)) return 0;
   if (!PROCESS_ENERGY_CONSUMER_TYPES.has(input.buildingTypeId)) return 0;
-  return roundResourceAmount(
+  return roundEnergyAmount(
     applyEnergyRequirement(
-      Math.max(0, input.energyConsumption) * Math.max(1, input.buildingLevel),
+      Math.max(0, input.energyConsumption),
       input.effects,
     ),
   );
+}
+
+async function productionSlotState(
+  buildingId: string,
+  buildingLevel: number,
+  database: any,
+): Promise<{ activeSlots: number; maxSlots: number }> {
+  const activeOrders = await database
+    .select({ id: productionOrders.id })
+    .from(productionOrders)
+    .where(
+      and(
+        eq(productionOrders.buildingId, buildingId),
+        inArray(productionOrders.status, ['queued', 'paused']),
+      ),
+    );
+
+  return {
+    activeSlots: activeOrders.length,
+    maxSlots: productionSlotsForBuildingLevel(buildingLevel),
+  };
 }
 
 function mapOrder(row: typeof productionOrders.$inferSelect, energyPerHour?: number): ProductionOrder {
@@ -180,6 +207,10 @@ export class ProductionService {
       });
     }
 
+    const buildingType = await database.query.buildingTypes.findFirst({
+      where: eq(buildingTypes.id, building.typeId),
+    });
+    const slotState = await productionSlotState(building.id, building.level, database);
     const inputMultiplier = materialEfficiencyMultiplier(building.level, effects);
     const recipeInputs = recipe.inputs.map((change) => ({
       resourceId: change.resourceId,
@@ -196,19 +227,35 @@ export class ProductionService {
     };
     const durationSec = durationForQuantity(recipe.baseDurationSec, quantity, building.level, effects);
     const completesAt = new Date(Date.now() + durationSec * 1000).toISOString();
-    const buildingType = await database.query.buildingTypes.findFirst({
-      where: eq(buildingTypes.id, building.typeId),
-    });
     const energyPerHour = isEnergyFreePlanet(settlement.planet)
       ? 0
       : productionEnergyPerHour({
           recipeOutputResourceId: recipe.output.resourceId,
           buildingTypeId: building.typeId,
-          buildingLevel: building.level,
           energyConsumption: Number(buildingType?.energyConsumption ?? 0),
           effects,
         });
     const inputs = recipeInputs;
+
+    if (slotState.activeSlots >= slotState.maxSlots) {
+      return baseResponse({
+        output,
+        inputs,
+        durationSec,
+        completesAt,
+        energyPerHour,
+        activeSlots: slotState.activeSlots,
+        maxSlots: slotState.maxSlots,
+        blockedReason: {
+          code: 'production_slots_full',
+          message: {
+            ru: `Все производственные слоты заняты (${slotState.activeSlots}/${slotState.maxSlots}).`,
+            en: `All production slots are occupied (${slotState.activeSlots}/${slotState.maxSlots}).`,
+          },
+          details: slotState,
+        },
+      });
+    }
 
     const currentRows = await database
       .select({
@@ -298,6 +345,8 @@ export class ProductionService {
       durationSec,
       completesAt,
       energyPerHour,
+      activeSlots: slotState.activeSlots,
+      maxSlots: slotState.maxSlots,
       canStart: true,
       blockedReason: undefined,
     });
@@ -308,6 +357,17 @@ export class ProductionService {
     input: { planetId: string; buildingId: string; recipeId: string; quantity: number },
   ): Promise<ProductionOrder> {
     return defaultDb.transaction(async (tx) => {
+      await tx
+        .select({ id: buildings.id })
+        .from(buildings)
+        .where(
+          and(
+            eq(buildings.id, input.buildingId),
+            eq(buildings.planetId, input.planetId),
+          ),
+        )
+        .for('update');
+
       const preview = await this.preview(userId, input, tx);
       if (!preview.canStart || preview.blockedReason) {
         throw new ProductionOperationError(

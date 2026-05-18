@@ -292,7 +292,7 @@ export const BUILDINGS = {
     baseTimeSec: 720,
     category: 'energy',
     maxLevel: MAX_BUILDING_LEVEL,
-    output: { energy: 38 },
+    output: { energy: 75 },
   },
   fuel_generator: {
     deps: [{ typeId: 'command_center', level: 2 }],

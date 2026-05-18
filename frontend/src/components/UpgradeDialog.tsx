@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Building } from '@shared/types/world';
+import type { Building, Planet } from '@shared/types/world';
 import type { BuildingType, BuildBlockedReason } from '@shared/types/buildings';
 import {
   formatBuildBlockedMessage,
@@ -9,11 +9,18 @@ import {
   buildingUpgradeResourceCosts,
   buildingUpgradeTimeSeconds,
 } from '@shared/config/buildingUpgradeEconomy';
+import { buildingEnergyOutputForLevel } from '@shared/config/planetEnergy';
 import { getBuildingCategory, resolveBuildingType } from './cosmic/buildings';
 import { getResourceLabel, ResourceAmount, ResourceAmountList, ResourceIcon } from './cosmic/resources';
 import { useI18n } from '../lib/i18n';
 import type { BuildDialogResourceChoice } from './BuildDialog';
 import { recipesForBuildingType } from '@shared/config/productionRecipes';
+
+function formatEnergyAmount(value: number): string {
+  return value.toLocaleString(undefined, {
+    maximumFractionDigits: value < 10 ? 2 : 1,
+  });
+}
 
 interface UpgradeDialogProps {
   building?: Building;
@@ -47,6 +54,8 @@ interface UpgradeDialogProps {
     capacity?: number;
     net?: number;
   };
+  /** Active planet context for planet-scaled previews such as wind output. */
+  planet?: Pick<Planet, 'id' | 'name' | 'biome' | 'size' | 'orbitIndex'>;
 }
 
 /**
@@ -72,6 +81,7 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
   accent = '#5BD7FF',
   energyFree = false,
   currentEnergy,
+  planet,
 }) => {
   const [explainedReason, setExplainedReason] = React.useState<BuildBlockedReason | null>(null);
   const { locale, t } = useI18n();
@@ -219,6 +229,18 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
                   const idleEnergyConsumption = energyFree || consumesEnergyOnlyDuringProcess
                     ? 0
                     : typeInfo.energyConsumption;
+                  const currentEnergyOutput = buildingEnergyOutputForLevel({
+                    typeId: typeInfo.id,
+                    baseEnergy: output.energy ?? 0,
+                    level: curLvl,
+                    planet,
+                  });
+                  const nextEnergyOutput = buildingEnergyOutputForLevel({
+                    typeId: typeInfo.id,
+                    baseEnergy: output.energy ?? 0,
+                    level: nextLvl,
+                    planet,
+                  });
                   
                   return (
                     <>
@@ -249,9 +271,9 @@ export const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
                           {t('build.energyCapacity')}: {output.energyCap * curLvl} → {output.energyCap * nextLvl} E
                         </span>
                       )}
-                      {output.energy && (
+                      {nextEnergyOutput > 0 && (
                         <span className="bstat energy">
-                          {t('common.energy')}: {output.energy * curLvl} → {output.energy * nextLvl}
+                          {t('common.energy')}: {formatEnergyAmount(currentEnergyOutput)} → {formatEnergyAmount(nextEnergyOutput)}
                         </span>
                       )}
                       {idleEnergyConsumption > 0 && (
