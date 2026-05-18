@@ -33,6 +33,7 @@ import { Shield } from "lucide-react";
 import type { HomeSystem, Planet } from "@shared/types/world";
 import type { Ship } from "@shared/types/ships";
 import type { Expedition } from "@shared/types/expeditions";
+import type { JumpGateFleetContactSummary } from "@shared/types/jump-gate";
 import {
   buildSystemMapLayouts,
   buildSystemMapOrbitGuideRadii,
@@ -72,6 +73,7 @@ interface CosmicSystemRendererProps {
   system: HomeSystem;
   ships: Ship[];
   expeditions: Expedition[];
+  fleetContacts?: JumpGateFleetContactSummary[];
   onPlanetClick: (planet: Planet) => void;
   onColonizeClick?: (planet: Planet) => void;
   ownedPlanetIds: Set<string>;
@@ -221,12 +223,14 @@ function pointFromResult(value: unknown): SystemMapPoint | null {
     : null;
 }
 
-function buildExpeditionTrailSegments(
+export function buildExpeditionTrailSegments(
   activeExpeditions: Expedition[],
   layoutByPlanetId: Map<string, PlanetLayout>,
   system: HomeSystem,
 ): ExpeditionTrailSegment[] {
   return activeExpeditions.flatMap((exp) => {
+    if (exp.status === "stationed") return [];
+
     const result = exp.result as Record<string, unknown> | null | undefined;
     if (result?.routeMode === "jump_gate") {
       const originSystemId =
@@ -773,6 +777,87 @@ const ShipMarkers = React.memo(function ShipMarkers({
   );
 });
 
+const FleetContactMarkers = React.memo(function FleetContactMarkers({
+  contacts,
+  isPicking,
+}: {
+  contacts: JumpGateFleetContactSummary[];
+  isPicking: boolean;
+}) {
+  const { t } = useI18n();
+  const pointTotals = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const contact of contacts) {
+      const key = `${contact.point.x}:${contact.point.y}`;
+      totals.set(key, (totals.get(key) ?? 0) + 1);
+    }
+    return totals;
+  }, [contacts]);
+  const pointSeen = new Map<string, number>();
+
+  return (
+    <>
+      {contacts.map((contact) => {
+        const pointKey = `${contact.point.x}:${contact.point.y}`;
+        const totalAtPoint = pointTotals.get(pointKey) ?? 1;
+        const indexAtPoint = pointSeen.get(pointKey) ?? 0;
+        pointSeen.set(pointKey, indexAtPoint + 1);
+        const spread = totalAtPoint > 1 ? Math.min(22, 8 + totalAtPoint * 2) : 0;
+        const spreadAngle = (Math.PI * 2 * indexAtPoint) / totalAtPoint - Math.PI / 2;
+        const x = contact.point.x + Math.cos(spreadAngle) * spread;
+        const y = contact.point.y + Math.sin(spreadAngle) * spread;
+        const title = contact.ownerAlias
+          ? t("sector.entity.foreignSource", { source: contact.ownerAlias })
+          : t("sector.entity.unknownFleet");
+
+        return (
+          <div
+            key={contact.id}
+            title={title}
+            style={{
+              position: "absolute",
+              left: x - 14,
+              top: y - 14,
+              width: 28,
+              height: 28,
+              color: "#F97316",
+              border: "1px solid rgba(251,191,36,0.9)",
+              borderRadius: "50%",
+              background:
+                "radial-gradient(circle, rgba(249,115,22,0.24), rgba(8,12,22,0.76) 68%)",
+              boxShadow: "0 0 14px rgba(249,115,22,0.36)",
+              pointerEvents: isPicking ? "none" : "auto",
+              zIndex: 5,
+            }}
+          >
+            <ShipIcon typeId={contact.shipTypeId} size={26} tone="currentColor" />
+            <span
+              style={{
+                position: "absolute",
+                right: -4,
+                top: -5,
+                width: 13,
+                height: 13,
+                borderRadius: "50%",
+                display: "grid",
+                placeItems: "center",
+                border: "1px solid rgba(255,251,235,0.86)",
+                background: "rgba(124,45,18,0.94)",
+                color: "#FFFBEB",
+                fontSize: 9,
+                fontWeight: 900,
+                lineHeight: 1,
+              }}
+            >
+              ?
+            </span>
+          </div>
+        );
+      })}
+    </>
+  );
+});
+
 const DraftExpeditionTrail = React.memo(function DraftExpeditionTrail({
   launch,
   target,
@@ -828,6 +913,7 @@ export function CosmicSystemRenderer({
   system,
   ships,
   expeditions,
+  fleetContacts = [],
   onPlanetClick,
   onColonizeClick,
   ownedPlanetIds,
@@ -1476,6 +1562,8 @@ export function CosmicSystemRenderer({
             system={system}
             isPicking={isPicking}
           />
+
+          <FleetContactMarkers contacts={fleetContacts} isPicking={isPicking} />
 
           {/* Draft course for expedition launcher (vector from home star, shown from launch planet). */}
           {expeditionPick &&

@@ -447,6 +447,7 @@ export function SystemMapPage() {
           system={activeSystem}
           ships={meData.ships || []}
           expeditions={meData.expeditions || []}
+          fleetContacts={selectedDestination?.fleetContacts ?? []}
           onPlanetClick={(planet) => navigate(`/planet/${planet.id}`)}
           onColonizeClick={() => navigate('/ships')}
           ownedPlanetIds={ownedPlanetIds}

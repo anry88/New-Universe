@@ -14,8 +14,10 @@ import {
   researchProgress,
   richness,
   ships,
+  shipTypes,
   systems,
   users,
+  expeditions,
 } from '../../db/schema.js';
 import { getJumpGateState } from './service.js';
 import { seedResources } from '../../db/seed/resources.js';
@@ -46,12 +48,33 @@ async function createUserWithHomeSystem(suffix: string) {
   return { user, homeSystem };
 }
 
+async function createShipType(id: string) {
+  const [row] = await db.insert(shipTypes).values({
+    id,
+    name: { en: id, ru: id },
+    role: 'combat',
+    hp: 100,
+    speed: '10.00',
+    cargo: 0,
+    dps: 12,
+    armor: 0,
+    fuelConsumption: '1.00',
+    buildTimeSec: 60,
+    buildCost: {},
+    requiredBuildings: [],
+    sensorRange: 30,
+  }).returning();
+
+  return row;
+}
+
 describe('getJumpGateState', () => {
   beforeEach(async () => {
     await db.delete(jumpGates);
     await db.delete(discoveredPlanets);
     await db.delete(discoveredSystems);
     await db.delete(researchProgress);
+    await db.delete(expeditions);
     await db.delete(ships);
     await db.delete(productionOrders);
     await db.delete(buildings);
@@ -289,6 +312,85 @@ describe('getJumpGateState', () => {
       isDiscovered: false,
     });
     expect(hidden.resources).toBeUndefined();
+  });
+
+  it('returns safe foreign stationed fleet contacts for known public destinations', async () => {
+    const { user, homeSystem } = await createUserWithHomeSystem('fleet_contacts');
+
+    await db.insert(researchProgress).values({
+      userId: user.id,
+      branch: 'jump_drive',
+      level: 1,
+    });
+
+    const [publicSystem] = await db.insert(systems).values({
+      ownerId: null,
+      isHome: false,
+      sectorX: homeSystem.sectorX + 1,
+      sectorY: homeSystem.sectorY,
+      sectorZ: homeSystem.sectorZ,
+      x: '100.00',
+      y: '110.00',
+      z: '120.00',
+      name: 'Fleet Contact System',
+      seed: 201,
+    }).returning();
+
+    const [originPlanet] = await db.insert(planets).values({
+      systemId: publicSystem.id,
+      biome: 'rocky',
+      size: 12,
+      slotCount: 8,
+      name: 'Fleet Contact I',
+    }).returning();
+
+    await db.insert(discoveredSystems).values({
+      userId: user.id,
+      systemId: publicSystem.id,
+    });
+
+    const [foreignOwner] = await db.insert(users).values({
+      tgId: BigInt(Math.floor(Math.random() * 1e12)),
+      tgUsername: `rival_fleet_${Date.now()}`,
+    }).returning();
+    const shipType = await createShipType(`jump_gate_contact_${Date.now()}`);
+    const [foreignShip] = await db.insert(ships).values({
+      ownerId: foreignOwner.id,
+      typeId: shipType.id,
+      locationPlanetId: null,
+      status: 'moving',
+    }).returning();
+
+    await db.insert(expeditions).values({
+      shipId: foreignShip.id,
+      type: shipType.id,
+      originPlanetId: originPlanet.id,
+      targetX: publicSystem.sectorX.toString(),
+      targetY: publicSystem.sectorY.toString(),
+      targetZ: publicSystem.sectorZ.toString(),
+      status: 'stationed',
+      eta: new Date('2026-05-13T01:00:00.000Z'),
+      result: {
+        routeMode: 'jump_gate',
+        destinationSystemId: publicSystem.id,
+        targetSystemPoint: { x: 72, y: -24 },
+      },
+    });
+
+    const state = await getJumpGateState(user.id);
+    const destination = state.knownDestinations[0]!;
+
+    expect(destination.fleetContacts).toHaveLength(1);
+    expect(destination.fleetContacts[0]).toMatchObject({
+      id: foreignShip.id,
+      systemId: publicSystem.id,
+      relation: 'foreign',
+      visibility: 'summary',
+      point: { x: 72, y: -24 },
+      stationedAt: '2026-05-13T01:00:00.000Z',
+      shipTypeId: null,
+    });
+    expect(destination.fleetContacts[0]?.ownerAlias).toContain('@rival_fleet');
   });
 
   it('marks due calibration as ready in persisted state', async () => {

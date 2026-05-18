@@ -10,8 +10,8 @@ Private Home System Jump Gate state.
 
 - **`README.md`** — [Jump Gate state documentation](./jump-gate/README.md).
 - **`routes.ts`** — `jumpGateRoutes(app)` registers `GET /jump-gate/state`, `POST /jump-gate/random-jump`, and `POST /jump-gate/destinations/:systemId/jump` for authenticated clients; Jump Gate mutations declare rate-limit/security metadata and JSON schemas for body/params.
-- **`service.ts`** — `getJumpGateState(userId)` derives unlock from completed `jump_drive >= 1`, creates/updates the player's `jump_gates` row when unlocked, returns the outer-orbit home anchor, calibration state, random-jump availability, and discovered public destination summaries with deterministic seed plus registry source/last-visited metadata.
-- **`service.test.ts`** — asserts locked/unlocked state, unfinished research staying locked, persistence creation, public destination filtering, and calibration finalization.
+- **`service.ts`** — `getJumpGateState(userId)` derives unlock from completed `jump_drive >= 1`, creates/updates the player's `jump_gates` row when unlocked, returns the outer-orbit home anchor, calibration state, random-jump availability, discovered public destination summaries with deterministic seed plus registry source/last-visited metadata, and redacted foreign stationed-fleet contacts for common-system maps.
+- **`service.test.ts`** — asserts locked/unlocked state, unfinished research staying locked, persistence creation, public destination filtering, foreign fleet-contact projection, and calibration finalization.
 
 ## `buildings/`
 
