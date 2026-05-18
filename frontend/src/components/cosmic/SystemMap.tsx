@@ -29,7 +29,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Shield, X } from "lucide-react";
+import { Fuel, Package, RadioTower, Send, Shield, X } from "lucide-react";
 import type { HomeSystem, Planet } from "@shared/types/world";
 import type { Ship, ShipType } from "@shared/types/ships";
 import type { Expedition } from "@shared/types/expeditions";
@@ -52,7 +52,9 @@ import { BIOME_META, PlanetSvg, getBiomeTag, resolveBiome } from "./planets";
 import { SunSvg } from "./sun";
 import { FoundColonyDialog } from "../FoundColonyDialog";
 import { ShieldStatus } from "../ShieldStatus";
+import { isCargoTransferShipType } from "../../lib/fleet";
 import { useI18n } from "../../lib/i18n";
+import { isShipReadyForOrders } from "../../lib/ship-queue";
 import { getResourceLabel, ResourceIcon } from "./resources";
 import { getShipLabel, ShipIcon, ShipIconBadge } from "./ships";
 
@@ -90,6 +92,11 @@ interface CosmicSystemRendererProps {
   minimumOrbitCount?: number;
   emptyStateLabel?: string | null;
   showOrbitRings?: boolean;
+  onOwnShipAction?: (
+    ship: Ship,
+    shipType: ShipType | null,
+    expedition: Expedition | null,
+  ) => void;
 }
 
 interface PlanetLayout {
@@ -1070,6 +1077,7 @@ function CombatProjectile({ segment }: { segment: CombatProjectileSegment }) {
   const tone = weaponTone(segment.kind);
   const angle = Math.atan2(segment.y2 - segment.y1, segment.x2 - segment.x1);
   const isBeam = segment.kind === "beam";
+  const isKinetic = segment.kind === "kinetic";
 
   return (
     <div
@@ -1079,7 +1087,7 @@ function CombatProjectile({ segment }: { segment: CombatProjectileSegment }) {
         left: segment.x1,
         top: segment.y1,
         width: length,
-        height: isBeam ? 3 : 8,
+        height: isBeam ? 3 : isKinetic ? 10 : 8,
         transform: `rotate(${angle}rad)`,
         transformOrigin: "0 50%",
         color: tone,
@@ -1087,16 +1095,30 @@ function CombatProjectile({ segment }: { segment: CombatProjectileSegment }) {
         zIndex: 4,
       }}
     >
-      <span
-        className="combat-projectile-trail"
-        style={{
-          background: isBeam
-            ? `linear-gradient(90deg, transparent, ${tone}, transparent)`
-            : `linear-gradient(90deg, transparent, ${tone})`,
-          animationDelay: `${segment.delayMs}ms`,
-        }}
-      />
-      {!isBeam ? (
+      {isKinetic ? (
+        [0, 1, 2].map((index) => (
+          <span
+            key={index}
+            className="combat-projectile-round"
+            style={{
+              background: tone,
+              boxShadow: `0 0 10px ${tone}`,
+              animationDelay: `${segment.delayMs + index * 110}ms`,
+            }}
+          />
+        ))
+      ) : (
+        <span
+          className="combat-projectile-trail"
+          style={{
+            background: isBeam
+              ? `linear-gradient(90deg, transparent, ${tone}, transparent)`
+              : `linear-gradient(90deg, transparent, ${tone})`,
+            animationDelay: `${segment.delayMs}ms`,
+          }}
+        />
+      )}
+      {!isBeam && !isKinetic ? (
         <span
           className="combat-projectile-bolt"
           style={{
@@ -1207,17 +1229,81 @@ function statusLabelForMapShip(status: string | undefined, t: (key: string) => s
   return t("common.status");
 }
 
+interface MapShipAction {
+  label: string;
+  icon: React.ReactNode;
+  disabled: boolean;
+}
+
+function actionForOwnMapShip({
+  ship,
+  shipType,
+  activeExpedition,
+  t,
+}: {
+  ship: Ship;
+  shipType: ShipType | null;
+  activeExpedition: Expedition | null;
+  t: (key: string) => string;
+}): MapShipAction {
+  const isCargoShip = shipType ? isCargoTransferShipType(shipType) : false;
+  const isDiscoveryProbe = ship.typeId === "recon_probe";
+  const isStationed = activeExpedition?.status === "stationed";
+  const isIdle = isShipReadyForOrders(ship);
+  const canIssueOrders =
+    ship.status !== "destroyed" &&
+    (isIdle || (isStationed && !isCargoShip && !isDiscoveryProbe));
+
+  if (isCargoShip) {
+    return {
+      label: t("ships.openCargo"),
+      icon: <Package size={14} />,
+      disabled: !canIssueOrders || !ship.locationPlanetId,
+    };
+  }
+
+  if (isDiscoveryProbe) {
+    return {
+      label: t("ships.openJumpGate"),
+      icon: <RadioTower size={14} />,
+      disabled: !isIdle,
+    };
+  }
+
+  if (ship.typeId === "refueler" && isIdle) {
+    return {
+      label: t("refuel_dialog_transfer_button"),
+      icon: <Fuel size={14} />,
+      disabled: false,
+    };
+  }
+
+  return {
+    label: t("ships.sendMission"),
+    icon: <Send size={14} />,
+    disabled: !canIssueOrders,
+  };
+}
+
 function SelectedMapShipCard({
   selection,
   ownShip,
   contact,
   shipType,
+  activeExpedition,
+  onAction,
   onClose,
 }: {
   selection: MapShipSelection;
   ownShip: Ship | null;
   contact: SystemTacticalFleetContact | null;
   shipType: ShipType | null;
+  activeExpedition: Expedition | null;
+  onAction?: (
+    ship: Ship,
+    shipType: ShipType | null,
+    expedition: Expedition | null,
+  ) => void;
   onClose: () => void;
 }) {
   const { locale, t } = useI18n();
@@ -1236,6 +1322,14 @@ function SelectedMapShipCard({
     : isRecentCombat(ownShip?.lastCombatTickAt, Date.now())
       ? t("ships.state.combat")
       : statusLabelForMapShip(ownShip?.status, t);
+  const ownAction = !isForeign && ownShip
+    ? actionForOwnMapShip({
+        ship: ownShip,
+        shipType,
+        activeExpedition,
+        t,
+      })
+    : null;
 
   return (
     <div
@@ -1379,6 +1473,33 @@ function SelectedMapShipCard({
       </div>
 
       <ShieldStatus shields={stats?.shields} />
+
+      {ownAction && onAction ? (
+        <button
+          type="button"
+          className="cosmic-cta"
+          disabled={ownAction.disabled}
+          onClick={() => {
+            if (!ownShip || ownAction.disabled) return;
+            onAction(ownShip, shipType, activeExpedition);
+          }}
+          style={{
+            width: "100%",
+            marginTop: 10,
+            padding: "9px 12px",
+            fontSize: 11,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 7,
+            opacity: ownAction.disabled ? 0.45 : 1,
+            cursor: ownAction.disabled ? "not-allowed" : "pointer",
+          }}
+        >
+          {ownAction.icon}
+          <span>{ownAction.label.toUpperCase()}</span>
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -1448,6 +1569,7 @@ export function CosmicSystemRenderer({
   minimumOrbitCount,
   emptyStateLabel,
   showOrbitRings = true,
+  onOwnShipAction,
 }: CosmicSystemRendererProps) {
   const { locale, t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1548,6 +1670,9 @@ export function CosmicSystemRenderer({
     selectedShip?.kind === "own"
       ? (ships.find((ship) => ship.id === selectedShip.id) ?? null)
       : null;
+  const selectedOwnShipExpedition = selectedOwnShip
+    ? (activeExpeditions.find((expedition) => expedition.shipId === selectedOwnShip.id) ?? null)
+    : null;
   const selectedForeignContact =
     selectedShip?.kind === "foreign"
       ? (visibleFleetContacts.find((contact) => contact.id === selectedShip.id) ?? null)
@@ -2276,6 +2401,8 @@ export function CosmicSystemRenderer({
           ownShip={selectedOwnShip}
           contact={selectedForeignContact}
           shipType={selectedShipType}
+          activeExpedition={selectedOwnShipExpedition}
+          onAction={onOwnShipAction}
           onClose={() => setSelectedShip(null)}
         />
       ) : null}

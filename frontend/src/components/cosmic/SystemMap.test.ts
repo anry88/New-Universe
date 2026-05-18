@@ -121,6 +121,18 @@ describe('weaponVisualForCombatStats', () => {
       weaponVisualForCombatStats({
         targetClass: 'military_light',
         damageProfile: {
+          damageType: 'kinetic',
+          dps: 10,
+          armorPenetration: 0.2,
+          shieldMultiplier: 1,
+        },
+        engagementRange: 'close',
+      }),
+    ).toBe('kinetic');
+    expect(
+      weaponVisualForCombatStats({
+        targetClass: 'military_light',
+        damageProfile: {
           damageType: 'energy',
           dps: 10,
           armorPenetration: 0.2,

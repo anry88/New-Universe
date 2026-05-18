@@ -13,6 +13,10 @@ export interface ShieldDamageResolution {
   shieldsBroken: Set<string>;
 }
 
+export interface ShieldDamageResolutionOptions {
+  damageTimeScale?: number;
+}
+
 interface ShieldRuntime {
   actor: CombatActor;
   hooks: ShieldHooks;
@@ -38,6 +42,7 @@ export function resolveShieldedDamage(
   actors: CombatActor[],
   hits: AttackerHit[],
   nowMs: number,
+  options: ShieldDamageResolutionOptions = {},
 ): ShieldDamageResolution {
   const actorById = new Map(actors.map((actor) => [actor.id, actor]));
   const runtimeById = new Map<string, ShieldRuntime>();
@@ -66,8 +71,12 @@ export function resolveShieldedDamage(
     if (!defender) continue;
     touchedDefenderIds.add(defender.id);
 
-    const directDamage = computeTickDamage(defender, hit.effectiveDps, nowMs);
-    const shieldDamage = computeTickDamage(defender, hit.shieldDps, nowMs);
+    const directDamage = computeTickDamage(defender, hit.effectiveDps, nowMs, {
+      timeScale: options.damageTimeScale,
+    });
+    const shieldDamage = computeTickDamage(defender, hit.shieldDps, nowMs, {
+      timeScale: options.damageTimeScale,
+    });
     if (directDamage <= 0 && shieldDamage <= 0) continue;
 
     const covering = findCoveringShields(actors, runtimeById, defender);

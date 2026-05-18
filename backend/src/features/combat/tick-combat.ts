@@ -49,6 +49,7 @@ import {
   isFreshCombatTouch,
   resolveAttackerHits,
   resolveBomberHits,
+  SHIP_COMBAT_DAMAGE_TIME_SCALE,
   sumDpsPerBuilding,
 } from './engine.js';
 import { resolveShieldedDamage } from './shields.js';
@@ -241,7 +242,9 @@ export async function processDueCombat(
   });
 
   const hits = resolveAttackerHits(actors);
-  const shieldResult = resolveShieldedDamage(actors, hits, now.getTime());
+  const shieldResult = resolveShieldedDamage(actors, hits, now.getTime(), {
+    damageTimeScale: SHIP_COMBAT_DAMAGE_TIME_SCALE,
+  });
   const damageByDefender = shieldResult.directDamageByDefender;
 
   const bombingResult = await runBombingPass(

@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMe } from '../hooks/useMe';
 import { CosmicSystemRenderer } from '../components/cosmic/SystemMap';
+import { ExpeditionDialog } from '../components/ExpeditionDialog';
+import { RefuelDialog } from '../components/RefuelDialog';
 import { CosmicBottomNav } from '../components/cosmic/atoms';
 import { ShipIconBadge } from '../components/cosmic/ships';
 import {
@@ -27,6 +29,7 @@ import {
   type HomeNamingLocale,
 } from '@shared/format/homeSystemNaming';
 import {
+  type ExpeditionRouteMode,
   JUMP_FUEL_RESOURCE_ID,
   JUMP_GATE_JUMP_FUEL_COST,
 } from '@shared/config/expeditionRouting';
@@ -34,11 +37,35 @@ import type {
   JumpGateKnownDestinationSummary,
   JumpGateStateResponse,
 } from '@shared/types/jump-gate';
+import type { Expedition } from '@shared/types/expeditions';
 import type { Ship, ShipType } from '@shared/types/ships';
 import type { HomeSystem, Planet } from '@shared/types/world';
 import { systemMapJumpGatePoint } from '@shared/format/systemMapLayout';
+import { isCargoTransferShipType } from '../lib/fleet';
+import { isShipReadyForOrders } from '../lib/ship-queue';
 
 type TFunction = (key: string, params?: Record<string, string | number>) => string;
+const LAST_GALAXY_SYSTEM_STORAGE_KEY = 'nu:last-galaxy-system-id';
+const LAST_GALAXY_HOME_SENTINEL = 'home';
+
+function readLastGalaxySystemId(): string | null {
+  try {
+    return window.localStorage.getItem(LAST_GALAXY_SYSTEM_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function persistLastGalaxySystemId(systemId: string | null) {
+  try {
+    window.localStorage.setItem(
+      LAST_GALAXY_SYSTEM_STORAGE_KEY,
+      systemId ?? LAST_GALAXY_HOME_SENTINEL,
+    );
+  } catch {
+    // localStorage can be unavailable in embedded browsers/private mode.
+  }
+}
 
 interface ReconProbeOption {
   ship: Ship;
@@ -165,6 +192,11 @@ export function SystemMapPage() {
   const [randomJumpShipId, setRandomJumpShipId] = useState('');
   const [gateError, setGateError] = useState<string | null>(null);
   const [gateNotice, setGateNotice] = useState<string | null>(null);
+  const [lastStoredSystemId, setLastStoredSystemId] = useState(() =>
+    readLastGalaxySystemId(),
+  );
+  const [missionShip, setMissionShip] = useState<Ship | null>(null);
+  const [refuelingShip, setRefuelingShip] = useState<Ship | null>(null);
 
   const home = meData?.homeSystem ?? null;
   const knownDestinations = jumpGateState?.knownDestinations ?? [];
@@ -188,6 +220,18 @@ export function SystemMapPage() {
         .map((planet) => planet.id) ?? [],
     );
   }, [meData?.planets]);
+  const activeExpeditionByShipId = useMemo(() => {
+    return new Map(
+      (meData?.expeditions ?? [])
+        .filter(
+          (expedition) =>
+            expedition.status === 'in_flight' ||
+            expedition.status === 'returning' ||
+            expedition.status === 'stationed',
+        )
+        .map((expedition) => [expedition.shipId, expedition]),
+    );
+  }, [meData?.expeditions]);
   const homeCapital = useMemo(
     () =>
       meData?.planets?.find(
@@ -228,6 +272,31 @@ export function SystemMapPage() {
     reconProbeOptions.find((option) => option.ship.id === randomJumpShipId) ??
     reconProbeOptions[0] ??
     null;
+  const missionShipType = missionShip
+    ? shipTypes?.find((type) => type.id === missionShip.typeId) ?? null
+    : null;
+  const missionShipExpedition = missionShip
+    ? activeExpeditionByShipId.get(missionShip.id) ?? null
+    : null;
+  const missionShipSupportsJumpGate =
+    Boolean(missionShipType) && missionShipType?.role !== 'logistics';
+  const missionInitialRouteMode: ExpeditionRouteMode =
+    missionShipExpedition?.status === 'stationed'
+      ? 'jump_gate'
+      : selectedDestination && missionShipSupportsJumpGate
+        ? 'jump_gate'
+        : 'local';
+  const missionInitialDestinationSystemId =
+    missionShipExpedition?.status === 'stationed'
+      ? typeof missionShipExpedition.result?.destinationSystemId === 'string'
+        ? missionShipExpedition.result.destinationSystemId
+        : selectedDestination?.systemId ?? null
+      : selectedDestination && missionShipSupportsJumpGate
+        ? selectedDestination.systemId
+        : null;
+  const refuelingShipType = refuelingShip
+    ? shipTypes?.find((type) => type.id === refuelingShip.typeId) ?? null
+    : null;
   const randomJumpBlockedReason = useMemo(() => {
     if (jumpGateLoading) return t('common.processing');
     if (!jumpGateState) return t('jumpGate.error.loadFailed');
@@ -264,7 +333,35 @@ export function SystemMapPage() {
   }, [reconProbeOptions, randomJumpShipId]);
 
   useEffect(() => {
+    if (selectedSystemId || !jumpGateState) return;
+    if (!lastStoredSystemId || lastStoredSystemId === LAST_GALAXY_HOME_SENTINEL) return;
+    const known = knownDestinations.some(
+      (destination) => destination.systemId === lastStoredSystemId,
+    );
+    if (known) {
+      setSearchParams({ systemId: lastStoredSystemId }, { replace: true });
+      return;
+    }
+    persistLastGalaxySystemId(null);
+    setLastStoredSystemId(LAST_GALAXY_HOME_SENTINEL);
+  }, [
+    jumpGateState,
+    knownDestinations,
+    lastStoredSystemId,
+    selectedSystemId,
+    setSearchParams,
+  ]);
+
+  useEffect(() => {
+    if (selectedDestination) {
+      persistLastGalaxySystemId(selectedDestination.systemId);
+      setLastStoredSystemId(selectedDestination.systemId);
+    }
+  }, [selectedDestination]);
+
+  useEffect(() => {
     if (selectedSystemId && jumpGateState && !selectedDestination) {
+      persistLastGalaxySystemId(null);
       setSearchParams({});
     }
   }, [jumpGateState, selectedDestination, selectedSystemId, setSearchParams]);
@@ -301,8 +398,40 @@ export function SystemMapPage() {
   };
 
   const openDestinationSector = (destination: JumpGateKnownDestinationSummary) => {
+    persistLastGalaxySystemId(destination.systemId);
+    setLastStoredSystemId(destination.systemId);
     setSearchParams({ systemId: destination.systemId });
     setIsGatePanelOpen(false);
+  };
+
+  const handleMapShipAction = (
+    ship: Ship,
+    shipType: ShipType | null,
+    activeExpedition: Expedition | null,
+  ) => {
+    if (shipType && isCargoTransferShipType(shipType)) {
+      if (!ship.locationPlanetId) return;
+      const params = new URLSearchParams({
+        cargoOrigin: ship.locationPlanetId,
+        cargoShip: ship.id,
+      });
+      navigate(`/colonies?${params.toString()}`);
+      return;
+    }
+
+    if (ship.typeId === 'recon_probe') {
+      setIsGatePanelOpen(true);
+      return;
+    }
+
+    if (ship.typeId === 'refueler' && isShipReadyForOrders(ship)) {
+      setRefuelingShip(ship);
+      return;
+    }
+
+    if (activeExpedition?.status === 'stationed' || isShipReadyForOrders(ship)) {
+      setMissionShip(ship);
+    }
   };
 
   if (isLoading) {
@@ -358,6 +487,8 @@ export function SystemMapPage() {
           aria-label={t('common.back')}
           onClick={() => {
             if (isViewingDestination) {
+              persistLastGalaxySystemId(null);
+              setLastStoredSystemId(LAST_GALAXY_HOME_SENTINEL);
               setSearchParams({});
               return;
             }
@@ -469,6 +600,7 @@ export function SystemMapPage() {
           minimumOrbitCount={selectedDestination?.planetCount}
           showOrbitRings={true}
           emptyStateLabel={selectedDestination ? null : undefined}
+          onOwnShipAction={handleMapShipAction}
         />
       </div>
 
@@ -506,14 +638,51 @@ export function SystemMapPage() {
           locale={locale}
           t={t}
           onSelectHome={() => {
+            persistLastGalaxySystemId(null);
+            setLastStoredSystemId(LAST_GALAXY_HOME_SENTINEL);
             setSearchParams({});
             setIsSystemSelectorOpen(false);
           }}
           onSelect={(destination) => {
+            persistLastGalaxySystemId(destination.systemId);
+            setLastStoredSystemId(destination.systemId);
             setSearchParams({ systemId: destination.systemId });
             setIsSystemSelectorOpen(false);
           }}
           onClose={() => setIsSystemSelectorOpen(false)}
+        />
+      ) : null}
+
+      {missionShip && missionShipType && !isCargoTransferShipType(missionShipType) ? (
+        <ExpeditionDialog
+          ship={missionShip}
+          shipType={missionShipType}
+          originX={Number(meData.homeSystem.sectorX)}
+          originY={Number(meData.homeSystem.sectorY)}
+          originZ={Number(meData.homeSystem.sectorZ)}
+          initialRouteMode={missionInitialRouteMode}
+          initialDestinationSystemId={missionInitialDestinationSystemId}
+          stationedExpedition={
+            missionShipExpedition?.status === 'stationed'
+              ? missionShipExpedition
+              : null
+          }
+          onClose={() => setMissionShip(null)}
+        />
+      ) : null}
+
+      {refuelingShip && refuelingShipType ? (
+        <RefuelDialog
+          sourceShip={refuelingShip}
+          sourceType={refuelingShipType}
+          sourcePlanet={
+            (meData.planets ?? []).find(
+              (planet) => planet.id === refuelingShip.locationPlanetId,
+            ) ?? null
+          }
+          allShips={meData.ships ?? []}
+          allShipTypes={shipTypes ?? []}
+          onClose={() => setRefuelingShip(null)}
         />
       ) : null}
 
