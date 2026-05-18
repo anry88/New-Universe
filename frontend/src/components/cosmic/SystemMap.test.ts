@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 import type { Expedition } from '@shared/types/expeditions';
 import type { JumpGateFleetContactSummary } from '@shared/types/jump-gate';
 import type { HomeSystem } from '@shared/types/world';
-import { buildExpeditionTrailSegments, fleetContactsForSystem } from './SystemMap';
+import {
+  buildExpeditionTrailSegments,
+  fleetContactsForSystem,
+  weaponVisualForCombatStats,
+} from './SystemMap';
 
 const system: HomeSystem = {
   id: 'public-system',
@@ -75,7 +79,19 @@ describe('fleetContactsForSystem', () => {
         relation: 'foreign',
         visibility: 'summary',
         ownerAlias: '@rival',
-        shipTypeId: null,
+        shipTypeId: 'light_laser',
+        hp: 180,
+        maxHp: 280,
+        combatStats: {
+          targetClass: 'military_light',
+          damageProfile: {
+            damageType: 'energy',
+            dps: 24,
+            armorPenetration: 0.4,
+            shieldMultiplier: 1.2,
+          },
+          engagementRange: 'long',
+        },
         point: { x: 72, y: -24 },
         stationedAt: '2026-05-13T01:00:00.000Z',
       },
@@ -85,7 +101,7 @@ describe('fleetContactsForSystem', () => {
         relation: 'foreign',
         visibility: 'summary',
         ownerAlias: '@other',
-        shipTypeId: null,
+        shipTypeId: 'rocket_carrier',
         point: { x: -120, y: 40 },
         stationedAt: '2026-05-13T02:00:00.000Z',
       },
@@ -94,5 +110,38 @@ describe('fleetContactsForSystem', () => {
     expect(fleetContactsForSystem(contacts, system.id)).toEqual([
       expect.objectContaining({ id: 'contact-visible' }),
     ]);
+  });
+});
+
+describe('weaponVisualForCombatStats', () => {
+  it('maps combat stats to projectile families', () => {
+    expect(
+      weaponVisualForCombatStats({
+        targetClass: 'military_light',
+        damageProfile: {
+          damageType: 'energy',
+          dps: 10,
+          armorPenetration: 0.2,
+          shieldMultiplier: 1,
+        },
+        engagementRange: 'long',
+      }),
+    ).toBe('beam');
+    expect(
+      weaponVisualForCombatStats({
+        targetClass: 'military_heavy',
+        missilePayload: {
+          damageType: 'explosive',
+          alphaDamage: 120,
+          reloadSec: 6,
+          armorPenetration: 0.4,
+          shieldMultiplier: 1.1,
+          validTargetClasses: ['military_medium', 'military_heavy'],
+          evasionCounterThreshold: 10,
+          maxRange: 'long',
+        },
+      }),
+    ).toBe('missile');
+    expect(weaponVisualForCombatStats({ targetClass: 'civilian' })).toBe('neutral');
   });
 });

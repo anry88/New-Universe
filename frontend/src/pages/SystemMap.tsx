@@ -446,6 +446,7 @@ export function SystemMapPage() {
         <CosmicSystemRenderer
           system={activeSystem}
           ships={meData.ships || []}
+          shipTypes={shipTypes ?? []}
           expeditions={meData.expeditions || []}
           fleetContacts={
             selectedDestination?.systemId === activeSystem.id
