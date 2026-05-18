@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { SystemTacticalStateResponse } from "@shared/types/system-tactical";
 import {
   shouldPollSystemTacticalState,
+  shouldSyncPlayerStateFromTacticalState,
   systemTacticalRefetchInterval,
 } from "./useSystemTacticalState";
 
@@ -92,5 +93,26 @@ describe("shouldPollSystemTacticalState", () => {
     expect(
       systemTacticalRefetchInterval(tacticalState(null, "in_flight")),
     ).toBe(5_000);
+  });
+
+  it("marks player state stale when visible tactical combat is fresh", () => {
+    expect(
+      shouldSyncPlayerStateFromTacticalState(
+        tacticalState("2026-06-01T00:00:20.000Z"),
+        new Date("2026-06-01T00:00:40.000Z").getTime(),
+      ),
+    ).toBe(true);
+  });
+
+  it("does not wake player state for stale combat or plain movement", () => {
+    expect(
+      shouldSyncPlayerStateFromTacticalState(
+        tacticalState("2026-06-01T00:00:00.000Z"),
+        new Date("2026-06-01T00:00:40.000Z").getTime(),
+      ),
+    ).toBe(false);
+    expect(
+      shouldSyncPlayerStateFromTacticalState(tacticalState(null, "in_flight")),
+    ).toBe(false);
   });
 });
