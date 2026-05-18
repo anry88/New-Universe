@@ -250,6 +250,7 @@ export async function loadSystemFleetContacts(
   const rows = await database
     .select({
       shipId: ships.id,
+      ownerId: ships.ownerId,
       shipTypeId: ships.typeId,
       shipHp: ships.hp,
       shipMaxHp: ships.maxHp,
@@ -271,7 +272,6 @@ export async function loadSystemFleetContacts(
           ${expeditions.result} ->> 'destinationSystemId' = ${systemId}
           or ${expeditions.result} ->> 'originSystemId' = ${systemId}
         )`,
-        ne(ships.ownerId, userId),
         ne(ships.status, SHIP_STATUS_DESTROYED),
       ),
     );
@@ -295,10 +295,10 @@ export async function loadSystemFleetContacts(
       {
         id: row.shipId,
         systemId,
-        relation: "foreign",
-        visibility: "summary",
+        relation: row.ownerId === userId ? "self" : "foreign",
+        visibility: row.ownerId === userId ? "full" : "summary",
         status,
-        ownerAlias: maskPublicAlias(row),
+        ownerAlias: row.ownerId === userId ? null : maskPublicAlias(row),
         shipTypeId: row.shipTypeId,
         hp: row.shipHp,
         maxHp: row.shipMaxHp,

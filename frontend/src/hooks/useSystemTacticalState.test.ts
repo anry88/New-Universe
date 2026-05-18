@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import type { SystemTacticalStateResponse } from "@shared/types/system-tactical";
 import {
   shouldPollSystemTacticalState,
-  shouldSyncPlayerStateFromTacticalState,
   systemTacticalRefetchInterval,
 } from "./useSystemTacticalState";
 
@@ -43,7 +42,7 @@ function tacticalState(
 }
 
 describe("shouldPollSystemTacticalState", () => {
-  it("continues polling while a visible foreign contact has recent combat", () => {
+  it("continues polling while a visible tactical contact has recent combat", () => {
     expect(
       shouldPollSystemTacticalState(
         tacticalState("2026-06-01T00:00:20.000Z"),
@@ -61,7 +60,7 @@ describe("shouldPollSystemTacticalState", () => {
     ).toBe(false);
   });
 
-  it("continues polling while a visible foreign contact is moving", () => {
+  it("continues polling while a visible tactical contact is moving", () => {
     expect(
       shouldPollSystemTacticalState(tacticalState(null, "in_flight")),
     ).toBe(true);
@@ -93,26 +92,5 @@ describe("shouldPollSystemTacticalState", () => {
     expect(
       systemTacticalRefetchInterval(tacticalState(null, "in_flight")),
     ).toBe(5_000);
-  });
-
-  it("marks player state stale when visible tactical combat is fresh", () => {
-    expect(
-      shouldSyncPlayerStateFromTacticalState(
-        tacticalState("2026-06-01T00:00:20.000Z"),
-        new Date("2026-06-01T00:00:40.000Z").getTime(),
-      ),
-    ).toBe(true);
-  });
-
-  it("does not wake player state for stale combat or plain movement", () => {
-    expect(
-      shouldSyncPlayerStateFromTacticalState(
-        tacticalState("2026-06-01T00:00:00.000Z"),
-        new Date("2026-06-01T00:00:40.000Z").getTime(),
-      ),
-    ).toBe(false);
-    expect(
-      shouldSyncPlayerStateFromTacticalState(tacticalState(null, "in_flight")),
-    ).toBe(false);
   });
 });

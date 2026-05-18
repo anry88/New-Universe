@@ -7,6 +7,7 @@ import {
   buildExpeditionTrailSegments,
   fleetContactMotionAngle,
   fleetContactsForSystem,
+  tacticalExpeditionTouchesSystem,
   weaponVisualForCombatStats,
 } from "./SystemMap";
 
@@ -148,6 +149,37 @@ describe("fleetContactsForSystem", () => {
   });
 });
 
+describe("tacticalExpeditionTouchesSystem", () => {
+  it("matches Jump Gate expeditions by origin or destination system", () => {
+    expect(tacticalExpeditionTouchesSystem(expedition({}), system.id)).toBe(
+      true,
+    );
+    expect(
+      tacticalExpeditionTouchesSystem(
+        expedition({
+          result: {
+            routeMode: "jump_gate",
+            originSystemId: system.id,
+            destinationSystemId: "other-system",
+          },
+        }),
+        system.id,
+      ),
+    ).toBe(true);
+    expect(
+      tacticalExpeditionTouchesSystem(
+        expedition({
+          result: {
+            routeMode: "local",
+            destinationSystemId: system.id,
+          },
+        }),
+        system.id,
+      ),
+    ).toBe(false);
+  });
+});
+
 describe("fleetContactMotionAngle", () => {
   it("returns the rendered heading for moving tactical contacts", () => {
     expect(
@@ -188,6 +220,52 @@ describe("fleetContactMotionAngle", () => {
 });
 
 describe("buildCombatProjectileSegments", () => {
+  it("draws tactical self-vs-foreign crossfire without a /me ship marker", () => {
+    const segments = buildCombatProjectileSegments({
+      markers: [],
+      contacts: [
+        contact("own-fighter", {
+          relation: "self",
+          visibility: "full",
+          ownerAlias: null,
+          point: { x: 0, y: 0 },
+        }),
+        contact("foreign-fighter", {
+          ownerAlias: "@rival",
+          point: { x: 12, y: 0 },
+        }),
+      ],
+      now: new Date("2026-06-01T00:00:40.000Z").getTime(),
+    });
+
+    expect(segments.map((segment) => segment.id)).toEqual([
+      "self-own-fighter-foreign-fighter",
+      "foreign-foreign-fighter-own-fighter",
+    ]);
+  });
+
+  it("does not create crossfire between tactical self contacts", () => {
+    const segments = buildCombatProjectileSegments({
+      markers: [],
+      contacts: [
+        contact("own-fighter-a", {
+          relation: "self",
+          visibility: "full",
+          ownerAlias: null,
+        }),
+        contact("own-fighter-b", {
+          relation: "self",
+          visibility: "full",
+          ownerAlias: null,
+          point: { x: 12, y: 0 },
+        }),
+      ],
+      now: new Date("2026-06-01T00:00:40.000Z").getTime(),
+    });
+
+    expect(segments).toEqual([]);
+  });
+
   it("draws close-range crossfire between recent foreign contacts", () => {
     const segments = buildCombatProjectileSegments({
       markers: [],

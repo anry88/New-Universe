@@ -84,6 +84,7 @@ interface CosmicSystemRendererProps {
   shipTypes?: ShipType[];
   expeditions: Expedition[];
   fleetContacts?: SystemTacticalFleetContact[];
+  fleetContactsAuthoritative?: boolean;
   onPlanetClick: (planet: Planet) => void;
   onColonizeClick?: (planet: Planet) => void;
   ownedPlanetIds: Set<string>;
@@ -344,6 +345,21 @@ interface ExpeditionTrailSegment {
 
 function isActiveMapExpedition(expedition: Expedition): boolean {
   return ACTIVE_MAP_EXPEDITION_STATUSES.has(expedition.status);
+}
+
+export function tacticalExpeditionTouchesSystem(
+  expedition: Expedition,
+  systemId: string,
+): boolean {
+  const result = expedition.result as Record<string, unknown> | null | undefined;
+  if (result?.routeMode !== "jump_gate") return false;
+  const destinationSystemId =
+    typeof result.destinationSystemId === "string"
+      ? result.destinationSystemId
+      : null;
+  const originSystemId =
+    typeof result.originSystemId === "string" ? result.originSystemId : null;
+  return destinationSystemId === systemId || originSystemId === systemId;
 }
 
 function pointFromResult(value: unknown): SystemMapPoint | null {
@@ -1040,6 +1056,7 @@ function nearestContactForMarker(
   let best: SystemTacticalFleetContact | null = null;
   let bestDistance = Infinity;
   for (const contact of contacts) {
+    if (contact.relation === "self") continue;
     const dist = Math.hypot(
       marker.x - contact.point.x,
       marker.y - contact.point.y,
@@ -1079,6 +1096,9 @@ function nearestContactForContact(
   let bestDistance = Infinity;
   for (const candidate of contacts) {
     if (candidate.id === contact.id) continue;
+    if (candidate.relation === "self" && contact.relation === "self") {
+      continue;
+    }
     if (
       candidate.ownerAlias &&
       contact.ownerAlias &&
@@ -1152,7 +1172,10 @@ export function buildCombatProjectileSegments({
   });
 
   combatContacts.forEach((contact, index) => {
-    const marker = nearestMarkerForContact(contact, markers);
+    const marker =
+      contact.relation === "foreign"
+        ? nearestMarkerForContact(contact, markers)
+        : null;
     if (marker) {
       segments.push({
         id: `foreign-${contact.id}-${marker.ship.id}`,
@@ -1168,8 +1191,9 @@ export function buildCombatProjectileSegments({
 
     const target = nearestContactForContact(contact, combatContacts);
     if (!target) return;
+    const relationPrefix = contact.relation === "self" ? "self" : "foreign";
     segments.push({
-      id: `foreign-${contact.id}-${target.id}`,
+      id: `${relationPrefix}-${contact.id}-${target.id}`,
       x1: contact.point.x,
       y1: contact.point.y,
       x2: target.point.x,
@@ -1276,9 +1300,9 @@ const FleetContactMarkers = React.memo(function FleetContactMarkers({
   isPicking: boolean;
   now: number;
   selectedContactId: string | null;
-  onSelectContact: (contactId: string) => void;
+  onSelectContact: (contact: SystemTacticalFleetContact) => void;
 }) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const pointTotals = useMemo(() => {
     const totals = new Map<string, number>();
     for (const contact of contacts) {
@@ -1302,24 +1326,35 @@ const FleetContactMarkers = React.memo(function FleetContactMarkers({
           (Math.PI * 2 * indexAtPoint) / totalAtPoint - Math.PI / 2;
         const x = contact.point.x + Math.cos(spreadAngle) * spread;
         const y = contact.point.y + Math.sin(spreadAngle) * spread;
-        const title = contact.ownerAlias
-          ? t("sector.entity.foreignSource", { source: contact.ownerAlias })
-          : t("sector.entity.unknownFleet");
+        const isOwnContact = contact.relation === "self";
+        const title = isOwnContact
+          ? contact.shipTypeId
+            ? getShipLabel(contact.shipTypeId, locale)
+            : t("sector.entity.unknownFleet")
+          : contact.ownerAlias
+            ? t("sector.entity.foreignSource", { source: contact.ownerAlias })
+            : t("sector.entity.unknownFleet");
         const isSelected = selectedContactId === contact.id;
         const isInCombat = isRecentCombat(contact.lastCombatTickAt, now);
         const motionAngle = fleetContactMotionAngle(contact);
         const isMoving = motionAngle != null;
-        const tone = isInCombat ? "#FF5A6E" : "#EF4444";
+        const tone = isInCombat
+          ? "#FF5A6E"
+          : isOwnContact
+            ? isMoving
+              ? "#5BD7FF"
+              : "#5BFFA9"
+            : "#EF4444";
 
         return (
           <button
             key={contact.id}
             type="button"
-            data-testid={`map-foreign-ship-${contact.id}`}
+            data-testid={`map-${isOwnContact ? "own" : "foreign"}-ship-${contact.id}`}
             title={title}
             onClick={(e) => {
               e.stopPropagation();
-              onSelectContact(contact.id);
+              onSelectContact(contact);
             }}
             style={{
               position: "absolute",
@@ -1334,11 +1369,15 @@ const FleetContactMarkers = React.memo(function FleetContactMarkers({
                 : "1px solid transparent",
               borderRadius: 8,
               background: isSelected
-                ? "radial-gradient(circle at 50% 42%, rgba(239,68,68,0.25), rgba(8,12,22,0.78) 70%)"
+                ? isOwnContact
+                  ? "radial-gradient(circle at 50% 42%, rgba(91,215,255,0.24), rgba(8,12,22,0.78) 70%)"
+                  : "radial-gradient(circle at 50% 42%, rgba(239,68,68,0.25), rgba(8,12,22,0.78) 70%)"
                 : "transparent",
               boxShadow: isInCombat
                 ? "0 0 18px rgba(248,113,113,0.72)"
-                : "0 0 14px rgba(239,68,68,0.38)",
+                : isOwnContact
+                  ? "0 0 12px rgba(91,215,255,0.34)"
+                  : "0 0 14px rgba(239,68,68,0.38)",
               pointerEvents: isPicking ? "none" : "auto",
               transition: isMoving ? "left 5s linear, top 5s linear" : "none",
               zIndex: isInCombat || isSelected ? 7 : 5,
@@ -1346,47 +1385,6 @@ const FleetContactMarkers = React.memo(function FleetContactMarkers({
               cursor: isPicking ? "inherit" : "pointer",
             }}
           >
-            {motionAngle != null ? (
-              <span
-                aria-hidden="true"
-                style={{
-                  position: "absolute",
-                  left: "50%",
-                  top: "50%",
-                  width: 8,
-                  height: 18,
-                  transform: `translate(-50%, -92%) rotate(${motionAngle + Math.PI / 2}rad)`,
-                  transformOrigin: "50% 100%",
-                  pointerEvents: "none",
-                  opacity: 0.9,
-                }}
-              >
-                <span
-                  style={{
-                    position: "absolute",
-                    left: 3,
-                    top: 4,
-                    width: 2,
-                    height: 14,
-                    borderRadius: 999,
-                    background: "currentColor",
-                    boxShadow: "0 0 8px currentColor",
-                  }}
-                />
-                <span
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    top: 0,
-                    width: 0,
-                    height: 0,
-                    borderLeft: "4px solid transparent",
-                    borderRight: "4px solid transparent",
-                    borderBottom: "6px solid currentColor",
-                  }}
-                />
-              </span>
-            ) : null}
             <span
               style={{
                 display: "grid",
@@ -1401,7 +1399,11 @@ const FleetContactMarkers = React.memo(function FleetContactMarkers({
                 tone="currentColor"
               />
             </span>
-            <ShipHealthBar hp={contact.hp} maxHp={contact.maxHp} isForeign />
+            <ShipHealthBar
+              hp={contact.hp}
+              maxHp={contact.maxHp}
+              isForeign={!isOwnContact}
+            />
           </button>
         );
       })}
@@ -1413,8 +1415,9 @@ function statusLabelForMapShip(
   status: string | undefined,
   t: (key: string) => string,
 ): string {
-  if (status === "idle") return t("ships.orbit");
-  if (status === "moving") return t("ships.inTransit");
+  if (status === "idle" || status === "stationed") return t("ships.orbit");
+  if (status === "moving" || status === "in_flight" || status === "returning")
+    return t("ships.inTransit");
   if (status === "building") return t("ships.building");
   return t("common.status");
 }
@@ -1500,9 +1503,9 @@ function SelectedMapShipCard({
   const isForeign = selection.kind === "foreign";
   const typeId = ownShip?.typeId ?? contact?.shipTypeId ?? shipType?.id ?? null;
   const stats =
-    ownShip?.combatStats ?? contact?.combatStats ?? shipType?.combatStats;
-  const hp = ownShip?.hp ?? contact?.hp ?? shipType?.hp ?? 0;
-  const maxHp = ownShip?.maxHp ?? contact?.maxHp ?? shipType?.hp ?? 0;
+    contact?.combatStats ?? ownShip?.combatStats ?? shipType?.combatStats;
+  const hp = contact?.hp ?? ownShip?.hp ?? shipType?.hp ?? 0;
+  const maxHp = contact?.maxHp ?? ownShip?.maxHp ?? shipType?.hp ?? 0;
   const hullPct = hpPercent(hp, maxHp);
   const rangeKey = rangeLabelKey(stats?.engagementRange);
   const dps = combatDps(stats) || shipType?.dps || 0;
@@ -1512,9 +1515,12 @@ function SelectedMapShipCard({
     : t("sector.entity.unknownFleet");
   const status = isForeign
     ? t("map.shipStatus.hostile")
-    : isRecentCombat(ownShip?.lastCombatTickAt, Date.now())
+    : isRecentCombat(
+          contact?.lastCombatTickAt ?? ownShip?.lastCombatTickAt,
+          Date.now(),
+        )
       ? t("ships.state.combat")
-      : statusLabelForMapShip(ownShip?.status, t);
+      : statusLabelForMapShip(contact?.status ?? ownShip?.status, t);
   const ownAction =
     !isForeign && ownShip
       ? actionForOwnMapShip({
@@ -1766,6 +1772,7 @@ export function CosmicSystemRenderer({
   shipTypes = [],
   expeditions,
   fleetContacts = [],
+  fleetContactsAuthoritative = false,
   onPlanetClick,
   onColonizeClick,
   ownedPlanetIds,
@@ -1826,19 +1833,53 @@ export function CosmicSystemRenderer({
     [fleetContacts, system.id],
   );
 
+  const tacticalShipIds = useMemo(
+    () => new Set(visibleFleetContacts.map((contact) => contact.id)),
+    [visibleFleetContacts],
+  );
+
+  const tacticalExpeditionShipIds = useMemo(() => {
+    if (!fleetContactsAuthoritative) return new Set<string>();
+    return new Set(
+      activeExpeditions
+        .filter((expedition) =>
+          tacticalExpeditionTouchesSystem(expedition, system.id),
+        )
+        .map((expedition) => expedition.shipId),
+    );
+  }, [activeExpeditions, fleetContactsAuthoritative, system.id]);
+
+  const mapShips = useMemo(
+    () =>
+      ships.filter(
+        (ship) =>
+          !tacticalShipIds.has(ship.id) &&
+          !tacticalExpeditionShipIds.has(ship.id),
+      ),
+    [ships, tacticalExpeditionShipIds, tacticalShipIds],
+  );
+
+  const mapExpeditions = useMemo(
+    () =>
+      activeExpeditions.filter(
+        (expedition) => !tacticalExpeditionShipIds.has(expedition.shipId),
+      ),
+    [activeExpeditions, tacticalExpeditionShipIds],
+  );
+
   const shipTypeById = useMemo(
     () => new Map(shipTypes.map((shipType) => [shipType.id, shipType])),
     [shipTypes],
   );
 
   const hasMovingShips =
-    activeExpeditions.length > 0 &&
-    ships.some((ship) => ship.status === "moving");
+    mapExpeditions.length > 0 &&
+    mapShips.some((ship) => ship.status === "moving");
   const hasMovingFleetContacts = visibleFleetContacts.some(
     (contact) => contact.status !== "stationed",
   );
   const hasRecentCombat =
-    ships.some((ship) => {
+    mapShips.some((ship) => {
       if (ship.status === "destroyed") return false;
       return isRecentCombat(ship.lastCombatTickAt, now);
     }) ||
@@ -1856,19 +1897,19 @@ export function CosmicSystemRenderer({
   const shipMarkerSnapshots = useMemo(
     () =>
       buildShipMarkerSnapshots({
-        ships,
-        activeExpeditions,
+        ships: mapShips,
+        activeExpeditions: mapExpeditions,
         layoutByPlanetId,
         system,
         now,
       }),
-    [activeExpeditions, layoutByPlanetId, now, ships, system],
+    [layoutByPlanetId, mapExpeditions, mapShips, now, system],
   );
 
   const expeditionTrailSegments = useMemo(
     () =>
-      buildExpeditionTrailSegments(activeExpeditions, layoutByPlanetId, system),
-    [activeExpeditions, layoutByPlanetId, system],
+      buildExpeditionTrailSegments(mapExpeditions, layoutByPlanetId, system),
+    [layoutByPlanetId, mapExpeditions, system],
   );
 
   const selected = useMemo(
@@ -1879,30 +1920,41 @@ export function CosmicSystemRenderer({
     [layouts, selectedId],
   );
 
-  const selectedOwnShip =
+  const selectedOwnShipRecord =
     selectedShip?.kind === "own"
       ? (ships.find((ship) => ship.id === selectedShip.id) ?? null)
       : null;
+  const selectedOwnMapShip =
+    selectedShip?.kind === "own"
+      ? (mapShips.find(
+          (ship) => ship.id === selectedShip.id && ship.status !== "destroyed",
+        ) ?? null)
+      : null;
+  const selectedTacticalContact =
+    selectedShip
+      ? (visibleFleetContacts.find(
+          (contact) => contact.id === selectedShip.id,
+        ) ?? null)
+      : null;
+  const selectedOwnShip =
+    selectedTacticalContact?.relation === "self"
+      ? selectedOwnShipRecord
+      : selectedOwnMapShip;
   const selectedOwnShipExpedition = selectedOwnShip
     ? (activeExpeditions.find(
         (expedition) => expedition.shipId === selectedOwnShip.id,
       ) ?? null)
     : null;
-  const selectedForeignContact =
-    selectedShip?.kind === "foreign"
-      ? (visibleFleetContacts.find(
-          (contact) => contact.id === selectedShip.id,
-        ) ?? null)
-      : null;
   const selectedShipType = selectedOwnShip
     ? (shipTypeById.get(selectedOwnShip.typeId) ?? null)
-    : selectedForeignContact?.shipTypeId
-      ? (shipTypeById.get(selectedForeignContact.shipTypeId) ?? null)
+    : selectedTacticalContact?.shipTypeId
+      ? (shipTypeById.get(selectedTacticalContact.shipTypeId) ?? null)
       : null;
   const selectedMapShip =
     selectedShip &&
-    ((selectedShip.kind === "own" && selectedOwnShip) ||
-      (selectedShip.kind === "foreign" && selectedForeignContact))
+    ((selectedShip.kind === "own" &&
+      (selectedOwnShip || selectedTacticalContact?.relation === "self")) ||
+      (selectedShip.kind === "foreign" && selectedTacticalContact))
       ? selectedShip
       : null;
 
@@ -1967,8 +2019,11 @@ export function CosmicSystemRenderer({
     setSelectedId(null);
   }, []);
 
-  const selectForeignContact = useCallback((contactId: string) => {
-    setSelectedShip({ kind: "foreign", id: contactId });
+  const selectTacticalContact = useCallback((contact: SystemTacticalFleetContact) => {
+    setSelectedShip({
+      kind: contact.relation === "self" ? "own" : "foreign",
+      id: contact.id,
+    });
     setSelectedId(null);
   }, []);
 
@@ -2521,9 +2576,9 @@ export function CosmicSystemRenderer({
             isPicking={isPicking}
             now={now}
             selectedContactId={
-              selectedShip?.kind === "foreign" ? selectedShip.id : null
+              selectedTacticalContact ? selectedShip?.id ?? null : null
             }
-            onSelectContact={selectForeignContact}
+            onSelectContact={selectTacticalContact}
           />
 
           {/* Draft course for expedition launcher (vector from home star, shown from launch planet). */}
@@ -2628,7 +2683,7 @@ export function CosmicSystemRenderer({
         <SelectedMapShipCard
           selection={selectedMapShip}
           ownShip={selectedOwnShip}
-          contact={selectedForeignContact}
+          contact={selectedTacticalContact}
           shipType={selectedShipType}
           activeExpedition={selectedOwnShipExpedition}
           onAction={onOwnShipAction}
