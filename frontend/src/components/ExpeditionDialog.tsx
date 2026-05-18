@@ -844,6 +844,10 @@ export function ExpeditionDialog({
                   ? tacticalState.fleetContacts
                   : []
               }
+              fleetContactsAuthoritative={
+                routeMode === "jump_gate" &&
+                tacticalState?.systemId === renderedSystem.id
+              }
               onPlanetClick={() => {}}
               ownedPlanetIds={ownedPlanetIds}
               expeditionPick={expeditionPick}

@@ -215,6 +215,7 @@ describe("getSystemTacticalState", () => {
     await db.delete(productionOrders);
     await db.delete(buildings);
     await db.delete(colonies);
+    await db.delete(shipTypes);
     await db.delete(notifications);
     await db.delete(planetResources);
     await db.delete(richness);
@@ -326,5 +327,59 @@ describe("getSystemTacticalState", () => {
         updatedAt: "2026-05-13T01:00:30.000Z",
       },
     });
+  });
+
+  it("returns own and foreign tactical contacts as one system snapshot", async () => {
+    const viewer = await createUser("mixed_viewer");
+    const foreignOwner = await createUser("mixed_foreign");
+    const target = await createPublicSystem("Mixed Tactical", 930);
+    const shipType = await createShipType(`mixed_contact_${Date.now()}`);
+
+    await db.insert(discoveredSystems).values({
+      userId: viewer.id,
+      systemId: target.system.id,
+    });
+
+    const ownShip = await stationForeignShip({
+      ownerId: viewer.id,
+      typeId: shipType.id,
+      originPlanetId: target.planet.id,
+      systemId: target.system.id,
+      point: { x: 20, y: 0 },
+      hp: 140,
+    });
+    const foreignShip = await stationForeignShip({
+      ownerId: foreignOwner.id,
+      typeId: shipType.id,
+      originPlanetId: target.planet.id,
+      systemId: target.system.id,
+      point: { x: 55, y: 0 },
+      hp: 90,
+    });
+
+    const state = await getSystemTacticalState(viewer.id, target.system.id, {
+      now: new Date("2026-05-13T01:02:00.000Z"),
+    });
+
+    expect(state?.fleetContacts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: ownShip.id,
+          relation: "self",
+          visibility: "full",
+          ownerAlias: null,
+          hp: 140,
+          point: { x: 20, y: 0 },
+        }),
+        expect.objectContaining({
+          id: foreignShip.id,
+          relation: "foreign",
+          visibility: "summary",
+          ownerAlias: expect.stringContaining("@systems_mixe"),
+          hp: 90,
+          point: { x: 55, y: 0 },
+        }),
+      ]),
+    );
   });
 });

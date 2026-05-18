@@ -19,8 +19,8 @@ System-scoped read models that do not belong to the Jump Gate lifecycle.
 
 - **`README.md`** — [System tactical-state documentation](./systems/README.md).
 - **`routes.ts`** — `systemsRoutes(app)` registers authenticated `GET /systems/:systemId/tactical-state`.
-- **`tactical-state.ts`** — `getSystemTacticalState(userId, systemId)` checks that the requested system is visible to the viewer, then returns only that system's redacted foreign Jump Gate fleet contacts in `in_flight` / `returning` / `stationed` states with hull type, HP, combat stats, recent-combat timestamp, status, point coordinates, and optional movement vector for the tactical map.
-- **`tactical-state.test.ts`** — asserts per-system contact scoping, moving point-to-point contact projection, and undiscovered-system protection.
+- **`tactical-state.ts`** — `getSystemTacticalState(userId, systemId)` checks that the requested system is visible to the viewer, then returns that system's Jump Gate fleet contacts in `in_flight` / `returning` / `stationed` states with `relation: "self" | "foreign"`, `visibility: "full" | "summary"`, safe foreign owner aliases, hull type, HP, combat stats, recent-combat timestamp, status, point coordinates, and optional movement vector for the tactical map.
+- **`tactical-state.test.ts`** — asserts per-system contact scoping, self/foreign relation separation, moving point-to-point contact projection, and undiscovered-system protection.
 
 ## `buildings/`
 

@@ -586,6 +586,7 @@ export function SystemMapPage() {
               ? tacticalState.fleetContacts
               : []
           }
+          fleetContactsAuthoritative={tacticalState?.systemId === activeSystem.id}
           onPlanetClick={(planet) => navigate(`/planet/${planet.id}`)}
           onColonizeClick={() => navigate('/ships')}
           ownedPlanetIds={ownedPlanetIds}

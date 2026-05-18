@@ -10,8 +10,8 @@ export interface SystemTacticalFleetMotion {
 export interface SystemTacticalFleetContact {
   id: string;
   systemId: string;
-  relation: "foreign";
-  visibility: "summary";
+  relation: "self" | "foreign";
+  visibility: "full" | "summary";
   status: "in_flight" | "returning" | "stationed";
   ownerAlias: string | null;
   shipTypeId: string | null;
