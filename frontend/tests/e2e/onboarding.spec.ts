@@ -153,8 +153,8 @@ test('onboarding overlay can be skipped for later', async ({ page }) => {
 
   await page.goto('/');
 
-  await expect(page.getByRole('heading', { name: 'Onboarding tutorial' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Tutorial' })).toBeVisible();
   await page.getByRole('button', { name: 'Skip for now' }).click();
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole('heading', { name: 'Onboarding tutorial' })).not.toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Tutorial' })).not.toBeVisible();
 });
