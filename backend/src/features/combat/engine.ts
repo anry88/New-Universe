@@ -118,6 +118,7 @@ function selectShipTargetForAttacker(
     if (defender.id === attacker.id) continue;
     if (defender.ownerId === attacker.ownerId) continue;
     if (!isDefenderTargetable(defender)) continue;
+    if (!sameCombatSystem(attacker, defender)) continue;
     if (isDefenderProtectedFromAttacker(attacker, defender)) continue;
 
     const dist = planarDistance(attacker.position, defender.position);
@@ -208,6 +209,14 @@ function weaponRangeMultiplierFor(actor: {
 }): number {
   const multiplier = actor.weaponRangeMultiplier ?? 1;
   return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1;
+}
+
+function sameCombatSystem(
+  attacker: Pick<CombatActor, "hostSystem">,
+  defender: Pick<CombatActor, "hostSystem">,
+): boolean {
+  if (!attacker.hostSystem || !defender.hostSystem) return false;
+  return attacker.hostSystem.id === defender.hostSystem.id;
 }
 
 function planarDistance(

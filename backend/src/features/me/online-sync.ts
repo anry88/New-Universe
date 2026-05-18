@@ -1,26 +1,25 @@
-import { and, eq, inArray } from 'drizzle-orm';
-import { db } from '../../db/index.js';
-import { buildingService } from '../buildings/service.js';
-import { processCompletedResearch } from '../research/completion.js';
-import { productionService } from '../resources/production.js';
-import { syncReadyShips } from '../ships/build.js';
-import { processExpeditions } from '../../workers/tick-expeditions.js';
-import { processDueCombat } from '../combat/tick-combat.js';
-import { colonies, notifications, planets, systems } from '../../db/schema.js';
+import { and, eq, inArray } from "drizzle-orm";
+import { db } from "../../db/index.js";
+import { buildingService } from "../buildings/service.js";
+import { processCompletedResearch } from "../research/completion.js";
+import { productionService } from "../resources/production.js";
+import { syncReadyShips } from "../ships/build.js";
+import { processExpeditions } from "../../workers/tick-expeditions.js";
+import { colonies, notifications, planets, systems } from "../../db/schema.js";
 
 const ONLINE_SYNC_NOTIFICATION_TYPES = [
-  'building_done',
-  'research_done',
-  'ship_done',
-  'expedition_returned',
-  'expedition_arrived',
-  'planet_discovered',
-  'colony_founded',
-  'cargo_transfer_delivered',
-  'combat_started',
-  'ship_destroyed',
-  'building_destroyed',
-  'colony_destroyed',
+  "building_done",
+  "research_done",
+  "ship_done",
+  "expedition_returned",
+  "expedition_arrived",
+  "planet_discovered",
+  "colony_founded",
+  "cargo_transfer_delivered",
+  "combat_started",
+  "ship_destroyed",
+  "building_destroyed",
+  "colony_destroyed",
 ];
 
 async function playerPlanetIds(userId: string): Promise<string[]> {
@@ -33,12 +32,14 @@ async function playerPlanetIds(userId: string): Promise<string[]> {
   const colonyPlanets = await db
     .select({ id: colonies.planetId })
     .from(colonies)
-    .where(and(eq(colonies.ownerId, userId), eq(colonies.status, 'active')));
+    .where(and(eq(colonies.ownerId, userId), eq(colonies.status, "active")));
 
   return [...new Set([...homePlanets, ...colonyPlanets].map((row) => row.id))];
 }
 
-export async function suppressPendingOnlineCompletionNotifications(userId: string): Promise<void> {
+export async function suppressPendingOnlineCompletionNotifications(
+  userId: string,
+): Promise<void> {
   await db
     .update(notifications)
     .set({ pending: false, read: true })
@@ -62,6 +63,5 @@ export async function syncDuePlayerState(userId: string): Promise<void> {
   await syncReadyShips(userId, { skipNotifications: true });
   await processCompletedResearch(db, { userId, skipNotification: true });
   await processExpeditions({ userId, skipNotifications: true });
-  await processDueCombat({ userId, skipNotifications: true });
   await suppressPendingOnlineCompletionNotifications(userId);
 }
