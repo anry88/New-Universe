@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   COMBAT_TICK_MAX_DT_SEC,
+  COMBAT_REENGAGEMENT_RESET_SEC,
   computeTickDamage,
+  isFreshCombatTouch,
   isDefenderProtectedFromAttacker,
   resolveAttackerHits,
   resolveBomberHits,
@@ -65,10 +67,10 @@ function makeActor(overrides: Partial<CombatActor>): CombatActor {
 
 describe('combat engine — engagement range', () => {
   it('maps engagement ranges to sector distances', () => {
-    expect(engagementRangeToSectorDistance('close')).toBe(1);
-    expect(engagementRangeToSectorDistance('medium')).toBe(3);
-    expect(engagementRangeToSectorDistance('long')).toBe(8);
-    expect(engagementRangeToSectorDistance('orbital')).toBe(0);
+    expect(engagementRangeToSectorDistance('close')).toBeCloseTo(0.6, 6);
+    expect(engagementRangeToSectorDistance('medium')).toBeCloseTo(1.2, 6);
+    expect(engagementRangeToSectorDistance('long')).toBeCloseTo(2.2, 6);
+    expect(engagementRangeToSectorDistance('orbital')).toBeCloseTo(2.2, 6);
     expect(engagementRangeToSectorDistance(undefined)).toBe(0);
   });
 });
@@ -153,8 +155,27 @@ describe('combat engine — resolveAttackerHits', () => {
   it('a light laser reaches further than a fighter (long > close)', () => {
     const laser = makeActor({ id: 'L', ownerId: 'A', combatStats: lightLaserStats, position: { x: 0, y: 0 } });
     const defender = makeActor({
-      id: 'X', ownerId: 'B', combatStats: civilianStats, position: { x: 5, y: 0 },
+      id: 'X', ownerId: 'B', combatStats: civilianStats, position: { x: 2, y: 0 },
     });
+    expect(resolveAttackerHits([laser, defender])).toHaveLength(1);
+  });
+
+  it('extends acquisition range with the attacker weapon-range multiplier', () => {
+    const laser = makeActor({
+      id: 'L',
+      ownerId: 'A',
+      combatStats: lightLaserStats,
+      position: { x: 0, y: 0 },
+      weaponRangeMultiplier: 1.2,
+    });
+    const defender = makeActor({
+      id: 'X',
+      ownerId: 'B',
+      combatStats: civilianStats,
+      position: { x: 2.5, y: 0 },
+    });
+
+    expect(resolveAttackerHits([{ ...laser, weaponRangeMultiplier: 1 }, defender])).toHaveLength(0);
     expect(resolveAttackerHits([laser, defender])).toHaveLength(1);
   });
 
@@ -207,6 +228,31 @@ describe('combat engine — resolveAttackerHits', () => {
     expect(dps.get('T')).toBe(60);
   });
 
+  it('keeps one attacker focused on one ship target per tick', () => {
+    const attacker = makeActor({
+      id: 'A',
+      ownerId: 'OA',
+      combatStats: lightFighterStats,
+      position: { x: 0, y: 0 },
+    });
+    const near = makeActor({
+      id: 'N',
+      ownerId: 'OB',
+      combatStats: civilianStats,
+      position: { x: 0.1, y: 0 },
+    });
+    const far = makeActor({
+      id: 'F',
+      ownerId: 'OB',
+      combatStats: civilianStats,
+      position: { x: 0.2, y: 0 },
+    });
+
+    const hits = resolveAttackerHits([attacker, far, near]);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]).toMatchObject({ attackerId: 'A', defenderId: 'N' });
+  });
+
   it('applies rocket-carrier payload pressure at long range against medium/heavy hulls', () => {
     const carrier = makeActor({ id: 'RC', ownerId: 'A', combatStats: rocketCarrierStats, position: { x: 0, y: 0 } });
     const cruiser = makeActor({
@@ -214,7 +260,7 @@ describe('combat engine — resolveAttackerHits', () => {
       ownerId: 'B',
       combatStats: { targetClass: 'military_medium', evasion: 0.1 },
       defenderArmor: 20,
-      position: { x: 7, y: 0 },
+      position: { x: 2, y: 0 },
     });
     const hits = resolveAttackerHits([carrier, cruiser]);
     expect(hits).toHaveLength(1);
@@ -246,16 +292,23 @@ describe('combat engine — computeTickDamage', () => {
     expect(computeTickDamage(defender, 30, 10_000)).toBe(0);
   });
 
-  it('applies dps * dt seconds otherwise', () => {
+  it('applies dps * dt seconds inside the per-tick cap', () => {
     const defender = { lastCombatTickAtMs: 10_000 };
-    // 10s elapsed, 30 dps → 300 damage
-    expect(computeTickDamage(defender, 30, 20_000)).toBe(300);
+    // 2s elapsed, 30 dps → 60 damage
+    expect(computeTickDamage(defender, 30, 12_000)).toBe(60);
   });
 
   it('caps elapsed time at COMBAT_TICK_MAX_DT_SEC', () => {
     const defender = { lastCombatTickAtMs: 0 };
-    // 1 hour elapsed, capped to 30s, 30 dps → 900 damage
-    expect(computeTickDamage(defender, 30, 3_600_000)).toBe(30 * COMBAT_TICK_MAX_DT_SEC);
+    // 10s elapsed, capped to the visible-combat tick window.
+    expect(computeTickDamage(defender, 30, 10_000)).toBe(30 * COMBAT_TICK_MAX_DT_SEC);
+  });
+
+  it('resets stale engagements instead of applying retroactive damage', () => {
+    const defender = { lastCombatTickAtMs: 0 };
+    const nowMs = (COMBAT_REENGAGEMENT_RESET_SEC + 1) * 1000;
+    expect(isFreshCombatTouch(defender, nowMs)).toBe(true);
+    expect(computeTickDamage(defender, 30, nowMs)).toBe(0);
   });
 
   it('returns 0 when totalDps is 0', () => {
@@ -277,6 +330,7 @@ function makeBuilding(overrides: Partial<BuildingTarget>): BuildingTarget {
     armor: 0,
     hp: 1000,
     destroyed: false,
+    position: { x: 0, y: 0 },
     lastCombatTickAtMs: null,
     ...overrides,
   };
@@ -290,6 +344,7 @@ function makeBomber(overrides: Partial<BomberActor> = {}): BomberActor {
     hp: 350,
     combatStats: lightBomberStats,
     hostSystemId: 'sys-1',
+    position: { x: 0, y: 0 },
     ...overrides,
   };
 }
@@ -344,6 +399,27 @@ describe('combat engine — resolveBomberHits', () => {
     ];
     const map = new Map<string, BuildingTarget[]>([['far', farPlanet]]);
     expect(resolveBomberHits([bomber], map)).toHaveLength(0);
+  });
+
+  it('skips hostile buildings outside orbital weapon range', () => {
+    const bomber = makeBomber({ hostSystemId: 'sys-1', position: { x: 0, y: 0 } });
+    const farPlanet: BuildingTarget[] = [
+      makeBuilding({
+        id: 'B-far',
+        planetId: 'far',
+        systemId: 'sys-1',
+        targetClass: 'building',
+        position: { x: 2.5, y: 0 },
+      }),
+    ];
+
+    expect(resolveBomberHits([bomber], new Map([['far', farPlanet]]))).toHaveLength(0);
+    expect(
+      resolveBomberHits(
+        [{ ...bomber, weaponRangeMultiplier: 1.2 }],
+        new Map([['far', farPlanet]]),
+      ),
+    ).toHaveLength(1);
   });
 
   it('skips planets owned by the bomber\'s player', () => {

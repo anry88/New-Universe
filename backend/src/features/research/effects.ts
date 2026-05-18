@@ -19,6 +19,7 @@ export interface ResearchEffects {
   energyEfficiencyMultiplier: number;
   shipSpeedMultiplier: number;
   sensorRangeMultiplier: number;
+  weaponRangeMultiplier: number;
   buildTimeMultiplier: number;
 }
 
@@ -34,6 +35,7 @@ const DEFAULT_EFFECTS: ResearchEffects = {
   energyEfficiencyMultiplier: 1,
   shipSpeedMultiplier: 1,
   sensorRangeMultiplier: 1,
+  weaponRangeMultiplier: 1,
   buildTimeMultiplier: 1,
 };
 
@@ -101,6 +103,9 @@ export function composeResearchEffects(modifiers: ResearchEffectModifier[]): Res
         break;
       case 'sensorRange':
         acc.sensorRangeMultiplier *= m;
+        break;
+      case 'weaponRange':
+        acc.weaponRangeMultiplier *= m;
         break;
       case 'buildTime':
         acc.buildTimeMultiplier *= m;
@@ -179,6 +184,10 @@ export function applyShipSpeed(baseSpeed: number, effects: ResearchEffects): num
 
 export function applySensorRange(baseSensorRange: number, effects: ResearchEffects): number {
   return baseSensorRange * effects.sensorRangeMultiplier;
+}
+
+export function applyWeaponRange(baseWeaponRange: number, effects: ResearchEffects): number {
+  return baseWeaponRange * effects.weaponRangeMultiplier;
 }
 
 export function applyBuildTimeSeconds(baseSeconds: number, effects: ResearchEffects): number {

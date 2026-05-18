@@ -3,6 +3,7 @@ import { db } from "../../db/index.js";
 import { buildings, planets, ships, systems, users } from "../../db/schema.js";
 import { seedShipTypes } from "../../db/seed/ship-types.js";
 import { loadLandingSlotUsage } from "./spaceport-capacity.js";
+import { SHIP_STATUS_DESTROYED } from "@shared/types/combat.js";
 
 describe("loadLandingSlotUsage", () => {
   beforeAll(async () => {
@@ -56,13 +57,24 @@ describe("loadLandingSlotUsage", () => {
         queueAction: "build",
       },
     ]);
-    await db.insert(ships).values({
-      ownerId: user.id,
-      typeId: "scout",
-      locationPlanetId: planet.id,
-      status: "idle",
-      cargoJson: {},
-    });
+    await db.insert(ships).values([
+      {
+        ownerId: user.id,
+        typeId: "scout",
+        locationPlanetId: planet.id,
+        status: "idle",
+        cargoJson: {},
+      },
+      {
+        ownerId: user.id,
+        typeId: "scout",
+        locationPlanetId: planet.id,
+        status: SHIP_STATUS_DESTROYED,
+        hp: 0,
+        destroyedAt: new Date(),
+        cargoJson: {},
+      },
+    ]);
 
     const usage = await db.transaction((tx) =>
       loadLandingSlotUsage(tx, planet.id),

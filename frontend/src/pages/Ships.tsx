@@ -56,6 +56,14 @@ function formatDuration(totalSeconds: number): string {
   return `${minutes}m ${String(seconds % 60).padStart(2, "0")}s`;
 }
 
+const RECENT_COMBAT_WINDOW_MS = 30_000;
+
+function timestamp(value?: string | null): number | null {
+  if (!value) return null;
+  const ms = new Date(value).getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
 function ShipBuildQueue({
   queue,
   ships,
@@ -145,7 +153,10 @@ export function ShipsPage() {
 
   const ships = meData?.ships || [];
   const visibleShips = useMemo(
-    () => ships.filter((ship) => isShipTypeVisible(ship.typeId)),
+    () =>
+      ships.filter(
+        (ship) => ship.status !== "destroyed" && isShipTypeVisible(ship.typeId),
+      ),
     [ships],
   );
   const origin = meData?.homeSystem || { sectorX: 0, sectorY: 0, sectorZ: 0 };
@@ -660,6 +671,11 @@ export function ShipsPage() {
               const isIdle = isShipReadyForOrders(ship);
               const isBuilding = effectiveStatus === "building";
               const isDestroyed = ship.status === "destroyed";
+              const lastCombatMs = timestamp(ship.lastCombatTickAt);
+              const isInCombat =
+                !isDestroyed &&
+                lastCombatMs != null &&
+                now - lastCombatMs <= RECENT_COMBAT_WINDOW_MS;
               const canIssueOrders =
                 !isDestroyed && (isIdle || (isStationed && !isCargoShip && !isDiscoveryProbe));
               const localRefueler =
@@ -693,7 +709,7 @@ export function ShipsPage() {
                   : activeExpedition?.status === "returning"
                   ? t("ships.returning")
                   : t("ships.outbound");
-              const shipLocation = isIdle
+              const baseShipLocation = isIdle
                 ? `${t("ships.orbit")} · ${origin.sectorX}:${origin.sectorY}:${origin.sectorZ}`
                 : isBuilding
                   ? `${t("ships.underConstruction")}${etaSec != null ? ` · ETA ${formatDuration(etaSec)}` : ""}`
@@ -702,6 +718,9 @@ export function ShipsPage() {
                   : activeExpedition && expeditionEtaSec != null
                     ? `${t("ships.inTransit")} · ${expeditionLegLabel} · ETA ${formatDuration(expeditionEtaSec)}`
                     : `${t("ships.inTransit")} · ${t("ships.syncingRoute")}`;
+              const shipLocation = isInCombat
+                ? `${t("ships.state.combat")} · ${baseShipLocation}`
+                : baseShipLocation;
               const shipName =
                 type?.name?.[locale] ?? getShipLabel(ship.typeId, locale);
               const isDamaged = !isDestroyed && ship.hp < ship.maxHp;
@@ -760,7 +779,12 @@ export function ShipsPage() {
                     />
                     <div className="ship-row-summary">
                       <div className="ship-name">{shipName}</div>
-                      <div className="ship-loc">{shipLocation}</div>
+                      <div
+                        className="ship-loc"
+                        style={isInCombat ? { color: "#fecaca" } : undefined}
+                      >
+                        {shipLocation}
+                      </div>
                     </div>
                     <div className="ship-row-fuel-summary">
                       <ResourceAmount

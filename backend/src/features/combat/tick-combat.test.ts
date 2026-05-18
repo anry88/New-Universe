@@ -125,7 +125,7 @@ describe('combat tick — processDueCombat', () => {
     const t0 = new Date('2026-06-01T00:00:00.000Z');
     await processDueCombat({ now: t0, skipNotifications: true });
 
-    // 5 seconds later — light_fighter dps=30, scout armor=0 → 150 dmg, scout has 40 hp
+    // 5 seconds later is capped to the visible-combat damage window; scout still dies.
     const t1 = new Date(t0.getTime() + 5_000);
     const res = await processDueCombat({ now: t1, skipNotifications: false });
 
@@ -164,8 +164,7 @@ describe('combat tick — processDueCombat', () => {
     const t0 = new Date('2026-06-01T00:00:00.000Z');
     await processDueCombat({ now: t0, skipNotifications: true });
 
-    // 5 seconds — light_fighter (dps=30, ap=0.2) vs light_fighter armor=5
-    // effective dps = 30 - 5*0.8 = 26, dmg = 130, target hp = 200 → still alive
+    // 5 seconds is capped to the visible-combat damage window; the military hull still survives.
     const t1 = new Date(t0.getTime() + 5_000);
     const res1 = await processDueCombat({ now: t1, skipNotifications: true });
     expect(res1.destroyed).not.toContain(defender.id);
@@ -174,6 +173,51 @@ describe('combat tick — processDueCombat', () => {
     expect(mid!.hp).toBeGreaterThan(0);
     expect(mid!.hp).toBeLessThan(200);
     expect(mid!.hp).toBeGreaterThan(40); // would already be dead if it were a scout
+  });
+
+  it('does not apply stale combat time as burst damage when a fresh attacker arrives', async () => {
+    const attackerOwner = await createUser('atkReengage');
+    const defenderOwner = await createUser('defReengage');
+    const staleTime = new Date('2026-06-01T00:00:00.000Z');
+    const now = new Date(staleTime.getTime() + 60_000);
+
+    const attacker = await spawnShip({
+      ownerId: attackerOwner.userId,
+      planetId: attackerOwner.planetId,
+      typeId: 'light_fighter',
+    });
+    const defenderA = await spawnShip({
+      ownerId: defenderOwner.userId,
+      planetId: defenderOwner.planetId,
+      typeId: 'light_fighter',
+      hp: 98,
+      lastCombatTickAt: staleTime,
+    });
+    const defenderB = await spawnShip({
+      ownerId: defenderOwner.userId,
+      planetId: defenderOwner.planetId,
+      typeId: 'light_fighter',
+      hp: 98,
+      lastCombatTickAt: staleTime,
+    });
+    await relocate(attacker.id, defenderOwner.planetId);
+
+    await processDueCombat({ now, skipNotifications: true });
+
+    const freshAttacker = await db.query.ships.findFirst({ where: eq(ships.id, attacker.id) });
+    const stillAliveA = await db.query.ships.findFirst({ where: eq(ships.id, defenderA.id) });
+    const stillAliveB = await db.query.ships.findFirst({ where: eq(ships.id, defenderB.id) });
+
+    expect(freshAttacker!.hp).toBe(200);
+    expect(stillAliveA!.hp).toBe(98);
+    expect(stillAliveB!.hp).toBe(98);
+    expect(stillAliveA!.status).toBe('idle');
+    expect(stillAliveB!.status).toBe('idle');
+    expect(
+      [stillAliveA!.lastCombatTickAt?.getTime(), stillAliveB!.lastCombatTickAt?.getTime()]
+        .includes(now.getTime()),
+    ).toBe(true);
+    expect(freshAttacker!.lastCombatTickAt?.getTime()).toBe(now.getTime());
   });
 
   it('is idempotent — running twice in succession does not double damage', async () => {
@@ -335,7 +379,7 @@ describe('combat tick — processDueCombat', () => {
     const shieldAfterDamage = await db.query.ships.findFirst({ where: eq(ships.id, shield.id) });
     expect(protectedScout!.hp).toBe(40);
     expect(shieldAfterDamage!.hp).toBe(320);
-    expect(shieldAfterDamage!.combatStats.shields?.currentHp).toBe(400);
+    expect(shieldAfterDamage!.combatStats.shields?.currentHp).toBe(610);
 
     await db.update(ships).set({ status: SHIP_STATUS_DESTROYED, hp: 0 }).where(eq(ships.id, attacker.id));
     await processDueCombat({ now: new Date(t0.getTime() + 25_000), skipNotifications: true });
@@ -409,7 +453,7 @@ describe('combat tick — processDueCombat', () => {
     expect(mineAfterFirst!.hp).toBe(1000); // first-touch — no damage yet
     expect(mineAfterFirst!.lastCombatTickAt).not.toBeNull();
 
-    // 5 seconds later — bomber dps=100, mine armor=0 → 500 dmg, mine still alive (1000→500).
+    // 5 seconds later is capped to the visible-combat damage window, so damage is gradual.
     await processDueCombat({ now: new Date(t0.getTime() + 5_000), skipNotifications: true });
     const mineHalf = await db.query.buildings.findFirst({ where: eq(buildings.id, s.mineId!) });
     expect(mineHalf!.hp).toBeGreaterThan(0);
@@ -438,14 +482,13 @@ describe('combat tick — processDueCombat', () => {
     const s = await setupBombingScenario('C');
     const t0 = new Date('2026-07-01T00:00:00.000Z');
 
-    // First-touch + a long enough window to wipe the mine but cap damage well
-    // short of the CC. Bomber dps=100, COMBAT_TICK_MAX_DT_SEC=30 → max 3000 per
-    // tick. Two ticks (first-touch + 30s tick) take the mine (1000 HP) down.
     await processDueCombat({ now: t0, skipNotifications: true });
-    await processDueCombat({
-      now: new Date(t0.getTime() + 30_000),
-      skipNotifications: true,
-    });
+    for (const seconds of [10, 20, 30, 40]) {
+      await processDueCombat({
+        now: new Date(t0.getTime() + seconds * 1000),
+        skipNotifications: true,
+      });
+    }
     const mine = await db.query.buildings.findFirst({ where: eq(buildings.id, s.mineId!) });
     // mine is now destroyed (hp=0, destroyedAt set), still a row
     expect(mine!.hp).toBe(0);
@@ -456,10 +499,9 @@ describe('combat tick — processDueCombat', () => {
 
     // Next tick the bomber switches to the CC: first-touch stamps
     // lastCombatTickAt but applies no damage yet, so we run one more tick to
-    // see the CC actually take a hit. After 30s of elapsed time at 100 dps the
-    // CC drops to 0 — destruction is verified in the cascade-cleanup test.
+    // see the CC actually take a hit.
     await processDueCombat({
-      now: new Date(t0.getTime() + 60_000),
+      now: new Date(t0.getTime() + 50_000),
       skipNotifications: true,
     });
     const ccAfterFirstTouch = await db.query.buildings.findFirst({ where: eq(buildings.id, s.ccId) });
@@ -467,7 +509,7 @@ describe('combat tick — processDueCombat', () => {
     expect(ccAfterFirstTouch!.lastCombatTickAt).not.toBeNull();
 
     await processDueCombat({
-      now: new Date(t0.getTime() + 90_000),
+      now: new Date(t0.getTime() + 60_000),
       skipNotifications: true,
     });
     const ccDamaged = await db.query.buildings.findFirst({ where: eq(buildings.id, s.ccId) });
@@ -487,9 +529,12 @@ describe('combat tick — processDueCombat', () => {
     const t0 = new Date('2026-07-01T00:00:00.000Z');
     await processDueCombat({ now: t0, skipNotifications: true });
 
-    // Two 30 s caps stack to >= CC's 1000 HP at 100 dps.
-    await processDueCombat({ now: new Date(t0.getTime() + 30_000), skipNotifications: true });
-    await processDueCombat({ now: new Date(t0.getTime() + 60_000), skipNotifications: true });
+    for (const seconds of [10, 20, 30, 40]) {
+      await processDueCombat({
+        now: new Date(t0.getTime() + seconds * 1000),
+        skipNotifications: true,
+      });
+    }
 
     const remainingBuildings = await db
       .select({ id: buildings.id })

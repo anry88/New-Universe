@@ -64,6 +64,7 @@ const NO_RESEARCH_EFFECTS: ResearchEffects = {
   energyEfficiencyMultiplier: 1,
   shipSpeedMultiplier: 1,
   sensorRangeMultiplier: 1,
+  weaponRangeMultiplier: 1,
   buildTimeMultiplier: 1,
 };
 

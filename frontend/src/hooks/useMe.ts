@@ -5,6 +5,8 @@ import type { User } from "@shared/types/user";
 import { useAuthStore } from "./useAuth";
 
 const MAX_TIMEOUT_MS = 2_147_483_647;
+const RECENT_COMBAT_WINDOW_MS = 30_000;
+const COMBAT_REFETCH_INTERVAL_MS = 5_000;
 
 function timestamp(value?: string | null): number | null {
   if (!value) return null;
@@ -44,6 +46,17 @@ function nextCompletionMs(user?: User): number | null {
   return Math.min(...candidates);
 }
 
+function hasRecentCombat(user?: User): boolean {
+  const now = Date.now();
+  return Boolean(
+    user?.ships?.some((ship) => {
+      if (ship.status === "destroyed") return false;
+      const lastCombat = timestamp(ship.lastCombatTickAt);
+      return lastCombat != null && now - lastCombat <= RECENT_COMBAT_WINDOW_MS;
+    }),
+  );
+}
+
 export function useMe() {
   const token = useAuthStore((state) => state.token);
   const queryClient = useQueryClient();
@@ -71,6 +84,15 @@ export function useMe() {
       queryClient.invalidateQueries({ queryKey: ["ship-queue"] });
     }, delay);
     return () => window.clearTimeout(id);
+  }, [query.data, queryClient, token]);
+
+  useEffect(() => {
+    if (!token || !hasRecentCombat(query.data)) return;
+
+    const id = window.setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: ["me"] });
+    }, COMBAT_REFETCH_INTERVAL_MS);
+    return () => window.clearInterval(id);
   }, [query.data, queryClient, token]);
 
   return query;

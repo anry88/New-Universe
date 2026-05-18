@@ -7,8 +7,8 @@ Research owns the server-side tech tree flow: catalog reads, start/rush mutation
 - **`completion.ts`** — exports `processCompletedResearch(db, options?)`, the idempotent due-row processor for `research_progress`. It can scope work to one user, suppress notifications for online sync, and invalidate a provided request-scoped effects cache after a tier completes.
 - **`completion.test.ts`** — Vitest coverage for exactly-once completions, future timers, scoped online completion, notification behavior, and effects-cache invalidation after completion.
 - **`data.ts`** — exports `TECH_TREE` and `getResearchDef(branch, level)` from the shared research catalog.
-- **`effects.ts`** — exports deterministic research effect composition, request-scoped effects-cache helpers, and apply helpers for resource production/storage, energy generation/storage/efficiency, ship speed, sensor range, and build time.
-- **`effects.test.ts`** — unit coverage for deterministic effect stacking, helper application, unknown branch tolerance, and request-cache invalidation.
+- **`effects.ts`** — exports deterministic research effect composition, request-scoped effects-cache helpers, and apply helpers for resource production/storage, energy generation/storage/efficiency, ship speed, sensor range, weapon range, and build time.
+- **`effects.test.ts`** — unit coverage for deterministic effect stacking, helper application, weapon-range scaling, unknown branch tolerance, and request-cache invalidation.
 - **`gates.ts`** — exports research-level loading and requirement assertions used by buildings, ships, colonization, cargo routes, and jump travel.
 - **`gates.test.ts`** — unit coverage for level maps and requirement assertions.
 - **`research.test.ts`** — integration coverage for `POST /research/start`, lab gating, one-active-research queue rules, and resource spending.

@@ -1,6 +1,7 @@
 import { db } from '../../db/index.js';
 import { systems, planets, colonies, ships, users, discoveredSystems, expeditions } from '../../db/schema.js';
-import { eq, and, inArray, sql } from 'drizzle-orm';
+import { eq, and, inArray, ne, sql } from 'drizzle-orm';
+import { SHIP_STATUS_DESTROYED } from '@shared/types/combat.js';
 import type {
   PresenceEntityRelation,
   PresenceEntityType,
@@ -279,7 +280,13 @@ export async function getSectorPresence(
     .from(expeditions)
     .innerJoin(ships, eq(ships.id, expeditions.shipId))
     .innerJoin(systems, sql`${expeditions.result} ->> 'destinationSystemId' = ${systems.id}::text`)
-    .where(and(sectorFilter, eq(expeditions.status, 'stationed')));
+    .where(
+      and(
+        sectorFilter,
+        eq(expeditions.status, 'stationed'),
+        ne(ships.status, SHIP_STATUS_DESTROYED),
+      ),
+    );
 
   const shipRows = [...dockedShipRows, ...stationedShipRows];
 
@@ -450,7 +457,7 @@ export async function getSectorSystemAnchors(viewerId: string): Promise<SectorSy
     .from(ships)
     .innerJoin(planets, eq(ships.locationPlanetId, planets.id))
     .innerJoin(systems, eq(planets.systemId, systems.id))
-    .where(eq(ships.ownerId, viewerId));
+    .where(and(eq(ships.ownerId, viewerId), ne(ships.status, SHIP_STATUS_DESTROYED)));
 
   for (const row of shipRows) {
     if (isProtectedForeignHomeSystem(row, viewerId)) {
@@ -480,7 +487,13 @@ export async function getSectorSystemAnchors(viewerId: string): Promise<SectorSy
     .from(expeditions)
     .innerJoin(ships, eq(ships.id, expeditions.shipId))
     .innerJoin(systems, sql`${expeditions.result} ->> 'destinationSystemId' = ${systems.id}::text`)
-    .where(and(eq(ships.ownerId, viewerId), eq(expeditions.status, 'stationed')));
+    .where(
+      and(
+        eq(ships.ownerId, viewerId),
+        eq(expeditions.status, 'stationed'),
+        ne(ships.status, SHIP_STATUS_DESTROYED),
+      ),
+    );
 
   for (const row of stationedRows) {
     if (isProtectedForeignHomeSystem(row, viewerId)) {

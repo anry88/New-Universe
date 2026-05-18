@@ -22,7 +22,8 @@ import { resolveMissilePayloadDps } from './missiles.js';
  * Caps damage when a defender re-engages after a gap, so re-engagement bursts
  * cannot one-shot anyone that drifted in and out of the combat scope.
  */
-export const COMBAT_TICK_MAX_DT_SEC = 30;
+export const COMBAT_TICK_MAX_DT_SEC = 3;
+export const COMBAT_REENGAGEMENT_RESET_SEC = 15;
 
 export interface CombatActor {
   id: string;
@@ -35,6 +36,8 @@ export interface CombatActor {
   position: { x: number; y: number } | null;
   /** System the ship currently sits in (null when in flight between systems). */
   hostSystem: { id: string; isHome: boolean; ownerId: string | null } | null;
+  /** Weapons research multiplier for this owner's weapon acquisition range. */
+  weaponRangeMultiplier?: number;
   /** ms epoch of the last combat tick that touched this defender, or null on first contact. */
   lastCombatTickAtMs: number | null;
 }
@@ -78,42 +81,78 @@ export function resolveAttackerHits(actors: CombatActor[]): AttackerHit[] {
 
   for (const attacker of actors) {
     if (!isAttackerActive(attacker)) continue;
-    const range = engagementRangeToSectorDistance(
-      attacker.combatStats.engagementRange as EngagementRange | undefined,
-    );
+    const target = selectShipTargetForAttacker(attacker, actors);
+    if (!target) continue;
 
-    for (const defender of actors) {
-      if (defender.id === attacker.id) continue;
-      if (defender.ownerId === attacker.ownerId) continue;
-      if (!isDefenderTargetable(defender)) continue;
-      if (isDefenderProtectedFromAttacker(attacker, defender)) continue;
-
-      const dist = planarDistance(attacker.position, defender.position);
-      if (dist === null) continue;
-
-      const sustainedEff = resolveSustainedShipWeaponDps(attacker, defender, dist, range);
-      if (sustainedEff > 0) {
-        hits.push({
-          attackerId: attacker.id,
-          defenderId: defender.id,
-          effectiveDps: sustainedEff,
-          shieldDps: effectiveShieldDpsAgainst(attacker.combatStats.damageProfile),
-        });
-      }
-
-      const missileEff = resolveMissileShipWeaponDps(attacker, defender, dist);
-      if (missileEff > 0) {
-        hits.push({
-          attackerId: attacker.id,
-          defenderId: defender.id,
-          effectiveDps: missileEff,
-          shieldDps: missilePayloadShieldDps(attacker.combatStats.missilePayload),
-        });
-      }
-    }
+    hits.push({
+      attackerId: attacker.id,
+      defenderId: target.defender.id,
+      effectiveDps: target.effectiveDps,
+      shieldDps: target.shieldDps,
+    });
   }
 
   return hits;
+}
+
+interface ShipTargetCandidate {
+  defender: CombatActor;
+  distance: number;
+  effectiveDps: number;
+  shieldDps: number;
+}
+
+function selectShipTargetForAttacker(
+  attacker: CombatActor,
+  actors: CombatActor[],
+): ShipTargetCandidate | null {
+  const candidates: ShipTargetCandidate[] = [];
+
+  const sustainedRange = engagementRangeToSectorDistance(
+    attacker.combatStats.engagementRange as EngagementRange | undefined,
+  ) * weaponRangeMultiplierFor(attacker);
+
+  for (const defender of actors) {
+    if (defender.id === attacker.id) continue;
+    if (defender.ownerId === attacker.ownerId) continue;
+    if (!isDefenderTargetable(defender)) continue;
+    if (isDefenderProtectedFromAttacker(attacker, defender)) continue;
+
+    const dist = planarDistance(attacker.position, defender.position);
+    if (dist === null) continue;
+
+    const sustainedEff = resolveSustainedShipWeaponDps(
+      attacker,
+      defender,
+      dist,
+      sustainedRange,
+    );
+    const missileEff = resolveMissileShipWeaponDps(attacker, defender, dist);
+    const effectiveDps = sustainedEff + missileEff;
+    if (effectiveDps <= 0) continue;
+
+    candidates.push({
+      defender,
+      distance: dist,
+      effectiveDps,
+      shieldDps:
+        (sustainedEff > 0
+          ? effectiveShieldDpsAgainst(attacker.combatStats.damageProfile)
+          : 0) +
+        (missileEff > 0
+          ? missilePayloadShieldDps(attacker.combatStats.missilePayload)
+          : 0),
+    });
+  }
+
+  if (candidates.length === 0) return null;
+  return candidates.sort((a, b) => {
+    const distanceDelta = a.distance - b.distance;
+    if (distanceDelta !== 0) return distanceDelta;
+    const hpDelta = a.defender.hp - b.defender.hp;
+    if (hpDelta !== 0) return hpDelta;
+    return a.defender.id.localeCompare(b.defender.id);
+  })[0];
 }
 
 function resolveSustainedShipWeaponDps(
@@ -138,7 +177,9 @@ function resolveMissileShipWeaponDps(
 ): number {
   const payload = attacker.combatStats.missilePayload;
   if (!payload) return 0;
-  const range = engagementRangeToSectorDistance(payload.maxRange);
+  const range =
+    engagementRangeToSectorDistance(payload.maxRange) *
+    weaponRangeMultiplierFor(attacker);
   if (range <= 0 || dist > range) return 0;
   return resolveMissilePayloadDps(attacker.combatStats, {
     combatStats: defender.combatStats,
@@ -158,6 +199,11 @@ function isDefenderTargetable(actor: CombatActor): boolean {
   if (actor.hp <= 0) return false;
   if (!actor.position) return false;
   return isShipTargetClass(actor.combatStats.targetClass);
+}
+
+function weaponRangeMultiplierFor(actor: { weaponRangeMultiplier?: number }): number {
+  const multiplier = actor.weaponRangeMultiplier ?? 1;
+  return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1;
 }
 
 function planarDistance(
@@ -181,10 +227,21 @@ export function computeTickDamage(
   nowMs: number,
 ): number {
   if (totalDps <= 0) return 0;
-  if (defender.lastCombatTickAtMs == null) return 0;
-  const dtMs = Math.max(0, nowMs - defender.lastCombatTickAtMs);
+  if (isFreshCombatTouch(defender, nowMs)) return 0;
+  const lastCombatTickAtMs = defender.lastCombatTickAtMs;
+  if (lastCombatTickAtMs == null) return 0;
+  const dtMs = Math.max(0, nowMs - lastCombatTickAtMs);
   const dtSec = Math.min(COMBAT_TICK_MAX_DT_SEC, dtMs / 1000);
   return totalDps * dtSec;
+}
+
+export function isFreshCombatTouch(
+  defender: Pick<CombatActor, 'lastCombatTickAtMs'>,
+  nowMs: number,
+): boolean {
+  if (defender.lastCombatTickAtMs == null) return true;
+  const dtMs = Math.max(0, nowMs - defender.lastCombatTickAtMs);
+  return dtMs > COMBAT_REENGAGEMENT_RESET_SEC * 1000;
 }
 
 export function sumDpsPerDefender(hits: AttackerHit[]): Map<string, number> {
@@ -207,6 +264,10 @@ export interface BomberActor {
   combatStats: CombatStats;
   /** System the bomber is currently docked at; orbital bombers must be in-system to bomb. */
   hostSystemId: string | null;
+  /** Current planar light-year position inside the combat space. */
+  position: { x: number; y: number } | null;
+  /** Weapons research multiplier for this owner's orbital acquisition range. */
+  weaponRangeMultiplier?: number;
 }
 
 export interface BuildingTarget {
@@ -219,6 +280,8 @@ export interface BuildingTarget {
   armor: number;
   hp: number;
   destroyed: boolean;
+  /** Current planar light-year position of the surface target. */
+  position: { x: number; y: number } | null;
   lastCombatTickAtMs: number | null;
 }
 
@@ -265,6 +328,12 @@ export function resolveBomberHits(
   for (const bomber of bombers) {
     if (!isBomberActive(bomber)) continue;
     if (!bomber.hostSystemId) continue;
+    if (!bomber.position) continue;
+    const range =
+      engagementRangeToSectorDistance(
+        bomber.combatStats.engagementRange as EngagementRange | undefined,
+      ) * weaponRangeMultiplierFor(bomber);
+    if (range <= 0) continue;
 
     for (const [planetId, planetBuildings] of buildingsByPlanet) {
       if (planetBuildings.length === 0) continue;
@@ -278,6 +347,8 @@ export function resolveBomberHits(
 
       const target = selectBomberTargetForPlanet(hostileBuildings);
       if (!target) continue;
+      const dist = planarDistance(bomber.position, target.position);
+      if (dist === null || dist > range) continue;
 
       const eff = effectiveDpsAgainst(bomber.combatStats.damageProfile, target.armor);
       if (eff <= 0) continue;

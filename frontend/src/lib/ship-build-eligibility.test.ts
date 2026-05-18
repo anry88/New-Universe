@@ -403,6 +403,7 @@ describe("estimateLandingSlotUsage", () => {
         ship("a", "idle"),
         ship("b", "building"),
         ship("c", "in_flight"),
+        ship("destroyed", "destroyed"),
         { ...ship("d", "idle"), locationPlanetId: "elsewhere" },
       ],
       expeditions: [],
