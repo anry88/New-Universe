@@ -911,6 +911,11 @@ function computePosition(
     }
 
     const result = exp.result as Record<string, unknown> | null;
+    if (result?.routeMode === 'jump_gate') {
+      const gatePosition = computeJumpGatePointPosition(exp, result, now);
+      if (gatePosition) return gatePosition;
+    }
+
     if (result?.routeMode !== 'jump_gate') {
       const origin = combatLayouts.planetPositions.get(exp.originPlanetId);
       if (origin) {
@@ -951,6 +956,46 @@ function computePosition(
     if (planetPosition) return planetPosition;
   }
   return { x: ship.hostSystem.sectorX, y: ship.hostSystem.sectorY };
+}
+
+function computeJumpGatePointPosition(
+  exp: ExpeditionRow,
+  result: Record<string, unknown>,
+  now: Date,
+): { x: number; y: number } | null {
+  const targetPoint = pointFromResult(result.targetSystemPoint);
+  const originPoint = pointFromResult(result.originSystemPoint);
+  if (!targetPoint) return null;
+
+  const destinationSystemId =
+    typeof result.destinationSystemId === 'string' ? result.destinationSystemId : null;
+  const originSystemId =
+    typeof result.originSystemId === 'string' ? result.originSystemId : null;
+  const sameSystemPointRoute =
+    Boolean(destinationSystemId && originSystemId && destinationSystemId === originSystemId && originPoint);
+  if (!sameSystemPointRoute) return null;
+
+  const progress = expeditionProgress(exp, now);
+  if (progress === null) return null;
+
+  const legProgress = exp.status === 'returning' ? 1 - progress : progress;
+  const point = interpolateSystemPoint(originPoint!, targetPoint, legProgress);
+  return systemPointToCombatPosition(
+    { sectorX: Number(exp.targetX), sectorY: Number(exp.targetY) },
+    point,
+  );
+}
+
+function interpolateSystemPoint(
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+  progress: number,
+): { x: number; y: number } {
+  const p = Math.max(0, Math.min(1, progress));
+  return {
+    x: start.x + (end.x - start.x) * p,
+    y: start.y + (end.y - start.y) * p,
+  };
 }
 
 function expeditionProgress(exp: ExpeditionRow, now: Date): number | null {

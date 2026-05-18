@@ -5,6 +5,7 @@ export interface SystemTacticalFleetContact {
   systemId: string;
   relation: 'foreign';
   visibility: 'summary';
+  status: 'in_flight' | 'returning' | 'stationed';
   ownerAlias: string | null;
   shipTypeId: string | null;
   hp?: number;

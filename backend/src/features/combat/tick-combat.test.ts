@@ -78,6 +78,37 @@ describe('combat tick — processDueCombat', () => {
     await db.update(ships).set({ locationPlanetId: planetId }).where(eq(ships.id, shipId));
   }
 
+  async function createPublicCombatSystem(label: string) {
+    const [system] = await db
+      .insert(systems)
+      .values({
+        ownerId: null,
+        isHome: false,
+        sectorX: Math.floor(Math.random() * 50_000) + 50_000,
+        sectorY: Math.floor(Math.random() * 50_000) + 50_000,
+        sectorZ: 0,
+        x: '10.00',
+        y: '20.00',
+        z: '0.00',
+        name: `Combat ${label}`,
+        seed: 777,
+      })
+      .returning();
+
+    const [planet] = await db
+      .insert(planets)
+      .values({
+        systemId: system.id,
+        biome: 'rocky',
+        size: 12,
+        slotCount: 8,
+        name: `Combat ${label} I`,
+      })
+      .returning();
+
+    return { system, planet };
+  }
+
   it('applies zero damage on first contact and stamps lastCombatTickAt', async () => {
     const attackerOwner = await createUser('atk1');
     const defenderOwner = await createUser('def1');
@@ -143,6 +174,80 @@ describe('combat tick — processDueCombat', () => {
       ),
     });
     expect(notif).toBeDefined();
+  });
+
+  it('resolves same-system Jump Gate point-to-point movement in system-map coordinates', async () => {
+    const attackerOwner = await createUser('atk_point');
+    const defenderOwner = await createUser('def_point');
+    const { system, planet } = await createPublicCombatSystem('point-route');
+    const now = new Date('2026-06-01T00:00:30.000Z');
+
+    const attacker = await spawnShip({
+      ownerId: attackerOwner.userId,
+      planetId: attackerOwner.planetId,
+      typeId: 'light_fighter',
+    });
+    const defender = await spawnShip({
+      ownerId: defenderOwner.userId,
+      planetId: defenderOwner.planetId,
+      typeId: 'light_fighter',
+    });
+
+    await db.update(ships).set({
+      locationPlanetId: null,
+      status: 'moving',
+    }).where(eq(ships.id, attacker.id));
+    await db.update(ships).set({
+      locationPlanetId: null,
+      status: 'moving',
+    }).where(eq(ships.id, defender.id));
+
+    await db.insert(expeditions).values([
+      {
+        shipId: attacker.id,
+        type: 'light_fighter',
+        originPlanetId: planet.id,
+        targetX: system.sectorX.toString(),
+        targetY: system.sectorY.toString(),
+        targetZ: system.sectorZ.toString(),
+        status: 'in_flight',
+        eta: new Date('2026-06-01T00:01:00.000Z'),
+        result: {
+          routeMode: 'jump_gate',
+          originSystemId: system.id,
+          destinationSystemId: system.id,
+          originSystemPoint: { x: 0, y: 0 },
+          targetSystemPoint: { x: 100, y: 0 },
+          originGateDistance: 0,
+          targetGateDistance: 1,
+          distance: 1,
+          speed: 1,
+          engineFactor: 1,
+        },
+      },
+      {
+        shipId: defender.id,
+        type: 'light_fighter',
+        originPlanetId: planet.id,
+        targetX: system.sectorX.toString(),
+        targetY: system.sectorY.toString(),
+        targetZ: system.sectorZ.toString(),
+        status: 'stationed',
+        eta: new Date('2026-06-01T00:00:00.000Z'),
+        result: {
+          routeMode: 'jump_gate',
+          destinationSystemId: system.id,
+          targetSystemPoint: { x: 50, y: 0 },
+        },
+      },
+    ]);
+
+    await processDueCombat({ now, skipNotifications: true });
+
+    const touchedAttacker = await db.query.ships.findFirst({ where: eq(ships.id, attacker.id) });
+    const touchedDefender = await db.query.ships.findFirst({ where: eq(ships.id, defender.id) });
+    expect(touchedAttacker!.lastCombatTickAt?.getTime()).toBe(now.getTime());
+    expect(touchedDefender!.lastCombatTickAt?.getTime()).toBe(now.getTime());
   });
 
   it('a military light hull survives materially longer than a civilian under the same fire', async () => {

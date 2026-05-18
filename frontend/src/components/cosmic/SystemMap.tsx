@@ -864,12 +864,10 @@ function buildShipMarkerSnapshots({
 function ShipHealthBar({
   hp,
   maxHp,
-  angle = 0,
   isForeign = false,
 }: {
   hp: number | undefined;
   maxHp: number | undefined;
-  angle?: number;
   isForeign?: boolean;
 }) {
   const pct = hpPercent(hp, maxHp);
@@ -882,7 +880,7 @@ function ShipHealthBar({
         bottom: -8,
         width: 34,
         height: 4,
-        transform: `translateX(-50%) rotate(${-angle}rad)`,
+        transform: "translateX(-50%)",
         borderRadius: 999,
         overflow: "hidden",
         background: isForeign ? "rgba(127,29,29,0.62)" : "rgba(15,23,42,0.75)",
@@ -934,7 +932,7 @@ const ShipMarkers = React.memo(function ShipMarkers({
               width: 28,
               height: 28,
               color: marker.tone,
-              transform: `rotate(${marker.angle}rad)`,
+              boxSizing: "border-box",
               filter: marker.isInCombat
                 ? "drop-shadow(0 0 10px rgba(239,68,68,0.86))"
                 : marker.isMoving
@@ -944,7 +942,7 @@ const ShipMarkers = React.memo(function ShipMarkers({
               transition: marker.isMoving
                 ? `left ${SHIP_MARKER_TICK_MS}ms linear, top ${SHIP_MARKER_TICK_MS}ms linear`
                 : "none",
-              border: isSelected ? "1px solid currentColor" : 0,
+              border: isSelected ? "1px solid currentColor" : "1px solid transparent",
               borderRadius: 8,
               background: isSelected ? "rgba(8,12,22,0.78)" : "transparent",
               padding: 2,
@@ -952,7 +950,15 @@ const ShipMarkers = React.memo(function ShipMarkers({
               zIndex: marker.isInCombat ? 7 : 5,
             }}
           >
-            <ShipIcon typeId={marker.ship.typeId} size={24} tone="currentColor" />
+            <span
+              style={{
+                display: "grid",
+                placeItems: "center",
+                transform: `rotate(${marker.angle}rad)`,
+              }}
+            >
+              <ShipIcon typeId={marker.ship.typeId} size={24} tone="currentColor" />
+            </span>
             {marker.ship.combatStats?.shields && (
               <div
                 style={{
@@ -960,7 +966,6 @@ const ShipMarkers = React.memo(function ShipMarkers({
                   right: -4,
                   top: -4,
                   filter: "drop-shadow(0 0 4px #60a5fa)",
-                  transform: `rotate(${-marker.angle}rad)`,
                 }}
               >
                 <Shield size={10} color="#60a5fa" />
@@ -969,7 +974,6 @@ const ShipMarkers = React.memo(function ShipMarkers({
             <ShipHealthBar
               hp={marker.ship.hp}
               maxHp={marker.ship.maxHp}
-              angle={marker.angle}
             />
           </button>
         );
@@ -1165,12 +1169,15 @@ const FleetContactMarkers = React.memo(function FleetContactMarkers({
               width: 28,
               height: 28,
               color: tone,
+              boxSizing: "border-box",
               border: isSelected
                 ? "1px solid rgba(255,255,255,0.88)"
-                : "1px solid rgba(248,113,113,0.82)",
+                : "1px solid transparent",
               borderRadius: 8,
               background:
-                "radial-gradient(circle at 50% 42%, rgba(239,68,68,0.25), rgba(8,12,22,0.78) 70%)",
+                isSelected
+                  ? "radial-gradient(circle at 50% 42%, rgba(239,68,68,0.25), rgba(8,12,22,0.78) 70%)"
+                  : "transparent",
               boxShadow: isInCombat
                 ? "0 0 18px rgba(248,113,113,0.72)"
                 : "0 0 14px rgba(239,68,68,0.38)",

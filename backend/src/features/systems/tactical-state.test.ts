@@ -132,6 +132,60 @@ async function stationForeignShip(args: {
   return ship;
 }
 
+async function launchForeignShipInsideSystem(args: {
+  ownerId: string;
+  typeId: string;
+  originPlanetId: string;
+  systemId: string;
+  originPoint: { x: number; y: number };
+  targetPoint: { x: number; y: number };
+  eta: Date;
+}) {
+  const [ship] = await db.insert(ships).values({
+    ownerId: args.ownerId,
+    typeId: args.typeId,
+    locationPlanetId: null,
+    status: 'moving',
+    hp: 260,
+    maxHp: 280,
+    combatStats: {
+      targetClass: 'military_light',
+      damageProfile: {
+        damageType: 'energy',
+        dps: 24,
+        armorPenetration: 0.4,
+        shieldMultiplier: 1.2,
+      },
+      engagementRange: 'long',
+    },
+  }).returning();
+
+  await db.insert(expeditions).values({
+    shipId: ship.id,
+    type: args.typeId,
+    originPlanetId: args.originPlanetId,
+    targetX: '0',
+    targetY: '0',
+    targetZ: '0',
+    status: 'in_flight',
+    eta: args.eta,
+    result: {
+      routeMode: 'jump_gate',
+      originSystemId: args.systemId,
+      destinationSystemId: args.systemId,
+      originSystemPoint: args.originPoint,
+      targetSystemPoint: args.targetPoint,
+      originGateDistance: 0,
+      targetGateDistance: 1,
+      distance: 1,
+      speed: 1,
+      engineFactor: 1,
+    },
+  });
+
+  return ship;
+}
+
 describe('getSystemTacticalState', () => {
   beforeEach(async () => {
     await db.delete(jumpGates);
@@ -194,6 +248,7 @@ describe('getSystemTacticalState', () => {
       systemId: first.system.id,
       relation: 'foreign',
       visibility: 'summary',
+      status: 'stationed',
       ownerAlias: expect.stringContaining('@systems_fore'),
       shipTypeId: shipType.id,
       hp: 180,
@@ -213,5 +268,38 @@ describe('getSystemTacticalState', () => {
     const hidden = await createPublicSystem('Hidden Tactical', 900);
 
     await expect(getSystemTacticalState(viewer.id, hidden.system.id)).resolves.toBeNull();
+  });
+
+  it('keeps moving point-to-point contacts visible at their interpolated map point', async () => {
+    const viewer = await createUser('moving_viewer');
+    const foreignOwner = await createUser('moving_foreign');
+    const target = await createPublicSystem('Moving Tactical', 920);
+    const shipType = await createShipType(`moving_contact_${Date.now()}`);
+
+    await db.insert(discoveredSystems).values({
+      userId: viewer.id,
+      systemId: target.system.id,
+    });
+
+    const ship = await launchForeignShipInsideSystem({
+      ownerId: foreignOwner.id,
+      typeId: shipType.id,
+      originPlanetId: target.planet.id,
+      systemId: target.system.id,
+      originPoint: { x: 0, y: 0 },
+      targetPoint: { x: 100, y: 0 },
+      eta: new Date('2026-05-13T01:01:00.000Z'),
+    });
+
+    const state = await getSystemTacticalState(viewer.id, target.system.id, {
+      now: new Date('2026-05-13T01:00:30.000Z'),
+    });
+
+    expect(state?.fleetContacts).toHaveLength(1);
+    expect(state?.fleetContacts[0]).toMatchObject({
+      id: ship.id,
+      status: 'in_flight',
+      point: { x: 50, y: 0 },
+    });
   });
 });
