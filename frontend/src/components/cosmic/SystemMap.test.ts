@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Expedition } from '@shared/types/expeditions';
-import type { JumpGateFleetContactSummary } from '@shared/types/jump-gate';
+import type { SystemTacticalFleetContact } from '@shared/types/system-tactical';
 import type { HomeSystem } from '@shared/types/world';
 import {
   buildExpeditionTrailSegments,
@@ -72,7 +72,7 @@ describe('buildExpeditionTrailSegments', () => {
 
 describe('fleetContactsForSystem', () => {
   it('keeps only contacts for the currently rendered system', () => {
-    const contacts: JumpGateFleetContactSummary[] = [
+    const contacts: SystemTacticalFleetContact[] = [
       {
         id: 'contact-visible',
         systemId: system.id,

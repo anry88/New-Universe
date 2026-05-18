@@ -20,6 +20,7 @@ import { formatHomeSystemTitleForUser } from '../lib/homeSystemTitle';
 import { useI18n } from '../lib/i18n';
 import { useJumpGateState, useRandomJump } from '../hooks/useJumpGateState';
 import { useShipTypes } from '../hooks/useShips';
+import { useSystemTacticalState } from '../hooks/useSystemTacticalState';
 import {
   formatCommonSystemDisplayName,
   homeSystemShortTag,
@@ -178,6 +179,7 @@ export function SystemMapPage() {
     if (selectedDestination) return destinationToSystem(selectedDestination, locale);
     return home;
   }, [home, locale, selectedDestination]);
+  const { data: tacticalState } = useSystemTacticalState(renderedSystem?.id);
   const canSelectSector = Boolean(home);
   const ownedPlanetIds = useMemo(() => {
     return new Set(
@@ -449,8 +451,8 @@ export function SystemMapPage() {
           shipTypes={shipTypes ?? []}
           expeditions={meData.expeditions || []}
           fleetContacts={
-            selectedDestination?.systemId === activeSystem.id
-              ? selectedDestination.fleetContacts
+            tacticalState?.systemId === activeSystem.id
+              ? tacticalState.fleetContacts
               : []
           }
           onPlanetClick={(planet) => navigate(`/planet/${planet.id}`)}

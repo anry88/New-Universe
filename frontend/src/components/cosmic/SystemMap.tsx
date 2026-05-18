@@ -33,7 +33,7 @@ import { Shield, X } from "lucide-react";
 import type { HomeSystem, Planet } from "@shared/types/world";
 import type { Ship, ShipType } from "@shared/types/ships";
 import type { Expedition } from "@shared/types/expeditions";
-import type { JumpGateFleetContactSummary } from "@shared/types/jump-gate";
+import type { SystemTacticalFleetContact } from "@shared/types/system-tactical";
 import {
   missilePayloadSustainedDps,
   type CombatStats,
@@ -81,7 +81,7 @@ interface CosmicSystemRendererProps {
   ships: Ship[];
   shipTypes?: ShipType[];
   expeditions: Expedition[];
-  fleetContacts?: JumpGateFleetContactSummary[];
+  fleetContacts?: SystemTacticalFleetContact[];
   onPlanetClick: (planet: Planet) => void;
   onColonizeClick?: (planet: Planet) => void;
   ownedPlanetIds: Set<string>;
@@ -407,9 +407,9 @@ export function buildExpeditionTrailSegments(
 }
 
 export function fleetContactsForSystem(
-  contacts: JumpGateFleetContactSummary[],
+  contacts: SystemTacticalFleetContact[],
   systemId: string,
-): JumpGateFleetContactSummary[] {
+): SystemTacticalFleetContact[] {
   return contacts.filter((contact) => contact.systemId === systemId);
 }
 
@@ -980,9 +980,9 @@ const ShipMarkers = React.memo(function ShipMarkers({
 
 function nearestContactForMarker(
   marker: ShipMarkerSnapshot,
-  contacts: JumpGateFleetContactSummary[],
-): JumpGateFleetContactSummary | null {
-  let best: JumpGateFleetContactSummary | null = null;
+  contacts: SystemTacticalFleetContact[],
+): SystemTacticalFleetContact | null {
+  let best: SystemTacticalFleetContact | null = null;
   let bestDistance = Infinity;
   for (const contact of contacts) {
     const dist = Math.hypot(marker.x - contact.point.x, marker.y - contact.point.y);
@@ -995,7 +995,7 @@ function nearestContactForMarker(
 }
 
 function nearestMarkerForContact(
-  contact: JumpGateFleetContactSummary,
+  contact: SystemTacticalFleetContact,
   markers: ShipMarkerSnapshot[],
 ): ShipMarkerSnapshot | null {
   let best: ShipMarkerSnapshot | null = null;
@@ -1016,7 +1016,7 @@ const CombatEffectsLayer = React.memo(function CombatEffectsLayer({
   now,
 }: {
   markers: ShipMarkerSnapshot[];
-  contacts: JumpGateFleetContactSummary[];
+  contacts: SystemTacticalFleetContact[];
   now: number;
 }) {
   const segments: CombatProjectileSegment[] = [];
@@ -1113,7 +1113,7 @@ const FleetContactMarkers = React.memo(function FleetContactMarkers({
   selectedContactId,
   onSelectContact,
 }: {
-  contacts: JumpGateFleetContactSummary[];
+  contacts: SystemTacticalFleetContact[];
   isPicking: boolean;
   now: number;
   selectedContactId: string | null;
@@ -1209,7 +1209,7 @@ function SelectedMapShipCard({
 }: {
   selection: MapShipSelection;
   ownShip: Ship | null;
-  contact: JumpGateFleetContactSummary | null;
+  contact: SystemTacticalFleetContact | null;
   shipType: ShipType | null;
   onClose: () => void;
 }) {

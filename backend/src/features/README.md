@@ -10,8 +10,17 @@ Private Home System Jump Gate state.
 
 - **`README.md`** — [Jump Gate state documentation](./jump-gate/README.md).
 - **`routes.ts`** — `jumpGateRoutes(app)` registers `GET /jump-gate/state`, `POST /jump-gate/random-jump`, and `POST /jump-gate/destinations/:systemId/jump` for authenticated clients; Jump Gate mutations declare rate-limit/security metadata and JSON schemas for body/params.
-- **`service.ts`** — `getJumpGateState(userId)` derives unlock from completed `jump_drive >= 1`, creates/updates the player's `jump_gates` row when unlocked, returns the outer-orbit home anchor, calibration state, random-jump availability, discovered public destination summaries with deterministic seed plus registry source/last-visited metadata, and redacted foreign stationed-fleet contacts for common-system maps, including visible hull type and HP/combat summary for tactical rendering.
-- **`service.test.ts`** — asserts locked/unlocked state, unfinished research staying locked, persistence creation, public destination filtering, foreign fleet-contact projection, and calibration finalization.
+- **`service.ts`** — `getJumpGateState(userId)` derives unlock from completed `jump_drive >= 1`, creates/updates the player's `jump_gates` row when unlocked, returns the outer-orbit home anchor, calibration state, random-jump availability, and discovered public destination summaries with deterministic seed plus registry source/last-visited metadata. Live tactical contact state is intentionally outside this API.
+- **`service.test.ts`** — asserts locked/unlocked state, unfinished research staying locked, persistence creation, public destination filtering, destination summaries without tactical contacts, and calibration finalization.
+
+## `systems/`
+
+System-scoped read models that do not belong to the Jump Gate lifecycle.
+
+- **`README.md`** — [System tactical-state documentation](./systems/README.md).
+- **`routes.ts`** — `systemsRoutes(app)` registers authenticated `GET /systems/:systemId/tactical-state`.
+- **`tactical-state.ts`** — `getSystemTacticalState(userId, systemId)` checks that the requested system is visible to the viewer, then returns only that system's redacted foreign `stationed` fleet contacts with hull type, HP, combat stats, recent-combat timestamp, and point coordinates for the tactical map.
+- **`tactical-state.test.ts`** — asserts per-system contact scoping and undiscovered-system protection.
 
 ## `buildings/`
 
