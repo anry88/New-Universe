@@ -1,5 +1,10 @@
 import { and, eq, inArray } from 'drizzle-orm';
-import { systemMapPlanetOrbitSlot } from '@shared/format/systemMapLayout.js';
+import {
+  buildingEnergyOutputForLevel,
+  roundEnergyAmount,
+  solarEnergyMultiplier,
+  windEnergyMultiplier,
+} from '@shared/config/planetEnergy.js';
 import type { BuildingEnergyState, PlanetEnergyStatus } from '@shared/types/world.js';
 import { db as defaultDb } from '../../db/index.js';
 import { planetResources, planets, productionOrders } from '../../db/schema.js';
@@ -17,6 +22,7 @@ export const BATTERY_BUILDING_TYPE_ID = 'battery';
 export const PASSIVE_ENERGY_PRODUCER_TYPES = new Set(['solar_plant', 'wind_turbine']);
 export const STORED_ENERGY_PROCESS_TYPES = new Set(['fuel_generator', 'atomic_reactor']);
 export const PROCESS_ENERGY_CONSUMER_TYPES = new Set(['smelter', 'refinery', 'fabrication_bay', 'cryo_factory']);
+export { solarEnergyMultiplier, windEnergyMultiplier };
 
 export type PlanetEnergyBuildingRow = {
   id: string;
@@ -73,16 +79,7 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 function roundEnergy(value: number): number {
-  return Math.round(value * 10000) / 10000;
-}
-
-export function solarEnergyMultiplier(planet: Pick<PlanetEnergyInput, 'id' | 'name' | 'biome'>): number {
-  const orbitSlot = systemMapPlanetOrbitSlot(planet);
-  return roundEnergy(clamp(1.55 - (orbitSlot - 1) * 0.14, 0.35, 1.55));
-}
-
-export function windEnergyMultiplier(planet: Pick<PlanetEnergyInput, 'size'>): number {
-  return roundEnergy(clamp(planet.size / 22, 0.45, 1.75));
+  return roundEnergyAmount(value);
 }
 
 function isOperational(building: PlanetEnergyBuildingRow): boolean {
@@ -108,17 +105,15 @@ function energyProductionForBuilding(
   if (!isOperational(building)) return 0;
   const output = building.type?.baseOutput ?? {};
   const baseEnergy = typeof output.energy === 'number' ? output.energy : 0;
-  if (baseEnergy <= 0) return 0;
-
-  if (building.typeId === 'solar_plant') {
-    return applyEnergyGeneration(baseEnergy * building.level * solarEnergyMultiplier(planet), effects);
-  }
-
-  if (building.typeId === 'wind_turbine') {
-    return applyEnergyGeneration(baseEnergy * building.level * windEnergyMultiplier(planet), effects);
-  }
-
-  return applyEnergyGeneration(baseEnergy * building.level, effects);
+  return applyEnergyGeneration(
+    buildingEnergyOutputForLevel({
+      typeId: building.typeId,
+      baseEnergy,
+      level: building.level,
+      planet,
+    }),
+    effects,
+  );
 }
 
 function energyConsumptionForBuilding(building: PlanetEnergyBuildingRow, effects: ResearchEffects): number {

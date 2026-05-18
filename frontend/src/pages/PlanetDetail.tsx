@@ -42,6 +42,7 @@ import {
   buildingUpgradeTimeSeconds,
 } from '@shared/config/buildingUpgradeEconomy';
 import { recipesForBuildingType } from '@shared/config/productionRecipes';
+import { buildingEnergyOutputForLevel } from '@shared/config/planetEnergy';
 import {
   resolveInsufficientResourcesBlockedReason,
   resolveQueueFullBlockedReason,
@@ -367,7 +368,12 @@ export function PlanetDetailPage() {
       if (b.queueAction === 'build') continue;
       const type = byId.get(b.typeId);
       if (!type) continue;
-      produced += (type.baseOutput?.energy ?? 0) * Math.max(1, b.level ?? 1);
+      produced += buildingEnergyOutputForLevel({
+        typeId: b.typeId,
+        baseEnergy: type.baseOutput?.energy ?? 0,
+        level: Math.max(1, b.level ?? 1),
+        planet,
+      });
       const consumesEnergyOnlyDuringProcess = recipesForBuildingType(type.id).length > 0;
       consumed += consumesEnergyOnlyDuringProcess ? 0 : (type.energyConsumption ?? 0) * Math.max(1, b.level ?? 1);
     }
@@ -751,6 +757,7 @@ export function PlanetDetailPage() {
         planetLabel={`${planet.name} · ${getBiomeLabel(biome, locale)}`}
         currentEnergy={currentEnergy}
         energyFree={planet.biome === 'energy'}
+        planet={planet}
       />
 
       <UpgradeDialog
@@ -782,6 +789,7 @@ export function PlanetDetailPage() {
         accent={accent}
         energyFree={planet.biome === 'energy'}
         currentEnergy={currentEnergy}
+        planet={planet}
       />
 
       <ProductionDialog

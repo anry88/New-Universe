@@ -6,6 +6,7 @@ import {
   productionSpeedMultiplierForBuildingLevel,
   recipesForBuildingType,
 } from '@shared/config/productionRecipes.js';
+import { roundEnergyAmount } from '@shared/config/planetEnergy.js';
 import type {
   ProductionOrder,
   ProductionPreviewResponse,
@@ -88,7 +89,7 @@ function productionEnergyPerHour(input: {
 }): number {
   if (input.recipeOutputResourceId === ENERGY_RESOURCE_ID || STORED_ENERGY_PROCESS_TYPES.has(input.buildingTypeId)) return 0;
   if (!PROCESS_ENERGY_CONSUMER_TYPES.has(input.buildingTypeId)) return 0;
-  return roundResourceAmount(
+  return roundEnergyAmount(
     applyEnergyRequirement(
       Math.max(0, input.energyConsumption),
       input.effects,
