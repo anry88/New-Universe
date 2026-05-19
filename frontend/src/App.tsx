@@ -1,22 +1,45 @@
-import { useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { useAuth, useAuthStore } from './hooks/useAuth';
 import { useMe } from './hooks/useMe';
-import { HomePage } from './pages/Home';
-import { PlanetDetailPage } from './pages/PlanetDetail';
-import { SystemMapPage } from './pages/SystemMap';
-import { SectorMapPage } from './pages/SectorMap';
-import { ResearchPage } from './pages/Research';
-import { ShipsPage } from './pages/Ships';
-import { ProfilePage } from './pages/Profile';
-import { ColoniesPage } from './pages/Colonies';
-import { ShopPage } from './pages/Shop';
-import { OnboardingPage } from './pages/onboarding/Onboarding';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { I18nProvider, useI18n } from './lib/i18n';
 import { trackFrontendEvent } from './lib/analytics';
+import { hasTelegramAuthLaunchParams } from './lib/telegramRuntime';
 
 const queryClient = new QueryClient();
+
+const HomePage = lazy(() => import('./pages/Home').then((module) => ({ default: module.HomePage })));
+const PlanetDetailPage = lazy(() => import('./pages/PlanetDetail').then((module) => ({ default: module.PlanetDetailPage })));
+const SystemMapPage = lazy(() => import('./pages/SystemMap').then((module) => ({ default: module.SystemMapPage })));
+const SectorMapPage = lazy(() => import('./pages/SectorMap').then((module) => ({ default: module.SectorMapPage })));
+const ResearchPage = lazy(() => import('./pages/Research').then((module) => ({ default: module.ResearchPage })));
+const ShipsPage = lazy(() => import('./pages/Ships').then((module) => ({ default: module.ShipsPage })));
+const ProfilePage = lazy(() => import('./pages/Profile').then((module) => ({ default: module.ProfilePage })));
+const ColoniesPage = lazy(() => import('./pages/Colonies').then((module) => ({ default: module.ColoniesPage })));
+const ShopPage = lazy(() => import('./pages/Shop').then((module) => ({ default: module.ShopPage })));
+const OnboardingPage = lazy(() => import('./pages/onboarding/Onboarding').then((module) => ({ default: module.OnboardingPage })));
+
+function AppLoading() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+    </div>
+  );
+}
+
+function TelegramOnlyScreen() {
+  const { t } = useI18n();
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-900 px-6 text-center text-white">
+      <div className="max-w-sm space-y-3">
+        <h1 className="text-xl font-semibold">{t('app.telegramOnlyTitle')}</h1>
+        <p className="text-sm leading-6 text-slate-300">{t('app.telegramOnlyText')}</p>
+      </div>
+    </div>
+  );
+}
 
 function readTutorialOverlayDismissed(): boolean {
   try {
@@ -29,28 +52,32 @@ function readTutorialOverlayDismissed(): boolean {
 function AppContent() {
   const { login, isLoading: isAuthLoading, error: authError } = useAuth();
   const authUser = useAuthStore((state) => state.user);
-  const { data: meData, isLoading: isMeLoading } = useMe();
+  const { data: meData } = useMe();
   const { setLocale, t } = useI18n();
+  const [telegramRuntimeAvailable] = useState(hasTelegramAuthLaunchParams);
   const [tutorialHidden, setTutorialHidden] = useState(false);
   const [tutorialOverlayDismissed, setTutorialOverlayDismissed] = useState(readTutorialOverlayDismissed);
   const location = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (!telegramRuntimeAvailable) return;
     login().catch(console.error);
-  }, [login]);
+  }, [login, telegramRuntimeAvailable]);
 
   useEffect(() => {
     trackFrontendEvent('client_session_started', {
       path: location.pathname,
+      isTelegramEnvironment: telegramRuntimeAvailable,
     });
-  }, []);
+  }, [telegramRuntimeAvailable]);
 
   useEffect(() => {
     trackFrontendEvent('page_viewed', {
       path: location.pathname,
+      isTelegramEnvironment: telegramRuntimeAvailable,
     });
-  }, [location.pathname]);
+  }, [location.pathname, telegramRuntimeAvailable]);
 
   useEffect(() => {
     const preferredLocale = meData?.preferredLocale ?? authUser?.preferredLocale;
@@ -71,12 +98,12 @@ function AppContent() {
     }
   }, [meData?.tutorialCompletedAt]);
 
-  if (isAuthLoading || isMeLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
+  if (!telegramRuntimeAvailable) {
+    return <TelegramOnlyScreen />;
+  }
+
+  if (isAuthLoading) {
+    return <AppLoading />;
   }
 
   if (authError) {
@@ -95,51 +122,53 @@ function AppContent() {
   }
 
   return (
-    <Routes>
-      <Route
-        path="/"
-        element={
-          <HomePage
-            onOpenTutorial={() => {
-              setTutorialHidden(false);
-              navigate('/onboarding');
-            }}
-          />
-        }
-      />
-      <Route
-        path="/onboarding"
-        element={
-          <OnboardingPage
-            onSkip={() => setTutorialHidden(true)}
-            onContinueToGame={() => {
-              try {
-                sessionStorage.setItem('nu_tutorial_overlay_dismissed', '1');
-              } catch {
-                /* ignore */
-              }
-              setTutorialOverlayDismissed(true);
-            }}
-            onEnter={() => {
-              try {
-                sessionStorage.removeItem('nu_tutorial_overlay_dismissed');
-              } catch {
-                /* ignore */
-              }
-              setTutorialOverlayDismissed(false);
-            }}
-          />
-        }
-      />
-      <Route path="/planet/:planetId" element={<PlanetDetailPage />} />
-      <Route path="/map" element={<SystemMapPage />} />
-      <Route path="/sector-map" element={<SectorMapPage />} />
-      <Route path="/research" element={<ResearchPage />} />
-      <Route path="/ships" element={<ShipsPage />} />
-      <Route path="/profile" element={<ProfilePage />} />
-      <Route path="/colonies" element={<ColoniesPage />} />
-      <Route path="/shop" element={<ShopPage />} />
-    </Routes>
+    <Suspense fallback={<AppLoading />}>
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <HomePage
+              onOpenTutorial={() => {
+                setTutorialHidden(false);
+                navigate('/onboarding');
+              }}
+            />
+          }
+        />
+        <Route
+          path="/onboarding"
+          element={
+            <OnboardingPage
+              onSkip={() => setTutorialHidden(true)}
+              onContinueToGame={() => {
+                try {
+                  sessionStorage.setItem('nu_tutorial_overlay_dismissed', '1');
+                } catch {
+                  /* ignore */
+                }
+                setTutorialOverlayDismissed(true);
+              }}
+              onEnter={() => {
+                try {
+                  sessionStorage.removeItem('nu_tutorial_overlay_dismissed');
+                } catch {
+                  /* ignore */
+                }
+                setTutorialOverlayDismissed(false);
+              }}
+            />
+          }
+        />
+        <Route path="/planet/:planetId" element={<PlanetDetailPage />} />
+        <Route path="/map" element={<SystemMapPage />} />
+        <Route path="/sector-map" element={<SectorMapPage />} />
+        <Route path="/research" element={<ResearchPage />} />
+        <Route path="/ships" element={<ShipsPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/colonies" element={<ColoniesPage />} />
+        <Route path="/shop" element={<ShopPage />} />
+      </Routes>
+    </Suspense>
   );
 }
 

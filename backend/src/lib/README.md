@@ -35,7 +35,7 @@ Shared infrastructure used across features, middleware, and routes. Anything in 
   - Development uses `pino-pretty` with colorized output and `HH:MM:ss Z` time formatting; production logs are line-delimited JSON.
   
   Fastify wraps this instance via `loggerInstance: logger` in `index.ts`, so every `request.log` call inherits these settings and adds `requestId` plus `userId` (added by the `preHandler` hook).
-- **`sentry.ts`** — initializes `@sentry/node` if `SENTRY_DSN` is present in `process.env`. Sets `tracesSampleRate: 1.0` and `environment: process.env.NODE_ENV || 'development'`. The module is intentionally imported as the very first line of `backend/src/index.ts` so Sentry can capture errors thrown during plugin registration. When the DSN is missing the module logs a warning and stays disabled.
+- **`sentry.ts`** — initializes `@sentry/node` if `SENTRY_DSN` is present in `process.env`. Sets `tracesSampleRate` from `SENTRY_TRACES_SAMPLE_RATE` when provided, otherwise defaults to `0.1` in production and `1.0` elsewhere, and reports `process.env.NODE_ENV || 'development'` as the environment. The module is intentionally imported as the very first line of `backend/src/index.ts` so Sentry can capture errors thrown during plugin registration. When the DSN is missing the module logs a warning and stays disabled.
 - **`diamonds.ts`** — rush pricing helpers aligned with [`shared/types/diamonds.ts`](../../../shared/types/diamonds.ts): `rushRemainingSeconds`, `rushDiamondCost` (reads `env` rates/caps), and `rushPricingMeta` for `GET /buildings/queue` transparency payloads.
 - **`rate-limit.ts`** — Fastify rate-limit integration:
   - Exports `registerRateLimit(app)` for `index.ts`.

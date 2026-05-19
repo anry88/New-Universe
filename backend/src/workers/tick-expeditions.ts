@@ -13,7 +13,7 @@ import {
 } from "../db/schema.js";
 import { bootstrapColony } from "../features/colonies/bootstrap.js";
 
-import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
 
 import { logger } from "../lib/logger.js";
 import { checkVisibility } from "../features/world/visibility.js";
@@ -759,7 +759,13 @@ async function handleArrivalAtHome(
 }
 
 export async function processExpeditions(
-  options: { userId?: string; skipNotifications?: boolean; now?: Date } = {},
+  options: {
+    userId?: string;
+    skipNotifications?: boolean;
+    now?: Date;
+    onlyDue?: boolean;
+    skipVisibilityChecks?: boolean;
+  } = {},
 ): Promise<void> {
   const now = options.now ?? new Date();
   const activeConditions = [
@@ -770,6 +776,9 @@ export async function processExpeditions(
   ];
   if (options.userId) {
     activeConditions.push(eq(ships.ownerId, options.userId));
+  }
+  if (options.onlyDue) {
+    activeConditions.push(lte(expeditions.eta, now));
   }
 
   const activeExpeditions = await db
@@ -824,27 +833,33 @@ export async function processExpeditions(
       const usesJumpGateRoute = expeditionResult?.routeMode === "jump_gate";
 
       // 2. Perform visibility check (fog of war)
-      const discoveries = usesJumpGateRoute ? [] : await checkVisibility(shipId, tx, pos);
-      const homeDiscoveries = await discoverHomePlanetsAlongRoute(
-        expedition,
-        {
-          id: originSystemId,
-          ownerId: originSystemOwnerId,
-          isHome: originSystemIsHome,
-          seed: originSystemSeed,
-          sectorX: originSectorX,
-          sectorY: originSectorY,
-        },
-        { id: shipId, ownerId: shipOwnerId, role: shipRole, sensorRange: shipSensorRange },
-        now,
-        tx,
-      );
-      const jumpGateDiscoveries = await discoverJumpGateDestinationPlanetsAlongRoute(
-        expedition,
-        { id: shipId, ownerId: shipOwnerId, role: shipRole, sensorRange: shipSensorRange },
-        now,
-        tx,
-      );
+      const discoveries = options.skipVisibilityChecks || usesJumpGateRoute
+        ? []
+        : await checkVisibility(shipId, tx, pos);
+      const homeDiscoveries = options.skipVisibilityChecks
+        ? []
+        : await discoverHomePlanetsAlongRoute(
+            expedition,
+            {
+              id: originSystemId,
+              ownerId: originSystemOwnerId,
+              isHome: originSystemIsHome,
+              seed: originSystemSeed,
+              sectorX: originSectorX,
+              sectorY: originSectorY,
+            },
+            { id: shipId, ownerId: shipOwnerId, role: shipRole, sensorRange: shipSensorRange },
+            now,
+            tx,
+          );
+      const jumpGateDiscoveries = options.skipVisibilityChecks
+        ? []
+        : await discoverJumpGateDestinationPlanetsAlongRoute(
+            expedition,
+            { id: shipId, ownerId: shipOwnerId, role: shipRole, sensorRange: shipSensorRange },
+            now,
+            tx,
+          );
 
       if (discoveries.length + homeDiscoveries.length + jumpGateDiscoveries.length > 0) {
         if (!options.skipNotifications) {

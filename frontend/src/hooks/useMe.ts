@@ -5,6 +5,7 @@ import type { User } from "@shared/types/user";
 import { useAuthStore } from "./useAuth";
 
 const MAX_TIMEOUT_MS = 2_147_483_647;
+const OVERDUE_SYNC_RECHECK_MS = 2_500;
 
 function timestamp(value?: string | null): number | null {
   if (!value) return null;
@@ -62,10 +63,10 @@ export function useMe() {
     const nextDue = nextCompletionMs(query.data);
     if (nextDue == null) return;
 
-    const delay = Math.min(
-      Math.max(0, nextDue - Date.now()) + 250,
-      MAX_TIMEOUT_MS,
-    );
+    const dueInMs = nextDue - Date.now();
+    const delay = dueInMs <= 0
+      ? OVERDUE_SYNC_RECHECK_MS
+      : Math.min(dueInMs + 250, MAX_TIMEOUT_MS);
     const id = window.setTimeout(() => {
       queryClient.invalidateQueries({ queryKey: ["me"] });
       queryClient.invalidateQueries({ queryKey: ["ship-queue"] });

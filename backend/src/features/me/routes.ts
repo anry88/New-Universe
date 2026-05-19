@@ -19,7 +19,7 @@ import {
 import { and, asc, eq, inArray, ne, or } from "drizzle-orm";
 import { syncTutorialProgress } from "../tutorial/service.js";
 import { homeSystemShortTag } from "@shared/format/homeSystemNaming.js";
-import { syncDuePlayerState } from "./online-sync.js";
+import { queueDuePlayerStateSync } from "./online-sync.js";
 import {
   createResearchEffectsRequestCache,
   getResearchEffectsForUser,
@@ -106,8 +106,6 @@ export async function meRoutes(app: FastifyInstance) {
     if (!user) return;
 
     try {
-      await syncDuePlayerState(user.id);
-
       const researchEffectsCache = createResearchEffectsRequestCache();
       const [buildingTypeRows, shipTypeRows, researchEffects] = await Promise.all([
         db.query.buildingTypes.findMany(),
@@ -482,7 +480,9 @@ export async function meRoutes(app: FastifyInstance) {
         rushPricing: rushPricingMeta(),
       };
 
-      return reply.send({ user: userObj });
+      const response = reply.send({ user: userObj });
+      queueDuePlayerStateSync(user.id, request.log);
+      return response;
     } catch (err) {
       request.log.error(err, "Error fetching player state");
       return sendLocalizedError(reply, request, 500, "internalServerError", user.preferredLocale);

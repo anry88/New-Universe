@@ -44,6 +44,14 @@ interface SectorRendererProps {
   getEntityLabel?: (entity: SectorPresenceEntity) => string;
 }
 
+interface SectorSceneState {
+  entities: SectorPresenceEntity[];
+  emptyLabel: string;
+  selectedEntityId?: string | null;
+  onEntitySelect?: (entity: SectorPresenceEntity) => void;
+  getEntityLabel?: (entity: SectorPresenceEntity) => string;
+}
+
 /**
  * Pixi sector radar for multiplayer markers.
  * Uses relation color, entity shape, and summary redaction markers so local,
@@ -58,26 +66,38 @@ export function SectorRenderer({
 }: SectorRendererProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<PIXI.Application | null>(null);
+  const sceneRef = useRef<SectorSceneState>({
+    entities,
+    emptyLabel,
+    selectedEntityId,
+    onEntitySelect,
+    getEntityLabel,
+  });
 
   useEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
 
     let cancelled = false;
+    let initialized = false;
     let resizeObserver: ResizeObserver | null = null;
     let resizeFrame = 0;
     const app = new PIXI.Application();
 
     const run = async () => {
+      const initialWidth = Math.max(1, Math.round(el.clientWidth));
+      const initialHeight = Math.max(1, Math.round(el.clientHeight));
       await app.init({
-        resizeTo: el,
+        width: initialWidth,
+        height: initialHeight,
         backgroundColor: 0x0c1220,
         antialias: true,
         resolution: window.devicePixelRatio || 1,
         autoDensity: true,
       });
+      initialized = true;
       if (cancelled) {
-        app.destroy(true);
+        app.destroy(true, { children: true });
         return;
       }
       el.appendChild(app.canvas);
@@ -85,12 +105,17 @@ export function SectorRenderer({
 
       const scheduleRender = () => {
         window.cancelAnimationFrame(resizeFrame);
-        resizeFrame = window.requestAnimationFrame(() => renderScene(app));
+        resizeFrame = window.requestAnimationFrame(() => {
+          const width = Math.max(1, Math.round(el.clientWidth));
+          const height = Math.max(1, Math.round(el.clientHeight));
+          app.renderer.resize(width, height);
+          renderScene(app, sceneRef.current);
+        });
       };
 
       resizeObserver = new ResizeObserver(scheduleRender);
       resizeObserver.observe(el);
-      renderScene(app);
+      renderScene(app, sceneRef.current);
     };
 
     void run();
@@ -99,92 +124,116 @@ export function SectorRenderer({
       cancelled = true;
       resizeObserver?.disconnect();
       window.cancelAnimationFrame(resizeFrame);
-      app.destroy(true);
-      appRef.current = null;
+      if (initialized) {
+        app.destroy(true, { children: true });
+      }
+      if (appRef.current === app) {
+        appRef.current = null;
+      }
     };
+  }, []);
+
+  useEffect(() => {
+    sceneRef.current = {
+      entities,
+      emptyLabel,
+      selectedEntityId,
+      onEntitySelect,
+      getEntityLabel,
+    };
+    if (appRef.current) {
+      renderScene(appRef.current, sceneRef.current);
+    }
   }, [emptyLabel, entities, getEntityLabel, onEntitySelect, selectedEntityId]);
 
-  const renderScene = (app: PIXI.Application) => {
-    for (const child of app.stage.removeChildren()) {
-      child.destroy({ children: true });
+  return <div ref={wrapRef} className="sector-renderer" />;
+}
+
+function renderScene(app: PIXI.Application, scene: SectorSceneState) {
+  for (const child of app.stage.removeChildren()) {
+    child.destroy({ children: true });
+  }
+
+  const {
+    entities,
+    emptyLabel,
+    getEntityLabel,
+    onEntitySelect,
+    selectedEntityId,
+  } = scene;
+  const width = app.screen.width;
+  const height = app.screen.height;
+  drawBackground(app.stage, width, height);
+
+  if (entities.length === 0) {
+    const msg = new PIXI.Text({
+      text: emptyLabel,
+      style: {
+        fill: 0x94a3b8,
+        fontSize: 13,
+        fontFamily: "system-ui, sans-serif",
+      },
+    });
+    msg.anchor.set(0.5);
+    msg.x = width / 2;
+    msg.y = height / 2;
+    app.stage.addChild(msg);
+    return;
+  }
+
+  const bounds = sectorBounds(entities);
+  const positionTotals = countPositions(entities);
+  const positionSeen = new Map<string, number>();
+  const markerLayer = new PIXI.Container();
+  const labelLayer = new PIXI.Container();
+  app.stage.addChild(markerLayer);
+  app.stage.addChild(labelLayer);
+
+  for (const entity of entities) {
+    const key = sectorEntityKey(entity);
+    const base = projectEntity(entity, bounds, width, height);
+    const positionKey = worldPositionKey(entity);
+    const totalAtPosition = positionTotals.get(positionKey) ?? 1;
+    const indexAtPosition = positionSeen.get(positionKey) ?? 0;
+    positionSeen.set(positionKey, indexAtPosition + 1);
+
+    const spread =
+      totalAtPosition > 1 ? Math.min(34, 12 + totalAtPosition * 3) : 0;
+    const angle =
+      (Math.PI * 2 * indexAtPosition) / totalAtPosition - Math.PI / 2;
+    const x = clamp(base.x + Math.cos(angle) * spread, 24, width - 24);
+    const y = clamp(base.y + Math.sin(angle) * spread, 32, height - 32);
+    const selected = key === selectedEntityId;
+
+    const marker = drawMarker(entity, selected);
+    marker.x = x;
+    marker.y = y;
+    if (onEntitySelect) {
+      marker.eventMode = "static";
+      marker.cursor = "pointer";
+      marker.on("pointertap", () => onEntitySelect(entity));
     }
+    markerLayer.addChild(marker);
 
-    const width = app.screen.width;
-    const height = app.screen.height;
-    drawBackground(app.stage, width, height);
-
-    if (entities.length === 0) {
-      const msg = new PIXI.Text({
-        text: emptyLabel,
+    if (selected || entity.relation !== "foreign") {
+      const label = new PIXI.Text({
+        text: getEntityLabel?.(entity) ?? entity.title,
         style: {
-          fill: 0x94a3b8,
-          fontSize: 13,
+          fill: selected ? 0xffffff : markerLabelColor(entity),
+          fontSize: selected ? 12 : 10,
           fontFamily: "system-ui, sans-serif",
+          fontWeight: selected ? "700" : "500",
+          align: "center",
+          wordWrap: true,
+          wordWrapWidth: 128,
         },
       });
-      msg.anchor.set(0.5);
-      msg.x = width / 2;
-      msg.y = height / 2;
-      app.stage.addChild(msg);
-      return;
+      label.anchor.set(0.5, 1);
+      label.x = x;
+      label.y = y - 16;
+      labelLayer.addChild(label);
     }
-
-    const bounds = sectorBounds(entities);
-    const positionTotals = countPositions(entities);
-    const positionSeen = new Map<string, number>();
-    const markerLayer = new PIXI.Container();
-    const labelLayer = new PIXI.Container();
-    app.stage.addChild(markerLayer);
-    app.stage.addChild(labelLayer);
-
-    for (const entity of entities) {
-      const key = sectorEntityKey(entity);
-      const base = projectEntity(entity, bounds, width, height);
-      const positionKey = worldPositionKey(entity);
-      const totalAtPosition = positionTotals.get(positionKey) ?? 1;
-      const indexAtPosition = positionSeen.get(positionKey) ?? 0;
-      positionSeen.set(positionKey, indexAtPosition + 1);
-
-      const spread =
-        totalAtPosition > 1 ? Math.min(34, 12 + totalAtPosition * 3) : 0;
-      const angle =
-        (Math.PI * 2 * indexAtPosition) / totalAtPosition - Math.PI / 2;
-      const x = clamp(base.x + Math.cos(angle) * spread, 24, width - 24);
-      const y = clamp(base.y + Math.sin(angle) * spread, 32, height - 32);
-      const selected = key === selectedEntityId;
-
-      const marker = drawMarker(entity, selected);
-      marker.x = x;
-      marker.y = y;
-      if (onEntitySelect) {
-        marker.eventMode = "static";
-        marker.cursor = "pointer";
-        marker.on("pointertap", () => onEntitySelect(entity));
-      }
-      markerLayer.addChild(marker);
-
-      if (selected || entity.relation !== "foreign") {
-        const label = new PIXI.Text({
-          text: getEntityLabel?.(entity) ?? entity.title,
-          style: {
-            fill: selected ? 0xffffff : markerLabelColor(entity),
-            fontSize: selected ? 12 : 10,
-            fontFamily: "system-ui, sans-serif",
-            fontWeight: selected ? "700" : "500",
-            align: "center",
-            wordWrap: true,
-            wordWrapWidth: 128,
-          },
-        });
-        label.anchor.set(0.5, 1);
-        label.x = x;
-        label.y = y - 16;
-        labelLayer.addChild(label);
-      }
-    }
-  };
-
-  return <div ref={wrapRef} className="sector-renderer" />;
+  }
 }
 
 function drawBackground(stage: PIXI.Container, width: number, height: number) {

@@ -21,6 +21,7 @@ import { env } from '../../lib/env.js';
 import { seedBuildingTypes } from '../../db/seed/building-types.js';
 import { seedResources } from '../../db/seed/resources.js';
 import { seedShipTypes } from '../../db/seed/ship-types.js';
+import { buildingService } from './service.js';
 
 describe('Buildings Service - POST /buildings/build', () => {
   const botToken = env.TELEGRAM_BOT_TOKEN;
@@ -916,6 +917,45 @@ describe('Buildings Service - POST /buildings/build', () => {
     expect(regenByResource.iron).toBeGreaterThan(0);
     expect(regenByResource.carbon ?? 0).toBe(0);
     expect(regenByResource.silicon ?? 0).toBe(0);
+  });
+
+  it('skips completed-building production recalculation during lightweight sync with no ready queue', async () => {
+    const { userId } = await createTestUser();
+
+    const userSystem = await db.query.systems.findFirst({
+      where: eq(systems.ownerId, userId),
+    });
+    const userPlanet = await db.query.planets.findFirst({
+      where: eq(planets.systemId, userSystem!.id),
+      orderBy: (p, { asc }) => asc(p.name),
+    });
+
+    await db.delete(richness).where(eq(richness.planetId, userPlanet!.id));
+    await db.delete(planetResources).where(eq(planetResources.planetId, userPlanet!.id));
+    await db.insert(richness).values({
+      planetId: userPlanet!.id,
+      resourceId: 'iron',
+      value: 2,
+    });
+
+    await db.insert(buildings).values({
+      planetId: userPlanet!.id,
+      typeId: 'mine',
+      selectedResourceId: 'iron',
+      slotIndex: 1,
+      level: 1,
+      queueAction: null,
+      queueCompletesAt: null,
+    });
+
+    await buildingService.syncPlanetBuildings(userId, userPlanet!.id, {
+      recalculateExisting: false,
+    });
+
+    const syncedResources = await db.query.planetResources.findMany({
+      where: eq(planetResources.planetId, userPlanet!.id),
+    });
+    expect(syncedResources).toHaveLength(0);
   });
 
   it('should demolish a building and refund 50% of costs', async () => {
