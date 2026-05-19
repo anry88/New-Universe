@@ -25,7 +25,7 @@ export function HomePage({ onOpenTutorial }: HomePageProps) {
   const { t } = useI18n();
   return (
     <div className="cosmic-screen" style={{ '--accent': '#5BD7FF' } as React.CSSProperties}>
-      {!meData?.tutorialCompletedAt && (
+      {meData && !meData.tutorialCompletedAt && (
         <div className="tutorial-launcher">
           <button
             type="button"

@@ -7,19 +7,23 @@ import App from './App';
 import './mockEnv.ts';
 import './index.css';
 
-init();
+try {
+  init();
 
-if (miniApp.mount.isAvailable()) {
-  miniApp.mount();
-}
-if (themeParams.mount.isAvailable()) {
-  themeParams.mount();
-}
-if (viewport.mount.isAvailable()) {
-  viewport.mount().catch(e => console.error('Viewport mount error:', e));
-}
+  if (miniApp.mount.isAvailable()) {
+    miniApp.mount();
+  }
+  if (themeParams.mount.isAvailable()) {
+    themeParams.mount();
+  }
+  if (viewport.mount.isAvailable()) {
+    viewport.mount().catch(e => console.error('Viewport mount error:', e));
+  }
 
-miniApp.ready();
+  miniApp.ready();
+} catch (err) {
+  console.warn('Telegram SDK initialization skipped:', err);
+}
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

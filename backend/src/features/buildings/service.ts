@@ -883,7 +883,11 @@ export class BuildingService {
     });
   }
 
-  async syncPlanetBuildings(userId: string, planetId: string): Promise<void> {
+  async syncPlanetBuildings(
+    userId: string,
+    planetId: string,
+    options: { recalculateExisting?: boolean } = {},
+  ): Promise<void> {
     const settlement = await getPlayerPlanetSettlement(userId, planetId);
     if (!settlement?.isSettled) return;
 
@@ -916,6 +920,10 @@ export class BuildingService {
             ),
           );
       });
+    }
+
+    if (readyBuildings.length === 0 && options.recalculateExisting === false) {
+      return;
     }
 
     const operatingBuildings = await db.query.buildings.findMany({

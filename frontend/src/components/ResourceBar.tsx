@@ -40,7 +40,7 @@ export function ResourceBar({ planetId, planetLabel }: ResourceBarProps) {
   const [purchaseOpen, setPurchaseOpen] = useState(false);
   const [purchaseResourceId, setPurchaseResourceId] = useState<string | null>(null);
   const [purchaseBusy, setPurchaseBusy] = useState(false);
-  const animationRef = useRef<number | undefined>(undefined);
+  const tickRef = useRef<number | undefined>(undefined);
   const lastUpdateRef = useRef<number>(Date.now());
 
   const fetchResources = useCallback(async () => {
@@ -80,6 +80,11 @@ export function ResourceBar({ planetId, planetLabel }: ResourceBarProps) {
 
   useEffect(() => {
     const animate = () => {
+      if (document.visibilityState === 'hidden') {
+        lastUpdateRef.current = Date.now();
+        return;
+      }
+
       const now = Date.now();
       const deltaSeconds = (now - lastUpdateRef.current) / 1000;
       lastUpdateRef.current = now;
@@ -96,13 +101,12 @@ export function ResourceBar({ planetId, planetLabel }: ResourceBarProps) {
         }),
       );
 
-      animationRef.current = requestAnimationFrame(animate);
     };
 
-    animationRef.current = requestAnimationFrame(animate);
+    tickRef.current = window.setInterval(animate, 1000);
     return () => {
-      if (animationRef.current !== undefined) {
-        cancelAnimationFrame(animationRef.current);
+      if (tickRef.current !== undefined) {
+        window.clearInterval(tickRef.current);
       }
     };
   }, []);

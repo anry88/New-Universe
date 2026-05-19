@@ -23,16 +23,17 @@ const ONLINE_SYNC_NOTIFICATION_TYPES = [
 ];
 
 async function playerPlanetIds(userId: string): Promise<string[]> {
-  const homePlanets = await db
-    .select({ id: planets.id })
-    .from(planets)
-    .innerJoin(systems, eq(systems.id, planets.systemId))
-    .where(eq(systems.ownerId, userId));
-
-  const colonyPlanets = await db
-    .select({ id: colonies.planetId })
-    .from(colonies)
-    .where(and(eq(colonies.ownerId, userId), eq(colonies.status, "active")));
+  const [homePlanets, colonyPlanets] = await Promise.all([
+    db
+      .select({ id: planets.id })
+      .from(planets)
+      .innerJoin(systems, eq(systems.id, planets.systemId))
+      .where(eq(systems.ownerId, userId)),
+    db
+      .select({ id: colonies.planetId })
+      .from(colonies)
+      .where(and(eq(colonies.ownerId, userId), eq(colonies.status, "active"))),
+  ]);
 
   return [...new Set([...homePlanets, ...colonyPlanets].map((row) => row.id))];
 }
@@ -52,16 +53,52 @@ export async function suppressPendingOnlineCompletionNotifications(
     );
 }
 
-export async function syncDuePlayerState(userId: string): Promise<void> {
+interface SyncDuePlayerStateOptions {
+  lightweight?: boolean;
+}
+
+const backgroundSyncByUserId = new Map<string, Promise<void>>();
+
+export function queueDuePlayerStateSync(
+  userId: string,
+  log?: { error: (...args: any[]) => void },
+): boolean {
+  if (process.env.NODE_ENV === "test" || backgroundSyncByUserId.has(userId)) {
+    return false;
+  }
+
+  const syncPromise = syncDuePlayerState(userId, { lightweight: true })
+    .catch((err) => {
+      log?.error({ err, userId }, "Background player state sync failed");
+    })
+    .finally(() => {
+      backgroundSyncByUserId.delete(userId);
+    });
+
+  backgroundSyncByUserId.set(userId, syncPromise);
+  return true;
+}
+
+export async function syncDuePlayerState(
+  userId: string,
+  options: SyncDuePlayerStateOptions = {},
+): Promise<void> {
   const planetIds = await playerPlanetIds(userId);
 
   for (const planetId of planetIds) {
-    await buildingService.syncPlanetBuildings(userId, planetId);
+    await buildingService.syncPlanetBuildings(userId, planetId, {
+      recalculateExisting: !options.lightweight,
+    });
     await productionService.processDueOrders({ userId, planetId });
   }
 
   await syncReadyShips(userId, { skipNotifications: true });
   await processCompletedResearch(db, { userId, skipNotification: true });
-  await processExpeditions({ userId, skipNotifications: true });
+  await processExpeditions({
+    userId,
+    skipNotifications: true,
+    onlyDue: options.lightweight,
+    skipVisibilityChecks: options.lightweight,
+  });
   await suppressPendingOnlineCompletionNotifications(userId);
 }
