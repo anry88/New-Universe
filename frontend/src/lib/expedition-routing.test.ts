@@ -73,7 +73,7 @@ describe("expedition route preview", () => {
     expect(preview.fuelRequired).toBe(5);
   });
 
-  it("keeps combat ships round-trip when launched at a bare sector point", () => {
+  it("deploys combat ships one-way when launched at a tactical point", () => {
     const preview = buildExpeditionPreview({
       routeMode: "local",
       originSector: { x: 0, y: 0 },
@@ -85,8 +85,8 @@ describe("expedition route preview", () => {
       speed: 2,
     });
 
-    expect(preview.returnTrip).toBe(true);
-    expect(preview.fuelRequired).toBe(5);
+    expect(preview.returnTrip).toBe(false);
+    expect(preview.fuelRequired).toBe(3);
   });
 
   it("deploys combat ships one-way through Jump Gate routes even without a planet target", () => {

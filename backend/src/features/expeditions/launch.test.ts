@@ -1161,6 +1161,44 @@ describe("Expeditions - POST /expeditions", () => {
     );
   });
 
+  it("launches combat ships one-way to a local tactical point", async () => {
+    const { app, token, userId } = await createTestUser();
+    const { system, planet } = await getHomeContext(userId);
+
+    await ensureFuel(planet.id, 200);
+    const ship = await createIdleFighter(userId, planet.id);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/expeditions",
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        shipId: ship.id,
+        targetX: system.sectorX + 5,
+        targetY: system.sectorY,
+        targetZ: system.sectorZ,
+        cargoLoaded: 0,
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.expedition.result.returnTrip).toBe(false);
+    expect(body.expedition.result.fuelRequired).toBe(2);
+    expect(body.expedition.result.spaceportReservation).toBeUndefined();
+
+    await db
+      .update(expeditions)
+      .set({ eta: new Date(Date.now() - 1000) })
+      .where(eq(expeditions.id, body.expedition.id));
+    await processExpeditions({ userId, skipNotifications: true });
+
+    const storedExpedition = await db.query.expeditions.findFirst({
+      where: eq(expeditions.id, body.expedition.id),
+    });
+    expect(storedExpedition?.status).toBe("stationed");
+  });
+
   it("reserves target spaceport slots across parallel launches", async () => {
     const { app, token, userId } = await createTestUser();
     const { system, planet } = await getHomeContext(userId);

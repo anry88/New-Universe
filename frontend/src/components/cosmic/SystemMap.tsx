@@ -100,7 +100,7 @@ interface CosmicSystemRendererProps {
   ) => void;
 }
 
-interface PlanetLayout {
+export interface PlanetLayout {
   planet: Planet;
   index: number;
   orbitRadius: number;
@@ -297,6 +297,7 @@ interface RouteLineProps {
   gap: number;
   opacity: number;
   zIndex?: number;
+  testId?: string;
 }
 
 const RouteLine = React.memo(function RouteLine({
@@ -310,12 +311,14 @@ const RouteLine = React.memo(function RouteLine({
   gap,
   opacity,
   zIndex = 1,
+  testId,
 }: RouteLineProps) {
   const length = Math.hypot(x2 - x1, y2 - y1);
   if (length < 1) return null;
 
   return (
     <div
+      data-testid={testId}
       style={{
         position: "absolute",
         left: x1,
@@ -458,12 +461,74 @@ export function fleetContactsForSystem(
   return contacts.filter((contact) => contact.systemId === systemId);
 }
 
+export function tacticalExpeditionShipIdsForRenderedContacts({
+  activeExpeditions,
+  visibleFleetContacts,
+  fleetContactsAuthoritative,
+  systemId,
+}: {
+  activeExpeditions: Expedition[];
+  visibleFleetContacts: SystemTacticalFleetContact[];
+  fleetContactsAuthoritative?: boolean;
+  systemId: string;
+}): Set<string> {
+  if (!fleetContactsAuthoritative) return new Set();
+  const renderedContactShipIds = new Set(
+    visibleFleetContacts.map((contact) => contact.id),
+  );
+  return new Set(
+    activeExpeditions
+      .filter(
+        (expedition) =>
+          renderedContactShipIds.has(expedition.shipId) &&
+          tacticalExpeditionTouchesSystem(expedition, systemId),
+      )
+      .map((expedition) => expedition.shipId),
+  );
+}
+
 export function fleetContactMotionAngle(
   contact: Pick<SystemTacticalFleetContact, "motion">,
 ): number | null {
   const motion = contact.motion;
   if (!motion || Math.hypot(motion.dx, motion.dy) < 0.01) return null;
   return Math.atan2(motion.dy, motion.dx);
+}
+
+export function buildFleetContactRenderPoints(
+  contacts: SystemTacticalFleetContact[],
+): Map<string, SystemMapPoint> {
+  const pointTotals = new Map<string, number>();
+  for (const contact of contacts) {
+    const key = `${contact.point.x}:${contact.point.y}`;
+    pointTotals.set(key, (pointTotals.get(key) ?? 0) + 1);
+  }
+
+  const pointSeen = new Map<string, number>();
+  const renderPoints = new Map<string, SystemMapPoint>();
+  for (const contact of contacts) {
+    const pointKey = `${contact.point.x}:${contact.point.y}`;
+    const totalAtPoint = pointTotals.get(pointKey) ?? 1;
+    const indexAtPoint = pointSeen.get(pointKey) ?? 0;
+    pointSeen.set(pointKey, indexAtPoint + 1);
+    const spread =
+      totalAtPoint > 1 ? Math.min(22, 8 + totalAtPoint * 2) : 0;
+    const spreadAngle =
+      (Math.PI * 2 * indexAtPoint) / totalAtPoint - Math.PI / 2;
+    renderPoints.set(contact.id, {
+      x: contact.point.x + Math.cos(spreadAngle) * spread,
+      y: contact.point.y + Math.sin(spreadAngle) * spread,
+    });
+  }
+
+  return renderPoints;
+}
+
+function contactRenderPoint(
+  contact: SystemTacticalFleetContact,
+  renderPoints: Map<string, SystemMapPoint>,
+): SystemMapPoint {
+  return renderPoints.get(contact.id) ?? contact.point;
 }
 
 const ExpeditionTrailLayer = React.memo(function ExpeditionTrailLayer({
@@ -485,6 +550,7 @@ const ExpeditionTrailLayer = React.memo(function ExpeditionTrailLayer({
           dash={6}
           gap={6}
           opacity={0.55}
+          testId={`expedition-trail-${segment.id}`}
         />
       ))}
     </>
@@ -780,7 +846,20 @@ function jumpGateShipPointForSystem({
   };
 }
 
-function buildShipMarkerSnapshots({
+function parkedShipPoint(
+  layout: PlanetLayout,
+  shipIdx: number,
+): { x: number; y: number; angle: number } {
+  const dockRadius = Math.min(14, Math.max(5, layout.spriteSize * 0.24));
+  const a = layout.angle + 0.18 + shipIdx * 0.74;
+  return {
+    x: layout.x + Math.cos(a) * dockRadius,
+    y: layout.y + Math.sin(a) * dockRadius,
+    angle: a + Math.PI / 2,
+  };
+}
+
+export function buildShipMarkerSnapshots({
   ships,
   activeExpeditions,
   layoutByPlanetId,
@@ -837,19 +916,7 @@ function buildShipMarkerSnapshots({
           isMoving = exp.status !== "stationed";
         } else if (!layout) {
           return [];
-        } else if (res.distance !== undefined && res.speed) {
-          const durationMs =
-            ((res.distance * 60) / res.speed) * (res.engineFactor || 1) * 1000;
-          const etaMs = new Date(exp.eta).getTime();
-          let progress = 0;
-          if (exp.status === "in_flight") {
-            progress = 1 - (etaMs - now) / durationMs;
-          } else {
-            progress = (etaMs - now) / durationMs;
-            isReturning = true;
-          }
-          progress = Math.max(0, Math.min(1, progress));
-
+        } else {
           const targetPlanet = exp.targetPlanetId
             ? layoutByPlanetId.get(exp.targetPlanetId)
             : null;
@@ -876,25 +943,53 @@ function buildShipMarkerSnapshots({
           }
 
           const targetAngle = Math.atan2(endY - layout.y, endX - layout.x);
-          sx = layout.x + (endX - layout.x) * progress;
-          sy = layout.y + (endY - layout.y) * progress;
 
-          angle = targetAngle + (isReturning ? Math.PI : 0);
-          isMoving = true;
+          if (exp.status === "stationed") {
+            if (targetPlanet) {
+              const parked = parkedShipPoint(targetPlanet, shipIdx);
+              sx = parked.x;
+              sy = parked.y;
+              angle = parked.angle;
+            } else {
+              sx = endX;
+              sy = endY;
+              angle = targetAngle;
+            }
+            isMoving = false;
+          } else if (res.distance !== undefined && res.speed) {
+            const durationMs =
+              ((res.distance * 60) / res.speed) *
+              (res.engineFactor || 1) *
+              1000;
+            const etaMs = new Date(exp.eta).getTime();
+            let progress = 0;
+            if (exp.status === "in_flight") {
+              progress = 1 - (etaMs - now) / durationMs;
+            } else {
+              progress = (etaMs - now) / durationMs;
+              isReturning = true;
+            }
+            progress = Math.max(0, Math.min(1, progress));
+
+            sx = layout.x + (endX - layout.x) * progress;
+            sy = layout.y + (endY - layout.y) * progress;
+
+            angle = targetAngle + (isReturning ? Math.PI : 0);
+            isMoving = true;
+          }
         }
       }
     }
 
-    if (!isMoving) {
+    if (sx === undefined || sy === undefined) {
       if (!layout && sx === undefined && sy === undefined) return [];
       if (!layout) {
         angle = angle || 0;
       } else {
-        const dockRadius = Math.min(14, Math.max(5, layout.spriteSize * 0.24));
-        const a = layout.angle + 0.18 + shipIdx * 0.74;
-        sx = layout.x + Math.cos(a) * dockRadius;
-        sy = layout.y + Math.sin(a) * dockRadius;
-        angle = a + Math.PI / 2;
+        const parked = parkedShipPoint(layout, shipIdx);
+        sx = parked.x;
+        sy = parked.y;
+        angle = parked.angle;
       }
     }
 
@@ -1052,15 +1147,14 @@ const ShipMarkers = React.memo(function ShipMarkers({
 function nearestContactForMarker(
   marker: ShipMarkerSnapshot,
   contacts: SystemTacticalFleetContact[],
+  contactPoints: Map<string, SystemMapPoint>,
 ): SystemTacticalFleetContact | null {
   let best: SystemTacticalFleetContact | null = null;
   let bestDistance = Infinity;
   for (const contact of contacts) {
     if (contact.relation === "self") continue;
-    const dist = Math.hypot(
-      marker.x - contact.point.x,
-      marker.y - contact.point.y,
-    );
+    const point = contactRenderPoint(contact, contactPoints);
+    const dist = Math.hypot(marker.x - point.x, marker.y - point.y);
     if (dist < bestDistance) {
       best = contact;
       bestDistance = dist;
@@ -1072,14 +1166,13 @@ function nearestContactForMarker(
 function nearestMarkerForContact(
   contact: SystemTacticalFleetContact,
   markers: ShipMarkerSnapshot[],
+  contactPoints: Map<string, SystemMapPoint>,
 ): ShipMarkerSnapshot | null {
   let best: ShipMarkerSnapshot | null = null;
   let bestDistance = Infinity;
+  const point = contactRenderPoint(contact, contactPoints);
   for (const marker of markers) {
-    const dist = Math.hypot(
-      marker.x - contact.point.x,
-      marker.y - contact.point.y,
-    );
+    const dist = Math.hypot(marker.x - point.x, marker.y - point.y);
     if (dist < bestDistance) {
       best = marker;
       bestDistance = dist;
@@ -1091,9 +1184,11 @@ function nearestMarkerForContact(
 function nearestContactForContact(
   contact: SystemTacticalFleetContact,
   contacts: SystemTacticalFleetContact[],
+  contactPoints: Map<string, SystemMapPoint>,
 ): SystemTacticalFleetContact | null {
   let best: SystemTacticalFleetContact | null = null;
   let bestDistance = Infinity;
+  const point = contactRenderPoint(contact, contactPoints);
   for (const candidate of contacts) {
     if (candidate.id === contact.id) continue;
     if (candidate.relation === "self" && contact.relation === "self") {
@@ -1106,9 +1201,10 @@ function nearestContactForContact(
     ) {
       continue;
     }
+    const candidatePoint = contactRenderPoint(candidate, contactPoints);
     const dist = Math.hypot(
-      contact.point.x - candidate.point.x,
-      contact.point.y - candidate.point.y,
+      point.x - candidatePoint.x,
+      point.y - candidatePoint.y,
     );
     if (dist < bestDistance) {
       best = candidate;
@@ -1152,35 +1248,38 @@ export function buildCombatProjectileSegments({
   now: number;
 }): CombatProjectileSegment[] {
   const segments: CombatProjectileSegment[] = [];
+  const contactPoints = buildFleetContactRenderPoints(contacts);
   const combatMarkers = markers.filter((marker) => marker.isInCombat);
   const combatContacts = contacts.filter((contact) =>
     isRecentCombat(contact.lastCombatTickAt, now),
   );
 
   combatMarkers.forEach((marker, index) => {
-    const contact = nearestContactForMarker(marker, contacts);
+    const contact = nearestContactForMarker(marker, contacts, contactPoints);
     if (!contact) return;
+    const contactPoint = contactRenderPoint(contact, contactPoints);
     segments.push({
       id: `own-${marker.ship.id}-${contact.id}`,
       x1: marker.x,
       y1: marker.y,
-      x2: contact.point.x,
-      y2: contact.point.y,
+      x2: contactPoint.x,
+      y2: contactPoint.y,
       kind: marker.weaponKind,
       delayMs: index * 130,
     });
   });
 
   combatContacts.forEach((contact, index) => {
+    const contactPoint = contactRenderPoint(contact, contactPoints);
     const marker =
       contact.relation === "foreign"
-        ? nearestMarkerForContact(contact, markers)
+        ? nearestMarkerForContact(contact, markers, contactPoints)
         : null;
     if (marker) {
       segments.push({
         id: `foreign-${contact.id}-${marker.ship.id}`,
-        x1: contact.point.x,
-        y1: contact.point.y,
+        x1: contactPoint.x,
+        y1: contactPoint.y,
         x2: marker.x,
         y2: marker.y,
         kind: weaponVisualForCombatStats(contact.combatStats),
@@ -1189,15 +1288,20 @@ export function buildCombatProjectileSegments({
       return;
     }
 
-    const target = nearestContactForContact(contact, combatContacts);
+    const target = nearestContactForContact(
+      contact,
+      combatContacts,
+      contactPoints,
+    );
     if (!target) return;
+    const targetPoint = contactRenderPoint(target, contactPoints);
     const relationPrefix = contact.relation === "self" ? "self" : "foreign";
     segments.push({
       id: `${relationPrefix}-${contact.id}-${target.id}`,
-      x1: contact.point.x,
-      y1: contact.point.y,
-      x2: target.point.x,
-      y2: target.point.y,
+      x1: contactPoint.x,
+      y1: contactPoint.y,
+      x2: targetPoint.x,
+      y2: targetPoint.y,
       kind: weaponVisualForCombatStats(contact.combatStats),
       delayMs: 90 + index * 150,
     });
@@ -1253,17 +1357,25 @@ function CombatProjectile({ segment }: { segment: CombatProjectileSegment }) {
       }}
     >
       {isKinetic ? (
-        [0, 1, 2].map((index) => (
+        <>
           <span
-            key={index}
-            className="combat-projectile-round"
+            className="combat-projectile-trail combat-projectile-trail--kinetic"
             style={{
-              background: tone,
-              boxShadow: `0 0 10px ${tone}`,
-              animationDelay: `${segment.delayMs + index * 110}ms`,
+              background: `linear-gradient(90deg, transparent, ${tone}, transparent)`,
             }}
           />
-        ))
+          {[0, 1, 2].map((index) => (
+            <span
+              key={index}
+              className="combat-projectile-round"
+              style={{
+                background: tone,
+                boxShadow: `0 0 7px ${tone}`,
+                animationDelay: `${segment.delayMs + index * 110}ms`,
+              }}
+            />
+          ))}
+        </>
       ) : (
         <span
           className="combat-projectile-trail"
@@ -1303,29 +1415,17 @@ const FleetContactMarkers = React.memo(function FleetContactMarkers({
   onSelectContact: (contact: SystemTacticalFleetContact) => void;
 }) {
   const { locale, t } = useI18n();
-  const pointTotals = useMemo(() => {
-    const totals = new Map<string, number>();
-    for (const contact of contacts) {
-      const key = `${contact.point.x}:${contact.point.y}`;
-      totals.set(key, (totals.get(key) ?? 0) + 1);
-    }
-    return totals;
-  }, [contacts]);
-  const pointSeen = new Map<string, number>();
+  const contactRenderPoints = useMemo(
+    () => buildFleetContactRenderPoints(contacts),
+    [contacts],
+  );
 
   return (
     <>
       {contacts.map((contact) => {
-        const pointKey = `${contact.point.x}:${contact.point.y}`;
-        const totalAtPoint = pointTotals.get(pointKey) ?? 1;
-        const indexAtPoint = pointSeen.get(pointKey) ?? 0;
-        pointSeen.set(pointKey, indexAtPoint + 1);
-        const spread =
-          totalAtPoint > 1 ? Math.min(22, 8 + totalAtPoint * 2) : 0;
-        const spreadAngle =
-          (Math.PI * 2 * indexAtPoint) / totalAtPoint - Math.PI / 2;
-        const x = contact.point.x + Math.cos(spreadAngle) * spread;
-        const y = contact.point.y + Math.sin(spreadAngle) * spread;
+        const renderPoint = contactRenderPoint(contact, contactRenderPoints);
+        const x = renderPoint.x;
+        const y = renderPoint.y;
         const isOwnContact = contact.relation === "self";
         const title = isOwnContact
           ? contact.shipTypeId
@@ -1839,15 +1939,18 @@ export function CosmicSystemRenderer({
   );
 
   const tacticalExpeditionShipIds = useMemo(() => {
-    if (!fleetContactsAuthoritative) return new Set<string>();
-    return new Set(
-      activeExpeditions
-        .filter((expedition) =>
-          tacticalExpeditionTouchesSystem(expedition, system.id),
-        )
-        .map((expedition) => expedition.shipId),
-    );
-  }, [activeExpeditions, fleetContactsAuthoritative, system.id]);
+    return tacticalExpeditionShipIdsForRenderedContacts({
+      activeExpeditions,
+      visibleFleetContacts,
+      fleetContactsAuthoritative,
+      systemId: system.id,
+    });
+  }, [
+    activeExpeditions,
+    fleetContactsAuthoritative,
+    system.id,
+    visibleFleetContacts,
+  ]);
 
   const mapShips = useMemo(
     () =>
