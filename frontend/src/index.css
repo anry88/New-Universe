@@ -1132,11 +1132,16 @@ button.cosmic-card:disabled {
   position: absolute;
   left: 0;
   top: 50%;
-  width: 4px;
-  height: 4px;
+  width: 12px;
+  height: 3px;
   border-radius: 999px;
   transform: translateY(-50%);
   animation: combat-projectile-round-flight 0.72s linear infinite;
+}
+.combat-projectile-line--kinetic .combat-projectile-trail {
+  height: 1px;
+  opacity: 0.34;
+  animation: none;
 }
 .combat-projectile-line--missile .combat-projectile-bolt {
   width: 12px;
@@ -1152,7 +1157,7 @@ button.cosmic-card:disabled {
 }
 @keyframes combat-projectile-round-flight {
   0% {
-    transform: translate(0, -50%) scaleX(1.7);
+    transform: translate(0, -50%) scaleX(1.15);
     opacity: 0;
   }
   10% {
@@ -1162,7 +1167,7 @@ button.cosmic-card:disabled {
     opacity: 1;
   }
   100% {
-    transform: translate(calc(100% - 4px), -50%) scaleX(1.7);
+    transform: translate(calc(100% - 12px), -50%) scaleX(1.15);
     opacity: 0;
   }
 }

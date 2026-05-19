@@ -1,14 +1,23 @@
 import { describe, expect, it } from "vitest";
 import type { Expedition } from "@shared/types/expeditions";
+import type { Ship } from "@shared/types/ships";
 import type { SystemTacticalFleetContact } from "@shared/types/system-tactical";
 import type { HomeSystem } from "@shared/types/world";
 import {
+  sectorDeltaToSystemMapPoint,
+  systemMapJumpGatePoint,
+} from "@shared/format/systemMapLayout";
+import {
+  buildFleetContactRenderPoints,
   buildCombatProjectileSegments,
   buildExpeditionTrailSegments,
+  buildShipMarkerSnapshots,
   fleetContactMotionAngle,
   fleetContactsForSystem,
+  tacticalExpeditionShipIdsForRenderedContacts,
   tacticalExpeditionTouchesSystem,
   weaponVisualForCombatStats,
+  type PlanetLayout,
 } from "./SystemMap";
 
 const system: HomeSystem = {
@@ -76,6 +85,58 @@ function contact(
   };
 }
 
+function ship(overrides: Partial<Ship> = {}): Ship {
+  return {
+    id: "ship-1",
+    ownerId: "user-1",
+    typeId: "light_fighter",
+    locationPlanetId: null,
+    status: "moving",
+    cargoJson: {},
+    fuel: "10",
+    jumpFuel: "0",
+    refuelFuel: "0",
+    refuelJumpFuel: "0",
+    hp: 100,
+    maxHp: 100,
+    combatStats: {
+      targetClass: "military_light",
+      damageProfile: {
+        damageType: "kinetic",
+        dps: 10,
+        armorPenetration: 0.2,
+        shieldMultiplier: 1,
+      },
+      engagementRange: "close",
+    },
+    ...overrides,
+  };
+}
+
+function planetLayout(overrides: Partial<PlanetLayout> = {}): PlanetLayout {
+  return {
+    planet: {
+      id: "origin-planet",
+      name: "Origin",
+      biome: "terrestrial",
+      size: 1,
+      slotCount: 8,
+      systemId: system.id,
+      resources: [],
+      buildings: [],
+      isDiscovered: true,
+      isColonized: true,
+    },
+    index: 0,
+    orbitRadius: 100,
+    angle: 0,
+    x: 40,
+    y: 0,
+    spriteSize: 48,
+    ...overrides,
+  };
+}
+
 describe("buildExpeditionTrailSegments", () => {
   it("does not keep a previous route trail for stationed point deployments", () => {
     const segments = buildExpeditionTrailSegments(
@@ -101,6 +162,93 @@ describe("buildExpeditionTrailSegments", () => {
         endpointY: -24,
       }),
     ]);
+  });
+});
+
+describe("buildShipMarkerSnapshots", () => {
+  it("parks local one-way combat deployments at their stationed point", () => {
+    const originLayout = planetLayout();
+    const target = sectorDeltaToSystemMapPoint(
+      { x: originLayout.x, y: originLayout.y },
+      4,
+      0,
+    );
+    const markers = buildShipMarkerSnapshots({
+      ships: [ship()],
+      activeExpeditions: [
+        expedition({
+          status: "stationed",
+          targetX: system.sectorX + 4,
+          targetY: system.sectorY,
+          result: {
+            routeMode: "local",
+            distance: 4,
+            speed: 1,
+            engineFactor: 1,
+            returnTrip: false,
+          },
+        }),
+      ],
+      layoutByPlanetId: new Map([[originLayout.planet.id, originLayout]]),
+      system,
+      now: new Date("2026-06-01T00:00:40.000Z").getTime(),
+    });
+
+    expect(markers).toHaveLength(1);
+    expect(markers[0]).toMatchObject({
+      isMoving: false,
+      isReturning: false,
+    });
+    expect(markers[0].x).toBeCloseTo(target.x, 5);
+    expect(markers[0].y).toBeCloseTo(target.y, 5);
+  });
+
+  it("keeps Jump Gate origin-leg ship markers before tactical contact handoff", () => {
+    const now = new Date("2026-06-01T00:00:00.000Z").getTime();
+    const originSystem: HomeSystem = {
+      ...system,
+      id: "home-system",
+      isHome: true,
+      name: "Home System",
+    };
+    const originLayout = planetLayout({
+      planet: {
+        ...planetLayout().planet,
+        systemId: originSystem.id,
+      },
+    });
+    const gatePoint = systemMapJumpGatePoint();
+
+    const markers = buildShipMarkerSnapshots({
+      ships: [ship()],
+      activeExpeditions: [
+        expedition({
+          eta: new Date(now + 240_000).toISOString(),
+          result: {
+            routeMode: "jump_gate",
+            originSystemId: originSystem.id,
+            destinationSystemId: system.id,
+            originGateDistance: 6,
+            targetGateDistance: 4,
+            distance: 10,
+            speed: 2,
+            engineFactor: 1,
+            returnTrip: false,
+          },
+        }),
+      ],
+      layoutByPlanetId: new Map([[originLayout.planet.id, originLayout]]),
+      system: originSystem,
+      now,
+    });
+
+    expect(markers).toHaveLength(1);
+    expect(markers[0]).toMatchObject({
+      isMoving: true,
+      isReturning: false,
+    });
+    expect(markers[0].x).toBeGreaterThan(originLayout.x);
+    expect(markers[0].x).toBeLessThan(gatePoint.x);
   });
 });
 
@@ -146,6 +294,32 @@ describe("fleetContactsForSystem", () => {
     expect(fleetContactsForSystem(contacts, system.id)).toEqual([
       expect.objectContaining({ id: "contact-visible" }),
     ]);
+  });
+});
+
+describe("tacticalExpeditionShipIdsForRenderedContacts", () => {
+  it("keeps /me routes visible until tactical-state renders a matching contact", () => {
+    const activeExpeditions = [expedition({ shipId: "ship-1" })];
+
+    expect(
+      tacticalExpeditionShipIdsForRenderedContacts({
+        activeExpeditions,
+        visibleFleetContacts: [],
+        fleetContactsAuthoritative: true,
+        systemId: system.id,
+      }),
+    ).toEqual(new Set());
+
+    expect(
+      tacticalExpeditionShipIdsForRenderedContacts({
+        activeExpeditions,
+        visibleFleetContacts: [
+          contact("ship-1", { relation: "self", visibility: "full" }),
+        ],
+        fleetContactsAuthoritative: true,
+        systemId: system.id,
+      }),
+    ).toEqual(new Set(["ship-1"]));
   });
 });
 
@@ -220,6 +394,36 @@ describe("fleetContactMotionAngle", () => {
 });
 
 describe("buildCombatProjectileSegments", () => {
+  it("uses rendered spread points for co-located tactical contacts", () => {
+    const contacts = [
+      contact("own-fighter", {
+        relation: "self",
+        visibility: "full",
+        ownerAlias: null,
+        point: { x: 0, y: 0 },
+      }),
+      contact("foreign-fighter", {
+        ownerAlias: "@rival",
+        point: { x: 0, y: 0 },
+      }),
+    ];
+    const renderPoints = buildFleetContactRenderPoints(contacts);
+
+    expect(renderPoints.get("own-fighter")?.y).not.toBe(0);
+    expect(renderPoints.get("foreign-fighter")?.y).not.toBe(0);
+
+    const [segment] = buildCombatProjectileSegments({
+      markers: [],
+      contacts,
+      now: new Date("2026-06-01T00:00:40.000Z").getTime(),
+    });
+
+    expect(segment.y1).not.toBe(segment.y2);
+    expect(
+      Math.hypot(segment.x2 - segment.x1, segment.y2 - segment.y1),
+    ).toBeCloseTo(24, 5);
+  });
+
   it("draws tactical self-vs-foreign crossfire without a /me ship marker", () => {
     const segments = buildCombatProjectileSegments({
       markers: [],
