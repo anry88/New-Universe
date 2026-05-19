@@ -16,7 +16,9 @@ export const systems = pgTable('systems', {
   z: numeric('z', { precision: 10, scale: 2 }).notNull(),
   name: text('name').notNull(),
   seed: integer('seed').notNull(),
-});
+}, (table) => ({
+  ownerIdx: index('systems_owner_id_idx').on(table.ownerId),
+}));
 
 export const planets = pgTable('planets', {
   id: uuid('id').primaryKey().defaultRandom(),

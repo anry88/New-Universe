@@ -849,6 +849,7 @@ export class BuildingService {
     const cost = rushDiamondCost(remainingSec);
 
     return await db.transaction(async (tx) => {
+      let diamondsRemaining: number | null = null;
       if (cost > 0) {
         const rows = await tx
           .update(users)
@@ -861,18 +862,23 @@ export class BuildingService {
             required: cost,
           });
         }
+        diamondsRemaining = rows[0]!.diamonds;
       }
 
       await this.finalizeBuildingConstruction(tx, buildingId, { skipNotification: true });
 
-      const userAfter = await tx.query.users.findFirst({
-        where: eq(users.id, userId),
-      });
+      if (diamondsRemaining == null) {
+        const [userAfter] = await tx
+          .select({ diamonds: users.diamonds })
+          .from(users)
+          .where(eq(users.id, userId));
+        diamondsRemaining = userAfter?.diamonds ?? 0;
+      }
 
       return {
         success: true,
         cost,
-        diamondsRemaining: userAfter!.diamonds,
+        diamondsRemaining,
       };
     });
   }

@@ -14,10 +14,11 @@ Interplanetary logistics — cargo transfers between player-owned colonies.
   - Reserves resources atomically on the origin planet (via `spendResources`), adding ordinary `fuel` and the shared Jump Fuel surcharge when the request explicitly selects `routeMode='jump_gate'`.
   - Creates a one-way `expeditions` record with type `cargo_transfer`.
   - Sets ship status to `moving` and populates `cargoJson`.
-  - Optionally enqueues a BullMQ `arrive_cargo` job for delivery processing when `ENABLE_BULLMQ=true`; otherwise the expedition poller and online sync complete the transfer from Postgres.
+  - Optionally schedules a BullMQ `arrive_cargo` wake-up through `completion-queue.ts` after commit when `ENABLE_BULLMQ=true`; otherwise the expedition poller and online sync complete the transfer from Postgres.
   - Exports `completeCargoTransfer(expedition, shipId, tx, options?)`, used by both the cargo worker and active-session expedition sync to finish one-way delivery without a return phase.
   - `completeCargoTransfer` conditionally claims only `in_flight` / `returning` cargo expeditions before applying target gains, so repeated or concurrent worker jobs settle the cargo once. Delivery uses `gainResources`, which creates a zero-regen target stockpile row if the destination has never stored that resource, then queues a localized `cargo_transfer_delivered` notification with the target planet name and resource list unless the caller suppresses notifications for online sync.
 - **`cargo-transfer.test.ts`** — Integration tests for Logistics gating, cargo transfer previews, Home ↔ common-colony Jump Gate routes, insufficient route fuel / Jump Fuel, discovered-only target rejection, and idempotent worker delivery.
+- **`completion-queue.ts`** and **`completion-queue.test.ts`** — shared app-lifetime Queue/Redis producer for non-blocking `arrive_cargo` scheduling plus unit tests for disabled BullMQ, pending producer creation, and enqueue failure fallback.
 
 ## Transfer Rules
 
@@ -36,7 +37,7 @@ Interplanetary logistics — cargo transfers between player-owned colonies.
 ## Adding a new logistics action
 
 1. Create a new file `<action-name>.ts` in this directory.
-2. Follow the `launchCargoTransfer` pattern: validate → reserve → record → optional BullMQ enqueue.
+2. Follow the `launchCargoTransfer` pattern: validate → reserve → record → optional post-commit BullMQ wake-up.
 3. Add an integration test file `<action-name>.test.ts`.
 4. Register the route in `backend/src/routes/cargo.ts` or a new route file.
 5. Mount the route in `backend/src/index.ts`.

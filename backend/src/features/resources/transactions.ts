@@ -23,10 +23,10 @@ interface TransactionResult {
 }
 
 async function spendResourcesInner(trx: any, planetId: string, costs: ResourceChange[]): Promise<TransactionResult> {
-    // 1. Sync resources to current time so we check against the actual accrued balance
-    await syncPlanetResources(planetId, trx);
+    const resourceIds = [...new Set(costs.map(c => c.resourceId))];
 
-    const resourceIds = costs.map(c => c.resourceId);
+    // 1. Sync resources to current time so we check against the actual accrued balance
+    await syncPlanetResources(planetId, trx, { resourceIds });
     
     // 2. Select for update to lock the rows
     const records = await trx
@@ -98,10 +98,10 @@ export async function spendResources(
 }
 
 async function gainResourcesInner(trx: any, planetId: string, gains: ResourceChange[]): Promise<TransactionResult> {
-    // 1. Sync resources first to avoid overwriting uncollected accruals
-    await syncPlanetResources(planetId, trx);
-
     const resourceIds = [...new Set(gains.map(g => g.resourceId))];
+
+    // 1. Sync resources first to avoid overwriting uncollected accruals
+    await syncPlanetResources(planetId, trx, { resourceIds });
 
     if (resourceIds.length > 0) {
       const now = new Date();

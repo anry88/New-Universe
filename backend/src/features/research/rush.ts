@@ -25,6 +25,7 @@ export async function rushActiveResearch(
   const cost = rushDiamondCost(rushRemainingSeconds(progress.completesAt));
 
   return defaultDb.transaction(async (tx) => {
+    let diamondsRemaining: number | null = null;
     if (cost > 0) {
       const rows = await tx
         .update(users)
@@ -35,6 +36,7 @@ export async function rushActiveResearch(
       if (!rows.length) {
         throw new Error('Not enough diamonds');
       }
+      diamondsRemaining = rows[0]!.diamonds;
     }
 
     const [updated] = await tx
@@ -61,14 +63,18 @@ export async function rushActiveResearch(
 
     invalidateResearchEffectsCache(userId);
 
-    const userAfter = await tx.query.users.findFirst({
-      where: eq(users.id, userId),
-    });
+    if (diamondsRemaining == null) {
+      const [userAfter] = await tx
+        .select({ diamonds: users.diamonds })
+        .from(users)
+        .where(eq(users.id, userId));
+      diamondsRemaining = userAfter?.diamonds ?? 0;
+    }
 
     return {
       success: true,
       cost,
-      diamondsRemaining: userAfter?.diamonds ?? 0,
+      diamondsRemaining,
       branch: updated.branch,
       level: updated.level,
     };

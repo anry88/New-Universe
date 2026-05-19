@@ -20,6 +20,8 @@ import { jumpGateRoutes } from './features/jump-gate/routes.js';
 import { systemsRoutes } from './features/systems/routes.js';
 import { monetizationRoutes } from './features/monetization/routes.js';
 import { closeBuildingCompletionQueueProducer, warmBuildingCompletionQueueProducer } from './features/buildings/completion-queue.js';
+import { closeShipCompletionQueueProducer, warmShipCompletionQueueProducer } from './features/ships/completion-queue.js';
+import { closeCargoRouteQueueProducer, warmCargoRouteQueueProducer } from './features/logistics/completion-queue.js';
 import { registerRateLimit } from './lib/rate-limit.js';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
@@ -38,7 +40,11 @@ fastify.addHook('preHandler', async (request) => {
 });
 
 fastify.addHook('onClose', async () => {
-  await closeBuildingCompletionQueueProducer();
+  await Promise.all([
+    closeBuildingCompletionQueueProducer(),
+    closeShipCompletionQueueProducer(),
+    closeCargoRouteQueueProducer(),
+  ]);
 });
 
 await fastify.register(cors);
@@ -63,6 +69,8 @@ await fastify.register(systemsRoutes, { prefix: '/systems' });
 await fastify.register(monetizationRoutes, { prefix: '/monetization' });
 
 warmBuildingCompletionQueueProducer();
+warmShipCompletionQueueProducer();
+warmCargoRouteQueueProducer();
 
 const start = async () => {
   try {

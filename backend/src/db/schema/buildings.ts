@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, integer, jsonb, timestamp } from 'drizzle-orm/pg-core';
+import { index, pgTable, uuid, text, integer, jsonb, timestamp } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { planets } from './world.js';
 import { resources } from './resources.js';
@@ -36,7 +36,11 @@ export const buildings = pgTable('buildings', {
   maxHp: integer('max_hp').notNull().default(1000),
   lastCombatTickAt: timestamp('last_combat_tick_at'),
   destroyedAt: timestamp('destroyed_at'),
-});
+}, (table) => ({
+  planetIdx: index('buildings_planet_id_idx').on(table.planetId),
+  planetTypeIdx: index('buildings_planet_type_idx').on(table.planetId, table.typeId),
+  planetQueueIdx: index('buildings_planet_queue_idx').on(table.planetId, table.queueAction, table.queueCompletesAt),
+}));
 
 export const buildingsRelations = relations(buildings, ({ one }) => ({
   planet: one(planets, {
