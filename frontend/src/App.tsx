@@ -52,7 +52,7 @@ function readTutorialOverlayDismissed(): boolean {
 function AppContent() {
   const { login, isLoading: isAuthLoading, error: authError } = useAuth();
   const authUser = useAuthStore((state) => state.user);
-  const { data: meData } = useMe();
+  const { data: meData, isLoading: isMeLoading, error: meError } = useMe();
   const { setLocale, t } = useI18n();
   const [telegramRuntimeAvailable] = useState(hasTelegramAuthLaunchParams);
   const [tutorialHidden, setTutorialHidden] = useState(false);
@@ -102,16 +102,24 @@ function AppContent() {
     return <TelegramOnlyScreen />;
   }
 
-  if (isAuthLoading) {
-    return <AppLoading />;
-  }
-
   if (authError) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">
         <p className="text-red-500">{t('app.authFailed', { message: authError.message })}</p>
       </div>
     );
+  }
+
+  if (meError && !meData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">
+        <p className="text-red-500">{t('app.loadFailed', { message: meError.message })}</p>
+      </div>
+    );
+  }
+
+  if (isAuthLoading || !authUser || isMeLoading || !meData) {
+    return <AppLoading />;
   }
 
   const showTutorial = Boolean(meData && !meData.tutorialCompletedAt && !tutorialHidden);

@@ -1,5 +1,6 @@
 {
   "app.authFailed": "Auth failed: {message}",
+  "app.loadFailed": "Failed to load game data: {message}",
   "app.telegramOnlyTitle": "Open in Telegram",
   "app.telegramOnlyText": "This Mini App only works inside Telegram. Open it from the bot or a Telegram app link to continue.",
   "common.abort": "Abort",

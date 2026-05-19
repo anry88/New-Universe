@@ -1,5 +1,6 @@
 {
   "app.authFailed": "Ошибка входа: {message}",
+  "app.loadFailed": "Не удалось загрузить игровые данные: {message}",
   "app.telegramOnlyTitle": "Откройте в Telegram",
   "app.telegramOnlyText": "Это Mini App работает только внутри Telegram. Перейдите через бота или ссылку Telegram, чтобы продолжить.",
   "common.abort": "Отмена",
