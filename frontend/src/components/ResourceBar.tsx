@@ -10,6 +10,7 @@ import { ResourceInventoryDrawer, type InventoryRow } from './ResourceInventoryD
 import { ResourceDiamondPurchaseDialog } from './ResourceDiamondPurchaseDialog';
 import { useQueryClient } from '@tanstack/react-query';
 import { useI18n } from '../lib/i18n';
+import type { User } from '@shared/types/user';
 
 interface ResourceBarProps {
   planetId?: string;
@@ -158,9 +159,27 @@ export function ResourceBar({ planetId, planetLabel }: ResourceBarProps) {
           amount,
         }),
       });
-      void result;
-      await fetchResources();
-      await queryClient.invalidateQueries({ queryKey: ['me'] });
+      setResources((prev) =>
+        prev.map((resource) => {
+          if (resource.resourceId !== result.resourceId) return resource;
+          const storageCap = parseFloat(String(resource.storageCap));
+          const nextAmount = Math.min(
+            storageCap,
+            resource.currentAmount + result.amount,
+          );
+          return {
+            ...resource,
+            currentAmount: nextAmount,
+            targetAmount: nextAmount,
+            amount: nextAmount.toString(),
+          };
+        }),
+      );
+      queryClient.setQueryData<User>(['me'], (old) =>
+        old ? { ...old, diamonds: result.diamondsRemaining } : old,
+      );
+      void fetchResources();
+      void queryClient.invalidateQueries({ queryKey: ['me'] });
       setPurchaseOpen(false);
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : t('resources.failedBuy'));

@@ -19,4 +19,5 @@ export const expeditions = pgTable('expeditions', {
   etaStatusIdx: index('expeditions_eta_status_idx').on(table.eta, table.status),
   originPlanetStatusIdx: index('expeditions_origin_planet_status_idx').on(table.originPlanetId, table.status),
   targetPlanetStatusIdx: index('expeditions_target_planet_status_idx').on(table.targetPlanetId, table.status),
+  shipStatusIdx: index('expeditions_ship_status_idx').on(table.shipId, table.status),
 }));

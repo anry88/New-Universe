@@ -83,34 +83,46 @@ async function resolveDiamondPurchaseContext(
   | { ok: false; status: number; error: string }
 > {
   const db = defaultDb;
-  const planet = await db.query.planets.findFirst({
-    where: eq(planets.id, planetId),
-  });
-  if (!planet) return { ok: false, status: 404, error: 'Planet not found' };
+  const [row] = await db
+    .select({
+      planetId: planets.id,
+      ownerId: systems.ownerId,
+      resourceTier: resources.tier,
+      defaultStorageCap: resources.defaultStorageCap,
+      planetResourceId: planetResources.resourceId,
+    })
+    .from(planets)
+    .innerJoin(systems, eq(systems.id, planets.systemId))
+    .leftJoin(resources, eq(resources.id, resourceId))
+    .leftJoin(
+      planetResources,
+      and(
+        eq(planetResources.planetId, planets.id),
+        eq(planetResources.resourceId, resourceId),
+      ),
+    )
+    .where(eq(planets.id, planetId))
+    .limit(1);
 
-  const system = await db.query.systems.findFirst({
-    where: eq(systems.id, planet.systemId),
-  });
-  if (!system || system.ownerId !== userId) {
+  if (!row) return { ok: false, status: 404, error: 'Planet not found' };
+
+  if (row.ownerId !== userId) {
     return { ok: false, status: 403, error: 'Planet does not belong to you' };
   }
 
-  const resource = await db.query.resources.findFirst({
-    where: eq(resources.id, resourceId),
-  });
-  if (!resource) return { ok: false, status: 400, error: 'Unknown resource' };
+  if (row.resourceTier == null || row.defaultStorageCap == null) {
+    return { ok: false, status: 400, error: 'Unknown resource' };
+  }
 
-  const resourceOnPlanet = await db.query.planetResources.findFirst({
-    where: and(
-      eq(planetResources.planetId, planetId),
-      eq(planetResources.resourceId, resourceId),
-    ),
-  });
-  if (!resourceOnPlanet) {
+  if (!row.planetResourceId) {
     return { ok: false, status: 400, error: 'Resource is not available on this planet' };
   }
 
-  return { ok: true, tier: resource.tier, defaultStorageCap: Number(resource.defaultStorageCap) };
+  return {
+    ok: true,
+    tier: row.resourceTier,
+    defaultStorageCap: Number(row.defaultStorageCap),
+  };
 }
 
 export async function convertResources(
@@ -262,7 +274,7 @@ export async function buyResourceWithDiamonds(
   );
 
   return db.transaction(async (tx) => {
-    await syncPlanetResources(planetId, tx);
+    await syncPlanetResources(planetId, tx, { resourceIds: [resourceId] });
 
     const [currentRow] = await tx
       .select({ amount: planetResources.amount })

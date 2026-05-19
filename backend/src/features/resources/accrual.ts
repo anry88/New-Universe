@@ -192,12 +192,20 @@ export async function computeCurrentResources(planetId: string, tx?: any) {
 /**
  * Synchronizes planet resources by calculating accruals and persisting them to DB.
  */
-export async function syncPlanetResources(planetId: string, tx?: any): Promise<void> {
+export async function syncPlanetResources(
+  planetId: string,
+  tx?: any,
+  options: { resourceIds?: string[] } = {},
+): Promise<void> {
   const database = tx || defaultDb;
   const computed = await computeCurrentResources(planetId, database);
+  const targetResourceIds = options.resourceIds
+    ? new Set(options.resourceIds)
+    : null;
   const now = new Date();
 
   for (const r of computed) {
+    if (targetResourceIds && !targetResourceIds.has(r.resourceId)) continue;
     await database
       .update(planetResources)
       .set({

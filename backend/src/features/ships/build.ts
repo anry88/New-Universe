@@ -6,8 +6,11 @@ import { SHIP_RESEARCH_GATES } from '../../config/research-unlocks.js';
 import { loadUserResearchLevels, meetsResearchRequirement } from '../research/gates.js';
 import { rushDiamondCost, rushRemainingSeconds } from '../../lib/diamonds.js';
 import { getPlayerPlanetSettlement } from '../colonies/ownership.js';
-import { env } from '../../lib/env.js';
 import { loadLandingSlotUsage } from './spaceport-capacity.js';
+import {
+  scheduleShipCompletionJob,
+  type ShipCompletionJob,
+} from './completion-queue.js';
 import {
   formatShipBuildErrorMessage,
   type Ship,
@@ -113,7 +116,9 @@ export async function buildShip(
   const costs = type.buildCost as Record<string, number>;
   const costEntries = Object.entries(costs);
 
-  const result = await db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx): Promise<
+    BuildShipResult & { completionJob?: ShipCompletionJob }
+  > => {
     const usage = await loadLandingSlotUsage(tx, planetId, { lock: true });
 
     const queuedShips = await tx
@@ -181,27 +186,6 @@ export async function buildShip(
       })
       .returning();
 
-    if (env.ENABLE_BULLMQ) {
-      try {
-        const { Queue: BQueue } = await import('bullmq');
-        const Redis = (await import('ioredis')).default as unknown as new (...args: any[]) => any;
-        const redis = new Redis(env.REDIS_URL, {
-          maxRetriesPerRequest: null,
-          lazyConnect: true,
-        });
-        const shipQueue = new BQueue('ships', { connection: redis });
-        await shipQueue.add(
-          'complete-build',
-          { shipId: newShip.id, planetId },
-          { delay: type.buildTimeSec * 1000 },
-        );
-        await shipQueue.close();
-        await redis.quit();
-      } catch {
-        // Redis/BullMQ not available — worker handles completion via polling
-      }
-    }
-
     return {
       success: true,
       status: 200,
@@ -221,10 +205,20 @@ export async function buildShip(
         queueStartedAt,
         rushCost: rushDiamondCost(rushRemainingSeconds(queueCompletesAt)),
       },
-    } satisfies BuildShipResult;
+      completionJob: {
+        name: 'complete-build',
+        shipId: newShip.id,
+        planetId,
+        delayMs: type.buildTimeSec * 1000,
+      },
+    } satisfies BuildShipResult & { completionJob: ShipCompletionJob };
   });
 
-  return result;
+  const { completionJob, ...response } = result;
+  if (completionJob) {
+    scheduleShipCompletionJob(completionJob);
+  }
+  return response;
 }
 
 export async function getShipQueue(userId: string): Promise<{
@@ -293,6 +287,7 @@ export async function rushShipBuild(userId: string, shipId: string): Promise<{
   const cost = rushDiamondCost(remainingSec);
 
   return defaultDb.transaction(async (tx) => {
+    let diamondsRemaining: number | null = null;
     if (cost > 0) {
       const rows = await tx
         .update(users)
@@ -302,6 +297,7 @@ export async function rushShipBuild(userId: string, shipId: string): Promise<{
       if (!rows.length) {
         throw new Error('Not enough diamonds');
       }
+      diamondsRemaining = rows[0]!.diamonds;
     }
 
     await tx
@@ -312,11 +308,18 @@ export async function rushShipBuild(userId: string, shipId: string): Promise<{
       })
       .where(eq(ships.id, shipId));
 
-    const userAfter = await tx.query.users.findFirst({ where: eq(users.id, userId) });
+    if (diamondsRemaining == null) {
+      const [userAfter] = await tx
+        .select({ diamonds: users.diamonds })
+        .from(users)
+        .where(eq(users.id, userId));
+      diamondsRemaining = userAfter?.diamonds ?? 0;
+    }
+
     return {
       success: true,
       cost,
-      diamondsRemaining: userAfter?.diamonds ?? 0,
+      diamondsRemaining,
     };
   });
 }

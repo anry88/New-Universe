@@ -1,5 +1,6 @@
 import {
   pgTable,
+  index,
   uuid,
   text,
   integer,
@@ -76,7 +77,11 @@ export const ships = pgTable("ships", {
     .default({ targetClass: "civilian" } as CombatStats),
   lastCombatTickAt: timestamp("last_combat_tick_at"),
   destroyedAt: timestamp("destroyed_at"),
-});
+}, (table) => ({
+  ownerStatusIdx: index("ships_owner_status_idx").on(table.ownerId, table.status),
+  locationPlanetStatusIdx: index("ships_location_planet_status_idx").on(table.locationPlanetId, table.status),
+  queueStatusIdx: index("ships_queue_status_idx").on(table.status, table.queueCompletesAt),
+}));
 
 import { relations } from "drizzle-orm";
 

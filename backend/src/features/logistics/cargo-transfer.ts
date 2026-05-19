@@ -31,7 +31,10 @@ import {
 } from '@shared/config/expeditionRouting.js';
 import { systemMapPlanetDistanceLy } from '@shared/format/systemMapLayout.js';
 import { getJumpGateState } from '../jump-gate/service.js';
-import { env } from '../../lib/env.js';
+import {
+  scheduleCargoRouteCompletionJob,
+  type CargoRouteCompletionJob,
+} from './completion-queue.js';
 
 type CargoTransferResultPayload = {
   routeMode?: CargoTransferRouteMode;
@@ -318,7 +321,11 @@ export async function launchCargoTransfer(
   userId: string,
   request: CargoTransferRequest,
 ) {
-  return await defaultDb.transaction(async (tx) => {
+  const result = await defaultDb.transaction(async (tx): Promise<{
+    success: true;
+    expedition: typeof expeditions.$inferSelect;
+    completionJob: CargoRouteCompletionJob;
+  }> => {
     const plan = await buildCargoTransferPlan(userId, request, tx);
 
     const transferCosts = [
@@ -367,23 +374,21 @@ export async function launchCargoTransfer(
       })
       .where(eq(ships.id, plan.ship.id));
 
-    if (env.ENABLE_BULLMQ) {
-      try {
-        const { Queue: BullQueue } = await import('bullmq');
-        const Redis = (await import('ioredis')).default as unknown as new (...args: any[]) => any;
-        const redis = new Redis(env.REDIS_URL, {
-          maxRetriesPerRequest: null,
-          lazyConnect: true,
-        });
-        const expeditionQueue = new BullQueue('expeditions', { connection: redis });
-        await expeditionQueue.add('arrive_cargo', { expeditionId: expedition.id, shipId: plan.ship.id }, { delay: plan.preview.etaSeconds * 1000 });
-        await expeditionQueue.close();
-        await redis.quit();
-      } catch (_err) { void _err; }
-    }
-
-    return { success: true, expedition };
+    return {
+      success: true,
+      expedition,
+      completionJob: {
+        name: 'arrive_cargo',
+        expeditionId: expedition.id,
+        shipId: plan.ship.id,
+        delayMs: plan.preview.etaSeconds * 1000,
+      },
+    };
   });
+
+  const { completionJob, ...response } = result;
+  scheduleCargoRouteCompletionJob(completionJob);
+  return response;
 }
 
 export async function completeCargoTransfer(
