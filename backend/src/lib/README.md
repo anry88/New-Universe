@@ -19,7 +19,7 @@ Shared infrastructure used across features, middleware, and routes. Anything in 
   - `SERVER_SECRET` (default dev-only secret used to derive deterministic home-system seeds; production security validation requires 32+ characters and rejects placeholder text).
   - `SENTRY_DSN` (URL or empty, normalized to `undefined` when empty).
   - `RATE_LIMIT_WINDOW`, `RATE_LIMIT_GLOBAL_MAX`, `RATE_LIMIT_AUTH_MAX`, `RATE_LIMIT_MUTATION_MAX`, `RATE_LIMIT_WEBHOOK_MAX`, `RATE_LIMIT_STORE` — Fastify rate-limit settings used by `rate-limit.ts`; `RATE_LIMIT_STORE=memory` keeps ordinary HTTP traffic off Redis, while `redis` enables a shared limiter for multi-replica deployments.
-  - `DIAMOND_STARTING_GRANT` (integer ≥ 0, default `1000`) — diamonds granted when a new `users` row is created at first Telegram login.
+  - `DIAMOND_STARTING_GRANT` (integer ≥ 0, default `0`) — diamonds granted when a new `users` row is created at first Telegram login.
   - `DIAMOND_RUSH_PER_MINUTE` (integer ≥ 1, default `1`) — rush pricing curve multiplier: `round((ceil(remainingSeconds / 60)^0.85) × rate)`, optional max via `DIAMOND_RUSH_MAX_PER_ACTION`.
   - `DIAMOND_RUSH_MAX_PER_ACTION` (integer ≥ 0, default `0`) — per-rush cap; `0` means uncapped.
   - `ENABLE_BULLMQ` (boolean, default `true`) — toggles BullMQ delayed jobs/workers and legacy repeatable-job cleanup. Set to `false` for Postgres polling plus online-sync completion paths without BullMQ enqueue/worker Redis traffic.
