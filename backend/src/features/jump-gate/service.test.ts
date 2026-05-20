@@ -204,7 +204,45 @@ describe('getJumpGateState', () => {
       systemId: publicSystem.id,
       systemName: formatCommonSystemDisplayName('en', publicShortTag),
       shortTag: publicShortTag,
+      renameCount: 0,
       planetCount: 2,
+    });
+  });
+
+  it('returns a custom public-system name and rename counter after rename', async () => {
+    const { user, homeSystem } = await createUserWithHomeSystem('renamed_destination');
+
+    await db.insert(researchProgress).values({
+      userId: user.id,
+      branch: 'jump_drive',
+      level: 1,
+    });
+
+    const [publicSystem] = await db.insert(systems).values({
+      ownerId: null,
+      isHome: false,
+      sectorX: homeSystem.sectorX + 1,
+      sectorY: homeSystem.sectorY,
+      sectorZ: homeSystem.sectorZ,
+      x: '100.00',
+      y: '110.00',
+      z: '120.00',
+      name: 'Aurora Reach',
+      renameCount: 2,
+      seed: 200,
+    }).returning();
+
+    await db.insert(discoveredSystems).values({
+      userId: user.id,
+      systemId: publicSystem.id,
+    });
+
+    const state = await getJumpGateState(user.id);
+
+    expect(state.knownDestinations[0]).toMatchObject({
+      systemId: publicSystem.id,
+      systemName: 'Aurora Reach',
+      renameCount: 2,
     });
   });
 

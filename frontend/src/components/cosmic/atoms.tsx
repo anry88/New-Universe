@@ -190,8 +190,8 @@ export const PlanetPortrait: React.FC<PlanetPortraitProps> = ({
               padding: 0,
               cursor: 'pointer',
               color: 'inherit',
-              font: 'inherit',
-              textAlign: 'left',
+              display: 'block',
+              width: '100%',
             }}
           >
             {name}

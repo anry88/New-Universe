@@ -83,6 +83,7 @@ export function RenameEntityDialog({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['me'] });
+      queryClient.invalidateQueries({ queryKey: ['jump-gate-state'] });
       queryClient.invalidateQueries({ queryKey: ['sector-system-anchors'] });
       queryClient.invalidateQueries({ queryKey: ['sector-presence'] });
       onClose();
@@ -129,11 +130,13 @@ export function RenameEntityDialog({
         position: 'fixed',
         inset: 0,
         background: 'rgba(8, 12, 22, 0.75)',
-        zIndex: 60,
+        zIndex: 2000,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 16,
+        overflowY: 'auto',
+        overscrollBehavior: 'contain',
+        padding: '16px 16px max(16px, env(safe-area-inset-bottom))',
       }}
     >
       <form
@@ -149,6 +152,8 @@ export function RenameEntityDialog({
           display: 'flex',
           flexDirection: 'column',
           gap: 12,
+          maxHeight: 'calc(100dvh - 32px)',
+          overflowY: 'auto',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -174,6 +179,7 @@ export function RenameEntityDialog({
             ref={inputRef}
             type="text"
             value={draft}
+            maxLength={MAX_ENTITY_NAME_LENGTH}
             onChange={(e) => {
               setServerError(null);
               setDraft(e.target.value);
