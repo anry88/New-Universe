@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, isNotNull } from 'drizzle-orm';
 import { TelegramUser, sendTelegramMessage } from '../../lib/telegram.js';
 import { env } from '../../lib/env.js';
 import { logger } from '../../lib/logger.js';
@@ -175,7 +175,29 @@ async function findUserByTelegramActor(actor?: TelegramUser) {
   });
 }
 
-export async function handleStartCommand(chatId: number) {
+async function clearTelegramNotificationBlock(actor?: TelegramUser): Promise<void> {
+  if (actor?.id == null) return;
+
+  const updated = await db
+    .update(users)
+    .set({ telegramNotificationsBlockedAt: null })
+    .where(and(
+      eq(users.tgId, BigInt(actor.id)),
+      isNotNull(users.telegramNotificationsBlockedAt),
+    ))
+    .returning({ id: users.id });
+
+  if (updated.length > 0) {
+    logger.info(
+      { userId: updated[0].id, telegramUserId: String(actor.id) },
+      'Telegram notification block cleared by /start',
+    );
+  }
+}
+
+export async function handleStartCommand(chatId: number, actor?: TelegramUser) {
+  await clearTelegramNotificationBlock(actor);
+
   const appUrl = env.PUBLIC_FRONTEND_URL || 'https://new-universe.app';
   
   if (!env.PUBLIC_FRONTEND_URL) {

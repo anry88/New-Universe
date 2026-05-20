@@ -54,7 +54,7 @@ Telegram Bot logic and webhook handling.
 - **`README.md`** — [Detailed bot documentation](./bot/README.md).
 - **`service.ts`** — `BotService` singleton for processing Telegram updates.
 - **`webhook.ts`** — Dispatcher for incoming Telegram updates.
-- **`commands.ts`** — `handleStartCommand`, admin-only `/add_diamond`, and Telegram Stars support commands (`/paysupport`, `/answer`, `/refund`, `/reject`, `/ask`) with admin-chat authorization and localized player replies.
+- **`commands.ts`** — `handleStartCommand`, admin-only `/add_diamond`, and Telegram Stars support commands (`/paysupport`, `/answer`, `/refund`, `/reject`, `/ask`) with admin-chat authorization and localized player replies. `/start` also clears `users.telegram_notifications_blocked_at`, because an incoming command proves the bot is no longer blocked for that Telegram user.
 - **`push.ts`** — `sendPush(userId, type, payload)` service to queue push notifications in the database.
 
 ## `monetization/`
