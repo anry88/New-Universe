@@ -396,6 +396,7 @@ body {
   display: flex;
   align-items: stretch;
   gap: 8px;
+  min-width: 0;
 }
 .cosmic-card {
   border: 1px solid rgba(148, 163, 184, 0.22);
@@ -415,7 +416,6 @@ button.cosmic-card:disabled {
 .cosmic-topbar-inner--with-diamonds .cosmic-topbar-grid {
   flex: 1;
   min-width: 0;
-  grid-template-columns: repeat(4, 1fr);
 }
 .diamond-chip {
   flex-shrink: 0;
@@ -445,8 +445,24 @@ button.cosmic-card:disabled {
 }
 .cosmic-topbar-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(var(--cosmic-topbar-grid-count, 5), minmax(0, 1fr));
   gap: 6px;
+  min-width: 0;
+}
+.cosmic-topbar-grid--with-action .rchip {
+  padding-left: 5px;
+  padding-right: 5px;
+}
+.cosmic-topbar-grid--with-action .rchip-row {
+  gap: 3px;
+}
+.cosmic-topbar-grid--with-action .rchip-sym,
+.cosmic-topbar-grid--with-action .resource-icon {
+  width: 16px;
+  height: 16px;
+}
+.cosmic-topbar-grid--with-action .rchip-amt {
+  font-size: 11px;
 }
 /* Resource bar row: topbar + "All" inventory */
 .cosmic-resource-strip {
@@ -468,16 +484,20 @@ button.cosmic-card:disabled {
 }
 .cosmic-resource-strip .cosmic-topbar {
   flex: 1;
+  width: 100%;
   min-width: 0;
   border-bottom: none;
-  padding-left: 4px;
-  padding-right: 4px;
+  padding: 8px;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 .resource-bar-all-btn {
-  flex: 0 0 auto;
-  align-self: center;
-  margin: 8px 0;
-  padding: 0 10px;
+  align-self: stretch;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0 7px;
   min-height: 36px;
   border-radius: 8px;
   border: 1px solid var(--line);
@@ -487,6 +507,9 @@ button.cosmic-card:disabled {
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .resource-bar-all-btn:not(:disabled):hover {
   color: var(--accent);
@@ -495,6 +518,17 @@ button.cosmic-card:disabled {
 .resource-bar-all-btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+}
+@media (max-width: 430px) {
+  .cosmic-topbar-grid--with-action {
+    grid-template-columns: repeat(
+      var(--cosmic-topbar-compact-grid-count, var(--cosmic-topbar-grid-count, 5)),
+      minmax(0, 1fr)
+    );
+  }
+  .cosmic-topbar-grid--with-action .rchip[data-topbar-optional='true'] {
+    display: none;
+  }
 }
 
 /* Full resource inventory sheet */
@@ -679,10 +713,12 @@ button.cosmic-card:disabled {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
   padding: 6px 7px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: rgba(14, 20, 36, 0.6);
+  overflow: hidden;
 }
 .rchip-clickable {
   cursor: pointer;
@@ -732,6 +768,7 @@ button.cosmic-card:disabled {
   align-items: center;
   justify-content: space-between;
   gap: 4px;
+  min-width: 0;
 }
 .rchip-sym {
   display: inline-flex;
@@ -765,16 +802,22 @@ button.cosmic-card:disabled {
   font-weight: 600;
   color: var(--text);
   letter-spacing: -0.02em;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .rchip-meta {
   display: flex;
   align-items: center;
   gap: 5px;
+  min-width: 0;
 }
 .rchip-rate {
   font-family: var(--font-mono);
   font-size: 8.5px;
   letter-spacing: 0.04em;
+  flex: 0 0 auto;
 }
 .rchip-rate.pos {
   color: var(--pos);

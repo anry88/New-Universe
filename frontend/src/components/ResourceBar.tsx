@@ -23,8 +23,28 @@ interface ResourceWithAmount extends PlanetResource {
   targetAmount: number;
 }
 
+const TOP_BAR_RESOURCE_PRIORITY = ['iron', 'silicon', 'carbon'] as const;
+
+export function orderTopBarResources<T extends { resourceId: string }>(rows: T[]): T[] {
+  const priorityRank = new Map<string, number>(
+    TOP_BAR_RESOURCE_PRIORITY.map((resourceId, index) => [resourceId, index]),
+  );
+
+  return rows
+    .map((row, index) => ({ row, index }))
+    .sort((a, b) => {
+      const aRank = priorityRank.get(a.row.resourceId.toLowerCase());
+      const bRank = priorityRank.get(b.row.resourceId.toLowerCase());
+      if (aRank !== undefined || bRank !== undefined) {
+        return (aRank ?? Number.MAX_SAFE_INTEGER) - (bRank ?? Number.MAX_SAFE_INTEGER);
+      }
+      return a.index - b.index;
+    })
+    .map(({ row }) => row);
+}
+
 /**
- * Cosmic Atlas resource bar: top five resources plus an optional full inventory sheet.
+ * Cosmic Atlas resource bar: prioritized visible resources plus a full inventory sheet.
  *
  * With `planetId`, loads `planetInventoryApiPath(id)` so amounts match that planet.
  * Without `planetId`, falls back to the home planet snapshot from `/me`.
@@ -111,7 +131,9 @@ export function ResourceBar({ planetId, planetLabel }: ResourceBarProps) {
     };
   }, []);
 
-  const data: ResourceChipData[] = resources.slice(0, 5).map((r) => ({
+  const topBarResources = useMemo(() => orderTopBarResources(resources), [resources]);
+
+  const data: ResourceChipData[] = topBarResources.map((r) => ({
     resourceId: r.resourceId,
     amount: r.currentAmount,
     cap: parseFloat(String(r.storageCap)),
@@ -200,22 +222,24 @@ export function ResourceBar({ planetId, planetLabel }: ResourceBarProps) {
             diamonds={diamondBalance}
             onDiamondsClick={() => navigate('/shop')}
             onResourceClick={selectedPlanetId ? openPurchase : undefined}
+            trailingAction={
+              <button
+                type="button"
+                className="resource-bar-all-btn"
+                disabled
+                aria-disabled="true"
+              >
+                {t('common.all')}
+              </button>
+            }
             resources={[
-              { resourceId: 'water', amount: 0, cap: 1000, rate: 0 },
               { resourceId: 'iron', amount: 0, cap: 1000, rate: 0 },
               { resourceId: 'silicon', amount: 0, cap: 1000, rate: 0 },
+              { resourceId: 'carbon', amount: 0, cap: 1000, rate: 0 },
+              { resourceId: 'water', amount: 0, cap: 1000, rate: 0 },
               { resourceId: 'methane', amount: 0, cap: 1000, rate: 0 },
-              { resourceId: 'tritium', amount: 0, cap: 1000, rate: 0 },
             ]}
           />
-          <button
-            type="button"
-            className="resource-bar-all-btn"
-            disabled
-            aria-disabled="true"
-          >
-            {t('common.all')}
-          </button>
         </div>
       </>
     );
@@ -229,16 +253,18 @@ export function ResourceBar({ planetId, planetLabel }: ResourceBarProps) {
           diamonds={diamondBalance}
           onDiamondsClick={() => navigate('/shop')}
           onResourceClick={selectedPlanetId ? openPurchase : undefined}
+          trailingAction={
+            <button
+              type="button"
+              className="resource-bar-all-btn"
+              data-testid="resource-bar-all"
+              onClick={() => setInventoryOpen(true)}
+              aria-expanded={inventoryOpen}
+            >
+              {t('common.all')}
+            </button>
+          }
         />
-        <button
-          type="button"
-          className="resource-bar-all-btn"
-          data-testid="resource-bar-all"
-          onClick={() => setInventoryOpen(true)}
-          aria-expanded={inventoryOpen}
-        >
-          {t('common.all')}
-        </button>
       </div>
       <ResourceInventoryDrawer
         open={inventoryOpen}
