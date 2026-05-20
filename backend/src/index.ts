@@ -24,11 +24,17 @@ import { closeBuildingCompletionQueueProducer, warmBuildingCompletionQueueProduc
 import { closeShipCompletionQueueProducer, warmShipCompletionQueueProducer } from './features/ships/completion-queue.js';
 import { closeCargoRouteQueueProducer, warmCargoRouteQueueProducer } from './features/logistics/completion-queue.js';
 import { registerRateLimit } from './lib/rate-limit.js';
-import { recordHttpRequest } from './lib/metrics.js';
+import { recordHttpRequest, recordPlayerActivity } from './lib/metrics.js';
+import { readBearerToken, verifySessionToken } from './lib/security.js';
+import {
+  ONLINE_ACTIVITY_HEADER,
+  ONLINE_ACTIVITY_HEADER_VALUE,
+} from '@shared/types/activity.js';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 
 const requestStartTimes = new WeakMap<object, bigint>();
+const onlineActivityHeaderKey = ONLINE_ACTIVITY_HEADER.toLowerCase();
 
 const fastify = Fastify({
   loggerInstance: logger,
@@ -61,6 +67,23 @@ fastify.addHook('onResponse', async (request, reply) => {
     route,
     statusCode: reply.statusCode,
     durationSeconds,
+  });
+
+  const onlineActivityHeader = request.headers[onlineActivityHeaderKey];
+  const isOnlineActivity =
+    onlineActivityHeader === ONLINE_ACTIVITY_HEADER_VALUE ||
+    (Array.isArray(onlineActivityHeader) &&
+      onlineActivityHeader.includes(ONLINE_ACTIVITY_HEADER_VALUE));
+  if (!isOnlineActivity) return;
+
+  const token = readBearerToken(request);
+  if (!token) return;
+
+  const session = verifySessionToken(token, env.JWT_SECRET);
+  if (!session.ok) return;
+
+  void recordPlayerActivity(session.payload.userId).catch((err) => {
+    request.log.warn({ err }, 'Failed to record online player activity');
   });
 });
 

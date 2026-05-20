@@ -57,7 +57,7 @@ vmalert \
 
 Product analytics is aggregate-only and does not expose Telegram ids, usernames, names, raw requests, tokens, or per-user labels.
 
-Activity is recorded by the backend on successful `/auth/telegram` and authenticated `GET /me`; the frontend does not write metrics directly. The persisted rollup is `player_activity_daily`, keyed by internal `user_id` and UTC `activity_date`. Observed play time is accumulated from adjacent activity pings in the same UTC day, capped at 5 minutes per heartbeat and split into a new session after 30 minutes of inactivity.
+Activity is recorded by the backend from explicit frontend online-session signals. After Telegram login, the Mini App calls `POST /me/session/start` once for the new app opening; it also opens a fresh baseline when the document returns from hidden to visible. Subsequent authenticated requests from a visible tab carry `X-NU-Online-Activity: 1` and extend the current session from the previous online request. Hidden-tab/background refetches omit the header, and worker-driven completions such as construction or research do not write activity. The persisted rollup is `player_activity_daily`, keyed by internal `user_id` and UTC `activity_date`. Observed play time is accumulated from adjacent online requests in the same UTC day without a five-minute heartbeat cap and without splitting sessions after an inactivity gap; only another explicit session-start request increments the session count.
 
 | Metric | Labels | Meaning |
 | --- | --- | --- |

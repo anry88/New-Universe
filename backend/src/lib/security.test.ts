@@ -11,6 +11,7 @@ import { coloniesRoutes } from '../routes/colonies.js';
 import { cargoRoutes } from '../routes/cargo.js';
 import { botRoutes } from '../routes/bot.js';
 import { jumpGateRoutes } from '../features/jump-gate/routes.js';
+import { meRoutes } from '../features/me/routes.js';
 import {
   assertProductionSecurityConfig,
   constantTimeEqual,
@@ -46,6 +47,7 @@ async function captureApplicationRoutes(): Promise<CapturedRoute[]> {
 
   await app.register(botRoutes);
   await app.register(authRoutes, { prefix: '/auth' });
+  await app.register(meRoutes, { prefix: '/me' });
   await app.register(buildingsRoutes, { prefix: '/buildings' });
   await app.register(resourcesRoutes, { prefix: '/resources' });
   await app.register(shipsRoutes, { prefix: '/ships' });

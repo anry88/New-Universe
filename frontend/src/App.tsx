@@ -6,6 +6,10 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from
 import { I18nProvider, useI18n } from './lib/i18n';
 import { trackFrontendEvent } from './lib/analytics';
 import { hasTelegramAuthLaunchParams } from './lib/telegramRuntime';
+import {
+  openOnlineActivitySession,
+  setOnlineActivityTrackingEnabled,
+} from './lib/api';
 
 const queryClient = new QueryClient();
 
@@ -52,6 +56,7 @@ function readTutorialOverlayDismissed(): boolean {
 function AppContent() {
   const { login, isLoading: isAuthLoading, error: authError } = useAuth();
   const authUser = useAuthStore((state) => state.user);
+  const authToken = useAuthStore((state) => state.token);
   const { data: meData, isLoading: isMeLoading, error: meError } = useMe();
   const { setLocale, t } = useI18n();
   const [telegramRuntimeAvailable] = useState(hasTelegramAuthLaunchParams);
@@ -78,6 +83,22 @@ function AppContent() {
       isTelegramEnvironment: telegramRuntimeAvailable,
     });
   }, [location.pathname, telegramRuntimeAvailable]);
+
+  useEffect(() => {
+    if (!authToken || typeof document === 'undefined') return;
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        setOnlineActivityTrackingEnabled(false);
+        return;
+      }
+
+      openOnlineActivitySession().catch(console.error);
+    };
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, [authToken]);
 
   useEffect(() => {
     const preferredLocale = meData?.preferredLocale ?? authUser?.preferredLocale;

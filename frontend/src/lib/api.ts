@@ -1,4 +1,9 @@
 import { retrieveLaunchParams } from '@telegram-apps/sdk-react';
+import {
+  ONLINE_ACTIVITY_HEADER,
+  ONLINE_ACTIVITY_HEADER_VALUE,
+  type StartOnlineSessionResponse,
+} from '@shared/types/activity';
 import { getUiLocale } from './locale';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -12,10 +17,21 @@ function readApiErrorString(body: unknown, key: 'message' | 'error'): string | n
 }
 
 let sessionToken: string | null = null;
+let onlineActivityTrackingEnabled = false;
 
 export const setSessionToken = (token: string | null) => {
   sessionToken = token;
 };
+
+export const setOnlineActivityTrackingEnabled = (enabled: boolean) => {
+  onlineActivityTrackingEnabled = enabled;
+};
+
+function shouldSendOnlineActivityHeader(): boolean {
+  if (!onlineActivityTrackingEnabled) return false;
+  if (typeof document === 'undefined') return true;
+  return document.visibilityState === 'visible';
+}
 
 export async function apiFetch<T>(
   path: string,
@@ -28,6 +44,10 @@ export async function apiFetch<T>(
 
   if (sessionToken) {
     headers.set('Authorization', `Bearer ${sessionToken}`);
+  }
+
+  if (sessionToken && shouldSendOnlineActivityHeader()) {
+    headers.set(ONLINE_ACTIVITY_HEADER, ONLINE_ACTIVITY_HEADER_VALUE);
   }
   
   try {
@@ -65,4 +85,20 @@ export async function apiFetch<T>(
   }
 
   return response.json();
+}
+
+export async function openOnlineActivitySession(): Promise<StartOnlineSessionResponse> {
+  const previousTrackingState = onlineActivityTrackingEnabled;
+  onlineActivityTrackingEnabled = false;
+
+  try {
+    const response = await apiFetch<StartOnlineSessionResponse>('/me/session/start', {
+      method: 'POST',
+    });
+    onlineActivityTrackingEnabled = true;
+    return response;
+  } catch (err) {
+    onlineActivityTrackingEnabled = previousTrackingState;
+    throw err;
+  }
 }
