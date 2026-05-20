@@ -50,6 +50,40 @@ describe('Bot Feature', () => {
     expect(body.reply_markup.inline_keyboard[0][0].web_app.url).toBeDefined();
   });
 
+  it('clears blocked Telegram notification state on /start', async () => {
+    const now = Date.now();
+    const tgId = 730000 + now;
+    const [user] = await db
+      .insert(users)
+      .values({
+        tgId: BigInt(tgId),
+        tgUsername: `start_reset_${now}`,
+        tgFirstName: 'StartReset',
+        telegramNotificationsBlockedAt: new Date(),
+      })
+      .returning({ id: users.id });
+
+    const update: TelegramUpdate = {
+      update_id: 9,
+      message: {
+        message_id: 109,
+        chat: { id: tgId, type: 'private' },
+        text: '/start',
+        from: { id: tgId, first_name: 'Start Reset' },
+      },
+    };
+
+    await handleTelegramUpdate(update);
+
+    const fetched = await db.query.users.findFirst({
+      where: eq(users.id, user.id),
+      columns: { telegramNotificationsBlockedAt: true },
+    });
+    expect(fetched?.telegramNotificationsBlockedAt).toBeNull();
+
+    await db.delete(users).where(eq(users.id, user.id));
+  });
+
   it('should ignore other messages', async () => {
     const update: TelegramUpdate = {
       update_id: 2,

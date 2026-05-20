@@ -23,6 +23,7 @@ export interface User {
   tgFirstName: string | null;
   preferredLocale: Locale;
   notificationPreferences: NotificationPreferences;
+  telegramNotificationsBlockedAt: string | null;
   createdAt: string;
   premiumUntil: string | null;
   powerScore: number;

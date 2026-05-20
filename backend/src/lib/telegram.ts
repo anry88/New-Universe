@@ -198,10 +198,31 @@ interface TelegramBotApiResponse<T> {
   description?: string;
 }
 
-export async function callTelegramBotApi<T>(
+export interface TelegramBotApiSuccess<T> {
+  ok: true;
+  result: T | null;
+}
+
+export interface TelegramBotApiFailure {
+  ok: false;
+  status: number;
+  errorCode?: number;
+  description?: string;
+}
+
+export type TelegramBotApiResult<T> = TelegramBotApiSuccess<T> | TelegramBotApiFailure;
+
+export function isTelegramBotBlockedByUser(result: TelegramBotApiResult<unknown>): boolean {
+  return !result.ok &&
+    result.status === 403 &&
+    result.errorCode === 403 &&
+    /bot was blocked by the user/i.test(result.description ?? '');
+}
+
+export async function callTelegramBotApiDetailed<T>(
   method: string,
   body: Record<string, unknown>,
-): Promise<T | null> {
+): Promise<TelegramBotApiResult<T>> {
   const url = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`;
 
   try {
@@ -225,14 +246,34 @@ export async function callTelegramBotApi<T>(
         },
         'Telegram Bot API call failed',
       );
-      return null;
+      return {
+        ok: false,
+        status: response.status,
+        errorCode: data?.error_code,
+        description: data?.description,
+      };
     }
 
-    return data?.result ?? null;
+    return { ok: true, result: data?.result ?? null };
   } catch (error) {
     logger.error({ error, method }, 'Error calling Telegram Bot API');
+    return {
+      ok: false,
+      status: 0,
+      description: error instanceof Error ? error.message : 'network_error',
+    };
+  }
+}
+
+export async function callTelegramBotApi<T>(
+  method: string,
+  body: Record<string, unknown>,
+): Promise<T | null> {
+  const result = await callTelegramBotApiDetailed<T>(method, body);
+  if (!result.ok) {
     return null;
   }
+  return result.result;
 }
 
 export async function sendTelegramMessage(chatId: number, text: string, options?: {
@@ -241,6 +282,19 @@ export async function sendTelegramMessage(chatId: number, text: string, options?
   };
 }) {
   return callTelegramBotApi('sendMessage', {
+    chat_id: chatId,
+    text,
+    reply_markup: options?.reply_markup,
+    parse_mode: 'HTML',
+  });
+}
+
+export async function sendTelegramMessageDetailed(chatId: number, text: string, options?: {
+  reply_markup?: {
+    inline_keyboard: InlineKeyboardButton[][];
+  };
+}) {
+  return callTelegramBotApiDetailed('sendMessage', {
     chat_id: chatId,
     text,
     reply_markup: options?.reply_markup,

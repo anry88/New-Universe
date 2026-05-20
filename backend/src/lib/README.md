@@ -63,7 +63,7 @@ Shared infrastructure used across features, middleware, and routes. Anything in 
     - Rejects missing, malformed, zero, or unsafe `auth_date` values.
     - Returns `null` on any mismatch or missing hash; otherwise returns the parsed `TelegramInitData` (with `user` JSON-decoded and parse errors swallowed).
   - `isInitDataExpired(authDate, maxAgeInSeconds = 3600, maxFutureSkewInSeconds = 60)` — boolean check that the auth timestamp stays inside the accepted replay window. Used by `middleware/telegram-auth.ts` to reject stale or future-dated replays.
-  - `callTelegramBotApi`, `sendTelegramMessage`, `answerPreCheckoutQuery`, `createTelegramInvoiceLink`, `getStarTransactions`, and `refundStarPayment` wrap Bot API calls used by notifications, `/start`, Telegram Stars invoices, Stars pre-checkout, missed-payment reconciliation, and refund support.
+  - `callTelegramBotApi`, `callTelegramBotApiDetailed`, `sendTelegramMessage`, `sendTelegramMessageDetailed`, `isTelegramBotBlockedByUser`, `answerPreCheckoutQuery`, `createTelegramInvoiceLink`, `getStarTransactions`, and `refundStarPayment` wrap Bot API calls used by notifications, `/start`, Telegram Stars invoices, Stars pre-checkout, missed-payment reconciliation, and refund support. The detailed variants preserve status/error metadata so the notification worker can treat blocked-bot responses as terminal delivery failures.
 
 ## Conventions
 

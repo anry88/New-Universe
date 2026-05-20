@@ -1,9 +1,13 @@
 import { db } from '../db/index.js';
 import { notifications, users } from '../db/schema.js';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 import { logger } from '../lib/logger.js';
-import { sendTelegramMessage } from '../lib/telegram.js';
+import {
+  isTelegramBotBlockedByUser,
+  sendTelegramMessageDetailed,
+  type TelegramBotApiResult,
+} from '../lib/telegram.js';
 import { createIntervalWorker, removeLegacyRepeatableJobs, type WorkerHandle } from './scheduler.js';
 import {
   buildingLabel,
@@ -18,6 +22,73 @@ import {
 } from '@shared/types/notifications.js';
 
 const POLL_INTERVAL_MS = 60000; // 1 minute as per task
+const TELEGRAM_BLOCKED_FAILURE_CODE = 'telegram_bot_blocked';
+
+function telegramFailureCode(result: TelegramBotApiResult<unknown>): string {
+  if (result.ok) return 'none';
+  if (isTelegramBotBlockedByUser(result)) return TELEGRAM_BLOCKED_FAILURE_CODE;
+  if (result.errorCode) return `telegram_${result.errorCode}`;
+  return result.status === 0 ? 'telegram_network_error' : `telegram_http_${result.status}`;
+}
+
+function telegramFailureReason(result: TelegramBotApiResult<unknown>): string | null {
+  if (result.ok) return null;
+  return result.description ?? null;
+}
+
+async function markNotificationSkipped(
+  notificationId: string,
+  failureCode: string,
+  failureReason: string,
+): Promise<void> {
+  await db
+    .update(notifications)
+    .set({
+      pending: false,
+      read: true,
+      deliveryStatus: 'skipped',
+      failureCode,
+      failureReason,
+    })
+    .where(eq(notifications.id, notificationId));
+}
+
+async function markNotificationSent(notificationId: string, sentAt = new Date()): Promise<void> {
+  await db
+    .update(notifications)
+    .set({
+      pending: false,
+      deliveryStatus: 'sent',
+      sentAt,
+      failedAt: null,
+      failureCode: null,
+      failureReason: null,
+      lastAttemptAt: sentAt,
+      attemptCount: sql`${notifications.attemptCount} + 1`,
+    })
+    .where(eq(notifications.id, notificationId));
+}
+
+async function markNotificationFailed(
+  notificationId: string,
+  result: TelegramBotApiResult<unknown>,
+  attemptedAt = new Date(),
+): Promise<void> {
+  const terminalBlocked = isTelegramBotBlockedByUser(result);
+  await db
+    .update(notifications)
+    .set({
+      pending: terminalBlocked ? false : true,
+      read: terminalBlocked ? true : false,
+      deliveryStatus: terminalBlocked ? 'failed' : 'pending',
+      failedAt: terminalBlocked ? attemptedAt : null,
+      failureCode: telegramFailureCode(result),
+      failureReason: telegramFailureReason(result),
+      lastAttemptAt: attemptedAt,
+      attemptCount: sql`${notifications.attemptCount} + 1`,
+    })
+    .where(eq(notifications.id, notificationId));
+}
 
 function escapeHtml(value: unknown): string {
   return String(value ?? '')
@@ -188,16 +259,27 @@ export async function processNotifications(): Promise<void> {
       const { notification, user } = item;
       const preferences = normalizeNotificationPreferences(user.notificationPreferences);
       if (!notificationEnabledForType(preferences, notification.type)) {
-        await db
-          .update(notifications)
-          .set({
-            pending: false,
-            read: true,
-          })
-          .where(eq(notifications.id, notification.id));
+        await markNotificationSkipped(
+          notification.id,
+          'user_preference_disabled',
+          `Notification type ${notification.type} is disabled by user preference`,
+        );
         logger.info(
           { notificationId: notification.id, userId, type: notification.type },
           'Push notification skipped by user preference',
+        );
+        continue;
+      }
+
+      if (user.telegramNotificationsBlockedAt) {
+        await markNotificationSkipped(
+          notification.id,
+          TELEGRAM_BLOCKED_FAILURE_CODE,
+          'Telegram bot is blocked by the user',
+        );
+        logger.info(
+          { notificationId: notification.id, userId, type: notification.type },
+          'Push notification skipped because Telegram bot is blocked by user',
         );
         continue;
       }
@@ -209,19 +291,30 @@ export async function processNotifications(): Promise<void> {
       );
       
       if (message) {
-        const result = await sendTelegramMessage(Number(user.tgId), message);
-        if (result) {
-          await db
-            .update(notifications)
-            .set({
-              pending: false,
-              sentAt: new Date(),
-            })
-            .where(eq(notifications.id, notification.id));
-          
+        const result = await sendTelegramMessageDetailed(Number(user.tgId), message);
+        if (result.ok) {
+          await markNotificationSent(notification.id);
           logger.info({ notificationId: notification.id, userId, type: notification.type }, 'Push notification sent');
         } else {
-          logger.warn({ notificationId: notification.id, userId }, 'Failed to send push notification');
+          const attemptedAt = new Date();
+          await markNotificationFailed(notification.id, result, attemptedAt);
+
+          if (isTelegramBotBlockedByUser(result)) {
+            await db
+              .update(users)
+              .set({ telegramNotificationsBlockedAt: attemptedAt })
+              .where(eq(users.id, userId));
+          }
+
+          logger.warn(
+            {
+              notificationId: notification.id,
+              userId,
+              failureCode: telegramFailureCode(result),
+              terminal: isTelegramBotBlockedByUser(result),
+            },
+            'Failed to send push notification',
+          );
         }
       } else {
         // Unknown notification type or formatting failed, mark as not pending anyway
@@ -229,6 +322,9 @@ export async function processNotifications(): Promise<void> {
           .update(notifications)
           .set({
             pending: false,
+            deliveryStatus: 'skipped',
+            failureCode: 'unknown_notification_type',
+            failureReason: `Unknown notification type ${notification.type}`,
           })
           .where(eq(notifications.id, notification.id));
         

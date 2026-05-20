@@ -8,6 +8,12 @@ import { DEFAULT_NOTIFICATION_PREFERENCES } from '@shared/types/notifications.js
 
 vi.mock('../lib/telegram.js', () => ({
   sendTelegramMessage: vi.fn().mockResolvedValue({ message_id: 123 }),
+  sendTelegramMessageDetailed: vi.fn().mockResolvedValue({ ok: true, result: { message_id: 123 } }),
+  isTelegramBotBlockedByUser: (result: { ok: boolean; status?: number; errorCode?: number; description?: string }) =>
+    !result.ok &&
+    result.status === 403 &&
+    result.errorCode === 403 &&
+    /bot was blocked by the user/i.test(result.description ?? ''),
 }));
 
 describe('Notifications Worker', () => {
@@ -41,8 +47,8 @@ describe('Notifications Worker', () => {
 
     await processNotifications();
 
-    expect(telegram.sendTelegramMessage).toHaveBeenCalled();
-    expect(telegram.sendTelegramMessage).toHaveBeenCalledWith(
+    expect(telegram.sendTelegramMessageDetailed).toHaveBeenCalled();
+    expect(telegram.sendTelegramMessageDetailed).toHaveBeenCalledWith(
       expect.any(Number),
       expect.stringContaining('Mine'),
     );
@@ -51,6 +57,7 @@ describe('Notifications Worker', () => {
       where: eq(notifications.userId, user.id),
     });
     expect(updated!.pending).toBe(false);
+    expect(updated!.deliveryStatus).toBe('sent');
     expect(updated!.sentAt).toBeDefined();
   });
 
@@ -68,13 +75,13 @@ describe('Notifications Worker', () => {
     }
 
     // @ts-expect-error: vi.mock'ed function has mock methods
-    telegram.sendTelegramMessage.mockClear();
+    telegram.sendTelegramMessageDetailed.mockClear();
 
 
     
     await processNotifications();
 
-    expect(telegram.sendTelegramMessage).toHaveBeenCalledTimes(20);
+    expect(telegram.sendTelegramMessageDetailed).toHaveBeenCalledTimes(20);
     
     const pendingItems = await db
       .select()
@@ -103,13 +110,13 @@ describe('Notifications Worker', () => {
     });
 
     // @ts-expect-error: vi.mock'ed function has mock methods
-    telegram.sendTelegramMessage.mockClear();
+    telegram.sendTelegramMessageDetailed.mockClear();
 
 
 
     await processNotifications();
 
-    expect(telegram.sendTelegramMessage).toHaveBeenCalledTimes(2);
+    expect(telegram.sendTelegramMessageDetailed).toHaveBeenCalledTimes(2);
     
     const pendingCount = await db
       .select()
@@ -130,15 +137,15 @@ describe('Notifications Worker', () => {
     });
 
     // @ts-expect-error: vi.mock'ed function has mock methods
-    telegram.sendTelegramMessage.mockClear();
+    telegram.sendTelegramMessageDetailed.mockClear();
 
     await processNotifications();
 
-    expect(telegram.sendTelegramMessage).toHaveBeenCalledWith(
+    expect(telegram.sendTelegramMessageDetailed).toHaveBeenCalledWith(
       expect.any(Number),
       expect.stringContaining('Строительство корабля завершено'),
     );
-    expect(telegram.sendTelegramMessage).toHaveBeenCalledWith(
+    expect(telegram.sendTelegramMessageDetailed).toHaveBeenCalledWith(
       expect.any(Number),
       expect.stringContaining('Колонизатор'),
     );
@@ -163,16 +170,82 @@ describe('Notifications Worker', () => {
     });
 
     // @ts-expect-error: vi.mock'ed function has mock methods
-    telegram.sendTelegramMessage.mockClear();
+    telegram.sendTelegramMessageDetailed.mockClear();
 
     await processNotifications();
 
-    expect(telegram.sendTelegramMessage).not.toHaveBeenCalled();
+    expect(telegram.sendTelegramMessageDetailed).not.toHaveBeenCalled();
     const updated = await db.query.notifications.findFirst({
       where: eq(notifications.userId, user.id),
     });
     expect(updated!.pending).toBe(false);
     expect(updated!.read).toBe(true);
+    expect(updated!.deliveryStatus).toBe('skipped');
+    expect(updated!.failureCode).toBe('user_preference_disabled');
+  });
+
+  it('marks blocked-bot failures as terminal and flags the user', async () => {
+    const user = await createTestUser();
+
+    await db.insert(notifications).values({
+      userId: user.id,
+      type: 'building_done',
+      payload: { typeId: 'mine', planetId: 'p1' },
+      pending: true,
+    });
+
+    // @ts-expect-error: vi.mock'ed function has mock methods
+    telegram.sendTelegramMessageDetailed.mockResolvedValueOnce({
+      ok: false,
+      status: 403,
+      errorCode: 403,
+      description: 'Forbidden: bot was blocked by the user',
+    });
+
+    await processNotifications();
+
+    const updated = await db.query.notifications.findFirst({
+      where: eq(notifications.userId, user.id),
+    });
+    expect(updated!.pending).toBe(false);
+    expect(updated!.read).toBe(true);
+    expect(updated!.deliveryStatus).toBe('failed');
+    expect(updated!.failureCode).toBe('telegram_bot_blocked');
+    expect(updated!.failedAt).toBeDefined();
+    expect(updated!.attemptCount).toBe(1);
+
+    const blockedUser = await db.query.users.findFirst({
+      where: eq(users.id, user.id),
+      columns: { telegramNotificationsBlockedAt: true },
+    });
+    expect(blockedUser!.telegramNotificationsBlockedAt).toBeDefined();
+  });
+
+  it('skips pending push notifications for users already marked as blocked', async () => {
+    const user = await createTestUser({
+      telegramNotificationsBlockedAt: new Date(),
+    });
+
+    await db.insert(notifications).values({
+      userId: user.id,
+      type: 'ship_done',
+      payload: { typeId: 'scout' },
+      pending: true,
+    });
+
+    // @ts-expect-error: vi.mock'ed function has mock methods
+    telegram.sendTelegramMessageDetailed.mockClear();
+
+    await processNotifications();
+
+    expect(telegram.sendTelegramMessageDetailed).not.toHaveBeenCalled();
+    const updated = await db.query.notifications.findFirst({
+      where: eq(notifications.userId, user.id),
+    });
+    expect(updated!.pending).toBe(false);
+    expect(updated!.read).toBe(true);
+    expect(updated!.deliveryStatus).toBe('skipped');
+    expect(updated!.failureCode).toBe('telegram_bot_blocked');
   });
 
   it('formats new gameplay notification types', () => {

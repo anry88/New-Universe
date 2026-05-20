@@ -12,6 +12,7 @@ export const users = pgTable('users', {
     .notNull()
     .default({}),
   createdAt: timestamp('created_at').defaultNow().notNull(),
+  telegramNotificationsBlockedAt: timestamp('telegram_notifications_blocked_at'),
   premiumUntil: timestamp('premium_until'),
   powerScore: integer('power_score').default(0).notNull(),
   tutorialStepCompleted: integer('tutorial_step').default(0).notNull(),
