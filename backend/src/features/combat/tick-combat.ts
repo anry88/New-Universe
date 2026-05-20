@@ -55,6 +55,7 @@ import {
   resolveAttackerHits,
   resolveBomberHits,
   SHIP_COMBAT_DAMAGE_TIME_SCALE,
+  SURFACE_BOMBARDMENT_DAMAGE_TIME_SCALE,
   sumDpsPerBuilding,
 } from "./engine.js";
 import { resolveShieldedDamage } from "./shields.js";
@@ -1029,6 +1030,7 @@ async function runBombingPass(
       { lastCombatTickAtMs: lastMs },
       totalDps,
       now.getTime(),
+      { timeScale: SURFACE_BOMBARDMENT_DAMAGE_TIME_SCALE },
     );
     const damageApplied = Math.max(0, Math.round(damage));
     const newHp = Math.max(0, b.hp - damageApplied);

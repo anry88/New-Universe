@@ -62,6 +62,10 @@ export interface Planet {
   isColonized?: boolean;
   /** True when the active colony belongs to the current viewer. */
   isOwnedColony?: boolean;
+  /** Current count of standing buildings when a summary endpoint does not expose full building rows. */
+  buildingCount?: number;
+  /** Recent surface-combat timestamp for map polling/visual state. */
+  lastCombatTickAt?: string | null;
   energy?: PlanetEnergyStatus;
   resources?: PlanetResource[];
   buildings?: Building[];
