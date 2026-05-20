@@ -22,7 +22,11 @@ export interface ResourceChipData {
   rate: number;
 }
 
-export const ResourceChip: React.FC<{ data: ResourceChipData; onClick?: (resourceId: string) => void }> = ({ data, onClick }) => {
+export const ResourceChip: React.FC<{
+  data: ResourceChipData;
+  onClick?: (resourceId: string) => void;
+  optional?: boolean;
+}> = ({ data, onClick, optional = false }) => {
   const { t } = useI18n();
   const pct = data.cap > 0 ? Math.min(100, Math.round((data.amount / data.cap) * 100)) : 0;
   const near = pct > 85;
@@ -34,6 +38,8 @@ export const ResourceChip: React.FC<{ data: ResourceChipData; onClick?: (resourc
       onClick={() => onClick?.(data.resourceId)}
       disabled={!clickable}
       title={clickable ? t('resources.buyWithDiamonds') : undefined}
+      data-testid={`resource-chip-${data.resourceId}`}
+      data-topbar-optional={optional ? 'true' : undefined}
     >
       <div className="rchip-row">
         <span className="rchip-sym">
@@ -63,41 +69,64 @@ export const CosmicTopBar: React.FC<{
   diamonds?: number;
   onResourceClick?: (resourceId: string) => void;
   onDiamondsClick?: () => void;
+  trailingAction?: React.ReactNode;
 }> = ({
   resources,
   diamonds,
   onResourceClick,
   onDiamondsClick,
+  trailingAction,
 }) => {
   const { t } = useI18n();
+  const hasTrailingAction = trailingAction !== undefined && trailingAction !== null;
+  const wideResourceLimit = diamonds !== undefined ? 4 : 5;
+  const compactResourceLimit = hasTrailingAction ? wideResourceLimit - 1 : wideResourceLimit;
+  const visibleResources = resources.slice(0, wideResourceLimit);
+  const gridColumnCount = visibleResources.length + (hasTrailingAction ? 1 : 0);
+  const compactGridColumnCount =
+    Math.min(visibleResources.length, compactResourceLimit) + (hasTrailingAction ? 1 : 0);
+  const gridStyle = {
+    '--cosmic-topbar-grid-count': String(Math.max(1, gridColumnCount)),
+    '--cosmic-topbar-compact-grid-count': String(Math.max(1, compactGridColumnCount)),
+  } as React.CSSProperties;
+
   return (
     <div className="cosmic-topbar" data-testid="cosmic-topbar">
-    <div
-      className={
-        'cosmic-topbar-inner' + (diamonds !== undefined ? ' cosmic-topbar-inner--with-diamonds' : '')
-      }
-    >
-      {diamonds !== undefined && (
-        <button
-          type="button"
-          className="diamond-chip"
-          data-testid="diamond-balance"
-          title={t('shop.open')}
-          onClick={onDiamondsClick}
+      <div
+        className={
+          'cosmic-topbar-inner' + (diamonds !== undefined ? ' cosmic-topbar-inner--with-diamonds' : '')
+        }
+      >
+        {diamonds !== undefined && (
+          <button
+            type="button"
+            className="diamond-chip"
+            data-testid="diamond-balance"
+            title={t('shop.open')}
+            onClick={onDiamondsClick}
+          >
+            <span className="diamond-chip-sym" aria-hidden>
+              ◆
+            </span>
+            <span className="diamond-chip-amt">{diamonds.toLocaleString()}</span>
+          </button>
+        )}
+        <div
+          className={'cosmic-topbar-grid' + (hasTrailingAction ? ' cosmic-topbar-grid--with-action' : '')}
+          style={gridStyle}
         >
-          <span className="diamond-chip-sym" aria-hidden>
-            ◆
-          </span>
-          <span className="diamond-chip-amt">{diamonds.toLocaleString()}</span>
-        </button>
-      )}
-      <div className="cosmic-topbar-grid">
-        {resources.slice(0, diamonds !== undefined ? 4 : 5).map((r) => (
-          <ResourceChip key={r.resourceId} data={r} onClick={onResourceClick} />
-        ))}
+          {visibleResources.map((r, index) => (
+            <ResourceChip
+              key={r.resourceId}
+              data={r}
+              onClick={onResourceClick}
+              optional={hasTrailingAction && index >= compactResourceLimit}
+            />
+          ))}
+          {trailingAction}
+        </div>
       </div>
     </div>
-  </div>
   );
 };
 
