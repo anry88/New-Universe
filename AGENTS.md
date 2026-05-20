@@ -189,6 +189,7 @@ PR body:
 - If the PR is partial, exploratory, or blocked, use `Refs #<issue_number>` instead of `Closes`.
 - Include a short verification section with the commands that passed or the blocker that prevented verification.
 - Include the task acceptance checklist or a concise mapping from acceptance criteria to implementation.
+- Keep PR bodies, PR/issue comments, Project comments, and commit messages free of environment-specific connection details: do not paste local/private URLs, hostnames, ports, database DSNs, usernames, passwords, tokens, secrets, API keys, or raw `.env` values. For verification that used local services, describe them generically (for example, "isolated temporary Postgres test database") instead of publishing the literal command or value. Public repository/PR/issue links are fine when needed for traceability.
 
 Closing policy:
 
@@ -370,6 +371,7 @@ Do not treat generated planning PDFs or CSV files as implementation code.
 - Если для сущности, которой в UI нужен визуальный ассет (здания, исследования, корабли, ресурсы и т.д.), отсутствует финальное изображение, нужно сгенерировать/добавить его в стиле Cosmic Atlas из дизайна проекта и подключить в работу, а не использовать заглушки.
 - Каждый новый gameplay-ресурс должен получить RU/EN entity-label, seed/catalog row, production/баланс ссылки при необходимости и отдельную запись в `frontend/src/components/cosmic/resources.ts` с Cosmic Atlas иконкой; нельзя закрывать задачу, если ресурс в UI отображается химической аббревиатурой, raw slug/id или fallback-знаком вместо иконки.
 - Do not commit secrets. `.env` stays local and must not be committed.
+- Do not publish secrets or local/private environment details in Git history or GitHub text. This includes commit messages, PR/issue bodies, PR/issue comments, Project status comments, changelog entries, and task metadata; redact or summarize local URLs, ports, passwords, DSNs, tokens, and raw environment variables before posting.
 - When running `scripts/deploy-local.sh` from a workstation, assume the current shell may contain local Docker/build variables. Do not `source` deployment env files into the shared shell. Run the script from a clean environment with explicit allowlisted process variables, for example `env -i HOME="$HOME" PATH="$PATH" TMPDIR="${TMPDIR:-/tmp}" scripts/deploy-local.sh --env-file scripts/deploy-local.staging.env --full`, so local `DATABASE_URL`, `REDIS_URL`, `VITE_API_URL`, `PUBLIC_FRONTEND_URL`, or similar values cannot leak into staging/production deploys.
 - Update the matching `README.md` files (see "Documentation Update Rules" below) in the same change as the code, so the documentation tree never drifts out of sync with the source tree.
 
