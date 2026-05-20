@@ -4,7 +4,7 @@ import { resourcesRoutes } from './routes.js';
 import { authRoutes } from '../auth/routes.js';
 import { meRoutes } from '../me/routes.js';
 import { db } from '../../db/index.js';
-import { planets, systems, buildings, planetResources } from '../../db/schema.js';
+import { planets, systems, buildings, planetResources, users } from '../../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import crypto from 'crypto';
 import { env } from '../../lib/env.js';
@@ -294,6 +294,7 @@ describe('Resource Conversion - POST /resources/convert', () => {
     const { app, token, userId } = await createTestUser();
     const planetId = await getHomePlanet(userId);
     const ironBefore = await getResourceAmount(planetId, 'iron');
+    await db.update(users).set({ diamonds: 10 }).where(eq(users.id, userId));
 
     const response = await app.inject({
       method: 'POST',

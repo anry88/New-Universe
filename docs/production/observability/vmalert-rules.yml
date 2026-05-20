@@ -1,0 +1,105 @@
+groups:
+  - name: new-universe-critical
+    interval: 30s
+    rules:
+      - alert: NewUniverseApiDown
+        expr: up{job="new-universe-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: api
+        annotations:
+          summary: New Universe API is not being scraped
+          description: VictoriaMetrics has not scraped the API target for 2 minutes.
+          runbook_url: https://github.com/anry88/New-Universe/blob/main/docs/production/observability.md#api-down
+
+      - alert: NewUniverseDatabaseUnavailable
+        expr: nu_db_available == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: postgres
+        annotations:
+          summary: New Universe Postgres is unavailable
+          description: The API metrics collector cannot ping Postgres.
+          runbook_url: https://github.com/anry88/New-Universe/blob/main/docs/production/observability.md#db-unavailable
+
+      - alert: NewUniverseWorkerStuck
+        expr: max(nu_game_queue_oldest_due_seconds{queue=~"buildings|ships|research|expeditions|production_orders"}) > 300
+        for: 5m
+        labels:
+          severity: critical
+          service: worker
+        annotations:
+          summary: New Universe worker appears stuck
+          description: At least one core worker queue has due work older than 5 minutes.
+          runbook_url: https://github.com/anry88/New-Universe/blob/main/docs/production/observability.md#worker-stuck
+
+      - alert: NewUniverseQueueBacklog
+        expr: sum(nu_game_queue_items{state="due"}) > 50
+        for: 10m
+        labels:
+          severity: critical
+          service: worker
+        annotations:
+          summary: New Universe due queue backlog is high
+          description: More than 50 due source-of-truth work rows have been pending for 10 minutes.
+          runbook_url: https://github.com/anry88/New-Universe/blob/main/docs/production/observability.md#queue-backlog
+
+      - alert: NewUniverseHighErrorRate
+        expr: (sum(rate(nu_http_requests_total{status_code=~"5.."}[5m])) / clamp_min(sum(rate(nu_http_requests_total[5m])), 0.001)) > 0.05
+        for: 10m
+        labels:
+          severity: critical
+          service: api
+        annotations:
+          summary: New Universe API 5xx rate is high
+          description: More than 5% of API requests have returned 5xx for 10 minutes.
+          runbook_url: https://github.com/anry88/New-Universe/blob/main/docs/production/observability.md#high-error-rate
+
+      - alert: NewUniverseTelegramWebhookErrors
+        expr: sum(rate(nu_http_requests_total{route="/webhook/telegram",status_code=~"5.."}[5m])) > 0
+        for: 5m
+        labels:
+          severity: critical
+          service: telegram-bot
+        annotations:
+          summary: New Universe Telegram webhook is returning 5xx
+          description: Telegram webhook requests have returned server errors for 5 minutes.
+          runbook_url: https://github.com/anry88/New-Universe/blob/main/docs/production/observability.md#telegram-bot
+
+  - name: new-universe-warning
+    interval: 1m
+    rules:
+      - alert: NewUniverseRedisUnavailable
+        expr: nu_redis_available == 0
+        for: 5m
+        labels:
+          severity: warning
+          service: redis
+        annotations:
+          summary: New Universe Redis is unavailable
+          description: The API metrics collector cannot ping Redis.
+          runbook_url: https://github.com/anry88/New-Universe/blob/main/docs/production/observability.md#redis-unavailable
+
+      - alert: NewUniverseDailyActivePlayersDrop
+        expr: nu_product_players_active{window="day"} >= 10 and nu_product_players_active_change_ratio{window="day"} < -0.5
+        for: 30m
+        labels:
+          severity: warning
+          service: product-analytics
+        annotations:
+          summary: New Universe daily active players dropped sharply
+          description: DAU is down by more than 50% versus the previous UTC day after reaching the 10-player baseline.
+          runbook_url: https://github.com/anry88/New-Universe/blob/main/docs/production/observability.md#product-analytics
+
+      - alert: NewUniverseTestAlert
+        expr: vector(0)
+        for: 1m
+        labels:
+          severity: test
+          service: observability
+        annotations:
+          summary: New Universe test alert
+          description: Staging-only alert route test. Change expr to vector(1) in a temporary staging copy to fire it.
+          runbook_url: https://github.com/anry88/New-Universe/blob/main/docs/production/observability.md#test-alert

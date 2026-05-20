@@ -8,6 +8,7 @@ This directory is the production infrastructure planning surface for New Univers
 - **`.github/workflows/deploy.yml`** - manual GitHub Actions deployment workflow for staging and production. It is environment-gated, pauses the worker before migrations, deploys Fly.io API/worker runtimes, deploys Cloudflare Pages, creates release tags/changelogs, and supports tagged rollback.
 
 Related production plan: [`docs/production/environment.md`](../../docs/production/environment.md).
+Observability runbook: [`docs/production/observability.md`](../../docs/production/observability.md).
 Release workflow: [`docs/production/release-workflow.md`](../../docs/production/release-workflow.md).
 
 ## Chosen first target
@@ -19,7 +20,7 @@ The first production-like environment is a closed-alpha, near-free setup:
 - Neon Free for Postgres while tester data volume is small.
 - Upstash Redis Free while BullMQ command volume stays under quota.
 - Cloudflare DNS/TLS when a custom domain is ready; provider HTTPS hostnames are acceptable for the earliest internal test.
-- Sentry Free for backend/frontend exception capture.
+- Sentry Free for backend/frontend exception capture, plus VictoriaMetrics/vmalert/Grafana for the `/metrics` scrape surface documented in [`docs/production/observability.md`](../../docs/production/observability.md).
 
 Do not add irreversible automation before the manual path has been executed once and the review checklist in the production plan is still accurate.
 
@@ -41,7 +42,7 @@ Do not add irreversible automation before the manual path has been executed once
 9. Start the worker after migrations complete.
 10. Deploy frontend.
 11. Configure BotFather Mini App URL and Telegram webhook secret.
-12. Smoke test API health, Telegram auth, `/me`, one due worker timer, and one notification path.
+12. Smoke test API health, `/metrics`, Telegram auth, `/me`, one due worker timer, one notification path, and the staging-only vmalert test alert runbook link.
 
 ## Environment ownership
 

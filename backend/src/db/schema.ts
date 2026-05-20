@@ -13,3 +13,4 @@ export * from './schema/multiplayer.js';
 export * from './schema/production.js';
 export * from './schema/jump-gates.js';
 export * from './schema/monetization.js';
+export * from './schema/activity.js';

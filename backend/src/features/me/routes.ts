@@ -54,6 +54,7 @@ import {
 } from "../resources/energy.js";
 import { mutationRateLimit } from "../../lib/rate-limit.js";
 import { objectBodySchema, securityRouteConfig } from "../../lib/security.js";
+import { recordPlayerActivity } from "../../lib/metrics.js";
 import {
   COLONIZATION_RULES,
   maxColoniesForLogisticsLevel,
@@ -104,6 +105,9 @@ export async function meRoutes(app: FastifyInstance) {
   app.get("/", async (request, reply) => {
     const user = await loadSessionUser(request, reply);
     if (!user) return;
+    void recordPlayerActivity(user.id).catch((err) => {
+      request.log.warn({ err }, "Failed to record player activity");
+    });
 
     try {
       const researchEffectsCache = createResearchEffectsRequestCache();
