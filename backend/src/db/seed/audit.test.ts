@@ -198,6 +198,12 @@ describe("catalog seed audit (P2-POL-002)", () => {
     });
     expect(reconProbe!.role).toBe("exploration");
     expect(reconProbe!.cargo).toBe(0);
+    expect(reconProbe!.buildCost).toMatchObject({
+      silicon: 360,
+      fuel: 120,
+      electronics: 100,
+      titanium: 80,
+    });
     expect(reconProbe!.jumpFuelCapacity).toBeGreaterThanOrEqual(
       JUMP_GATE_JUMP_FUEL_COST,
     );

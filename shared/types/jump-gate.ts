@@ -116,3 +116,13 @@ export interface JumpGateJumpResponse {
   /** Jump Fuel reserved from the launch planet inventory. */
   jumpFuelRequired: number;
 }
+
+export interface JumpGateRandomJumpResponse {
+  ship: JumpGateJumpShipSummary;
+  queueItem: {
+    id: string;
+    completesAt: string;
+  };
+  /** Jump Fuel reserved from the launch planet inventory. */
+  jumpFuelRequired: number;
+}

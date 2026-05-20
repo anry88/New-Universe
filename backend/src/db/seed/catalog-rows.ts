@@ -734,7 +734,7 @@ export const SHIP_TYPE_CATALOG_ROWS: ShipCatalogRow[] = [
     refuelFuelCapacity: 0,
     refuelJumpFuelCapacity: 0,
     buildTimeSec: 300,
-    buildCost: { silicon: 40, fuel: 20, electronics: 10 },
+    buildCost: { silicon: 360, fuel: 120, electronics: 100, titanium: 80 },
     requiredBuildings: [{ typeId: "shipyard", level: 1 }],
     sensorRange: 60,
     combatStats: { targetClass: "civilian" } as CombatStats,

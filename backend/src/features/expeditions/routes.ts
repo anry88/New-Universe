@@ -94,6 +94,7 @@ export async function expeditionsRoutes(app: FastifyInstance) {
       targetPlanet: result.targetPlanet,
       ship: result.ship,
       destination: result.destination,
+      queueItem: result.queueItem,
       jumpFuelRequired: result.jumpFuelRequired,
     });
   });

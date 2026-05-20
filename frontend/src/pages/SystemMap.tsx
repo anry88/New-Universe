@@ -399,10 +399,11 @@ export function SystemMapPage() {
 
     try {
       const result = await randomJump.mutateAsync({ shipId: selectedReconProbe.ship.id });
-      const systemName = result.destination
-        ? commonSystemDisplayName(result.destination, locale)
-        : result.targetSystem.name;
-      setGateNotice(t('jumpGate.random.success', { system: systemName }));
+      setGateNotice(
+        t('jumpGate.random.launched', {
+          time: formatDateTime(result.queueItem.completesAt, locale),
+        }),
+      );
     } catch (err) {
       setGateError(formatJumpGateError(err instanceof Error ? err.message : String(err), t));
     }

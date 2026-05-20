@@ -3,6 +3,7 @@ import type {
   JumpGateKnownDestinationSummary,
 } from '@shared/types/jump-gate.js';
 import {
+  calculateExpeditionEtaSeconds,
   JUMP_FUEL_RESOURCE_ID,
   JUMP_GATE_JUMP_FUEL_COST,
 } from '@shared/config/expeditionRouting.js';
@@ -10,11 +11,17 @@ import {
   formatCommonSystemDisplayName,
   homeSystemShortTag,
 } from '@shared/format/homeSystemNaming.js';
-import { and, eq, isNull, ne, sql } from 'drizzle-orm';
+import {
+  buildSystemMapLayouts,
+  systemMapJumpGatePoint,
+  systemMapPointDistanceLy,
+} from '@shared/format/systemMapLayout.js';
+import { and, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import { db as defaultDb } from '../../db/index.js';
 import {
   colonies,
   discoveredSystems,
+  expeditions,
   jumpGates,
   planets,
   planetResources,
@@ -33,6 +40,10 @@ import {
 import { spendResources } from '../resources/transactions.js';
 import { formatInsufficientResourceMessage, shipLabel } from '@shared/types/entity-labels.js';
 import type { JumpGateAvailabilityBlockedCode } from '@shared/types/jump-gate.js';
+import {
+  applyShipSpeed,
+  getResearchEffectsForUser,
+} from '../research/effects.js';
 
 export interface JumpRequest {
   shipId: string;
@@ -51,6 +62,10 @@ export interface JumpResult extends Partial<JumpGateJumpResponse> {
   status: number;
   error?: string;
   targetPlanet?: typeof planets.$inferSelect;
+  queueItem?: {
+    id: string;
+    completesAt: string;
+  };
 }
 
 export interface JumpShipOptions {
@@ -60,6 +75,7 @@ export interface JumpShipOptions {
 
 type LoadedShipContext = {
   shipRow: typeof ships.$inferSelect;
+  originPlanet: typeof planets.$inferSelect & { system: typeof systems.$inferSelect };
 };
 
 type LoadShipContextResult = LoadedShipContext | { error: JumpResult };
@@ -221,7 +237,7 @@ async function loadShipContext(
     };
   }
 
-  return { shipRow };
+  return { shipRow, originPlanet: originPlanet as LoadedShipContext['originPlanet'] };
 }
 
 async function countUsers(
@@ -277,6 +293,32 @@ async function countColonizedKnownPublicSystems(
   return Number(row?.count ?? 0);
 }
 
+function pendingRandomDiscoverySystemId(result: unknown): string | null {
+  if (!result || typeof result !== 'object') return null;
+  const value = (result as Record<string, unknown>).pendingRandomDiscoverySystemId;
+  return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+async function loadPendingRandomDiscoverySystemIds(
+  userId: string,
+  database: typeof defaultDb,
+): Promise<Set<string>> {
+  const rows = await database
+    .select({ result: expeditions.result })
+    .from(expeditions)
+    .innerJoin(ships, eq(ships.id, expeditions.shipId))
+    .where(and(
+      eq(ships.ownerId, userId),
+      inArray(expeditions.status, ['in_flight', 'returning']),
+    ));
+
+  return new Set(
+    rows
+      .map((row) => pendingRandomDiscoverySystemId(row.result))
+      .filter((systemId): systemId is string => Boolean(systemId)),
+  );
+}
+
 async function hasForeignShipsInSystem(
   userId: string,
   systemId: string,
@@ -318,7 +360,7 @@ async function loadUndiscoveredPublicSystems(
   userId: string,
   database: typeof defaultDb,
 ): Promise<(typeof systems.$inferSelect)[]> {
-  const [publicSystems, knownRows] = await Promise.all([
+  const [publicSystems, knownRows, pendingSystemIds] = await Promise.all([
     database.query.systems.findMany({
       where: and(
         eq(systems.isHome, false),
@@ -329,28 +371,34 @@ async function loadUndiscoveredPublicSystems(
       .select({ systemId: discoveredSystems.systemId })
       .from(discoveredSystems)
       .where(eq(discoveredSystems.userId, userId)),
+    loadPendingRandomDiscoverySystemIds(userId, database),
   ]);
 
   const knownSystemIds = new Set(knownRows.map((row) => row.systemId));
-  return publicSystems.filter((system) => !knownSystemIds.has(system.id));
+  return publicSystems.filter(
+    (system) => !knownSystemIds.has(system.id) && !pendingSystemIds.has(system.id),
+  );
 }
 
 async function loadRandomJumpLimitState(
   userId: string,
   database: typeof defaultDb,
 ) {
-  const [openedCount, colonizedKnownSystemCount] = await Promise.all([
+  const [openedCount, colonizedKnownSystemCount, pendingSystemIds] = await Promise.all([
     countKnownPublicDestinations(userId, database),
     countColonizedKnownPublicSystems(userId, database),
+    loadPendingRandomDiscoverySystemIds(userId, database),
   ]);
 
   const openLimit = RANDOM_JUMP_BASE_OPEN_LIMIT + colonizedKnownSystemCount;
+  const pendingCount = pendingSystemIds.size;
 
   return {
     openedCount,
     colonizedKnownSystemCount,
+    pendingCount,
     openLimit,
-    reached: openedCount >= openLimit,
+    reached: openedCount + pendingCount >= openLimit,
   };
 }
 
@@ -447,6 +495,175 @@ async function loadArrivalPlanet(
   }
 
   return targetPlanet;
+}
+
+async function resolveOriginGateRoute(
+  originPlanet: LoadedShipContext['originPlanet'],
+  database: typeof defaultDb,
+): Promise<
+  | { originSystemPoint: { x: number; y: number }; distance: number }
+  | JumpResult
+> {
+  const systemPlanets = await database.query.planets.findMany({
+    where: eq(planets.systemId, originPlanet.system.id),
+  });
+  const originLayout = buildSystemMapLayouts(
+    systemPlanets,
+    Number(originPlanet.system.seed),
+  ).find((layout) => layout.id === originPlanet.id);
+
+  if (!originLayout) {
+    return {
+      success: false,
+      status: 500,
+      error: 'Launch planet map position is unavailable.',
+    };
+  }
+
+  return {
+    originSystemPoint: { x: originLayout.x, y: originLayout.y },
+    distance: Math.max(
+      1,
+      systemMapPointDistanceLy(originLayout, systemMapJumpGatePoint()),
+    ),
+  };
+}
+
+async function launchRandomDiscovery(params: {
+  userId: string;
+  shipContext: LoadedShipContext;
+  targetSystem: typeof systems.$inferSelect;
+  now: Date;
+  database: typeof defaultDb;
+}): Promise<JumpResult> {
+  const { userId, shipContext, targetSystem, now, database } = params;
+  const { shipRow, originPlanet } = shipContext;
+  const route = await resolveOriginGateRoute(originPlanet, database);
+  if ('success' in route) return route;
+
+  const shipType = await database.query.shipTypes.findFirst({
+    where: eq(shipTypes.id, shipRow.typeId),
+  });
+  if (!shipType) {
+    return {
+      success: false,
+      status: 500,
+      error: `Ship type ${shipRow.typeId} not found`,
+    };
+  }
+  if (JUMP_GATE_JUMP_FUEL_COST > shipType.jumpFuelCapacity) {
+    return {
+      success: false,
+      status: 400,
+      error: `Ship jump fuel capacity (${shipType.jumpFuelCapacity}) is insufficient for this jump (cost ${JUMP_GATE_JUMP_FUEL_COST}).`,
+    };
+  }
+
+  const currentJumpFuel = Number(shipRow.jumpFuel);
+  const jumpFuelToLoad = Math.max(0, JUMP_GATE_JUMP_FUEL_COST - currentJumpFuel);
+  const researchEffects = await getResearchEffectsForUser(userId, database);
+  const speed = applyShipSpeed(Number(shipType.speed), researchEffects);
+  const engineFactor = 1;
+  const etaSeconds = calculateExpeditionEtaSeconds(
+    route.distance,
+    speed,
+    engineFactor,
+  );
+  const eta = new Date(now.getTime() + etaSeconds * 1000);
+
+  return database.transaction(async (tx) => {
+    if (jumpFuelToLoad > 0) {
+      const jumpFuelSpend = await spendResources(
+        shipRow.locationPlanetId!,
+        [{ resourceId: JUMP_FUEL_RESOURCE_ID, amount: jumpFuelToLoad }],
+        tx,
+      );
+      if (!jumpFuelSpend.success) {
+        return {
+          success: false,
+          status: 400,
+          error: jumpFuelSpend.error ?? `not enough ${JUMP_FUEL_RESOURCE_ID}`,
+        } satisfies JumpResult;
+      }
+    }
+
+    const [expedition] = await tx
+      .insert(expeditions)
+      .values({
+        shipId: shipRow.id,
+        type: shipRow.typeId,
+        originPlanetId: shipRow.locationPlanetId!,
+        targetX: String(originPlanet.system.sectorX),
+        targetY: String(originPlanet.system.sectorY),
+        targetZ: String(originPlanet.system.sectorZ),
+        targetPlanetId: null,
+        status: 'in_flight',
+        eta,
+        result: {
+          routeMode: 'jump_gate',
+          pendingRandomDiscoverySystemId: targetSystem.id,
+          originSystemId: originPlanet.system.id,
+          originSystemPoint: route.originSystemPoint,
+          originGateDistance: route.distance,
+          targetGateDistance: 0,
+          fuelRequired: 0,
+          jumpFuelRequired: JUMP_GATE_JUMP_FUEL_COST,
+          cargoLoaded: 0,
+          distance: route.distance,
+          requestedDistance: route.distance,
+          speed,
+          engineFactor,
+          returnTrip: false,
+        },
+      })
+      .returning();
+
+    const remainingJumpFuel = currentJumpFuel + jumpFuelToLoad - JUMP_GATE_JUMP_FUEL_COST;
+    const [changedShip] = await tx
+      .update(ships)
+      .set({
+        status: 'moving',
+        locationPlanetId: null,
+        jumpFuel: remainingJumpFuel.toFixed(2),
+        cargoJson: {
+          loaded: 0,
+          fuelRequired: 0,
+          jumpFuelRequired: JUMP_GATE_JUMP_FUEL_COST,
+        },
+      })
+      .where(and(
+        eq(ships.id, shipRow.id),
+        eq(ships.ownerId, userId),
+        eq(ships.status, 'idle'),
+      ))
+      .returning();
+
+    if (!changedShip || !expedition) {
+      throw new Error('Ship state changed before random discovery could be launched');
+    }
+
+    await tx
+      .update(jumpGates)
+      .set({ updatedAt: now })
+      .where(eq(jumpGates.userId, userId));
+
+    return {
+      success: true,
+      status: 200,
+      ship: {
+        id: changedShip.id,
+        typeId: changedShip.typeId,
+        status: changedShip.status,
+        fuel: changedShip.fuel,
+        locationPlanetId: changedShip.locationPlanetId,
+      },
+      queueItem: {
+        id: expedition.id,
+        completesAt: expedition.eta.toISOString(),
+      },
+      jumpFuelRequired: JUMP_GATE_JUMP_FUEL_COST,
+    } satisfies JumpResult;
+  });
 }
 
 async function jumpToSystem(params: {
@@ -708,6 +925,14 @@ export async function jumpShip(
         error: 'No public destination systems are available.',
       };
     }
+
+    return launchRandomDiscovery({
+      userId,
+      shipContext,
+      targetSystem,
+      now,
+      database,
+    });
   }
 
   const targetPlanet = await loadArrivalPlanet(targetSystem.id, database);
@@ -719,7 +944,7 @@ export async function jumpShip(
     targetSystem,
     targetPlanet,
     source,
-    consumeShip: source === 'random_jump',
+    consumeShip: false,
     now,
     database,
   });
