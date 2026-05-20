@@ -269,7 +269,7 @@ export const RESEARCH_CATALOG: ResearchBranchCatalog[] = [
           ru: 'Мастерство вооружений: +30% к дальности оружия',
           en: 'Mastery of combat systems: +30% weapon range',
         },
-        { iron: 8125, silicon: 4062 },
+        { iron: 8125, silicon: 4062, gold: 200 },
         researchTime('core', 5),
         [{ target: 'weaponRange', multiplier: 1.3 }],
       ),

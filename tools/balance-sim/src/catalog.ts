@@ -65,6 +65,10 @@ export const HIGH_TIER_UPGRADE_COSTS_BY_BUILDING = {
   military_shipyard: { steel: 30, military_alloy: 14, military_composite: 8 },
 } as const satisfies Record<string, Record<string, number>>;
 
+export const FINAL_TIER_UPGRADE_COSTS_BY_BUILDING = {
+  military_shipyard: { gold: 240 },
+} as const satisfies Record<string, Record<string, number>>;
+
 function scaleResourceCostMap(costs: Record<string, number>, multiplier: number): Record<string, number> {
   const scaled: Record<string, number> = {};
   for (const [resourceId, amount] of Object.entries(costs)) {
@@ -103,7 +107,11 @@ export function buildingUpgradeResourceCosts(input: {
     extraBase,
     Math.pow(BUILDING_UPGRADE_COST_MULTIPLIER, targetLevel - HIGH_TIER_UPGRADE_START_LEVEL),
   );
-  return mergeResourceCostMaps(baseCosts, extraCosts);
+  const finalTierCosts =
+    targetLevel === MAX_BUILDING_LEVEL
+      ? (FINAL_TIER_UPGRADE_COSTS_BY_BUILDING[input.typeId] ?? {})
+      : {};
+  return mergeResourceCostMaps(baseCosts, extraCosts, finalTierCosts);
 }
 
 export function buildingUpgradeTimeSeconds(baseTimeSec: number, currentLevel: number): number {
@@ -133,7 +141,7 @@ export const JUMP_FUEL_RECIPE = {
   id: 'jump_fuel_from_ice_tritium',
   buildingId: 'refinery',
   output: { resourceId: JUMP_FUEL_RESOURCE_ID, amount: 1 },
-  inputs: { ice: 3, tritium: 0.05, sulfur: 0.2 },
+  inputs: { ice: 3, hydrogen: 0.5, tritium: 0.05, sulfur: 0.2 },
   baseDurationSec: 18,
 } as const;
 
@@ -237,7 +245,7 @@ export const BUILDINGS = {
     baseTimeSec: 1500,
     category: 'production',
     maxLevel: MAX_BUILDING_LEVEL,
-    recipes: ['fuel_from_oil', 'fuel_from_methane', 'jump_fuel_from_ice_tritium'],
+    recipes: ['fuel_from_oil', 'fuel_from_methane', 'fuel_from_hydrogen_oxygen', 'jump_fuel_from_ice_tritium'],
   },
   cryo_factory: {
     deps: [{ typeId: 'command_center', level: 3 }],
@@ -337,7 +345,7 @@ export const SHIPS = {
     requiredResearch: [{ branch: 'engineering', level: 2 }],
   },
   recon_probe: {
-    buildCost: { silicon: 360, fuel: 120, electronics: 100, titanium: 80 },
+    buildCost: { silicon: 360, fuel: 120, electronics: 100, titanium: 80, hydrogen: 40 },
     buildTimeSec: 300,
     requiredBuildings: [{ typeId: 'shipyard', level: 1 }],
     requiredResearch: [{ branch: 'sensors', level: 1 }],
@@ -361,7 +369,7 @@ export const SHIPS = {
     requiredResearch: [{ branch: 'weapons', level: 2 }],
   },
   small_shield_ship: {
-    buildCost: { steel: 700, electronics: 180, military_composite: 80, liquid_nitrogen: 60, fuel: 80 },
+    buildCost: { steel: 700, electronics: 180, military_composite: 80, liquid_nitrogen: 60, gold: 40, fuel: 80 },
     buildTimeSec: 4200,
     requiredBuildings: [{ typeId: 'military_shipyard', level: 2 }],
     requiredResearch: [{ branch: 'energy', level: 2 }],
@@ -386,14 +394,14 @@ export const SHIPS = {
     requiredResearch: [{ branch: 'weapons', level: 3 }],
   },
   medium_shield_ship: {
-    buildCost: { steel: 1900, military_alloy: 320, military_composite: 260, electronics: 420, silicon_carbide: 100, cobalt: 120, jump_fuel: 3 },
+    buildCost: { steel: 1900, military_alloy: 320, military_composite: 260, electronics: 420, silicon_carbide: 100, cobalt: 120, gold: 120, jump_fuel: 3 },
     buildTimeSec: 9600,
     requiredBuildings: [{ typeId: 'military_shipyard', level: 4 }],
     requiredResearch: [{ branch: 'energy', level: 3 }],
     shields: { capacity: 1800, radius: 3.5, rechargeRate: 35, delayAfterDamageSec: 15, downtimeSec: 30 },
   },
   rocket_carrier: {
-    buildCost: { steel: 2500, military_composite: 500, electronics: 650, cobalt: 200, sulfur: 260, jump_fuel: 10 },
+    buildCost: { steel: 2500, military_composite: 500, electronics: 650, cobalt: 200, mercury: 80, sulfur: 260, jump_fuel: 10 },
     buildTimeSec: 14400,
     requiredBuildings: [{ typeId: 'military_shipyard', level: 4 }],
     requiredResearch: [{ branch: 'weapons', level: 4 }],
@@ -418,18 +426,37 @@ export const SHIPS = {
     requiredResearch: [{ branch: 'weapons', level: 4 }],
   },
   large_shield_ship: {
-    buildCost: { steel: 4800, military_alloy: 900, military_composite: 700, electronics: 1000, silicon_carbide: 260, iridium: 80, antimatter: 6, jump_fuel: 12 },
+    buildCost: { steel: 4800, military_alloy: 900, military_composite: 700, electronics: 1000, silicon_carbide: 260, iridium: 80, antimatter: 6, gold: 260, jump_fuel: 12 },
     buildTimeSec: 24000,
     requiredBuildings: [{ typeId: 'military_shipyard', level: 6 }],
     requiredResearch: [{ branch: 'energy', level: 4 }],
     shields: { capacity: 4200, radius: 6, rechargeRate: 70, delayAfterDamageSec: 20, downtimeSec: 45 },
   },
   heavy_rocket_carrier: {
-    buildCost: { steel: 5200, military_composite: 900, electronics: 1200, cobalt: 420, iridium: 80, antimatter: 8, jump_fuel: 18 },
+    buildCost: { steel: 5200, military_composite: 900, electronics: 1200, cobalt: 420, mercury: 180, iridium: 80, antimatter: 8, jump_fuel: 18 },
     buildTimeSec: 28800,
     requiredBuildings: [{ typeId: 'military_shipyard', level: 6 }],
     requiredResearch: [{ branch: 'weapons', level: 5 }],
     missilePayload: { alphaDamage: 3300, reloadSec: 36, validTargetClasses: ['military_medium', 'military_heavy'] },
+  },
+  nuclear_carrier: {
+    buildCost: {
+      steel: 5400,
+      military_alloy: 720,
+      military_composite: 720,
+      electronics: 1100,
+      uranium: 320,
+      tritium: 180,
+      antimatter: 14,
+      iridium: 80,
+      mercury: 240,
+      gold: 320,
+      jump_fuel: 20,
+    },
+    buildTimeSec: 36000,
+    requiredBuildings: [{ typeId: 'military_shipyard', level: 6 }],
+    requiredResearch: [{ branch: 'weapons', level: 5 }],
+    missilePayload: { alphaDamage: 5400, reloadSec: 45, validTargetClasses: ['military_medium', 'military_heavy'] },
   },
 } as const;
 

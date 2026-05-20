@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  FINAL_TIER_UPGRADE_COSTS_BY_BUILDING,
   MAX_BUILDING_LEVEL,
   HIGH_TIER_UPGRADE_COSTS_BY_BUILDING,
+  buildingUpgradeResourceCosts,
 } from "@shared/config/buildingUpgradeEconomy.js";
 import { JUMP_GATE_JUMP_FUEL_COST } from "@shared/config/expeditionRouting.js";
 import { EXTRACTABLE_RESOURCE_RATES_PER_HOUR } from "@shared/config/resourceExtractionRates.js";
@@ -113,6 +115,21 @@ describe("catalog seed audit (P2-POL-002)", () => {
     expect(HIGH_TIER_UPGRADE_COSTS_BY_BUILDING.shipyard).not.toHaveProperty(
       "biomass",
     );
+    expect(FINAL_TIER_UPGRADE_COSTS_BY_BUILDING.military_shipyard).toEqual({
+      gold: expect.any(Number),
+    });
+    expect(
+      buildingUpgradeResourceCosts({
+        typeId: "military_shipyard",
+        baseCost: {
+          steel: 600,
+          military_alloy: 200,
+          military_composite: 100,
+          electronics: 150,
+        },
+        currentLevel: MAX_BUILDING_LEVEL - 1,
+      }),
+    ).toHaveProperty("gold");
   });
 
   it("keeps silicon carbide as an expensive manufactured material", () => {
@@ -203,6 +220,7 @@ describe("catalog seed audit (P2-POL-002)", () => {
       fuel: 120,
       electronics: 100,
       titanium: 80,
+      hydrogen: 40,
     });
     expect(reconProbe!.jumpFuelCapacity).toBeGreaterThanOrEqual(
       JUMP_GATE_JUMP_FUEL_COST,
@@ -224,6 +242,7 @@ describe("catalog seed audit (P2-POL-002)", () => {
     expect(refueler!.refuelJumpFuelCapacity).toBeGreaterThanOrEqual(
       JUMP_GATE_JUMP_FUEL_COST,
     );
+    expect(refueler!.buildCost).toHaveProperty("oxygen");
   });
 
   it("keeps military weapon ranges explicit and fighter-scaled", () => {
@@ -312,6 +331,10 @@ describe("catalog seed audit (P2-POL-002)", () => {
     expect(byId.get("heavy_rocket_carrier")!.buildCost).toHaveProperty(
       "antimatter",
     );
+    expect(byId.get("rocket_carrier")!.buildCost).toHaveProperty("mercury");
+    expect(byId.get("heavy_rocket_carrier")!.buildCost).toHaveProperty(
+      "mercury",
+    );
 
     for (const id of shieldIds) {
       const ship = byId.get(id);
@@ -321,9 +344,14 @@ describe("catalog seed audit (P2-POL-002)", () => {
       expect(shield.capacity).toBeGreaterThan(0);
       expect(shield.radius).toBeGreaterThan(0);
       expect(Object.keys(ship!.buildCost)).toEqual(
-        expect.arrayContaining(["steel", "electronics"]),
+        expect.arrayContaining(["steel", "electronics", "gold"]),
       );
     }
+
+    expect(byId.get("nuclear_carrier")!.buildCost).toMatchObject({
+      mercury: expect.any(Number),
+      gold: expect.any(Number),
+    });
   });
 
   it("keeps advanced Common Pool and atomic power content abstract and reachable", () => {

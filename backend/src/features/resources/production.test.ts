@@ -90,6 +90,8 @@ describe('production orders', () => {
       { planetId: planet.id, resourceId: 'uranium', amount: '1000', regenRate: '0' },
       { planetId: planet.id, resourceId: 'oil', amount: '1000', regenRate: '0' },
       { planetId: planet.id, resourceId: 'methane', amount: '1000', regenRate: '0' },
+      { planetId: planet.id, resourceId: 'oxygen', amount: '1000', regenRate: '0' },
+      { planetId: planet.id, resourceId: 'hydrogen', amount: '1000', regenRate: '0' },
       { planetId: planet.id, resourceId: 'sulfur', amount: '1000', regenRate: '0' },
       { planetId: planet.id, resourceId: 'ice', amount: '1000', regenRate: '0' },
       { planetId: planet.id, resourceId: 'tritium', amount: '1000', regenRate: '0' },
@@ -356,9 +358,29 @@ describe('production orders', () => {
     expect(jumpFuelPreview.canStart).toBe(true);
     expect(jumpFuelPreview.output).toEqual({ resourceId: 'jump_fuel', amount: 10 });
     expect(jumpFuelPreview.inputs.map((input) => input.resourceId).sort()).toEqual([
+      'hydrogen',
       'ice',
       'sulfur',
       'tritium',
+    ]);
+
+    await db
+      .update(planetResources)
+      .set({ amount: '0', regenRate: '0' })
+      .where(and(eq(planetResources.planetId, refinery.planet.id), eq(planetResources.resourceId, 'fuel')));
+
+    const hydrogenFuelPreview = await productionService.preview(refinery.user.id, {
+      planetId: refinery.planet.id,
+      buildingId: refinery.building.id,
+      recipeId: 'fuel_from_hydrogen_oxygen',
+      quantity: 10,
+    });
+    expect(hydrogenFuelPreview.canStart).toBe(true);
+    expect(hydrogenFuelPreview.output).toEqual({ resourceId: 'fuel', amount: 10 });
+    expect(hydrogenFuelPreview.inputs.map((input) => input.resourceId).sort()).toEqual([
+      'hydrogen',
+      'oxygen',
+      'water',
     ]);
   });
 

@@ -3,6 +3,7 @@ import { PRODUCTION_RECIPES } from '@shared/config/productionRecipes.js';
 import { EXTRACTABLE_RESOURCE_RATES_PER_HOUR } from '@shared/config/resourceExtractionRates.js';
 import { SHIP_ENTITY_DESCRIPTIONS, SHIP_ENTITY_LABELS } from '@shared/types/entity-labels.js';
 import {
+  FINAL_TIER_UPGRADE_COSTS_BY_BUILDING,
   HIGH_TIER_UPGRADE_COSTS_BY_BUILDING,
   MAX_BUILDING_LEVEL,
 } from '@shared/config/buildingUpgradeEconomy.js';
@@ -145,6 +146,17 @@ export function runCatalogAudit(): CatalogAuditResult {
     for (const rid of Object.keys(extraCosts)) {
       if (!resourceSet.has(rid)) {
         errors.push(`high-tier upgrade costs for "${buildingId}" reference unknown resource "${rid}"`);
+      }
+    }
+  }
+
+  for (const [buildingId, extraCosts] of Object.entries(FINAL_TIER_UPGRADE_COSTS_BY_BUILDING)) {
+    if (!buildingSet.has(buildingId)) {
+      errors.push(`final-tier upgrade costs reference unknown building "${buildingId}"`);
+    }
+    for (const rid of Object.keys(extraCosts)) {
+      if (!resourceSet.has(rid)) {
+        errors.push(`final-tier upgrade costs for "${buildingId}" reference unknown resource "${rid}"`);
       }
     }
   }

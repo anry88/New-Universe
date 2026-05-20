@@ -30,6 +30,10 @@ export const HIGH_TIER_UPGRADE_COSTS_BY_BUILDING = {
   military_shipyard: { steel: 30, military_alloy: 14, military_composite: 8 },
 } as const satisfies Record<string, Record<string, number>>;
 
+export const FINAL_TIER_UPGRADE_COSTS_BY_BUILDING = {
+  military_shipyard: { gold: 240 },
+} as const satisfies Record<string, Record<string, number>>;
+
 export function scaleResourceCostMap(
   costs: Record<string, number>,
   multiplier: number,
@@ -81,6 +85,16 @@ export function highTierUpgradeResourceCosts(
   return scaleResourceCostMap(baseExtra, multiplier);
 }
 
+export function finalTierUpgradeResourceCosts(
+  typeId: string,
+  targetLevel: number,
+): Record<string, number> {
+  if (targetLevel !== MAX_BUILDING_LEVEL) return {};
+
+  const finalTierCosts = FINAL_TIER_UPGRADE_COSTS_BY_BUILDING as Record<string, Record<string, number>>;
+  return finalTierCosts[typeId] ?? {};
+}
+
 export function buildingUpgradeResourceCosts(input: {
   typeId: string;
   baseCost: Record<string, number>;
@@ -90,6 +104,7 @@ export function buildingUpgradeResourceCosts(input: {
   return mergeResourceCostMaps(
     baseUpgradeResourceCosts(input.baseCost, input.currentLevel),
     highTierUpgradeResourceCosts(input.typeId, targetLevel),
+    finalTierUpgradeResourceCosts(input.typeId, targetLevel),
   );
 }
 
