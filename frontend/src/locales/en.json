@@ -173,6 +173,7 @@
   "jumpGate.random.noShipOption": "No idle Recon Probe",
   "jumpGate.random.jumpFuel": "Jump Fuel {available}/{required}",
   "jumpGate.random.success": "System opened: {system}",
+  "jumpGate.random.launched": "Recon Probe launched. New system opens when it reaches the gate at {time}.",
   "jumpGate.destinations.known": "Known destinations",
   "jumpGate.destinations.empty": "No known public destination systems yet.",
   "jumpGate.destinations.count": "{count} known destination systems",

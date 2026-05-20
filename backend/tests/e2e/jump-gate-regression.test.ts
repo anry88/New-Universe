@@ -236,23 +236,35 @@ describe("Jump Gate end-to-end regression suite", () => {
       `${AREA.jump} POST /jump-gate/random-jump`,
     ).toBe(200);
     const randomJump = randomJumpRes.json() as {
-      arrivalPlanetId: string;
-      destination: {
-        systemId: string;
-        source: string;
-        lastVisitedAt: string | null;
-      };
-      targetSystem: { id: string; sector: { x: number; y: number; z: number } };
+      ship: { id: string; status: string; locationPlanetId: string | null };
+      queueItem: { id: string; completesAt: string };
       jumpFuelRequired: number;
     };
     expect(
-      randomJump.destination.systemId,
-      `${AREA.jump} known destination id`,
-    ).toBe(randomJump.targetSystem.id);
+      randomJump.ship.status,
+      `${AREA.jump} random probe is in flight before gate arrival`,
+    ).toBe("moving");
+    const pendingRandomExpedition = await db.query.expeditions.findFirst({
+      where: eq(expeditions.id, randomJump.queueItem.id),
+    });
+    const pendingRandomResult = pendingRandomExpedition?.result as
+      | Record<string, unknown>
+      | undefined;
+    const openedSystemId =
+      typeof pendingRandomResult?.pendingRandomDiscoverySystemId === "string"
+        ? pendingRandomResult.pendingRandomDiscoverySystemId
+        : null;
+    expect(openedSystemId, `${AREA.jump} pending random destination id`).toBeTruthy();
+    const beforeGateArrival = await db.query.discoveredSystems.findFirst({
+      where: and(
+        eq(discoveredSystems.userId, userId),
+        eq(discoveredSystems.systemId, openedSystemId!),
+      ),
+    });
     expect(
-      randomJump.destination.source,
-      `${AREA.jump} destination source`,
-    ).toBe("random_jump");
+      beforeGateArrival,
+      `${AREA.jump} destination is not opened before gate arrival`,
+    ).toBeUndefined();
     expect(
       randomJump.jumpFuelRequired,
       `${AREA.jump} random jump fuel cost`,
@@ -263,8 +275,40 @@ describe("Jump Gate end-to-end regression suite", () => {
     ).toBe(500 - JUMP_GATE_JUMP_FUEL_COST);
     expect(
       await db.query.ships.findFirst({ where: eq(ships.id, reconProbe.id) }),
+      `${AREA.jump} recon probe remains in flight before gate arrival`,
+    ).toMatchObject({ status: "moving", locationPlanetId: null });
+
+    await processExpeditions({
+      userId,
+      now: new Date(randomJump.queueItem.completesAt),
+      onlyDue: true,
+      skipNotifications: true,
+    });
+    const openedDestination = await db.query.discoveredSystems.findFirst({
+      where: and(
+        eq(discoveredSystems.userId, userId),
+        eq(discoveredSystems.systemId, openedSystemId!),
+      ),
+    });
+    expect(
+      openedDestination?.source,
+      `${AREA.jump} destination source after gate arrival`,
+    ).toBe("random_jump");
+    expect(
+      openedDestination?.lastVisitedAt?.toISOString(),
+      `${AREA.jump} destination visit timestamp after gate arrival`,
+    ).toBe(randomJump.queueItem.completesAt);
+    expect(
+      await db.query.ships.findFirst({ where: eq(ships.id, reconProbe.id) }),
       `${AREA.jump} recon probe consumed after opening a system`,
     ).toBeUndefined();
+
+    const openedSystem = await db.query.systems.findFirst({
+      where: eq(systems.id, openedSystemId!),
+    });
+    if (!openedSystem) {
+      throw new Error(`${AREA.jump} opened public system missing`);
+    }
 
     const [knownJumpShip] = await db
       .insert(ships)
@@ -276,14 +320,9 @@ describe("Jump Gate end-to-end regression suite", () => {
         fuel: "100",
       })
       .returning();
-    await setPlanetResource(
-      randomJump.arrivalPlanetId,
-      JUMP_FUEL_RESOURCE_ID,
-      JUMP_GATE_JUMP_FUEL_COST,
-    );
     const knownJumpRes = await app.inject({
       method: "POST",
-      url: `/jump-gate/destinations/${randomJump.destination.systemId}/jump`,
+      url: `/jump-gate/destinations/${openedSystemId}/jump`,
       headers: { authorization: `Bearer ${token}` },
       payload: { shipId: knownJumpShip.id },
     });
@@ -302,14 +341,14 @@ describe("Jump Gate end-to-end regression suite", () => {
     expect(
       knownJump.targetSystem.id,
       `${AREA.jump} repeat destination system`,
-    ).toBe(randomJump.destination.systemId);
+    ).toBe(openedSystemId);
     expect(
       knownJump.destination.lastVisitedAt,
       `${AREA.jump} repeat visit timestamp`,
     ).not.toBeNull();
 
     const targetSystem = await db.query.systems.findFirst({
-      where: eq(systems.id, randomJump.destination.systemId),
+      where: eq(systems.id, openedSystemId!),
     });
     expect(targetSystem?.isHome, `${AREA.visibility} target is not home`).toBe(
       false,
@@ -324,9 +363,9 @@ describe("Jump Gate end-to-end regression suite", () => {
     await db
       .update(systems)
       .set({ x: "100.00", y: "100.00", z: "0.00" })
-      .where(eq(systems.id, randomJump.destination.systemId));
+      .where(eq(systems.id, openedSystemId!));
     const targetPlanets = await db.query.planets.findMany({
-      where: eq(planets.systemId, randomJump.destination.systemId),
+      where: eq(planets.systemId, openedSystemId!),
     });
     const targetPlanetLayouts = buildSystemMapLayouts(
       targetPlanets,
@@ -363,9 +402,9 @@ describe("Jump Gate end-to-end regression suite", () => {
       .values({
         ownerId: foreignUser.id,
         isHome: true,
-        sectorX: randomJump.targetSystem.sector.x,
-        sectorY: randomJump.targetSystem.sector.y,
-        sectorZ: randomJump.targetSystem.sector.z,
+        sectorX: openedSystem.sectorX,
+        sectorY: openedSystem.sectorY,
+        sectorZ: openedSystem.sectorZ,
         x: "12.00",
         y: "24.00",
         z: "0.00",
@@ -403,7 +442,7 @@ describe("Jump Gate end-to-end regression suite", () => {
     expect(
       gateState.knownDestinations.some(
         (destination) =>
-          destination.systemId === randomJump.destination.systemId,
+          destination.systemId === openedSystemId,
       ),
       `${AREA.visibility} random public destination remains known`,
     ).toBe(true);
@@ -435,7 +474,7 @@ describe("Jump Gate end-to-end regression suite", () => {
 
     const sectorPresenceRes = await app.inject({
       method: "GET",
-      url: `/multiplayer/sectors/${randomJump.targetSystem.sector.x}/${randomJump.targetSystem.sector.y}/${randomJump.targetSystem.sector.z}/presence`,
+      url: `/multiplayer/sectors/${openedSystem.sectorX}/${openedSystem.sectorY}/${openedSystem.sectorZ}/presence`,
       headers: { authorization: `Bearer ${token}` },
     });
     expect(
@@ -469,7 +508,7 @@ describe("Jump Gate end-to-end regression suite", () => {
       payload: {
         shipId: scout.id,
         routeMode: "jump_gate",
-        destinationSystemId: randomJump.destination.systemId,
+        destinationSystemId: openedSystemId,
         targetPlanetId: targetPlanet.id,
         cargoLoaded: 0,
       },
@@ -514,7 +553,7 @@ describe("Jump Gate end-to-end regression suite", () => {
       .insert(discoveredSystems)
       .values({
         userId,
-        systemId: randomJump.destination.systemId,
+        systemId: openedSystemId,
         source: "random_jump",
         lastVisitedAt: new Date(),
       })
@@ -557,7 +596,7 @@ describe("Jump Gate end-to-end regression suite", () => {
       payload: {
         shipId: colonizer.id,
         routeMode: "jump_gate",
-        destinationSystemId: randomJump.destination.systemId,
+        destinationSystemId: openedSystemId,
         targetPlanetId: targetPlanet.id,
         cargoLoaded: 0,
       },

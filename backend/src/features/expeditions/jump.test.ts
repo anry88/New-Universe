@@ -6,6 +6,7 @@ import {
   colonies,
   discoveredPlanets,
   discoveredSystems,
+  expeditions,
   jumpGates,
   notifications,
   planets,
@@ -22,6 +23,7 @@ import {
 import { seedResearchCatalog } from '../../db/seed/research.js';
 import { seedResources } from '../../db/seed/resources.js';
 import { jumpShip } from './jump.js';
+import { processExpeditions } from '../../workers/tick-expeditions.js';
 import {
   JUMP_FUEL_RESOURCE_ID,
   JUMP_GATE_JUMP_FUEL_COST,
@@ -124,6 +126,7 @@ describe('Recon Probe Jump Gate Discovery', () => {
     await db.delete(researchProgress);
     await db.delete(discoveredPlanets);
     await db.delete(discoveredSystems);
+    await db.delete(expeditions);
     await db.delete(ships);
     await db.delete(productionOrders);
     await db.delete(buildings);
@@ -206,7 +209,7 @@ describe('Recon Probe Jump Gate Discovery', () => {
     expect(stillDocked?.locationPlanetId).toBe(originPlanet.id);
   });
 
-  it('performs a server-authoritative random jump, records a known destination, and consumes the recon probe', async () => {
+  it('launches random discovery to the Home Gate, then opens the system and consumes the recon probe on arrival', async () => {
     const { user, ship, originPlanet } = await createSetup();
     await unlockJumpDrive(user.id);
 
@@ -220,26 +223,18 @@ describe('Recon Probe Jump Gate Discovery', () => {
     );
 
     expect(result.success).toBe(true);
-    expect(result.targetSystem).toMatchObject({
-      sector: { x: 0, y: 0, z: 0 },
-    });
-    expect(result.targetPlanet).toBeDefined();
-    expect(result.targetSystem?.id).toBe(result.destination?.systemId);
-    expect(result.destination).toMatchObject({
-      source: 'random_jump',
-      lastVisitedAt: RANDOM_JUMP_NOW.toISOString(),
-    });
-
     expect(result.ship).toMatchObject({
       id: ship.id,
       typeId: 'recon_probe',
-      status: 'consumed',
+      status: 'moving',
       locationPlanetId: null,
     });
+    expect(result.queueItem?.id).toBeDefined();
     const updatedShip = await db.query.ships.findFirst({
       where: eq(ships.id, ship.id),
     });
-    expect(updatedShip).toBeUndefined();
+    expect(updatedShip?.status).toBe('moving');
+    expect(updatedShip?.locationPlanetId).toBeNull();
     const originJumpFuel = await db.query.planetResources.findFirst({
       where: and(
         eq(planetResources.planetId, originPlanet.id),
@@ -248,14 +243,52 @@ describe('Recon Probe Jump Gate Discovery', () => {
     });
     expect(Number(originJumpFuel?.amount)).toBe(100 - JUMP_GATE_JUMP_FUEL_COST);
 
+    const pendingExpedition = await db.query.expeditions.findFirst({
+      where: eq(expeditions.id, result.queueItem!.id),
+    });
+    const pendingTargetSystemId =
+      typeof pendingExpedition?.result?.pendingRandomDiscoverySystemId === 'string'
+        ? pendingExpedition.result.pendingRandomDiscoverySystemId
+        : null;
+    expect(pendingExpedition?.status).toBe('in_flight');
+    expect(pendingExpedition?.result).toMatchObject({
+      routeMode: 'jump_gate',
+      originSystemId: expect.any(String),
+      jumpFuelRequired: JUMP_GATE_JUMP_FUEL_COST,
+      returnTrip: false,
+    });
+    expect(pendingTargetSystemId).toBeTruthy();
+
     const discovery = await db.query.discoveredSystems.findFirst({
       where: and(
         eq(discoveredSystems.userId, user.id),
-        eq(discoveredSystems.systemId, result.targetSystem!.id),
+        eq(discoveredSystems.systemId, pendingTargetSystemId!),
       ),
     });
-    expect(discovery?.source).toBe('random_jump');
-    expect(discovery?.lastVisitedAt?.toISOString()).toBe(RANDOM_JUMP_NOW.toISOString());
+    expect(discovery).toBeUndefined();
+
+    await processExpeditions({
+      now: new Date(result.queueItem!.completesAt),
+      onlyDue: true,
+    });
+
+    const consumedShip = await db.query.ships.findFirst({
+      where: eq(ships.id, ship.id),
+    });
+    expect(consumedShip).toBeUndefined();
+    const completedExpedition = await db.query.expeditions.findFirst({
+      where: eq(expeditions.id, result.queueItem!.id),
+    });
+    expect(completedExpedition).toBeUndefined();
+
+    const openedDiscovery = await db.query.discoveredSystems.findFirst({
+      where: and(
+        eq(discoveredSystems.userId, user.id),
+        eq(discoveredSystems.systemId, pendingTargetSystemId!),
+      ),
+    });
+    expect(openedDiscovery?.source).toBe('random_jump');
+    expect(openedDiscovery?.lastVisitedAt?.toISOString()).toBe(result.queueItem!.completesAt);
 
     const planetDiscoveries = await db.query.discoveredPlanets.findMany({
       where: eq(discoveredPlanets.userId, user.id),
@@ -336,12 +369,20 @@ describe('Recon Probe Jump Gate Discovery', () => {
     );
 
     expect(result.success).toBe(true);
+    const pendingExpedition = await db.query.expeditions.findFirst({
+      where: eq(expeditions.id, result.queueItem!.id),
+    });
+    const pendingTargetSystemId =
+      typeof pendingExpedition?.result?.pendingRandomDiscoverySystemId === 'string'
+        ? pendingExpedition.result.pendingRandomDiscoverySystemId
+        : null;
+    expect(pendingTargetSystemId).toBeTruthy();
     const targetForeignShips = await db
       .select({ id: ships.id })
       .from(ships)
       .innerJoin(planets, eq(ships.locationPlanetId, planets.id))
       .where(and(
-        eq(planets.systemId, result.targetSystem!.id),
+        eq(planets.systemId, pendingTargetSystemId!),
         ne(ships.ownerId, user.id),
         ne(ships.status, 'destroyed'),
       ));
@@ -358,6 +399,18 @@ describe('Recon Probe Jump Gate Discovery', () => {
       { now: RANDOM_JUMP_NOW },
     );
     expect(firstJump.success).toBe(true);
+    const pendingExpedition = await db.query.expeditions.findFirst({
+      where: eq(expeditions.id, firstJump.queueItem!.id),
+    });
+    const firstJumpSystemId =
+      typeof pendingExpedition?.result?.pendingRandomDiscoverySystemId === 'string'
+        ? pendingExpedition.result.pendingRandomDiscoverySystemId
+        : null;
+    expect(firstJumpSystemId).toBeTruthy();
+    await processExpeditions({
+      now: new Date(firstJump.queueItem!.completesAt),
+      onlyDue: true,
+    });
     const [scout] = await db.insert(ships).values({
       ownerId: user.id,
       typeId: 'scout',
@@ -370,13 +423,13 @@ describe('Recon Probe Jump Gate Discovery', () => {
       user.id,
       {
         shipId: scout.id,
-        destinationSystemId: firstJump.destination!.systemId,
+        destinationSystemId: firstJumpSystemId!,
       },
       { now: REPEAT_JUMP_NOW },
     );
 
     expect(secondJump.success).toBe(true);
-    expect(secondJump.targetSystem?.id).toBe(firstJump.targetSystem?.id);
+    expect(secondJump.targetSystem?.id).toBe(firstJumpSystemId);
     expect(secondJump.destination?.source).toBe('random_jump');
     expect(secondJump.destination?.lastVisitedAt).toBe(REPEAT_JUMP_NOW.toISOString());
 
@@ -396,7 +449,7 @@ describe('Recon Probe Jump Gate Discovery', () => {
     const discovery = await db.query.discoveredSystems.findFirst({
       where: and(
         eq(discoveredSystems.userId, user.id),
-        eq(discoveredSystems.systemId, firstJump.destination!.systemId),
+        eq(discoveredSystems.systemId, firstJumpSystemId!),
       ),
     });
     expect(discovery?.source).toBe('random_jump');
@@ -460,14 +513,26 @@ describe('Recon Probe Jump Gate Discovery', () => {
     );
 
     expect(result.success).toBe(true);
-    expect(result.targetSystem?.id).not.toBe(foreignHome.id);
-    expect(result.arrivalPlanetId).not.toBe(foreignHomePlanet.id);
+    const pendingExpedition = await db.query.expeditions.findFirst({
+      where: eq(expeditions.id, result.queueItem!.id),
+    });
+    const pendingTargetSystemId =
+      typeof pendingExpedition?.result?.pendingRandomDiscoverySystemId === 'string'
+        ? pendingExpedition.result.pendingRandomDiscoverySystemId
+        : null;
+    expect(pendingTargetSystemId).toBeTruthy();
+    expect(pendingTargetSystemId).not.toBe(foreignHome.id);
 
     const targetSystem = await db.query.systems.findFirst({
-      where: eq(systems.id, result.targetSystem!.id),
+      where: eq(systems.id, pendingTargetSystemId!),
     });
     expect(targetSystem?.isHome).toBe(false);
     expect(targetSystem?.ownerId).toBeNull();
+
+    const targetPlanet = await db.query.planets.findFirst({
+      where: eq(planets.systemId, pendingTargetSystemId!),
+    });
+    expect(targetPlanet?.id).not.toBe(foreignHomePlanet.id);
   });
 
   it('blocks random discovery after five opened public systems until the player colonizes a public system', async () => {
@@ -505,6 +570,14 @@ describe('Recon Probe Jump Gate Discovery', () => {
       { now: new Date(RANDOM_JUMP_NOW.getTime() + 60_000) },
     );
     expect(unlocked.success).toBe(true);
-    expect(unlocked.targetSystem?.id).not.toBe(publicSystems[0]!.id);
+    const pendingExpedition = await db.query.expeditions.findFirst({
+      where: eq(expeditions.id, unlocked.queueItem!.id),
+    });
+    const pendingTargetSystemId =
+      typeof pendingExpedition?.result?.pendingRandomDiscoverySystemId === 'string'
+        ? pendingExpedition.result.pendingRandomDiscoverySystemId
+        : null;
+    expect(pendingTargetSystemId).toBeTruthy();
+    expect(pendingTargetSystemId).not.toBe(publicSystems[0]!.id);
   });
 });

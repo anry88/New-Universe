@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
-  JumpGateJumpResponse,
   JumpGateRandomJumpRequest,
+  JumpGateRandomJumpResponse,
   JumpGateStateResponse,
 } from "@shared/types/jump-gate";
 import { apiFetch } from "../lib/api";
@@ -64,7 +64,7 @@ export function useRandomJump() {
 
   return useMutation({
     mutationFn: (body: JumpGateRandomJumpRequest) =>
-      apiFetch<JumpGateJumpResponse>("/jump-gate/random-jump", {
+      apiFetch<JumpGateRandomJumpResponse>("/jump-gate/random-jump", {
         method: "POST",
         body: JSON.stringify(body),
       }),

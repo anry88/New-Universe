@@ -173,6 +173,7 @@
   "jumpGate.random.noShipOption": "Нет свободного разведывательного зонда",
   "jumpGate.random.jumpFuel": "Прыжковое топливо {available}/{required}",
   "jumpGate.random.success": "Система открыта: {system}",
+  "jumpGate.random.launched": "Разведывательный зонд запущен. Новая система откроется, когда он достигнет врат: {time}.",
   "jumpGate.destinations.known": "Известные направления",
   "jumpGate.destinations.empty": "Публичные системы назначения пока не известны.",
   "jumpGate.destinations.count": "Известных систем: {count}",

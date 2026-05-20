@@ -337,7 +337,7 @@ export const SHIPS = {
     requiredResearch: [{ branch: 'engineering', level: 2 }],
   },
   recon_probe: {
-    buildCost: { silicon: 40, fuel: 20, electronics: 10 },
+    buildCost: { silicon: 360, fuel: 120, electronics: 100, titanium: 80 },
     buildTimeSec: 300,
     requiredBuildings: [{ typeId: 'shipyard', level: 1 }],
     requiredResearch: [{ branch: 'sensors', level: 1 }],

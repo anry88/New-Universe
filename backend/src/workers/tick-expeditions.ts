@@ -8,6 +8,8 @@ import {
   systems,
   notifications,
   discoveredPlanets,
+  discoveredSystems,
+  jumpGates,
   colonies,
   buildings,
 } from "../db/schema.js";
@@ -362,6 +364,92 @@ async function insertPlanetDiscoveryNotifications(
   );
 }
 
+function pendingRandomDiscoverySystemId(result: unknown): string | null {
+  if (!result || typeof result !== "object") return null;
+  const value = (result as Record<string, unknown>).pendingRandomDiscoverySystemId;
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+async function completeRandomDiscoveryAtGate(
+  expedition: typeof expeditions.$inferSelect,
+  tx: any,
+): Promise<boolean> {
+  const targetSystemId = pendingRandomDiscoverySystemId(expedition.result);
+  if (!targetSystemId) return false;
+
+  const [ship] = await tx
+    .select({
+      id: ships.id,
+      ownerId: ships.ownerId,
+      typeId: ships.typeId,
+    })
+    .from(ships)
+    .where(eq(ships.id, expedition.shipId))
+    .limit(1);
+  if (!ship) {
+    await tx.delete(expeditions).where(eq(expeditions.id, expedition.id));
+    return true;
+  }
+
+  const [targetSystem] = await tx
+    .select()
+    .from(systems)
+    .where(eq(systems.id, targetSystemId))
+    .limit(1);
+  if (!targetSystem || targetSystem.isHome || targetSystem.ownerId) {
+    logger.warn(
+      {
+        expeditionId: expedition.id,
+        shipId: expedition.shipId,
+        targetSystemId,
+      },
+      "Random discovery target is no longer a public system; consuming probe",
+    );
+    await tx.delete(expeditions).where(eq(expeditions.id, expedition.id));
+    await tx.delete(ships).where(eq(ships.id, expedition.shipId));
+    return true;
+  }
+
+  const arrivedAt = expedition.eta;
+  await tx
+    .insert(discoveredSystems)
+    .values({
+      userId: ship.ownerId,
+      systemId: targetSystem.id,
+      source: "random_jump",
+      lastVisitedAt: arrivedAt,
+    })
+    .onConflictDoUpdate({
+      target: [discoveredSystems.userId, discoveredSystems.systemId],
+      set: {
+        source: "random_jump",
+        lastVisitedAt: arrivedAt,
+      },
+    });
+
+  await tx
+    .update(jumpGates)
+    .set({
+      lastRandomJumpAt: arrivedAt,
+      updatedAt: arrivedAt,
+    })
+    .where(eq(jumpGates.userId, ship.ownerId));
+
+  await tx.delete(expeditions).where(eq(expeditions.id, expedition.id));
+  await tx.delete(ships).where(eq(ships.id, expedition.shipId));
+
+  logger.info(
+    {
+      expeditionId: expedition.id,
+      shipId: expedition.shipId,
+      targetSystemId: targetSystem.id,
+    },
+    "Recon Probe reached the Jump Gate and opened a random public system",
+  );
+
+  return true;
+}
+
 async function handleArrivalAtTarget(
   expedition: typeof expeditions.$inferSelect,
   tx: any,
@@ -378,6 +466,10 @@ async function handleArrivalAtTarget(
       { expeditionId: expedition.id, shipId: expedition.shipId },
       "Cargo transfer reached target and completed one-way delivery",
     );
+    return;
+  }
+
+  if (await completeRandomDiscoveryAtGate(expedition, tx)) {
     return;
   }
 

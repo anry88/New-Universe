@@ -1,4 +1,7 @@
-import type { JumpGateJumpResponse } from './jump-gate.js';
+import type {
+  JumpGateJumpResponse,
+  JumpGateJumpShipSummary,
+} from './jump-gate.js';
 import type { Locale } from './locale.js';
 import {
   buildingLabel,
@@ -74,7 +77,13 @@ export interface ExpeditionJumpRequest {
   targetSector?: { x: number; y: number; z: number };
 }
 
-export interface ExpeditionJumpResponse extends JumpGateJumpResponse {
+export interface ExpeditionJumpResponse extends Partial<JumpGateJumpResponse> {
+  ship: JumpGateJumpShipSummary;
+  queueItem?: {
+    id: string;
+    completesAt: string;
+  };
+  jumpFuelRequired: number;
   deprecated?: boolean;
 }
 

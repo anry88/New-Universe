@@ -72,9 +72,7 @@ export async function jumpGateRoutes(app: FastifyInstance) {
     }, { userId, requestId: request.id });
     return reply.send({
       ship: result.ship,
-      targetSystem: result.targetSystem,
-      arrivalPlanetId: result.arrivalPlanetId,
-      destination: result.destination,
+      queueItem: result.queueItem,
       jumpFuelRequired: result.jumpFuelRequired,
     });
   });
