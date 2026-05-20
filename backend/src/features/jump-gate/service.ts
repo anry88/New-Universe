@@ -336,17 +336,21 @@ async function loadKnownDestinationPlanets(
 
     const isDiscovered = discoveredPlanetIds.has(planet.id);
     const colonyOwnerId = colonyByPlanetId.get(planet.id);
+    // Active colonies are intentionally visible to other players in opened
+    // public systems so hostile holdings can be recognized, surveyed, bombed,
+    // and only then colonized.
+    const isVisible = isDiscovered || Boolean(colonyOwnerId);
     const systemSummaries = summaries.get(planet.systemId) ?? [];
     systemSummaries.push({
       id: planet.id,
       systemId: planet.systemId,
       orbitIndex,
-      name: isDiscovered ? planet.name : null,
-      biome: isDiscovered ? planet.biome : null,
-      size: isDiscovered ? planet.size : null,
-      slotCount: isDiscovered ? planet.slotCount : null,
-      resources: isDiscovered ? (resourcesByPlanetId.get(planet.id) ?? []) : undefined,
-      isDiscovered,
+      name: isVisible ? planet.name : null,
+      biome: isVisible ? planet.biome : null,
+      size: isVisible ? planet.size : null,
+      slotCount: isVisible ? planet.slotCount : null,
+      resources: isVisible ? (resourcesByPlanetId.get(planet.id) ?? []) : undefined,
+      isDiscovered: isVisible,
       isColonized: Boolean(colonyOwnerId),
       isOwnedColony: colonyOwnerId === userId,
     });

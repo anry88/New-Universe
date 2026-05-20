@@ -29,7 +29,10 @@ import { processDueCombat } from "./tick-combat.js";
 import { syncDuePlayerState } from "../me/online-sync.js";
 import { SHIP_STATUS_DESTROYED } from "@shared/types/combat.js";
 import { checkColonizationGates } from "../colonies/colonization-rules.js";
-import { systemMapJumpGatePoint } from "@shared/format/systemMapLayout.js";
+import {
+  buildSystemMapLayouts,
+  systemMapJumpGatePoint,
+} from "@shared/format/systemMapLayout.js";
 
 describe("combat tick — processDueCombat", () => {
   beforeAll(async () => {
@@ -847,6 +850,47 @@ describe("combat tick — processDueCombat", () => {
     return { atk, def, ccId: cc!.id, mineId, bomberId: bomber.id };
   }
 
+  async function stationShipAtSystemPoint(args: {
+    shipId: string;
+    originPlanetId: string;
+    originSystemId: string;
+    destinationSystemId: string;
+    destinationSector: { x: number; y: number; z: number };
+    point: { x: number; y: number };
+    eta: Date;
+  }) {
+    await db
+      .update(ships)
+      .set({
+        status: "moving",
+        locationPlanetId: null,
+        cargoJson: {},
+      })
+      .where(eq(ships.id, args.shipId));
+
+    await db.insert(expeditions).values({
+      shipId: args.shipId,
+      type: "light_bomber",
+      originPlanetId: args.originPlanetId,
+      targetX: String(args.destinationSector.x),
+      targetY: String(args.destinationSector.y),
+      targetZ: String(args.destinationSector.z),
+      targetPlanetId: null,
+      status: "stationed",
+      eta: args.eta,
+      result: {
+        routeMode: "jump_gate",
+        originSystemId: args.originSystemId,
+        destinationSystemId: args.destinationSystemId,
+        targetSystemPoint: args.point,
+        distance: 1,
+        speed: 1,
+        engineFactor: 1,
+        returnTrip: false,
+      },
+    });
+  }
+
   it("bomber damages a non-CC building first; HP drops gradually under orbital fire", async () => {
     const s = await setupBombingScenario("A");
     const t0 = new Date("2026-07-01T00:00:00.000Z");
@@ -874,6 +918,96 @@ describe("combat tick — processDueCombat", () => {
       where: eq(buildings.id, s.ccId),
     });
     expect(ccUntouched!.hp).toBe(1000);
+  });
+
+  it("stationed tactical bombers damage surface buildings and notify the colony owner", async () => {
+    const atk = await createUser("atkStationedBomber");
+    const def = await createUser("defStationedBomber");
+    const publicTarget = await createPublicCombatSystem("Stationed Bombing");
+
+    await db.insert(colonies).values({
+      ownerId: def.userId,
+      planetId: publicTarget.planet.id,
+    });
+    await db.insert(buildings).values({
+      planetId: publicTarget.planet.id,
+      typeId: "command_center",
+      slotIndex: 0,
+      level: 1,
+      hp: 1000,
+      maxHp: 1000,
+    });
+    const [mine] = await db
+      .insert(buildings)
+      .values({
+        planetId: publicTarget.planet.id,
+        typeId: "mine",
+        slotIndex: 1,
+        level: 1,
+        hp: 1000,
+        maxHp: 1000,
+      })
+      .returning();
+
+    const bomber = await spawnShip({
+      ownerId: atk.userId,
+      planetId: atk.planetId,
+      typeId: "light_bomber",
+    });
+    const [planetPoint] = buildSystemMapLayouts(
+      [publicTarget.planet],
+      Number(publicTarget.system.seed),
+    );
+    const t0 = new Date("2026-07-01T00:00:00.000Z");
+    await stationShipAtSystemPoint({
+      shipId: bomber.id,
+      originPlanetId: atk.planetId,
+      originSystemId: atk.systemId,
+      destinationSystemId: publicTarget.system.id,
+      destinationSector: {
+        x: publicTarget.system.sectorX,
+        y: publicTarget.system.sectorY,
+        z: publicTarget.system.sectorZ,
+      },
+      point: planetPoint,
+      eta: t0,
+    });
+
+    await processDueCombat({ now: t0 });
+
+    const firstTouchMine = await db.query.buildings.findFirst({
+      where: eq(buildings.id, mine.id),
+    });
+    expect(firstTouchMine!.hp).toBe(1000);
+    expect(firstTouchMine!.lastCombatTickAt).not.toBeNull();
+
+    const touchedBomber = await db.query.ships.findFirst({
+      where: eq(ships.id, bomber.id),
+    });
+    expect(touchedBomber!.lastCombatTickAt?.getTime()).toBe(t0.getTime());
+
+    const attackNotice = await db.query.notifications.findFirst({
+      where: and(
+        eq(notifications.userId, def.userId),
+        eq(notifications.type, "combat_started"),
+      ),
+    });
+    expect(attackNotice?.payload).toMatchObject({
+      combatSpaceKey: `planet:${publicTarget.planet.id}`,
+      planetId: publicTarget.planet.id,
+      planetName: publicTarget.planet.name,
+    });
+
+    await processDueCombat({
+      now: new Date(t0.getTime() + 5_000),
+      skipNotifications: true,
+    });
+
+    const damagedMine = await db.query.buildings.findFirst({
+      where: eq(buildings.id, mine.id),
+    });
+    expect(damagedMine!.hp).toBeGreaterThan(0);
+    expect(damagedMine!.hp).toBeLessThan(1000);
   });
 
   it("bombing is idempotent — running the tick twice in succession does not double damage", async () => {

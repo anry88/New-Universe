@@ -60,6 +60,8 @@ export interface Planet {
   isDiscovered?: boolean;
   /** True only after the planet has an active Command Center/capital or colony record. */
   isColonized?: boolean;
+  /** True when the active colony belongs to the current viewer. */
+  isOwnedColony?: boolean;
   energy?: PlanetEnergyStatus;
   resources?: PlanetResource[];
   buildings?: Building[];

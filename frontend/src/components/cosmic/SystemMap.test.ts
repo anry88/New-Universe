@@ -14,6 +14,8 @@ import {
   buildShipMarkerSnapshots,
   fleetContactMotionAngle,
   fleetContactsForSystem,
+  isForeignColonizedPlanet,
+  isPlanetOwnedByViewer,
   tacticalExpeditionShipIdsForRenderedContacts,
   tacticalExpeditionTouchesSystem,
   weaponVisualForCombatStats,
@@ -162,6 +164,31 @@ describe("buildExpeditionTrailSegments", () => {
         endpointY: -24,
       }),
     ]);
+  });
+});
+
+describe("planet colony relation helpers", () => {
+  it("marks viewer-owned colonies as owned and foreign colonies as hostile", () => {
+    const ownedIds = new Set(["own-planet"]);
+
+    expect(
+      isPlanetOwnedByViewer({ id: "own-planet" }, ownedIds),
+    ).toBe(true);
+    expect(
+      isPlanetOwnedByViewer({ id: "api-owned", isOwnedColony: true }, ownedIds),
+    ).toBe(true);
+    expect(
+      isForeignColonizedPlanet(
+        { id: "foreign-planet", isColonized: true },
+        ownedIds,
+      ),
+    ).toBe(true);
+    expect(
+      isForeignColonizedPlanet(
+        { id: "own-planet", isColonized: true },
+        ownedIds,
+      ),
+    ).toBe(false);
   });
 });
 

@@ -103,6 +103,7 @@ function destinationToSystem(
       orbitIndex: planet.orbitIndex,
       isDiscovered: true,
       isColonized: planet.isColonized,
+      isOwnedColony: planet.isOwnedColony,
       resources: planet.resources ?? [],
     }));
 

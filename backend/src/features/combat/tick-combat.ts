@@ -409,11 +409,10 @@ async function processCombatSystemLocked(
 
   const bombingResult = await runBombingPass(
     database,
-    aliveShips,
+    actors,
     now,
     options,
     combatLayouts,
-    weaponRangeMultiplierByOwner,
   );
 
   if (
@@ -672,6 +671,74 @@ async function insertCombatStartedNotifications(
   }
 }
 
+async function insertBombingStartedNotifications(
+  tx: any,
+  input: {
+    buildingIds: Set<string>;
+    buildingById: Map<string, AliveBuildingRow>;
+    now: Date;
+  },
+): Promise<void> {
+  const cutoff = new Date(input.now.getTime() - 30 * 60 * 1000);
+  const notificationsByOwnerAndPlanet = new Map<
+    string,
+    {
+      userId: string;
+      combatSpaceKey: string;
+      planetId: string;
+      planetName: string;
+      buildingId: string;
+      typeId: string;
+    }
+  >();
+
+  for (const buildingId of input.buildingIds) {
+    const building = input.buildingById.get(buildingId);
+    if (!building?.colonyOwnerId) continue;
+    const combatSpaceKey = `planet:${building.planetId}`;
+    const key = `${building.colonyOwnerId}:${combatSpaceKey}`;
+    if (notificationsByOwnerAndPlanet.has(key)) continue;
+    notificationsByOwnerAndPlanet.set(key, {
+      userId: building.colonyOwnerId,
+      combatSpaceKey,
+      planetId: building.planetId,
+      planetName: building.planetName,
+      buildingId: building.id,
+      typeId: building.typeId,
+    });
+  }
+
+  for (const item of notificationsByOwnerAndPlanet.values()) {
+    const [recent] = await tx
+      .select({ id: notifications.id })
+      .from(notifications)
+      .where(
+        and(
+          eq(notifications.userId, item.userId),
+          eq(notifications.type, "combat_started"),
+          gte(notifications.createdAt, cutoff),
+          sql`${notifications.payload} ->> 'combatSpaceKey' = ${item.combatSpaceKey}`,
+        ),
+      )
+      .limit(1);
+    if (recent) continue;
+
+    await tx.insert(notifications).values({
+      userId: item.userId,
+      type: "combat_started",
+      payload: {
+        combatSpaceKey: item.combatSpaceKey,
+        locationName: item.planetName,
+        planetId: item.planetId,
+        planetName: item.planetName,
+        buildingId: item.buildingId,
+        typeId: item.typeId,
+        startedAt: input.now.toISOString(),
+      },
+    });
+  }
+}
+
 function combatSpaceKeyForActors(
   attacker: CombatActor,
   defender: CombatActor,
@@ -852,29 +919,26 @@ interface AliveBuildingRow {
 
 async function runBombingPass(
   database: CombatTransaction,
-  aliveShips: ShipRow[],
+  combatActors: CombatActor[],
   now: Date,
   options: ProcessDueCombatOptions,
   combatLayouts: CombatSystemLayouts,
-  weaponRangeMultiplierByOwner: Map<string, number>,
 ): Promise<BombingPassResult> {
-  // Build the bomber list from the same ship snapshot — bombers must be docked
-  // at a host system (in-flight orbital strikes are out of scope for the MVP).
-  const bombers: BomberActor[] = aliveShips
-    .filter((s) => s.status !== "moving" && s.hostSystem)
-    .map((s) => {
-      const mergedStats = mergeCombatStats(s.typeCombatStats, s.combatStats);
-      return {
-        id: s.id,
-        ownerId: s.ownerId,
-        status: s.status,
-        hp: s.hp,
-        combatStats: mergedStats,
-        hostSystemId: s.hostSystem?.id ?? null,
-        position: computePosition(s, new Map(), now, combatLayouts),
-        weaponRangeMultiplier: weaponRangeMultiplierByOwner.get(s.ownerId) ?? 1,
-      };
-    })
+  // Build the bomber list from the resolved combat actors so tactical point
+  // deployments (`stationed` expeditions with `ships.status='moving'`) can
+  // attack surface targets once they are inside orbital range.
+  const bombers: BomberActor[] = combatActors
+    .filter((actor) => actor.hostSystem && actor.position)
+    .map((actor) => ({
+      id: actor.id,
+      ownerId: actor.ownerId,
+      status: actor.status,
+      hp: actor.hp,
+      combatStats: actor.combatStats,
+      hostSystemId: actor.hostSystem?.id ?? null,
+      position: actor.position,
+      weaponRangeMultiplier: actor.weaponRangeMultiplier ?? 1,
+    }))
     .filter((b) => b.combatStats.engagementRange === "orbital" && b.hp > 0);
 
   if (bombers.length === 0) {
@@ -942,6 +1006,8 @@ async function runBombingPass(
 
   const buildingsDestroyed: string[] = [];
   const coloniesAbandoned: string[] = [];
+  const firstTouchedBuildingIds = new Set<string>();
+  const bombingShipIds = Array.from(new Set(hits.map((hit) => hit.bomberId)));
 
   const updates: Array<{
     buildingId: string;
@@ -958,6 +1024,7 @@ async function runBombingPass(
     const b = buildingById.get(buildingId);
     if (!b) continue;
     const lastMs = b.lastCombatTickAt ? b.lastCombatTickAt.getTime() : null;
+    const wasFirstTouch = lastMs == null;
     const damage = computeTickDamage(
       { lastCombatTickAtMs: lastMs },
       totalDps,
@@ -968,6 +1035,7 @@ async function runBombingPass(
     if (damageApplied === 0) {
       if (isFreshCombatTouch({ lastCombatTickAtMs: lastMs }, now.getTime())) {
         firstTouchOnly.push(buildingId);
+        firstTouchedBuildingIds.add(buildingId);
       }
       continue;
     }
@@ -980,6 +1048,7 @@ async function runBombingPass(
       destroyed: newHp === 0,
       isCommandCenter: b.typeId === COMMAND_CENTER_TYPE_ID,
     });
+    if (wasFirstTouch) firstTouchedBuildingIds.add(buildingId);
   }
 
   if (updates.length === 0 && firstTouchOnly.length === 0) {
@@ -988,6 +1057,21 @@ async function runBombingPass(
       buildingsDestroyed: [],
       coloniesAbandoned: [],
     };
+  }
+
+  if (bombingShipIds.length > 0) {
+    await database
+      .update(ships)
+      .set({ lastCombatTickAt: now })
+      .where(inArray(ships.id, bombingShipIds));
+  }
+
+  if (!options.skipNotifications && firstTouchedBuildingIds.size > 0) {
+    await insertBombingStartedNotifications(database, {
+      buildingIds: firstTouchedBuildingIds,
+      buildingById,
+      now,
+    });
   }
 
   // Planets whose Command Center is being killed this tick — they get a full
@@ -1215,6 +1299,9 @@ async function loadCombatCandidates(
 
     registerSystemOwner(ownerIdsBySystemId, hostSystem.id, ship.ownerId);
     const stats = mergeCombatStats(ship.typeCombatStats, ship.combatStats);
+    if (stats.engagementRange === "orbital" && stats.damageProfile) {
+      bombingSystemIds.add(hostSystem.id);
+    }
     if (needsShieldRuntimeResolution(stats)) {
       shieldRuntimeSystemIds.add(hostSystem.id);
     }

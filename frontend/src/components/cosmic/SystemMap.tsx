@@ -237,6 +237,20 @@ function weaponTone(kind: WeaponVisualKind): string {
   }
 }
 
+export function isPlanetOwnedByViewer(
+  planet: Pick<Planet, "id" | "isOwnedColony">,
+  ownedPlanetIds: ReadonlySet<string>,
+): boolean {
+  return planet.isOwnedColony === true || ownedPlanetIds.has(planet.id);
+}
+
+export function isForeignColonizedPlanet(
+  planet: Pick<Planet, "id" | "isColonized" | "isOwnedColony">,
+  ownedPlanetIds: ReadonlySet<string>,
+): boolean {
+  return planet.isColonized === true && !isPlanetOwnedByViewer(planet, ownedPlanetIds);
+}
+
 function combatDps(stats: CombatStats | null | undefined): number {
   return Math.round(
     Math.max(
@@ -589,6 +603,7 @@ interface PlanetMarkersProps {
   layouts: PlanetLayout[];
   selectedId: string | null;
   pickedTargetPlanetId?: string | null;
+  ownedPlanetIds: ReadonlySet<string>;
   canPickPlanet: boolean;
   isPicking: boolean;
   onPickPlanet?: (planetId: string) => void;
@@ -599,6 +614,7 @@ const PlanetMarkers = React.memo(function PlanetMarkers({
   layouts,
   selectedId,
   pickedTargetPlanetId,
+  ownedPlanetIds,
   canPickPlanet,
   isPicking,
   onPickPlanet,
@@ -611,6 +627,10 @@ const PlanetMarkers = React.memo(function PlanetMarkers({
         const meta = BIOME_META[biome];
         const isSelected =
           l.planet.id === selectedId || pickedTargetPlanetId === l.planet.id;
+        const isForeignColony = isForeignColonizedPlanet(
+          l.planet,
+          ownedPlanetIds,
+        );
 
         return (
           <button
@@ -644,11 +664,27 @@ const PlanetMarkers = React.memo(function PlanetMarkers({
                 : isPicking
                   ? "none"
                   : "auto",
-              filter: isSelected
-                ? `drop-shadow(0 0 10px ${meta.accent})`
-                : "drop-shadow(0 6px 14px rgba(0,0,0,0.5))",
+              filter: isForeignColony
+                ? "drop-shadow(0 0 14px rgba(239,68,68,0.74))"
+                : isSelected
+                  ? `drop-shadow(0 0 10px ${meta.accent})`
+                  : "drop-shadow(0 6px 14px rgba(0,0,0,0.5))",
             }}
           >
+            {isForeignColony ? (
+              <span
+                data-testid={`planet-hostile-colony-ring-${l.planet.id}`}
+                style={{
+                  position: "absolute",
+                  inset: -5,
+                  border: "3px solid rgba(239,68,68,0.92)",
+                  borderRadius: "50%",
+                  boxShadow:
+                    "0 0 18px rgba(239,68,68,0.52), inset 0 0 12px rgba(239,68,68,0.22)",
+                  pointerEvents: "none",
+                }}
+              />
+            ) : null}
             <PlanetSvg
               biome={biome}
               size={l.spriteSize}
@@ -663,7 +699,11 @@ const PlanetMarkers = React.memo(function PlanetMarkers({
                 fontFamily: "var(--font-mono)",
                 fontSize: 9,
                 letterSpacing: "0.1em",
-                color: isSelected ? meta.accent : "var(--text-dim)",
+                color: isForeignColony
+                  ? "#fca5a5"
+                  : isSelected
+                    ? meta.accent
+                    : "var(--text-dim)",
                 whiteSpace: "nowrap",
                 pointerEvents: "none",
                 textShadow: "0 1px 2px rgba(0,0,0,0.8)",
@@ -2071,6 +2111,12 @@ export function CosmicSystemRenderer({
         return aLabel.localeCompare(bLabel);
       });
   }, [selected, locale]);
+  const selectedIsOwnedPlanet = selected
+    ? isPlanetOwnedByViewer(selected.planet, ownedPlanetIds)
+    : false;
+  const selectedIsForeignColony = selected
+    ? isForeignColonizedPlanet(selected.planet, ownedPlanetIds)
+    : false;
 
   const orbitRadii = useMemo(() => {
     return buildSystemMapOrbitGuideRadii(
@@ -2293,6 +2339,15 @@ export function CosmicSystemRenderer({
     (e: React.PointerEvent<HTMLDivElement>) => {
       const el = containerRef.current;
       if (!el) return;
+      const target = e.target as HTMLElement | null;
+      const isCardControl =
+        target?.closest(".cosmic-selection-card") !== null ||
+        target?.closest("button") !== null;
+      if (isCardControl) {
+        shouldCloseSelectionOnTapRef.current = false;
+        expeditionPanArmRef.current = null;
+        return;
+      }
       el.setPointerCapture(e.pointerId);
       dragState.current.pointers.set(e.pointerId, {
         x: e.clientX,
@@ -2312,10 +2367,6 @@ export function CosmicSystemRenderer({
         dragState.current.startY = e.clientY;
         dragState.current.originX = transform.x;
         dragState.current.originY = transform.y;
-        const target = e.target as HTMLElement | null;
-        const isCardControl =
-          target?.closest(".cosmic-selection-card") !== null ||
-          target?.closest("button") !== null;
         shouldCloseSelectionOnTapRef.current = !isCardControl;
       } else if (dragState.current.pointers.size === 2) {
         shouldCloseSelectionOnTapRef.current = false;
@@ -2653,6 +2704,7 @@ export function CosmicSystemRenderer({
             layouts={layouts}
             selectedId={selectedId}
             pickedTargetPlanetId={pickedTargetPlanetId}
+            ownedPlanetIds={ownedPlanetIds}
             canPickPlanet={canPickPlanet}
             isPicking={isPicking}
             onPickPlanet={onPickPlanet}
@@ -2807,9 +2859,13 @@ export function CosmicSystemRenderer({
             width: "calc(100% - 32px)",
             maxWidth: 360,
             padding: "12px 14px",
-            border: "1px solid var(--line-strong)",
+            border: selectedIsForeignColony
+              ? "1px solid rgba(248,113,113,0.58)"
+              : "1px solid var(--line-strong)",
             borderRadius: 12,
-            background: "rgba(14,20,36,0.92)",
+            background: selectedIsForeignColony
+              ? "rgba(36,12,20,0.93)"
+              : "rgba(14,20,36,0.92)",
             backdropFilter: "blur(10px)",
             color: "var(--text)",
             zIndex: 5,
@@ -2896,6 +2952,30 @@ export function CosmicSystemRenderer({
                 : "???"}
             </b>
           </div>
+          {selectedIsForeignColony ? (
+            <div
+              data-testid="hostile-colony-notice"
+              style={{
+                marginTop: 8,
+                border: "1px solid rgba(248,113,113,0.36)",
+                borderRadius: 8,
+                background: "rgba(127,29,29,0.24)",
+                color: "#fecaca",
+                padding: "8px 9px",
+                fontFamily: "var(--font-mono)",
+                fontSize: 10,
+                lineHeight: 1.35,
+                letterSpacing: "0.04em",
+              }}
+            >
+              <b style={{ color: "#fca5a5" }}>
+                {t("map.foreignColony").toUpperCase()}
+              </b>
+              <div style={{ marginTop: 3 }}>
+                {t("map.bombardBeforeColonize")}
+              </div>
+            </div>
+          ) : null}
           <div
             style={{
               marginTop: 8,
@@ -2956,35 +3036,37 @@ export function CosmicSystemRenderer({
               </div>
             )}
           </div>
-          <button
-            type="button"
-            disabled={selected.planet.isDiscovered === false}
-            onClick={() => {
-              if (ownedPlanetIds.has(selected.planet.id)) {
-                onPlanetClick(selected.planet);
-              } else {
-                if (onColonizeClick) {
-                  onColonizeClick(selected.planet);
+          {!selectedIsForeignColony ? (
+            <button
+              type="button"
+              disabled={selected.planet.isDiscovered === false}
+              onClick={() => {
+                if (selectedIsOwnedPlanet) {
+                  onPlanetClick(selected.planet);
                 } else {
-                  setIsColonyDialogOpen(true);
+                  if (onColonizeClick) {
+                    onColonizeClick(selected.planet);
+                  } else {
+                    setIsColonyDialogOpen(true);
+                  }
                 }
-              }
-            }}
-            className="cosmic-cta"
-            data-testid="colonize-button"
-            style={{
-              width: "100%",
-              marginTop: 10,
-              padding: "10px 14px",
-              opacity: selected.planet.isDiscovered === false ? 0.5 : 1,
-            }}
-          >
-            {selected.planet.isDiscovered === false
-              ? t("map.discoveryRequired")
-              : ownedPlanetIds.has(selected.planet.id)
-                ? t("map.openPlanet")
-                : t("map.sendColonizer")}
-          </button>
+              }}
+              className="cosmic-cta"
+              data-testid="colonize-button"
+              style={{
+                width: "100%",
+                marginTop: 10,
+                padding: "10px 14px",
+                opacity: selected.planet.isDiscovered === false ? 0.5 : 1,
+              }}
+            >
+              {selected.planet.isDiscovered === false
+                ? t("map.discoveryRequired")
+                : selectedIsOwnedPlanet
+                  ? t("map.openPlanet")
+                  : t("map.sendColonizer")}
+            </button>
+          ) : null}
         </div>
       )}
 
