@@ -18,6 +18,7 @@ export interface DamageProfile {
 }
 
 export type EngagementRange = "close" | "medium" | "long" | "orbital";
+export type SurfaceEngagementRange = Exclude<EngagementRange, "orbital">;
 
 export interface MissilePayloadProfile {
   damageType: Extract<DamageType, "explosive">;
@@ -96,6 +97,8 @@ export interface CombatStats {
   damageProfile?: DamageProfile;
   missilePayload?: MissilePayloadProfile;
   engagementRange?: EngagementRange;
+  /** Surface-bombing acquisition radius for orbital weapons; keeps bombers from inheriting long-range ship tuning. */
+  bombardmentRange?: SurfaceEngagementRange;
   shields?: ShieldHooks;
   armor?: number;
   evasion?: number;
@@ -126,6 +129,16 @@ export function engagementRangeToSectorDistance(
 ): number {
   if (!range) return 0;
   return ENGAGEMENT_RANGE_SECTOR_DISTANCE[range];
+}
+
+export function bombardmentRangeToSectorDistance(
+  stats: Pick<CombatStats, "bombardmentRange" | "engagementRange"> | undefined,
+): number {
+  const range = stats?.bombardmentRange;
+  if (range) return engagementRangeToSectorDistance(range);
+  return stats?.engagementRange === "orbital"
+    ? engagementRangeToSectorDistance("close")
+    : 0;
 }
 
 /**

@@ -220,6 +220,55 @@ describe("catalog seed audit (P2-POL-002)", () => {
     );
   });
 
+  it("keeps military weapon ranges explicit and fighter-scaled", () => {
+    const byId = new Map(SHIP_TYPE_CATALOG_ROWS.map((ship) => [ship.id, ship]));
+
+    expect(byId.get("light_fighter")!.combatStats).toMatchObject({
+      engagementRange: "close",
+    });
+    expect(byId.get("medium_fighter")!.combatStats).toMatchObject({
+      engagementRange: "medium",
+    });
+    expect(byId.get("heavy_fighter")!.combatStats).toMatchObject({
+      engagementRange: "medium",
+    });
+    expect(byId.get("light_laser")!.combatStats).toMatchObject({
+      engagementRange: "long",
+    });
+    expect(byId.get("medium_laser")!.combatStats).toMatchObject({
+      engagementRange: "long",
+    });
+    expect(byId.get("heavy_laser")!.combatStats).toMatchObject({
+      engagementRange: "long",
+    });
+    expect(
+      byId.get("rocket_carrier")!.combatStats?.missilePayload,
+    ).toMatchObject({
+      maxRange: "long",
+    });
+    expect(
+      byId.get("heavy_rocket_carrier")!.combatStats?.missilePayload,
+    ).toMatchObject({
+      maxRange: "long",
+    });
+    expect(byId.get("light_bomber")!.combatStats).toMatchObject({
+      engagementRange: "orbital",
+      bombardmentRange: "close",
+    });
+    expect(byId.get("medium_bomber")!.combatStats).toMatchObject({
+      engagementRange: "orbital",
+      bombardmentRange: "medium",
+    });
+    expect(byId.get("heavy_bomber")!.combatStats).toMatchObject({
+      engagementRange: "orbital",
+      bombardmentRange: "medium",
+    });
+    expect(byId.get("nuclear_carrier")!.combatStats).toMatchObject({
+      engagementRange: "orbital",
+      bombardmentRange: "long",
+    });
+  });
+
   it("keeps advanced combat hulls gated by military shipyard and Common Pool materials", () => {
     const byId = new Map(SHIP_TYPE_CATALOG_ROWS.map((ship) => [ship.id, ship]));
     const mediumIds = ["medium_fighter", "medium_bomber", "medium_laser"];

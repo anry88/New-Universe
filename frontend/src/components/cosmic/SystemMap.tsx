@@ -501,6 +501,12 @@ export function tacticalExpeditionShipIdsForRenderedContacts({
   );
 }
 
+export function expeditionTrailsForRenderedMap(
+  activeExpeditions: Expedition[],
+): Expedition[] {
+  return activeExpeditions;
+}
+
 export function fleetContactMotionAngle(
   contact: Pick<SystemTacticalFleetContact, "motion">,
 ): number | null {
@@ -604,6 +610,7 @@ interface PlanetMarkersProps {
   selectedId: string | null;
   pickedTargetPlanetId?: string | null;
   ownedPlanetIds: ReadonlySet<string>;
+  now: number;
   canPickPlanet: boolean;
   isPicking: boolean;
   onPickPlanet?: (planetId: string) => void;
@@ -615,6 +622,7 @@ const PlanetMarkers = React.memo(function PlanetMarkers({
   selectedId,
   pickedTargetPlanetId,
   ownedPlanetIds,
+  now,
   canPickPlanet,
   isPicking,
   onPickPlanet,
@@ -631,6 +639,13 @@ const PlanetMarkers = React.memo(function PlanetMarkers({
           l.planet,
           ownedPlanetIds,
         );
+        const hasRecentSurfaceCombat = isRecentCombat(
+          l.planet.lastCombatTickAt,
+          now,
+        );
+        const combatRingTestId = isForeignColony
+          ? `planet-hostile-colony-ring-${l.planet.id}`
+          : `planet-recent-combat-ring-${l.planet.id}`;
 
         return (
           <button
@@ -664,20 +679,22 @@ const PlanetMarkers = React.memo(function PlanetMarkers({
                 : isPicking
                   ? "none"
                   : "auto",
-              filter: isForeignColony
+              filter: isForeignColony || hasRecentSurfaceCombat
                 ? "drop-shadow(0 0 14px rgba(239,68,68,0.74))"
                 : isSelected
                   ? `drop-shadow(0 0 10px ${meta.accent})`
                   : "drop-shadow(0 6px 14px rgba(0,0,0,0.5))",
             }}
           >
-            {isForeignColony ? (
+            {isForeignColony || hasRecentSurfaceCombat ? (
               <span
-                data-testid={`planet-hostile-colony-ring-${l.planet.id}`}
+                data-testid={combatRingTestId}
                 style={{
                   position: "absolute",
                   inset: -5,
-                  border: "3px solid rgba(239,68,68,0.92)",
+                  border: hasRecentSurfaceCombat
+                    ? "3px solid rgba(252,165,165,0.98)"
+                    : "3px solid rgba(239,68,68,0.92)",
                   borderRadius: "50%",
                   boxShadow:
                     "0 0 18px rgba(239,68,68,0.52), inset 0 0 12px rgba(239,68,68,0.22)",
@@ -2003,11 +2020,8 @@ export function CosmicSystemRenderer({
   );
 
   const mapExpeditions = useMemo(
-    () =>
-      activeExpeditions.filter(
-        (expedition) => !tacticalExpeditionShipIds.has(expedition.shipId),
-      ),
-    [activeExpeditions, tacticalExpeditionShipIds],
+    () => expeditionTrailsForRenderedMap(activeExpeditions),
+    [activeExpeditions],
   );
 
   const shipTypeById = useMemo(
@@ -2028,7 +2042,8 @@ export function CosmicSystemRenderer({
     }) ||
     visibleFleetContacts.some((contact) =>
       isRecentCombat(contact.lastCombatTickAt, now),
-    );
+    ) ||
+    layouts.some((layout) => isRecentCombat(layout.planet.lastCombatTickAt, now));
 
   useEffect(() => {
     if (!hasMovingShips && !hasMovingFleetContacts && !hasRecentCombat) return;
@@ -2117,6 +2132,9 @@ export function CosmicSystemRenderer({
   const selectedIsForeignColony = selected
     ? isForeignColonizedPlanet(selected.planet, ownedPlanetIds)
     : false;
+  const selectedBuildingCount = selected
+    ? (selected.planet.buildingCount ?? selected.planet.buildings?.length ?? 0)
+    : 0;
 
   const orbitRadii = useMemo(() => {
     return buildSystemMapOrbitGuideRadii(
@@ -2705,6 +2723,7 @@ export function CosmicSystemRenderer({
             selectedId={selectedId}
             pickedTargetPlanetId={pickedTargetPlanetId}
             ownedPlanetIds={ownedPlanetIds}
+            now={now}
             canPickPlanet={canPickPlanet}
             isPicking={isPicking}
             onPickPlanet={onPickPlanet}
@@ -2944,7 +2963,7 @@ export function CosmicSystemRenderer({
             </span>
             <b style={{ color: "var(--text)", fontWeight: 600 }}>
               {selected.planet.isDiscovered !== false
-                ? (selected.planet.buildings?.length ?? 0)
+                ? selectedBuildingCount
                 : 0}{" "}
               /{" "}
               {selected.planet.isDiscovered !== false
@@ -2973,6 +2992,14 @@ export function CosmicSystemRenderer({
               </b>
               <div style={{ marginTop: 3 }}>
                 {t("map.bombardBeforeColonize")}
+              </div>
+              <div
+                data-testid="hostile-building-count"
+                style={{ marginTop: 6, color: "#fca5a5" }}
+              >
+                {t("map.hostileBuildings", {
+                  count: selectedBuildingCount,
+                })}
               </div>
             </div>
           ) : null}

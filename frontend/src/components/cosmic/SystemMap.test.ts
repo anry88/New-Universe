@@ -12,6 +12,7 @@ import {
   buildCombatProjectileSegments,
   buildExpeditionTrailSegments,
   buildShipMarkerSnapshots,
+  expeditionTrailsForRenderedMap,
   fleetContactMotionAngle,
   fleetContactsForSystem,
   isForeignColonizedPlanet,
@@ -325,7 +326,7 @@ describe("fleetContactsForSystem", () => {
 });
 
 describe("tacticalExpeditionShipIdsForRenderedContacts", () => {
-  it("keeps /me routes visible until tactical-state renders a matching contact", () => {
+  it("identifies expedition ships that already have tactical contact markers", () => {
     const activeExpeditions = [expedition({ shipId: "ship-1" })];
 
     expect(
@@ -347,6 +348,27 @@ describe("tacticalExpeditionShipIdsForRenderedContacts", () => {
         systemId: system.id,
       }),
     ).toEqual(new Set(["ship-1"]));
+  });
+});
+
+describe("expeditionTrailsForRenderedMap", () => {
+  it("keeps own route trails visible even when a tactical marker renders the ship", () => {
+    const activeExpeditions = [expedition({ shipId: "ship-1" })];
+    const tacticalRenderedShipIds = tacticalExpeditionShipIdsForRenderedContacts(
+      {
+        activeExpeditions,
+        visibleFleetContacts: [
+          contact("ship-1", { relation: "self", visibility: "full" }),
+        ],
+        fleetContactsAuthoritative: true,
+        systemId: system.id,
+      },
+    );
+
+    expect(tacticalRenderedShipIds).toEqual(new Set(["ship-1"]));
+    expect(expeditionTrailsForRenderedMap(activeExpeditions)).toEqual(
+      activeExpeditions,
+    );
   });
 });
 

@@ -215,6 +215,7 @@
   "map.sendColonizer": "Send colonizer",
   "map.foreignColony": "Hostile colony",
   "map.bombardBeforeColonize": "Bombard the standing buildings before sending a colonizer.",
+  "map.hostileBuildings": "Buildings to destroy: {count}",
   "map.shipContact.own": "Fleet ship",
   "map.shipContact.hostile": "Hostile ship",
   "map.shipStatus.hostile": "Hostile",
