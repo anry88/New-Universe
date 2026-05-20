@@ -206,8 +206,9 @@ describe('getJumpGateState', () => {
     });
   });
 
-  it('returns resources for discovered public destination planets only', async () => {
+  it('returns resources for discovered or colonized public destination planets', async () => {
     const { user, homeSystem } = await createUserWithHomeSystem('resources');
+    const { user: rival } = await createUserWithHomeSystem('resources_rival');
 
     await db.insert(researchProgress).values({
       userId: user.id,
@@ -228,7 +229,7 @@ describe('getJumpGateState', () => {
       seed: 200,
     }).returning();
 
-    const [discoveredPlanet, hiddenPlanet] = await db.insert(planets).values([
+    const [discoveredPlanet, colonizedPlanet, hiddenPlanet] = await db.insert(planets).values([
       {
         systemId: publicSystem.id,
         biome: 'rocky',
@@ -243,18 +244,44 @@ describe('getJumpGateState', () => {
         slotCount: 9,
         name: 'a111-2',
       },
+      {
+        systemId: publicSystem.id,
+        biome: 'green',
+        size: 16,
+        slotCount: 10,
+        name: 'a111-3',
+      },
     ]).returning();
 
-    await db.insert(richness).values({
-      planetId: discoveredPlanet.id,
-      resourceId: 'iron',
-      value: 3,
-    });
-    await db.insert(planetResources).values({
-      planetId: discoveredPlanet.id,
-      resourceId: 'iron',
-      amount: '0',
-      regenRate: '0',
+    await db.insert(richness).values([
+      {
+        planetId: discoveredPlanet.id,
+        resourceId: 'iron',
+        value: 3,
+      },
+      {
+        planetId: colonizedPlanet.id,
+        resourceId: 'silicon',
+        value: 2,
+      },
+    ]);
+    await db.insert(planetResources).values([
+      {
+        planetId: discoveredPlanet.id,
+        resourceId: 'iron',
+        amount: '0',
+        regenRate: '0',
+      },
+      {
+        planetId: colonizedPlanet.id,
+        resourceId: 'silicon',
+        amount: '125',
+        regenRate: '0',
+      },
+    ]);
+    await db.insert(colonies).values({
+      ownerId: rival.id,
+      planetId: colonizedPlanet.id,
     });
     await db.insert(discoveredSystems).values({
       userId: user.id,
@@ -267,7 +294,7 @@ describe('getJumpGateState', () => {
 
     const state = await getJumpGateState(user.id);
     const destination = state.knownDestinations[0]!;
-    expect(destination.planets).toHaveLength(2);
+    expect(destination.planets).toHaveLength(3);
 
     const visible = destination.planets.find((planet) => planet.id === discoveredPlanet.id)!;
     expect(visible).toMatchObject({
@@ -279,6 +306,22 @@ describe('getJumpGateState', () => {
         expect.objectContaining({
           resourceId: 'iron',
           richness: 3,
+        }),
+      ],
+    });
+
+    const occupied = destination.planets.find((planet) => planet.id === colonizedPlanet.id)!;
+    expect(occupied).toMatchObject({
+      name: 'a111-2',
+      biome: 'ice',
+      slotCount: 9,
+      isDiscovered: true,
+      isColonized: true,
+      isOwnedColony: false,
+      resources: [
+        expect.objectContaining({
+          resourceId: 'silicon',
+          richness: 2,
         }),
       ],
     });

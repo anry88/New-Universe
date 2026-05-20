@@ -285,7 +285,7 @@ export interface BomberActor {
   status: string;
   hp: number;
   combatStats: CombatStats;
-  /** System the bomber is currently docked at; orbital bombers must be in-system to bomb. */
+  /** System the bomber currently occupies; orbital bombers must be in-system to bomb. */
   hostSystemId: string | null;
   /** Current planar light-year position inside the combat space. */
   position: { x: number; y: number } | null;
@@ -336,7 +336,7 @@ export function selectBomberTargetForPlanet(
  * Resolve every (bomber, building) hit for the current tick.
  *
  * - Bomber must be a non-destroyed military hull with an `orbital` damage
- *   profile and a known host system (in-flight bombers cannot drop ordnance).
+ *   profile, a known host system, and a resolved tactical position.
  * - The bomber engages every enemy-owned planet inside that system,
  *   targeting one building per planet (priority: non-CC, then CC).
  * - Pure function: no DB I/O; the orchestrator collects targets and applies

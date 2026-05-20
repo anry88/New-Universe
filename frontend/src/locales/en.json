@@ -213,6 +213,8 @@
   "map.discoveryRequired": "Discovery Required",
   "map.openPlanet": "Open planet",
   "map.sendColonizer": "Send colonizer",
+  "map.foreignColony": "Hostile colony",
+  "map.bombardBeforeColonize": "Bombard the standing buildings before sending a colonizer.",
   "map.shipContact.own": "Fleet ship",
   "map.shipContact.hostile": "Hostile ship",
   "map.shipStatus.hostile": "Hostile",
