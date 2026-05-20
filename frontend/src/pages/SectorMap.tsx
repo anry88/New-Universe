@@ -1,17 +1,20 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, X } from "lucide-react";
+import { ChevronLeft, Pencil, X } from "lucide-react";
 import { useMe } from "../hooks/useMe";
 import { apiFetch } from "../lib/api";
 import { CosmicBottomNav } from "../components/cosmic/atoms";
+import { RenameEntityDialog } from "../components/RenameEntityDialog";
 import { SectorRenderer } from "../components/pixi/SectorRenderer";
 import type {
   SectorPresencePayload,
   SectorPresenceEntity,
+  SectorSystemAnchor,
   SectorSystemAnchorTag,
   SectorSystemAnchorsPayload,
 } from "@shared/types/multiplayer";
+import { SYSTEM_RENAME_DIAMOND_COST } from "@shared/types/entity-rename";
 import { useI18n } from "../lib/i18n";
 import {
   hasLiveSectorActivity,
@@ -84,6 +87,10 @@ export function SectorMapPage() {
   const [draftSx, setDraftSx] = useState(sector.sx);
   const [draftSy, setDraftSy] = useState(sector.sy);
   const [draftSz, setDraftSz] = useState(sector.sz);
+  const [renameAnchor, setRenameAnchor] = useState<SectorSystemAnchor | null>(null);
+
+  const canRenameAnchor = (anchor: SectorSystemAnchor): boolean =>
+    anchor.ownColonyCount > 0 && anchor.foreignColonyCount === 0;
 
   useEffect(() => {
     setDraftSx(sector.sx);
@@ -355,15 +362,30 @@ export function SectorMapPage() {
                       : null,
                   ].filter(Boolean);
 
+                  const renameEnabled = canRenameAnchor(anchor);
+                  const renameTitle = renameEnabled
+                    ? anchor.renameCount === 0
+                      ? `${t('rename.system.title')} · ${t('common.free')}`
+                      : `${t('rename.system.title')} · ◆ ${SYSTEM_RENAME_DIAMOND_COST}`
+                    : anchor.foreignColonyCount > 0
+                      ? t('rename.system.disabled.foreign')
+                      : t('rename.system.disabled.noColony');
+
                   return (
-                    <button
+                    <div
                       key={anchor.systemId}
+                      style={{
+                        position: 'relative',
+                        flex: "0 0 160px",
+                      }}
+                    >
+                    <button
                       type="button"
                       onClick={() =>
                         selectAnchor(anchor.systemId, anchor.sector)
                       }
                       style={{
-                        flex: "0 0 160px",
+                        width: '100%',
                         textAlign: "left",
                         borderRadius: 8,
                         border: active
@@ -383,6 +405,7 @@ export function SectorMapPage() {
                           overflow: "hidden",
                           textOverflow: "ellipsis",
                           whiteSpace: "nowrap",
+                          paddingRight: 18,
                         }}
                       >
                         {anchor.title}
@@ -436,6 +459,35 @@ export function SectorMapPage() {
                         </div>
                       )}
                     </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (renameEnabled) setRenameAnchor(anchor);
+                      }}
+                      disabled={!renameEnabled}
+                      aria-label={renameTitle}
+                      title={renameTitle}
+                      style={{
+                        position: 'absolute',
+                        top: 4,
+                        right: 4,
+                        width: 22,
+                        height: 22,
+                        display: 'grid',
+                        placeItems: 'center',
+                        borderRadius: 6,
+                        border: '1px solid rgba(148,163,184,0.25)',
+                        background: renameEnabled
+                          ? 'rgba(91,215,255,0.12)'
+                          : 'rgba(8,12,22,0.6)',
+                        color: renameEnabled ? 'var(--accent)' : 'var(--text-faint)',
+                        cursor: renameEnabled ? 'pointer' : 'not-allowed',
+                      }}
+                    >
+                      <Pencil size={12} />
+                    </button>
+                    </div>
                   );
                 })}
               </div>
@@ -660,6 +712,18 @@ export function SectorMapPage() {
       </div>
 
       <CosmicBottomNav />
+
+      {renameAnchor && (
+        <RenameEntityDialog
+          kind="system"
+          targetId={renameAnchor.systemId}
+          currentName={renameAnchor.title}
+          renameCount={renameAnchor.renameCount}
+          diamondBalance={meData?.diamonds ?? 0}
+          paidCost={SYSTEM_RENAME_DIAMOND_COST}
+          onClose={() => setRenameAnchor(null)}
+        />
+      )}
     </div>
   );
 }

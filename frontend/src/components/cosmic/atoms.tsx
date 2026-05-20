@@ -138,6 +138,13 @@ export interface PlanetPortraitProps {
   size: number;
   slots: number;
   slotsUsed: number;
+  /**
+   * When provided, the planet name becomes an interactive control. Used on
+   * the Home screen to open the rename dialog for the focal own colony.
+   */
+  onNameClick?: () => void;
+  /** Accessible label for the name button (e.g. "Rename planet"). */
+  nameClickAriaLabel?: string;
 }
 
 export const PlanetPortrait: React.FC<PlanetPortraitProps> = ({
@@ -146,6 +153,8 @@ export const PlanetPortrait: React.FC<PlanetPortraitProps> = ({
   size,
   slots,
   slotsUsed,
+  onNameClick,
+  nameClickAriaLabel,
 }) => {
   const { locale, t } = useI18n();
   const b = resolveBiome(biome);
@@ -169,7 +178,27 @@ export const PlanetPortrait: React.FC<PlanetPortraitProps> = ({
           <span className="dot" style={{ background: meta.accent }} />
           {getBiomeTag(b, locale)} · {t('planet.class').toUpperCase()} {cls}
         </div>
-        <div className="ph-name">{name}</div>
+        {onNameClick ? (
+          <button
+            type="button"
+            onClick={onNameClick}
+            aria-label={nameClickAriaLabel ?? name}
+            className="ph-name"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              color: 'inherit',
+              font: 'inherit',
+              textAlign: 'left',
+            }}
+          >
+            {name}
+          </button>
+        ) : (
+          <div className="ph-name">{name}</div>
+        )}
         <div className="ph-sub">
           <span>
             {t('planet.size').toUpperCase()} <b>{size}</b>

@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { PLANET_RENAME_DIAMOND_COST } from '@shared/types/entity-rename';
 import { useMe } from '../hooks/useMe';
 import {
   BIOME_META,
@@ -19,6 +21,7 @@ import { useI18n } from '../lib/i18n';
  */
 import { useColonies } from '../hooks/useColonies';
 import { formatHomeSystemTitleForUser } from '../lib/homeSystemTitle';
+import { RenameEntityDialog } from './RenameEntityDialog';
 
 /**
  * The "current planet" snapshot rendered on the home screen.
@@ -32,6 +35,7 @@ export function PlanetView() {
   const { focalPlanet: planet, planets: allPlanets, setFocalPlanetId } = useColonies();
   const { t } = useI18n();
   const navigate = useNavigate();
+  const [renameOpen, setRenameOpen] = useState(false);
 
   if (!planet) {
     return (
@@ -58,6 +62,8 @@ export function PlanetView() {
           size={planet.size}
           slots={slotCount}
           slotsUsed={usedSlots}
+          onNameClick={() => setRenameOpen(true)}
+          nameClickAriaLabel={t('rename.planet.title')}
         />
 
         <div className="rail-wrap">
@@ -94,6 +100,18 @@ export function PlanetView() {
           </div>
         </div>
       </div>
+
+      {renameOpen && (
+        <RenameEntityDialog
+          kind="planet"
+          targetId={planet.id}
+          currentName={planet.name}
+          renameCount={planet.renameCount ?? 0}
+          diamondBalance={meData?.diamonds ?? 0}
+          paidCost={PLANET_RENAME_DIAMOND_COST}
+          onClose={() => setRenameOpen(false)}
+        />
+      )}
     </div>
   );
 }

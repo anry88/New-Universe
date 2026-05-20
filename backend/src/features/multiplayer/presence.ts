@@ -476,6 +476,7 @@ function ensureAnchor(
     x: unknown;
     y: unknown;
     z: unknown;
+    renameCount?: number;
   },
 ): AnchorAccumulator {
   const existing = anchors.get(row.systemId);
@@ -489,6 +490,9 @@ function ensureAnchor(
     tags: new Set(),
     colonyCount: 0,
     shipCount: 0,
+    renameCount: row.renameCount ?? 0,
+    ownColonyCount: 0,
+    foreignColonyCount: 0,
   };
   anchors.set(row.systemId, anchor);
   return anchor;
@@ -506,6 +510,9 @@ function serializeAnchor(anchor: AnchorAccumulator): SectorSystemAnchor {
     lastActivityAt: isoOrUndefined(anchor.lastActivityAt),
     colonyCount: anchor.colonyCount,
     shipCount: anchor.shipCount,
+    renameCount: anchor.renameCount,
+    ownColonyCount: anchor.ownColonyCount,
+    foreignColonyCount: anchor.foreignColonyCount,
   };
 }
 
@@ -931,6 +938,7 @@ export async function getSectorSystemAnchors(
       x: systems.x,
       y: systems.y,
       z: systems.z,
+      renameCount: systems.renameCount,
     })
     .from(systems)
     .where(and(eq(systems.ownerId, viewerId), eq(systems.isHome, true)));
@@ -952,6 +960,7 @@ export async function getSectorSystemAnchors(
       x: systems.x,
       y: systems.y,
       z: systems.z,
+      renameCount: systems.renameCount,
       discoveredAt: discoveredSystems.discoveredAt,
     })
     .from(discoveredSystems)
@@ -991,6 +1000,7 @@ export async function getSectorSystemAnchors(
       x: systems.x,
       y: systems.y,
       z: systems.z,
+      renameCount: systems.renameCount,
       foundedAt: colonies.foundedAt,
     })
     .from(colonies)
@@ -1006,7 +1016,37 @@ export async function getSectorSystemAnchors(
     const anchor = ensureAnchor(anchors, row);
     anchor.tags.add("colony");
     anchor.colonyCount += 1;
+    anchor.ownColonyCount += 1;
     anchor.lastActivityAt = maxDate(anchor.lastActivityAt, row.foundedAt);
+  }
+
+  // Foreign colonies in any system that the viewer currently anchors block
+  // the rename action. Loaded only for anchored systems so we don't leak
+  // foreign colony presence in unrelated sectors.
+  if (anchors.size > 0) {
+    const anchoredSystemIds = [...anchors.keys()];
+    const foreignColonyRows = await db
+      .select({
+        systemId: planets.systemId,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(colonies)
+      .innerJoin(planets, eq(colonies.planetId, planets.id))
+      .where(
+        and(
+          inArray(planets.systemId, anchoredSystemIds),
+          ne(colonies.ownerId, viewerId),
+          eq(colonies.status, "active"),
+        ),
+      )
+      .groupBy(planets.systemId);
+
+    for (const row of foreignColonyRows) {
+      const anchor = anchors.get(row.systemId);
+      if (anchor) {
+        anchor.foreignColonyCount += Number(row.count);
+      }
+    }
   }
 
   const shipRows = await db
@@ -1022,6 +1062,7 @@ export async function getSectorSystemAnchors(
       x: systems.x,
       y: systems.y,
       z: systems.z,
+      renameCount: systems.renameCount,
     })
     .from(ships)
     .innerJoin(planets, eq(ships.locationPlanetId, planets.id))
@@ -1053,6 +1094,7 @@ export async function getSectorSystemAnchors(
       x: systems.x,
       y: systems.y,
       z: systems.z,
+      renameCount: systems.renameCount,
       stationedAt: expeditions.eta,
     })
     .from(expeditions)

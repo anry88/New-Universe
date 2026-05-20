@@ -10,6 +10,17 @@ export function homeSystemShortTag(systemId: string): string {
   return systemId.replace(/-/g, '').slice(0, 4).toLowerCase();
 }
 
+/**
+ * Eight lowercase hex chars from the system UUID, split as `xxxx-xxxx`.
+ * Used as the default *name* for newly generated home systems — only
+ * random characters, no player slug. Older home systems keep whatever
+ * `name` was stored at generation time (we never rename them).
+ */
+export function homeSystemRandomTag(systemId: string): string {
+  const hex = systemId.replace(/-/g, '').slice(0, 8).toLowerCase();
+  return `${hex.slice(0, 4)}-${hex.slice(4, 8)}`;
+}
+
 /** Safe player slug for titles; Telegram username preferred, then first name. */
 export function sanitizePlayerSlug(
   tgUsername: string | null | undefined,
