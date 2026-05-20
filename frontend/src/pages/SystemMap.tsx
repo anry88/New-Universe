@@ -13,11 +13,13 @@ import {
   Fuel,
   Navigation,
   Package,
+  Pencil,
   RadioTower,
   Rocket,
   Send,
   X,
 } from 'lucide-react';
+import { RenameEntityDialog } from '../components/RenameEntityDialog';
 import { formatHomeSystemTitleForUser } from '../lib/homeSystemTitle';
 import { useI18n } from '../lib/i18n';
 import { useJumpGateState, useRandomJump } from '../hooks/useJumpGateState';
@@ -36,6 +38,7 @@ import {
   JUMP_FUEL_RESOURCE_ID,
   JUMP_GATE_JUMP_FUEL_COST,
 } from '@shared/config/expeditionRouting';
+import { SYSTEM_RENAME_DIAMOND_COST } from '@shared/types/entity-rename';
 import type {
   JumpGateKnownDestinationSummary,
   JumpGateStateResponse,
@@ -147,6 +150,17 @@ function commonSystemDisplayName(destination: JumpGateKnownDestinationSummary, l
   );
 }
 
+function destinationSystemDisplayName(
+  destination: JumpGateKnownDestinationSummary,
+  locale: string,
+) {
+  if (destination.renameCount > 0 && destination.systemName) {
+    return destination.systemName;
+  }
+
+  return commonSystemDisplayName(destination, locale);
+}
+
 function destinationToSystem(destination: JumpGateKnownDestinationSummary, locale: string): HomeSystem {
   const planets: Planet[] = destination.planets
     .filter((planet) => planet.isDiscovered)
@@ -173,8 +187,9 @@ function destinationToSystem(destination: JumpGateKnownDestinationSummary, local
     sectorX: destination.sector.x,
     sectorY: destination.sector.y,
     sectorZ: destination.sector.z,
-    name: commonSystemDisplayName(destination, locale),
+    name: destinationSystemDisplayName(destination, locale),
     seed: destination.seed,
+    renameCount: destination.renameCount,
     planets,
   };
 }
@@ -208,6 +223,7 @@ export function SystemMapPage() {
   );
   const [missionShip, setMissionShip] = useState<Ship | null>(null);
   const [refuelingShip, setRefuelingShip] = useState<Ship | null>(null);
+  const [isRenameSystemOpen, setIsRenameSystemOpen] = useState(false);
 
   const home = meData?.homeSystem ?? null;
   const knownDestinations = jumpGateState?.knownDestinations ?? [];
@@ -488,6 +504,17 @@ export function SystemMapPage() {
 
   const activeSystem = renderedSystem ?? meData.homeSystem;
   const isViewingDestination = Boolean(selectedDestination);
+  const activeSystemTitle = selectedDestination
+    ? destinationSystemDisplayName(selectedDestination, locale)
+    : formatHomeSystemTitleForUser(meData);
+  const activeOwnedColonyCount = (meData.planets ?? []).filter(
+    (planet) => planet.systemId === activeSystem.id && planet.isColonized !== false,
+  ).length;
+  const activeForeignColonyCount =
+    activeSystem.planets?.filter(
+      (planet) => planet.isColonized === true && planet.isOwnedColony === false,
+    ).length ?? 0;
+  const canRenameActiveSystem = activeOwnedColonyCount > 0 && activeForeignColonyCount === 0;
 
   return (
     <div className="cosmic-screen" style={{ '--accent': '#5BD7FF', position: 'relative' } as React.CSSProperties}>
@@ -531,7 +558,14 @@ export function SystemMapPage() {
           <ChevronLeft size={20} />
         </button>
 
-        <div
+        <button
+          type="button"
+          disabled={!canRenameActiveSystem}
+          aria-label={t('rename.system.title')}
+          title={canRenameActiveSystem ? t('rename.system.title') : undefined}
+          onClick={() => {
+            if (canRenameActiveSystem) setIsRenameSystemOpen(true);
+          }}
           style={{
             background: 'rgba(14,20,36,0.85)',
             border: '1px solid var(--line)',
@@ -540,12 +574,30 @@ export function SystemMapPage() {
             backdropFilter: 'blur(8px)',
             pointerEvents: 'auto',
             textAlign: 'center',
+            flex: '0 1 min(54vw, 360px)',
+            maxWidth: 'min(54vw, 360px)',
+            minWidth: 0,
+            margin: '0 8px',
+            color: 'var(--text)',
+            cursor: canRenameActiveSystem ? 'pointer' : 'default',
           }}
         >
-          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 13, color: 'var(--text)' }}>
-            {selectedDestination
-              ? commonSystemDisplayName(selectedDestination, locale)
-              : formatHomeSystemTitleForUser(meData)}
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+              maxWidth: '100%',
+              fontFamily: 'var(--font-display)',
+              fontWeight: 600,
+              fontSize: 13,
+              lineHeight: 1.2,
+              color: 'var(--text)',
+            }}
+          >
+            <span style={{ overflowWrap: 'anywhere' }}>{activeSystemTitle}</span>
+            {canRenameActiveSystem ? <Pencil size={12} aria-hidden="true" /> : null}
           </div>
           <div
             style={{
@@ -558,7 +610,7 @@ export function SystemMapPage() {
           >
             {t('map.sector').toUpperCase()} {activeSystem.sectorX}:{activeSystem.sectorY}:{activeSystem.sectorZ}
           </div>
-        </div>
+        </button>
 
         <button
           type="button"
@@ -675,6 +727,18 @@ export function SystemMapPage() {
             setIsSystemSelectorOpen(false);
           }}
           onClose={() => setIsSystemSelectorOpen(false)}
+        />
+      ) : null}
+
+      {isRenameSystemOpen ? (
+        <RenameEntityDialog
+          kind="system"
+          targetId={activeSystem.id}
+          currentName={activeSystem.name}
+          renameCount={activeSystem.renameCount ?? 0}
+          diamondBalance={meData.diamonds ?? 0}
+          paidCost={SYSTEM_RENAME_DIAMOND_COST}
+          onClose={() => setIsRenameSystemOpen(false)}
         />
       ) : null}
 

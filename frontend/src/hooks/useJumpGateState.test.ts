@@ -29,6 +29,7 @@ function jumpGateState(
         systemId: "system-1",
         systemName: "Frontier",
         shortTag: "FRN",
+        renameCount: 0,
         sector: { x: 1, y: 2, z: 0 },
         seed: 123,
         planetCount: 1,

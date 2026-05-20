@@ -906,6 +906,8 @@ button.cosmic-card:disabled {
   box-shadow: 0 0 8px currentColor;
 }
 .ph-name {
+  display: block;
+  width: 100%;
   font-family: var(--font-display);
   font-size: 26px;
   font-weight: 600;
@@ -913,6 +915,8 @@ button.cosmic-card:disabled {
   line-height: 1.05;
   margin: 2px 0 8px;
   color: var(--text);
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 .ph-sub {
   font-family: var(--font-mono);

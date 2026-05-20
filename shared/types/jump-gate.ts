@@ -47,6 +47,7 @@ export interface JumpGateKnownDestinationSummary {
   systemId: string;
   systemName: string;
   shortTag: string;
+  renameCount: number;
   sector: { x: number; y: number; z: number };
   seed: number;
   planetCount: number;

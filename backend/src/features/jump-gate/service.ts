@@ -190,6 +190,7 @@ async function loadKnownDestinations(
     .select({
       systemId: systems.id,
       systemName: systems.name,
+      renameCount: systems.renameCount,
       sectorX: systems.sectorX,
       sectorY: systems.sectorY,
       sectorZ: systems.sectorZ,
@@ -210,6 +211,7 @@ async function loadKnownDestinations(
     .groupBy(
       systems.id,
       systems.name,
+      systems.renameCount,
       systems.sectorX,
       systems.sectorY,
       systems.sectorZ,
@@ -226,8 +228,11 @@ async function loadKnownDestinations(
 
   return rows.map((row) => ({
     systemId: row.systemId,
-    systemName: formatCommonSystemDisplayName('en', homeSystemShortTag(row.systemId)),
+    systemName: row.renameCount > 0
+      ? row.systemName
+      : formatCommonSystemDisplayName('en', homeSystemShortTag(row.systemId)),
     shortTag: homeSystemShortTag(row.systemId),
+    renameCount: row.renameCount,
     sector: {
       x: row.sectorX,
       y: row.sectorY,
