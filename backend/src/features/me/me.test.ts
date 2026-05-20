@@ -8,6 +8,7 @@ import jwt from "jsonwebtoken";
 import { db } from "../../db/index.js";
 import {
   expeditions,
+  playerActivityDaily,
   planets,
   ships,
   systems,
@@ -15,6 +16,7 @@ import {
 } from "../../db/schema.js";
 import { DEFAULT_NOTIFICATION_PREFERENCES } from "@shared/types/notifications.js";
 import { SHIP_STATUS_DESTROYED } from "@shared/types/combat.js";
+import { eq } from "drizzle-orm";
 
 describe("Me Routes", () => {
   const botToken = env.TELEGRAM_BOT_TOKEN;
@@ -99,6 +101,52 @@ describe("Me Routes", () => {
     });
 
     expect(response.statusCode).toBe(401);
+  });
+
+  it("starts an explicit online session for the active user", async () => {
+    const app = Fastify();
+    await app.register(authRoutes, { prefix: "/auth" });
+    await app.register(meRoutes, { prefix: "/me" });
+
+    const tgId = Math.floor(Math.random() * 100000000);
+    const tgUser = { id: tgId, first_name: "Session", username: "sessionuser" };
+    const initData = createValidInitData(tgUser);
+
+    const loginResponse = await app.inject({
+      method: "POST",
+      url: "/auth/telegram",
+      headers: {
+        "x-telegram-init-data": initData,
+      },
+    });
+
+    const { token, user } = loginResponse.json();
+    await expect(
+      db
+        .select()
+        .from(playerActivityDaily)
+        .where(eq(playerActivityDaily.userId, user.id)),
+    ).resolves.toEqual([]);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/me/session/start",
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(typeof response.json().startedAt).toBe("string");
+
+    const [activity] = await db
+      .select()
+      .from(playerActivityDaily)
+      .where(eq(playerActivityDaily.userId, user.id));
+    expect(activity).toMatchObject({
+      playSeconds: 0,
+      sessionCount: 1,
+    });
   });
 
   it("keeps destroyed ships out of the player state payload", async () => {

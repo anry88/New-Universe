@@ -4,9 +4,6 @@ import { STARS_DIAMOND_PACKS } from '@shared/config/monetization.js';
 import { db } from '../db/index.js';
 import { env } from './env.js';
 
-export const PLAYER_ACTIVITY_SESSION_GAP_SECONDS = 30 * 60;
-export const PLAYER_ACTIVITY_MAX_HEARTBEAT_SECONDS = 5 * 60;
-
 const HTTP_DURATION_BUCKETS_SECONDS = [0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, Number.POSITIVE_INFINITY];
 const PRODUCT_WINDOWS = ['day', 'week', 'month'] as const;
 const QUEUE_NAMES = ['buildings', 'ships', 'research', 'expeditions', 'notifications', 'production_orders'] as const;
@@ -90,7 +87,7 @@ let analyticsMetricsCache: { collectedAtMs: number; samples: MetricSample[] } | 
 let analyticsMetricsRefresh: Promise<MetricSample[]> | null = null;
 let redisMetricsClient: InstanceType<typeof Redis> | null = null;
 
-export async function recordPlayerActivity(userId: string, now = new Date()): Promise<void> {
+export async function startPlayerActivitySession(userId: string, now = new Date()): Promise<string> {
   const activityDate = now.toISOString().slice(0, 10);
   const activityTimestamp = formatActivityTimestamp(now);
 
@@ -107,21 +104,32 @@ export async function recordPlayerActivity(userId: string, now = new Date()): Pr
     ON CONFLICT (user_id, activity_date) DO UPDATE SET
       first_seen_at = LEAST(player_activity_daily.first_seen_at, EXCLUDED.first_seen_at),
       last_seen_at = GREATEST(player_activity_daily.last_seen_at, EXCLUDED.last_seen_at),
-      play_seconds = player_activity_daily.play_seconds + CASE
-        WHEN EXCLUDED.last_seen_at > player_activity_daily.last_seen_at
-          AND EXCLUDED.last_seen_at - player_activity_daily.last_seen_at <= make_interval(secs => ${PLAYER_ACTIVITY_SESSION_GAP_SECONDS})
-        THEN LEAST(
-          EXTRACT(EPOCH FROM EXCLUDED.last_seen_at - player_activity_daily.last_seen_at)::int,
-          ${PLAYER_ACTIVITY_MAX_HEARTBEAT_SECONDS}
-        )
-        ELSE 0
-      END,
       session_count = player_activity_daily.session_count + CASE
         WHEN EXCLUDED.last_seen_at > player_activity_daily.last_seen_at
-          AND EXCLUDED.last_seen_at - player_activity_daily.last_seen_at > make_interval(secs => ${PLAYER_ACTIVITY_SESSION_GAP_SECONDS})
         THEN 1
         ELSE 0
       END
+  `);
+
+  return activityTimestamp;
+}
+
+export async function recordPlayerActivity(userId: string, now = new Date()): Promise<void> {
+  const activityDate = now.toISOString().slice(0, 10);
+  const activityTimestamp = formatActivityTimestamp(now);
+
+  await db.execute(sql`
+    UPDATE player_activity_daily
+    SET
+      play_seconds = player_activity_daily.play_seconds + CASE
+        WHEN ${activityTimestamp}::timestamp > player_activity_daily.last_seen_at
+        THEN EXTRACT(EPOCH FROM ${activityTimestamp}::timestamp - player_activity_daily.last_seen_at)::int
+        ELSE 0
+      END,
+      last_seen_at = GREATEST(player_activity_daily.last_seen_at, ${activityTimestamp}::timestamp)
+    WHERE user_id = ${userId}
+      AND activity_date = ${activityDate}
+      AND session_count > 0
   `);
 }
 

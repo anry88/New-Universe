@@ -54,13 +54,14 @@ import {
 } from "../resources/energy.js";
 import { mutationRateLimit } from "../../lib/rate-limit.js";
 import { objectBodySchema, securityRouteConfig } from "../../lib/security.js";
-import { recordPlayerActivity } from "../../lib/metrics.js";
+import { startPlayerActivitySession } from "../../lib/metrics.js";
 import {
   COLONIZATION_RULES,
   maxColoniesForLogisticsLevel,
 } from "../../config/colonization-rules.js";
 import { loadExpansionColonies } from "../colonies/colonization-rules.js";
 import { SHIP_STATUS_DESTROYED } from "@shared/types/combat.js";
+import type { StartOnlineSessionResponse } from "@shared/types/activity.js";
 
 type UserRow = typeof users.$inferSelect;
 type UpdatePreferencesRequestBody = Partial<UpdatePreferredLocaleRequest> | null;
@@ -102,12 +103,23 @@ async function loadSessionUser(
 }
 
 export async function meRoutes(app: FastifyInstance) {
+  app.post(
+    "/session/start",
+    {
+      config: securityRouteConfig(mutationRateLimit, "session-no-body"),
+    },
+    async (request, reply) => {
+      const user = await loadSessionUser(request, reply);
+      if (!user) return;
+
+      const startedAt = await startPlayerActivitySession(user.id);
+      return reply.send({ startedAt } satisfies StartOnlineSessionResponse);
+    },
+  );
+
   app.get("/", async (request, reply) => {
     const user = await loadSessionUser(request, reply);
     if (!user) return;
-    void recordPlayerActivity(user.id).catch((err) => {
-      request.log.warn({ err }, "Failed to record player activity");
-    });
 
     try {
       const researchEffectsCache = createResearchEffectsRequestCache();
