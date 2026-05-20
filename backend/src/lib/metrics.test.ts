@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatMetricSamples } from './metrics.js';
+import { formatActivityTimestamp, formatMetricSamples } from './metrics.js';
 
 describe('metrics formatting', () => {
   it('renders Prometheus text exposition with escaped labels', () => {
@@ -38,5 +38,33 @@ describe('metrics formatting', () => {
     expect(output).toContain('# TYPE nu_http_request_duration_seconds histogram');
     expect(output).toContain('nu_http_request_duration_seconds_bucket{le="+Inf"} 1');
     expect(output).toContain('nu_http_request_duration_seconds_count 1');
+  });
+
+  it('renders signed product deltas and progression milestone counts', () => {
+    const output = formatMetricSamples([
+      {
+        name: 'nu_product_players_active_delta',
+        help: 'Active player delta',
+        type: 'gauge',
+        value: -4,
+        labels: { window: 'day' },
+      },
+      {
+        name: 'nu_product_progression_players',
+        help: 'Progression milestone',
+        type: 'gauge',
+        value: 12,
+        labels: { milestone: 'tutorial_completed' },
+      },
+    ]);
+
+    expect(output).toContain('nu_product_players_active_delta{window="day"} -4');
+    expect(output).toContain('nu_product_progression_players{milestone="tutorial_completed"} 12');
+  });
+
+  it('formats activity timestamps as SQL-safe strings', () => {
+    expect(formatActivityTimestamp(new Date('2026-05-20T10:00:00.000Z'))).toBe(
+      '2026-05-20T10:00:00.000Z',
+    );
   });
 });

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { eq, sql } from 'drizzle-orm';
 import { TELEGRAM_STARS_CURRENCY } from '@shared/config/monetization.js';
 import { db } from '../../db/index.js';
-import { starPayments, users } from '../../db/schema.js';
+import { starCheckoutAttempts, starPayments, users } from '../../db/schema.js';
 import {
   answerPreCheckoutQuery,
   createTelegramInvoiceLink,
@@ -97,6 +97,18 @@ describe('Telegram Stars monetization', () => {
       payload: buildStarsInvoicePayload(user.id, 'diamonds_500', result.checkoutId),
       currency: TELEGRAM_STARS_CURRENCY,
       prices: [{ label: '500 Diamonds', amount: 85 }],
+    });
+
+    const attempt = await db.query.starCheckoutAttempts.findFirst({
+      where: eq(starCheckoutAttempts.checkoutId, result.checkoutId),
+    });
+    expect(attempt).toMatchObject({
+      userId: user.id,
+      packId: 'diamonds_500',
+      invoicePayload: buildStarsInvoicePayload(user.id, 'diamonds_500', result.checkoutId),
+      diamonds: 500,
+      priceStars: 85,
+      currency: TELEGRAM_STARS_CURRENCY,
     });
   });
 

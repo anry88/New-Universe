@@ -288,6 +288,20 @@
       "when": 1779500000011,
       "tag": "0042_amazing_old_lace",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1779500000012,
+      "tag": "0043_player_activity_registration_baseline",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1779500000013,
+      "tag": "0044_chubby_reaper",
+      "breakpoints": true
     }
   ]
 }

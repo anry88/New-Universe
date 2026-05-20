@@ -57,28 +57,49 @@ vmalert \
 
 Product analytics is aggregate-only and does not expose Telegram ids, usernames, names, raw requests, tokens, or per-user labels.
 
-Activity is recorded on successful `/auth/telegram` and authenticated `GET /me`. The persisted rollup is `player_activity_daily`, keyed by internal `user_id` and UTC `activity_date`. Observed play time is accumulated from adjacent activity pings in the same UTC day, capped at 5 minutes per heartbeat and split into a new session after 30 minutes of inactivity.
+Activity is recorded by the backend on successful `/auth/telegram` and authenticated `GET /me`; the frontend does not write metrics directly. The persisted rollup is `player_activity_daily`, keyed by internal `user_id` and UTC `activity_date`. Observed play time is accumulated from adjacent activity pings in the same UTC day, capped at 5 minutes per heartbeat and split into a new session after 30 minutes of inactivity.
 
 | Metric | Labels | Meaning |
 | --- | --- | --- |
 | `nu_product_players_total` | none | Total registered players. |
 | `nu_product_players_active` | `window=day|week|month` | Distinct active players in the current UTC day, rolling 7 days, or rolling 30 days. |
 | `nu_product_players_active_previous` | `window` | Same metric for the comparable previous period. |
+| `nu_product_players_active_delta` | `window` | Absolute unique-player difference versus the comparable previous period. |
 | `nu_product_players_active_change_ratio` | `window` | `(current - previous) / previous`; returns `1` when previous is zero and current is positive. |
 | `nu_product_players_registered` | `window` | New player registrations in the current period. |
+| `nu_product_players_registered_previous` | `window` | New player registrations in the comparable previous period. |
+| `nu_product_players_registered_delta` | `window` | Absolute registration difference versus the comparable previous period. |
 | `nu_product_players_registered_change_ratio` | `window` | Registration change versus the comparable previous period. |
 | `nu_product_play_time_seconds_sum` | `window` | Total observed play time for the period. |
 | `nu_product_play_time_seconds_avg_per_active_player` | `window` | Observed play time divided by active players. |
 | `nu_product_session_seconds_avg` | `window` | Observed play time divided by session count. |
-| `nu_product_system_development_avg` | `dimension` | Average development indicators: `power_score`, `active_colonies`, `completed_buildings`, `average_building_level`, `ships`, `research_levels`, `max_research_level`. |
+| `nu_product_system_development_avg` | `dimension` | Average development indicators: `development_score`, `active_colonies`, `completed_buildings`, `average_building_level`, `ships`, `research_levels`, `max_research_level`. `development_score` is computed from source-of-truth gameplay rows rather than the currently stale `users.power_score` field. |
+| `nu_product_progression_players` | `milestone` | Distinct players who reached funnel milestones: `tutorial_completed`, `planets_discovered_ge_1|3|5|10`, `buildings_completed_ge_1|5|10|25`, `ships_built_ge_1|3|10`, `research_levels_ge_1|3|8|16`. |
 
-The first day after deployment will undercount play time because activity starts accumulating only after the migration and code deploy are live.
+The Grafana dashboard uses the absolute `*_delta` metrics for player comparisons so day/week/month changes are shown as player counts, not percentages. Ratio metrics remain available for alerts where a relative drop threshold is clearer than a raw count.
+
+Product, progression, and monetization aggregates are cached inside the API process for 5 minutes. Ordinary health, HTTP, and queue metrics stay fresh on every scrape. This keeps `/metrics` light enough for a 30-second VictoriaMetrics scrape interval while still giving Grafana stable closed-alpha trend panels.
+
+## Monetization metrics
+
+The monetization funnel is backend-visible and aggregate-only. A checkout start means the backend successfully created a Telegram Stars invoice link for a diamond pack; a purchase means Telegram payment delivery was recorded in `star_payments`. The frontend does not write these metrics directly.
+
+| Metric | Labels | Meaning |
+| --- | --- | --- |
+| `nu_monetization_checkout_starts` | `window=day|week|month`, `pack` | Backend-created Stars checkout attempts by pack. Emits zero series for all configured packs. |
+| `nu_monetization_purchases` | `window`, `pack` | Delivered Stars purchases recorded by the backend. |
+| `nu_monetization_refunded_purchases` | `window`, `pack` | Delivered purchases later refunded through support/admin flow. |
+| `nu_monetization_stars_spent` | `window`, `pack` | Non-refunded Stars spent on delivered purchases. |
+| `nu_monetization_diamonds_delivered` | `window`, `pack` | Diamonds delivered by non-refunded purchases. |
+| `nu_monetization_checkout_conversion_ratio` | `window`, `pack` | `purchases / checkout_starts`; returns `0` when starts are zero. |
+
+The first day after deployment will undercount play time because registration backfill only creates one baseline session per existing user; real play-time accumulation starts with post-deploy auth and `/me` heartbeats.
 
 ## Operational metrics
 
 | Metric | Labels | Meaning |
 | --- | --- | --- |
-| `nu_api_up` | none | API process can render `/metrics`. External scrape `up{job="new-universe-api"}` remains the authoritative API-down signal. |
+| `nu_api_up` | none | API process can render `/metrics`. This is the dashboard and alert signal for API availability, so staging/prod scrape-job label differences do not create false `No data` panels. |
 | `nu_process_uptime_seconds` | none | API process uptime. |
 | `nu_http_requests_total` | `method`, `route`, `status_code` | In-process HTTP request counter since last API restart. |
 | `nu_http_request_duration_seconds_*` | `method`, `route`, `le` | In-process HTTP duration histogram since last API restart. |
@@ -86,7 +107,10 @@ The first day after deployment will undercount play time because activity starts
 | `nu_redis_available` / `nu_redis_ping_seconds` | none | Redis health from the metrics collector. |
 | `nu_game_queue_items` | `queue`, `state` | Source-of-truth game work rows grouped by queue and state. Queues: `buildings`, `ships`, `research`, `expeditions`, `notifications`, `production_orders`. |
 | `nu_game_queue_oldest_due_seconds` | `queue` | Oldest due work item age by queue. This is the primary worker-stuck signal. |
-| `nu_metrics_collection_success` | `collector=database|redis` | Collector health for partial `/metrics` failures. |
+| `nu_metrics_collection_success` | `collector=database|redis|product_analytics` | Collector health for partial `/metrics` failures. |
+| `nu_product_analytics_cache_age_seconds` | none | Age of the cached product/progression/monetization aggregate payload. |
+
+The p95 latency panel uses a fixed 10-minute histogram rate and connects gaps up to 10 minutes. Closed-alpha traffic can be sparse enough that a short dynamic rate window has no samples; availability and error-rate panels remain the outage signals.
 
 ## Alert thresholds
 
@@ -94,7 +118,7 @@ Critical alerts are in `vmalert-rules.yml`. Thresholds start conservative for cl
 
 | Alert | Expression summary | Severity | Runbook |
 | --- | --- | --- | --- |
-| API down | `up{job="new-universe-api"} == 0` for 2m | critical | [API down](#api-down) |
+| API down | `nu_api_up` absent or `0` for 2m | critical | [API down](#api-down) |
 | DB unavailable | `nu_db_available == 0` for 1m | critical | [DB unavailable](#db-unavailable) |
 | Worker stuck | any core queue oldest due age > 300s for 5m | critical | [Worker stuck](#worker-stuck) |
 | Queue backlog | due work rows > 50 for 10m | critical | [Queue backlog](#queue-backlog) |

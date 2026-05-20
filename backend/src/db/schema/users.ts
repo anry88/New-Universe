@@ -1,4 +1,4 @@
-import { pgTable, uuid, bigint, text, timestamp, integer, jsonb } from 'drizzle-orm/pg-core';
+import { index, pgTable, uuid, bigint, text, timestamp, integer, jsonb } from 'drizzle-orm/pg-core';
 import type { NotificationPreferences } from '@shared/types/notifications.js';
 
 export const users = pgTable('users', {
@@ -20,4 +20,6 @@ export const users = pgTable('users', {
   tutorialRewardsClaimed: integer('tutorial_rewards_claimed').notNull().default(0),
   /** Premium currency (diamonds); spent on rush-build; optional Telegram Stars purchase later. */
   diamonds: integer('diamonds').notNull().default(0),
-});
+}, (table) => ({
+  createdAtIdx: index('users_created_at_idx').on(table.createdAt),
+}));
