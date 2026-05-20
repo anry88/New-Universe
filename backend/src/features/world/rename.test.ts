@@ -111,6 +111,27 @@ describe('renamePlanet', () => {
     expect(result.diamondsRemaining).toBe(balanceBefore - PLANET_RENAME_DIAMOND_COST);
   });
 
+  it('charges only one free rename under concurrent planet rename submissions', async () => {
+    const owner = await createUser(1000);
+    const concurrentSystemId = await createSystemRow(owner);
+    const planetId = await createPlanetRow(concurrentSystemId);
+    await createColonyRow(owner, planetId);
+
+    const before = await loadUser(owner);
+    const results = await Promise.all([
+      renamePlanet(owner, planetId, 'Concurrent One'),
+      renamePlanet(owner, planetId, 'Concurrent Two'),
+    ]);
+
+    expect(results.map((result) => result.renameCount).sort()).toEqual([1, 2]);
+    expect(results.reduce((sum, result) => sum + result.diamondsSpent, 0)).toBe(
+      PLANET_RENAME_DIAMOND_COST,
+    );
+
+    const after = await loadUser(owner);
+    expect(after?.diamonds).toBe(before!.diamonds - PLANET_RENAME_DIAMOND_COST);
+  });
+
   it('rejects when the player does not own the colony', async () => {
     const intruderId = await createUser(500);
     const planetId = await createPlanetRow(systemId);
@@ -168,6 +189,27 @@ describe('renameSystem', () => {
 
     const stored = await loadSystem(systemId);
     expect(stored?.name).toBe('Beta Reach');
+  });
+
+  it('charges only one free rename under concurrent system rename submissions', async () => {
+    const owner = await createUser(1000);
+    const systemId = await createSystemRow(null);
+    const planetId = await createPlanetRow(systemId);
+    await createColonyRow(owner, planetId);
+
+    const before = await loadUser(owner);
+    const results = await Promise.all([
+      renameSystem(owner, systemId, 'Concurrent Alpha'),
+      renameSystem(owner, systemId, 'Concurrent Beta'),
+    ]);
+
+    expect(results.map((result) => result.renameCount).sort()).toEqual([1, 2]);
+    expect(results.reduce((sum, result) => sum + result.diamondsSpent, 0)).toBe(
+      SYSTEM_RENAME_DIAMOND_COST,
+    );
+
+    const after = await loadUser(owner);
+    expect(after?.diamonds).toBe(before!.diamonds - SYSTEM_RENAME_DIAMOND_COST);
   });
 
   it('rejects when the player has no colony in the system', async () => {

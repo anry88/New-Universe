@@ -8,7 +8,8 @@ import { renamePlanet, RenameError } from '../features/world/rename.js';
 import { trackBackendEvent } from '../lib/analytics.js';
 import { mutationRateLimit } from '../lib/rate-limit.js';
 import { nonEmptyStringSchema, objectBodySchema, securityRouteConfig } from '../lib/security.js';
-import { MAX_ENTITY_NAME_LENGTH } from '@shared/format/entityNameValidation.js';
+
+const ENTITY_NAME_PAYLOAD_MAX_LENGTH = 256;
 
 /**
  * Colonies routes.
@@ -87,7 +88,7 @@ export async function coloniesRoutes(app: FastifyInstance) {
       params: objectBodySchema({ planetId: nonEmptyStringSchema }, ['planetId']),
       body: objectBodySchema(
         {
-          name: { type: 'string', minLength: 1, maxLength: MAX_ENTITY_NAME_LENGTH },
+          name: { type: 'string', maxLength: ENTITY_NAME_PAYLOAD_MAX_LENGTH },
         },
         ['name'],
       ),

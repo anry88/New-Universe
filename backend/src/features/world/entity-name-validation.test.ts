@@ -15,6 +15,10 @@ describe('validateEntityName', () => {
       valid: true,
       normalized: 'XJ-9 Reach',
     });
+    expect(validateEntityName('Pirate Bay')).toEqual({
+      valid: true,
+      normalized: 'Pirate Bay',
+    });
   });
 
   it('trims surrounding whitespace and collapses interior runs', () => {
@@ -60,6 +64,7 @@ describe('validateEntityName', () => {
   it('catches English profanity with leet/run noise', () => {
     expect(validateEntityName('fuuuuck off').error).toBe('profanity');
     expect(validateEntityName('5h1t storm').error).toBe('profanity');
+    expect(validateEntityName('aaasshole base').error).toBe('profanity');
   });
 
   it('exposes containsProfanity for direct checks', () => {

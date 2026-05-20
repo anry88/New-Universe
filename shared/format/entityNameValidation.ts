@@ -32,6 +32,13 @@ export interface EntityNameValidationResult {
   normalized: string;
 }
 
+interface LatinSignatures {
+  /** Input collapsed to Latin letters only, preserving repeated letters. */
+  joined: string[];
+  /** Latin letter tokens split on spaces/punctuation for short-root checks. */
+  tokens: string[];
+}
+
 /** Roots that imply profanity in any direction. Lowercase Latin only. */
 const PROFANITY_ROOTS_LATIN: readonly string[] = [
   // English
@@ -177,13 +184,13 @@ function normalizeWhitespace(value: string): string {
  * Each signature has profanity-relevant noise stripped:
  *   - lowercase, digits/punct collapsed via LEET_MAP
  *   - non-letter chars removed
- *   - consecutive duplicate letters collapsed (`fuuuuck` → `fuck`)
+ *   - repeated letters are tolerated by the root matcher (`fuuuuck` → `fuck`)
  *
  * For Cyrillic input we expand each character through every transliteration
  * candidate, capping the variant fan-out so deliberately long Cyrillic
  * strings cannot blow up the matcher.
  */
-function buildLatinSignatures(input: string): string[] {
+function buildLatinSignatures(input: string): LatinSignatures {
   const lower = input.toLowerCase();
   const variants: string[] = [''];
   const MAX_VARIANTS = 32;
@@ -209,20 +216,20 @@ function buildLatinSignatures(input: string): string[] {
     }
   }
 
-  return variants.map((variant) => {
+  const joined: string[] = [];
+  const tokens: string[] = [];
+  for (const variant of variants) {
     let stripped = '';
-    let prev = '';
     for (const ch of variant) {
       if (ch >= 'a' && ch <= 'z') {
-        if (ch === prev) continue;
         stripped += ch;
-        prev = ch;
-      } else {
-        prev = '';
       }
     }
-    return stripped;
-  });
+    joined.push(stripped);
+    tokens.push(...variant.split(/[^a-z]+/).filter(Boolean));
+  }
+
+  return { joined, tokens };
 }
 
 function containsCyrillicProfanity(input: string): boolean {
@@ -230,10 +237,20 @@ function containsCyrillicProfanity(input: string): boolean {
   return PROFANITY_ROOTS_CYR.some((root) => lower.includes(root));
 }
 
-function containsLatinProfanity(signatures: string[]): boolean {
-  return signatures.some((signature) =>
-    PROFANITY_ROOTS_LATIN.some((root) => signature.includes(root)),
-  );
+function repeatedLetterPattern(root: string): RegExp {
+  const body = [...root].map((ch) => `${ch}+`).join('');
+  return new RegExp(root.length <= 3 ? `^${body}` : body);
+}
+
+const PROFANITY_PATTERNS_LATIN: readonly RegExp[] =
+  PROFANITY_ROOTS_LATIN.map(repeatedLetterPattern);
+
+function containsLatinProfanity(signatures: LatinSignatures): boolean {
+  return PROFANITY_ROOTS_LATIN.some((root, index) => {
+    const pattern = PROFANITY_PATTERNS_LATIN[index]!;
+    const candidates = root.length <= 3 ? signatures.tokens : signatures.joined;
+    return candidates.some((signature) => pattern.test(signature));
+  });
 }
 
 export function containsProfanity(input: string): boolean {

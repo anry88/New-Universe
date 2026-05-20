@@ -178,7 +178,6 @@ export function RenameEntityDialog({
               setServerError(null);
               setDraft(e.target.value);
             }}
-            maxLength={MAX_ENTITY_NAME_LENGTH}
             placeholder={t('rename.placeholder')}
             style={{
               fontFamily: 'var(--font-mono)',

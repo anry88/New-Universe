@@ -58,10 +58,11 @@ export async function renamePlanet(
   const normalized = validateOrThrow(rawName);
 
   return defaultDb.transaction(async (tx) => {
-    const planetRow = await tx.query.planets.findFirst({
-      where: eq(planets.id, planetId),
-      columns: { id: true, renameCount: true },
-    });
+    const [planetRow] = await tx
+      .select({ id: planets.id, renameCount: planets.renameCount })
+      .from(planets)
+      .where(eq(planets.id, planetId))
+      .for('update');
 
     if (!planetRow) {
       throw new RenameError('not_found', 'Planet not found.');
@@ -139,10 +140,11 @@ export async function renameSystem(
   const normalized = validateOrThrow(rawName);
 
   return defaultDb.transaction(async (tx) => {
-    const systemRow = await tx.query.systems.findFirst({
-      where: eq(systems.id, systemId),
-      columns: { id: true, renameCount: true },
-    });
+    const [systemRow] = await tx
+      .select({ id: systems.id, renameCount: systems.renameCount })
+      .from(systems)
+      .where(eq(systems.id, systemId))
+      .for('update');
 
     if (!systemRow) {
       throw new RenameError('not_found', 'System not found.');

@@ -12,9 +12,10 @@ import {
 } from '../../lib/security.js';
 import { db } from '../../db/index.js';
 import { systems } from '../../db/schema.js';
-import { MAX_ENTITY_NAME_LENGTH } from '@shared/format/entityNameValidation.js';
 import { getSystemTacticalState } from './tactical-state.js';
 import { renameSystem, RenameError } from '../world/rename.js';
+
+const ENTITY_NAME_PAYLOAD_MAX_LENGTH = 256;
 
 export async function systemsRoutes(app: FastifyInstance) {
   app.get('/:systemId/tactical-state', {
@@ -50,7 +51,7 @@ export async function systemsRoutes(app: FastifyInstance) {
       params: objectBodySchema({ systemId: nonEmptyStringSchema }, ['systemId']),
       body: objectBodySchema(
         {
-          name: { type: 'string', minLength: 1, maxLength: MAX_ENTITY_NAME_LENGTH },
+          name: { type: 'string', maxLength: ENTITY_NAME_PAYLOAD_MAX_LENGTH },
         },
         ['name'],
       ),
