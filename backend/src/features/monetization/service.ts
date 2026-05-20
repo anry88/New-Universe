@@ -9,7 +9,7 @@ import {
 import type { Locale } from '@shared/types/locale.js';
 import type { ConfirmStarsCheckoutResponse } from '@shared/types/monetization.js';
 import { db as defaultDb } from '../../db/index.js';
-import { starPayments, starPaymentSupportRequests, users } from '../../db/schema.js';
+import { starCheckoutAttempts, starPayments, starPaymentSupportRequests, users } from '../../db/schema.js';
 import {
   answerPreCheckoutQuery,
   createTelegramInvoiceLink,
@@ -152,10 +152,11 @@ export async function createStarsInvoiceLinkForUser(input: {
   }
 
   const checkoutId = randomUUID();
+  const invoicePayload = buildStarsInvoicePayload(input.userId, pack.id, checkoutId);
   const invoiceUrl = await createTelegramInvoiceLink({
     title: packTitle(pack, input.locale),
     description: packDescription(pack, input.locale),
-    payload: buildStarsInvoicePayload(input.userId, pack.id, checkoutId),
+    payload: invoicePayload,
     currency: TELEGRAM_STARS_CURRENCY,
     prices: [{ label: packTitle(pack, input.locale), amount: pack.priceStars }],
   });
@@ -163,6 +164,16 @@ export async function createStarsInvoiceLinkForUser(input: {
   if (!invoiceUrl) {
     throw new Error('Failed to create Stars invoice.');
   }
+
+  await defaultDb.insert(starCheckoutAttempts).values({
+    userId: user.id,
+    packId: pack.id,
+    checkoutId,
+    invoicePayload,
+    diamonds: pack.diamonds,
+    priceStars: pack.priceStars,
+    currency: TELEGRAM_STARS_CURRENCY,
+  });
 
   return { invoiceUrl, pack, checkoutId };
 }

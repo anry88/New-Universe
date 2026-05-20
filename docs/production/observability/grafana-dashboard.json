@@ -111,12 +111,12 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "up{job=\"new-universe-api\"}",
-          "legendFormat": "API scrape",
+          "expr": "nu_api_up",
+          "legendFormat": "API metrics",
           "refId": "A"
         }
       ],
-      "title": "API Scrape",
+      "title": "API Metrics Endpoint",
       "type": "stat"
     },
     {
@@ -350,7 +350,7 @@
             "lineWidth": 1,
             "pointSize": 5,
             "showPoints": "never",
-            "spanNulls": false
+            "spanNulls": 600000
           },
           "unit": "s"
         },
@@ -383,12 +383,12 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "histogram_quantile(0.95, sum(rate(nu_http_request_duration_seconds_bucket[$__rate_interval])) by (le, route))",
+          "expr": "histogram_quantile(0.95, sum(rate(nu_http_request_duration_seconds_bucket[10m])) by (le, route))",
           "legendFormat": "p95 {{route}}",
           "refId": "A"
         }
       ],
-      "title": "API Latency p95",
+      "title": "API Latency p95 (10m)",
       "type": "timeseries"
     },
     {
@@ -571,7 +571,7 @@
           "refId": "B"
         }
       ],
-      "title": "Players by Window",
+      "title": "Unique Players by Window",
       "type": "timeseries"
     },
     {
@@ -593,7 +593,7 @@
               },
               {
                 "color": "yellow",
-                "value": -25
+                "value": -1
               },
               {
                 "color": "green",
@@ -601,7 +601,7 @@
               }
             ]
           },
-          "unit": "percent"
+          "unit": "short"
         },
         "overrides": []
       },
@@ -636,8 +636,8 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "nu_product_players_active_change_ratio * 100",
-          "legendFormat": "active {{window}}",
+          "expr": "nu_product_players_active_delta",
+          "legendFormat": "active delta {{window}}",
           "refId": "A"
         },
         {
@@ -645,12 +645,12 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "nu_product_players_registered_change_ratio * 100",
-          "legendFormat": "registered {{window}}",
+          "expr": "nu_product_players_registered_delta",
+          "legendFormat": "registered delta {{window}}",
           "refId": "B"
         }
       ],
-      "title": "Player Change vs Previous Period",
+      "title": "Player Delta vs Previous Period",
       "type": "bargauge"
     },
     {
@@ -777,6 +777,292 @@
       ],
       "title": "Average System Development",
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 36
+      },
+      "id": 12,
+      "options": {
+        "displayMode": "gradient",
+        "maxVizHeight": 300,
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "valueMode": "color"
+      },
+      "pluginVersion": "10.4.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "nu_product_progression_players",
+          "legendFormat": "{{milestone}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Progression Milestones",
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 46
+      },
+      "id": 13,
+      "options": {
+        "displayMode": "gradient",
+        "maxVizHeight": 300,
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "valueMode": "color"
+      },
+      "pluginVersion": "10.4.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "nu_monetization_checkout_starts",
+          "legendFormat": "starts {{pack}} {{window}}",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "nu_monetization_purchases",
+          "legendFormat": "purchases {{pack}} {{window}}",
+          "refId": "B"
+        }
+      ],
+      "title": "Stars Checkout Funnel",
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 10
+              },
+              {
+                "color": "green",
+                "value": 30
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 6,
+        "x": 12,
+        "y": 46
+      },
+      "id": 14,
+      "options": {
+        "displayMode": "gradient",
+        "maxVizHeight": 300,
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "valueMode": "color"
+      },
+      "pluginVersion": "10.4.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "nu_monetization_checkout_conversion_ratio * 100",
+          "legendFormat": "{{pack}} {{window}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Stars Conversion",
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 6,
+        "x": 18,
+        "y": 46
+      },
+      "id": 15,
+      "options": {
+        "displayMode": "gradient",
+        "maxVizHeight": 300,
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "valueMode": "color"
+      },
+      "pluginVersion": "10.4.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "nu_monetization_stars_spent",
+          "legendFormat": "stars {{pack}} {{window}}",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "nu_monetization_refunded_purchases",
+          "legendFormat": "refunds {{pack}} {{window}}",
+          "refId": "B"
+        }
+      ],
+      "title": "Stars Delivered Value",
+      "type": "bargauge"
     }
   ],
   "refresh": "30s",

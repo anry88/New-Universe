@@ -3,14 +3,14 @@ groups:
     interval: 30s
     rules:
       - alert: NewUniverseApiDown
-        expr: up{job="new-universe-api"} == 0
+        expr: absent(nu_api_up) or max(nu_api_up) == 0
         for: 2m
         labels:
           severity: critical
           service: api
         annotations:
           summary: New Universe API is not being scraped
-          description: VictoriaMetrics has not scraped the API target for 2 minutes.
+          description: VictoriaMetrics has not seen a successful API metrics render for 2 minutes.
           runbook_url: https://github.com/anry88/New-Universe/blob/main/docs/production/observability.md#api-down
 
       - alert: NewUniverseDatabaseUnavailable

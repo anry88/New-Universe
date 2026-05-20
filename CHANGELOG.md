@@ -4,6 +4,10 @@ All notable changes to New Universe will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- `P4-OPS-001`: дашборд Grafana/VictoriaMetrics усилен абсолютными delta-метриками уникальных игроков, funnel milestone-метрикой `nu_product_progression_players` для прохождения туториала/планет/зданий/кораблей/исследований и Telegram Stars monetization funnel по backend-created checkout attempts, delivered purchases, refund count, Stars spend и conversion. Исправлена backend-запись активности игроков в `player_activity_daily`, добавлен baseline-backfill существующих регистраций, stale `power_score` заменён вычисляемым `development_score`, тяжёлые продуктовые агрегаты кэшируются на 5 минут, а p95 latency-панель переведена на устойчивое 10-минутное окно для sparse closed-alpha трафика.
+
 ### Removed
 
 - `issue #392`: убраны устаревшие военные корпуса `fighter`/`cruiser`/`battleship`, дублирующие лёгкую/среднюю/тяжёлую линии истребителей, бомбардировщиков и лазерных кораблей. Удалены из seed-каталога, shared entity-labels, ship research gates и Cosmic Atlas резолвера; в `HIDDEN_SHIP_TYPE_IDS` добавлены страховочные ids на случай возможных orphan-записей. Чистящая миграция не добавляется намеренно — для перехода требуется пересоздать БД из обновлённого seed.
