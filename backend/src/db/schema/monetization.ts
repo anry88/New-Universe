@@ -1,6 +1,7 @@
 import {
   boolean,
   integer,
+  index,
   serial,
   text,
   timestamp,
@@ -26,6 +27,23 @@ export const starPayments = pgTable('star_payments', {
 }, (table) => ({
   telegramPaymentChargeIdIdx: uniqueIndex('star_payments_telegram_charge_id_idx')
     .on(table.telegramPaymentChargeId),
+  createdPackIdx: index('star_payments_created_pack_idx').on(table.createdAt, table.packId),
+}));
+
+export const starCheckoutAttempts = pgTable('star_checkout_attempts', {
+  id: serial('id').primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  packId: text('pack_id').notNull(),
+  checkoutId: text('checkout_id').notNull(),
+  invoicePayload: text('invoice_payload').notNull(),
+  diamonds: integer('diamonds').notNull(),
+  priceStars: integer('price_stars').notNull(),
+  currency: text('currency').notNull().default('XTR'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  checkoutIdIdx: uniqueIndex('star_checkout_attempts_checkout_id_idx').on(table.checkoutId),
+  createdPackIdx: index('star_checkout_attempts_created_pack_idx').on(table.createdAt, table.packId),
+  userCreatedIdx: index('star_checkout_attempts_user_created_idx').on(table.userId, table.createdAt),
 }));
 
 export const starPaymentSupportRequests = pgTable('star_payment_support_requests', {

@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { Redis } from 'ioredis';
+import { STARS_DIAMOND_PACKS } from '@shared/config/monetization.js';
 import { db } from '../db/index.js';
 import { env } from './env.js';
 
@@ -9,6 +10,7 @@ export const PLAYER_ACTIVITY_MAX_HEARTBEAT_SECONDS = 5 * 60;
 const HTTP_DURATION_BUCKETS_SECONDS = [0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, Number.POSITIVE_INFINITY];
 const PRODUCT_WINDOWS = ['day', 'week', 'month'] as const;
 const QUEUE_NAMES = ['buildings', 'ships', 'research', 'expeditions', 'notifications', 'production_orders'] as const;
+const ANALYTICS_METRICS_CACHE_TTL_MS = 5 * 60 * 1000;
 
 type ProductWindow = (typeof PRODUCT_WINDOWS)[number];
 type QueueName = (typeof QUEUE_NAMES)[number];
@@ -51,13 +53,28 @@ interface ProductPeriodRow {
 }
 
 interface SystemDevelopmentRow {
-  power_score: unknown;
+  development_score: unknown;
   active_colonies: unknown;
   completed_buildings: unknown;
   average_building_level: unknown;
   ships: unknown;
   research_levels: unknown;
   max_research_level: unknown;
+}
+
+interface MonetizationFunnelRow {
+  window: ProductWindow;
+  pack_id: string;
+  checkout_starts: unknown;
+  purchases: unknown;
+  refunded_purchases: unknown;
+  stars_spent: unknown;
+  diamonds_delivered: unknown;
+}
+
+interface ProgressionMilestoneRow {
+  milestone: string;
+  players: unknown;
 }
 
 interface QueueMetricRow {
@@ -69,10 +86,13 @@ interface QueueMetricRow {
 
 const httpCounters = new Map<string, HttpCounter>();
 const httpDurations = new Map<string, HttpDuration>();
+let analyticsMetricsCache: { collectedAtMs: number; samples: MetricSample[] } | null = null;
+let analyticsMetricsRefresh: Promise<MetricSample[]> | null = null;
 let redisMetricsClient: InstanceType<typeof Redis> | null = null;
 
 export async function recordPlayerActivity(userId: string, now = new Date()): Promise<void> {
   const activityDate = now.toISOString().slice(0, 10);
+  const activityTimestamp = formatActivityTimestamp(now);
 
   await db.execute(sql`
     INSERT INTO player_activity_daily (
@@ -83,7 +103,7 @@ export async function recordPlayerActivity(userId: string, now = new Date()): Pr
       play_seconds,
       session_count
     )
-    VALUES (${userId}, ${activityDate}, ${now}, ${now}, 0, 1)
+    VALUES (${userId}, ${activityDate}, ${activityTimestamp}, ${activityTimestamp}, 0, 1)
     ON CONFLICT (user_id, activity_date) DO UPDATE SET
       first_seen_at = LEAST(player_activity_daily.first_seen_at, EXCLUDED.first_seen_at),
       last_seen_at = GREATEST(player_activity_daily.last_seen_at, EXCLUDED.last_seen_at),
@@ -103,6 +123,10 @@ export async function recordPlayerActivity(userId: string, now = new Date()): Pr
         ELSE 0
       END
   `);
+}
+
+export function formatActivityTimestamp(now: Date): string {
+  return now.toISOString();
 }
 
 export function recordHttpRequest(input: {
@@ -261,8 +285,7 @@ async function appendDatabaseMetricSamples(samples: MetricSample[]): Promise<voi
     });
 
     await appendQueueMetricSamples(samples);
-    await appendProductMetricSamples(samples);
-    await appendSystemDevelopmentMetricSamples(samples);
+    await appendCachedAnalyticsMetricSamples(samples);
   } catch {
     samples.push({
       name: 'nu_db_available',
@@ -278,6 +301,70 @@ async function appendDatabaseMetricSamples(samples: MetricSample[]): Promise<voi
       labels: { collector: 'database' },
     });
   }
+}
+
+async function appendCachedAnalyticsMetricSamples(samples: MetricSample[]): Promise<void> {
+  const nowMs = Date.now();
+  if (analyticsMetricsCache && nowMs - analyticsMetricsCache.collectedAtMs < ANALYTICS_METRICS_CACHE_TTL_MS) {
+    appendAnalyticsCacheSamples(samples, analyticsMetricsCache, nowMs, 1);
+    return;
+  }
+
+  try {
+    analyticsMetricsRefresh ??= collectAnalyticsMetricSamples();
+    const refreshedSamples = await analyticsMetricsRefresh;
+    analyticsMetricsRefresh = null;
+    analyticsMetricsCache = {
+      collectedAtMs: Date.now(),
+      samples: refreshedSamples,
+    };
+    appendAnalyticsCacheSamples(samples, analyticsMetricsCache, Date.now(), 1);
+  } catch {
+    analyticsMetricsRefresh = null;
+    if (analyticsMetricsCache) {
+      appendAnalyticsCacheSamples(samples, analyticsMetricsCache, Date.now(), 0);
+      return;
+    }
+
+    samples.push({
+      name: 'nu_metrics_collection_success',
+      help: 'Whether a metrics collector completed successfully.',
+      type: 'gauge',
+      value: 0,
+      labels: { collector: 'product_analytics' },
+    });
+  }
+}
+
+async function collectAnalyticsMetricSamples(): Promise<MetricSample[]> {
+  const samples: MetricSample[] = [];
+  await appendProductMetricSamples(samples);
+  await appendSystemDevelopmentMetricSamples(samples);
+  await appendMonetizationMetricSamples(samples);
+  await appendProgressionMilestoneMetricSamples(samples);
+  return samples;
+}
+
+function appendAnalyticsCacheSamples(
+  samples: MetricSample[],
+  cache: { collectedAtMs: number; samples: MetricSample[] },
+  nowMs: number,
+  success: number,
+): void {
+  samples.push(...cache.samples);
+  samples.push({
+    name: 'nu_product_analytics_cache_age_seconds',
+    help: 'Age in seconds of the cached product analytics metrics payload.',
+    type: 'gauge',
+    value: Math.max(0, (nowMs - cache.collectedAtMs) / 1000),
+  });
+  samples.push({
+    name: 'nu_metrics_collection_success',
+    help: 'Whether a metrics collector completed successfully.',
+    type: 'gauge',
+    value: success,
+    labels: { collector: 'product_analytics' },
+  });
 }
 
 async function appendRedisMetricSamples(samples: MetricSample[]): Promise<void> {
@@ -522,6 +609,13 @@ async function appendProductMetricSamples(samples: MetricSample[]): Promise<void
       labels: { window: period },
     });
     samples.push({
+      name: 'nu_product_players_active_delta',
+      help: 'Absolute active-player change versus the previous comparable window.',
+      type: 'gauge',
+      value: activePlayers - previousActivePlayers,
+      labels: { window: period },
+    });
+    samples.push({
       name: 'nu_product_players_registered',
       help: 'Newly registered players in the current rolling product analytics window.',
       type: 'gauge',
@@ -529,10 +623,24 @@ async function appendProductMetricSamples(samples: MetricSample[]): Promise<void
       labels: { window: period },
     });
     samples.push({
+      name: 'nu_product_players_registered_previous',
+      help: 'Newly registered players in the previous comparable product analytics window.',
+      type: 'gauge',
+      value: previousRegisteredPlayers,
+      labels: { window: period },
+    });
+    samples.push({
       name: 'nu_product_players_registered_change_ratio',
       help: 'Relative registered-player change versus the previous comparable window.',
       type: 'gauge',
       value: periodChangeRatio(registeredPlayers, previousRegisteredPlayers),
+      labels: { window: period },
+    });
+    samples.push({
+      name: 'nu_product_players_registered_delta',
+      help: 'Absolute registered-player change versus the previous comparable window.',
+      type: 'gauge',
+      value: registeredPlayers - previousRegisteredPlayers,
       labels: { window: period },
     });
     samples.push({
@@ -584,16 +692,17 @@ async function appendSystemDevelopmentMetricSamples(samples: MetricSample[]): Pr
   const rows = asRows<SystemDevelopmentRow>(await db.execute(sql`
     WITH building_stats AS (
       SELECT
-        systems.owner_id AS user_id,
+        coalesce(systems.owner_id, colonies.owner_id) AS user_id,
         count(buildings.id)::float8 AS completed_buildings,
         coalesce(avg(buildings.level), 0)::float8 AS average_building_level
       FROM systems
       JOIN planets ON planets.system_id = systems.id
       JOIN buildings ON buildings.planet_id = planets.id
-      WHERE systems.owner_id IS NOT NULL
+      LEFT JOIN colonies ON colonies.planet_id = planets.id AND colonies.status = 'active'
+      WHERE coalesce(systems.owner_id, colonies.owner_id) IS NOT NULL
         AND buildings.queue_action IS NULL
         AND buildings.destroyed_at IS NULL
-      GROUP BY systems.owner_id
+      GROUP BY coalesce(systems.owner_id, colonies.owner_id)
     ),
     colony_stats AS (
       SELECT owner_id AS user_id, count(*)::float8 AS active_colonies
@@ -616,7 +725,13 @@ async function appendSystemDevelopmentMetricSamples(samples: MetricSample[]): Pr
       GROUP BY user_id
     )
     SELECT
-      coalesce(avg(users.power_score), 0)::float8 AS power_score,
+      coalesce(avg(
+        coalesce(colony_stats.active_colonies, 0) * 25
+        + coalesce(building_stats.completed_buildings, 0) * 5
+        + coalesce(building_stats.average_building_level, 0) * 2
+        + coalesce(ship_stats.ships, 0) * 8
+        + coalesce(research_stats.research_levels, 0) * 12
+      ), 0)::float8 AS development_score,
       coalesce(avg(coalesce(colony_stats.active_colonies, 0)), 0)::float8 AS active_colonies,
       coalesce(avg(coalesce(building_stats.completed_buildings, 0)), 0)::float8 AS completed_buildings,
       coalesce(avg(coalesce(building_stats.average_building_level, 0)), 0)::float8 AS average_building_level,
@@ -632,7 +747,7 @@ async function appendSystemDevelopmentMetricSamples(samples: MetricSample[]): Pr
 
   const row = rows[0];
   const dimensions: Array<[string, unknown]> = [
-    ['power_score', row?.power_score],
+    ['development_score', row?.development_score],
     ['active_colonies', row?.active_colonies],
     ['completed_buildings', row?.completed_buildings],
     ['average_building_level', row?.average_building_level],
@@ -648,6 +763,220 @@ async function appendSystemDevelopmentMetricSamples(samples: MetricSample[]): Pr
       type: 'gauge',
       value: toNumber(value),
       labels: { dimension },
+    });
+  }
+}
+
+async function appendMonetizationMetricSamples(samples: MetricSample[]): Promise<void> {
+  const rows = asRows<MonetizationFunnelRow>(await db.execute(sql`
+    WITH periods AS (
+      SELECT * FROM (VALUES
+        ('day'::text, CURRENT_DATE, CURRENT_DATE + 1),
+        ('week'::text, CURRENT_DATE - 6, CURRENT_DATE + 1),
+        ('month'::text, CURRENT_DATE - 29, CURRENT_DATE + 1)
+      ) AS p(period, start_date, end_date)
+    ),
+    checkout_agg AS (
+      SELECT
+        periods.period AS period,
+        star_checkout_attempts.pack_id,
+        count(*)::float8 AS checkout_starts
+      FROM periods
+      JOIN star_checkout_attempts
+        ON star_checkout_attempts.created_at >= periods.start_date::timestamp
+       AND star_checkout_attempts.created_at < periods.end_date::timestamp
+      GROUP BY periods.period, star_checkout_attempts.pack_id
+    ),
+    payment_agg AS (
+      SELECT
+        periods.period AS period,
+        star_payments.pack_id,
+        count(*)::float8 AS purchases,
+        count(*) FILTER (WHERE star_payments.refunded = true)::float8 AS refunded_purchases,
+        coalesce(sum(star_payments.price_stars) FILTER (WHERE star_payments.refunded = false), 0)::float8 AS stars_spent,
+        coalesce(sum(star_payments.diamonds) FILTER (WHERE star_payments.refunded = false), 0)::float8 AS diamonds_delivered
+      FROM periods
+      JOIN star_payments
+        ON star_payments.created_at >= periods.start_date::timestamp
+       AND star_payments.created_at < periods.end_date::timestamp
+      GROUP BY periods.period, star_payments.pack_id
+    ),
+    pack_windows AS (
+      SELECT period, pack_id FROM checkout_agg
+      UNION
+      SELECT period, pack_id FROM payment_agg
+    )
+    SELECT
+      pack_windows.period AS window,
+      pack_windows.pack_id,
+      coalesce(checkout_agg.checkout_starts, 0)::float8 AS checkout_starts,
+      coalesce(payment_agg.purchases, 0)::float8 AS purchases,
+      coalesce(payment_agg.refunded_purchases, 0)::float8 AS refunded_purchases,
+      coalesce(payment_agg.stars_spent, 0)::float8 AS stars_spent,
+      coalesce(payment_agg.diamonds_delivered, 0)::float8 AS diamonds_delivered
+    FROM pack_windows
+    LEFT JOIN checkout_agg
+      ON checkout_agg.period = pack_windows.period
+     AND checkout_agg.pack_id = pack_windows.pack_id
+    LEFT JOIN payment_agg
+      ON payment_agg.period = pack_windows.period
+     AND payment_agg.pack_id = pack_windows.pack_id
+  `));
+
+  const rowsByKey = new Map(rows.map((row) => [monetizationRowKey(row.window, row.pack_id), row]));
+  const emittedKeys = new Set<string>();
+
+  for (const window of PRODUCT_WINDOWS) {
+    for (const pack of STARS_DIAMOND_PACKS) {
+      const key = monetizationRowKey(window, pack.id);
+      emittedKeys.add(key);
+      appendMonetizationFunnelSamples(samples, rowsByKey.get(key) ?? {
+        window,
+        pack_id: pack.id,
+        checkout_starts: 0,
+        purchases: 0,
+        refunded_purchases: 0,
+        stars_spent: 0,
+        diamonds_delivered: 0,
+      });
+    }
+  }
+
+  for (const row of rows) {
+    const key = monetizationRowKey(row.window, row.pack_id);
+    if (!emittedKeys.has(key)) {
+      appendMonetizationFunnelSamples(samples, row);
+    }
+  }
+}
+
+function monetizationRowKey(window: string, packId: string): string {
+  return `${window}|${packId}`;
+}
+
+function appendMonetizationFunnelSamples(samples: MetricSample[], row: MonetizationFunnelRow): void {
+  const window = PRODUCT_WINDOWS.includes(row.window) ? row.window : 'day';
+  const packId = normalizeLabelValue(row.pack_id);
+  const checkoutStarts = toNumber(row.checkout_starts);
+  const purchases = toNumber(row.purchases);
+
+  samples.push({
+    name: 'nu_monetization_checkout_starts',
+    help: 'Telegram Stars checkout invoice attempts created by the backend.',
+    type: 'gauge',
+    value: checkoutStarts,
+    labels: { window, pack: packId },
+  });
+  samples.push({
+    name: 'nu_monetization_purchases',
+    help: 'Delivered Telegram Stars purchases recorded by the backend.',
+    type: 'gauge',
+    value: purchases,
+    labels: { window, pack: packId },
+  });
+  samples.push({
+    name: 'nu_monetization_refunded_purchases',
+    help: 'Delivered Telegram Stars purchases that were later refunded.',
+    type: 'gauge',
+    value: toNumber(row.refunded_purchases),
+    labels: { window, pack: packId },
+  });
+  samples.push({
+    name: 'nu_monetization_stars_spent',
+    help: 'Non-refunded Telegram Stars spent on delivered purchases.',
+    type: 'gauge',
+    value: toNumber(row.stars_spent),
+    labels: { window, pack: packId },
+  });
+  samples.push({
+    name: 'nu_monetization_diamonds_delivered',
+    help: 'Diamonds delivered by non-refunded Telegram Stars purchases.',
+    type: 'gauge',
+    value: toNumber(row.diamonds_delivered),
+    labels: { window, pack: packId },
+  });
+  samples.push({
+    name: 'nu_monetization_checkout_conversion_ratio',
+    help: 'Delivered purchase ratio from backend-created Telegram Stars checkout attempts.',
+    type: 'gauge',
+    value: checkoutStarts > 0 ? purchases / checkoutStarts : 0,
+    labels: { window, pack: packId },
+  });
+}
+
+async function appendProgressionMilestoneMetricSamples(samples: MetricSample[]): Promise<void> {
+  const rows = asRows<ProgressionMilestoneRow>(await db.execute(sql`
+    WITH player_progress AS (
+      SELECT
+        users.id AS user_id,
+        users.tutorial_completed_at IS NOT NULL AS tutorial_completed,
+        coalesce(discovered_planet_stats.planets_discovered, 0)::float8 AS planets_discovered,
+        coalesce(building_stats.completed_buildings, 0)::float8 AS completed_buildings,
+        coalesce(ship_stats.built_ships, 0)::float8 AS built_ships,
+        coalesce(research_stats.research_levels, 0)::float8 AS research_levels
+      FROM users
+      LEFT JOIN (
+        SELECT
+          user_id,
+          count(DISTINCT planet_id)::float8 AS planets_discovered
+        FROM discovered_planets
+        GROUP BY user_id
+      ) AS discovered_planet_stats ON discovered_planet_stats.user_id = users.id
+      LEFT JOIN (
+        SELECT
+          coalesce(systems.owner_id, colonies.owner_id) AS user_id,
+          count(buildings.id)::float8 AS completed_buildings
+        FROM systems
+        JOIN planets ON planets.system_id = systems.id
+        JOIN buildings ON buildings.planet_id = planets.id
+        LEFT JOIN colonies ON colonies.planet_id = planets.id AND colonies.status = 'active'
+        WHERE coalesce(systems.owner_id, colonies.owner_id) IS NOT NULL
+          AND buildings.queue_action IS NULL
+          AND buildings.destroyed_at IS NULL
+        GROUP BY coalesce(systems.owner_id, colonies.owner_id)
+      ) AS building_stats ON building_stats.user_id = users.id
+      LEFT JOIN (
+        SELECT
+          owner_id AS user_id,
+          count(*)::float8 AS built_ships
+        FROM ships
+        WHERE destroyed_at IS NULL
+          AND status <> 'building'
+        GROUP BY owner_id
+      ) AS ship_stats ON ship_stats.user_id = users.id
+      LEFT JOIN (
+        SELECT
+          user_id,
+          coalesce(sum(level), 0)::float8 AS research_levels
+        FROM research_progress
+        GROUP BY user_id
+      ) AS research_stats ON research_stats.user_id = users.id
+    )
+    SELECT 'tutorial_completed'::text AS milestone, count(*) FILTER (WHERE tutorial_completed)::float8 AS players FROM player_progress
+    UNION ALL SELECT 'planets_discovered_ge_1', count(*) FILTER (WHERE planets_discovered >= 1)::float8 FROM player_progress
+    UNION ALL SELECT 'planets_discovered_ge_3', count(*) FILTER (WHERE planets_discovered >= 3)::float8 FROM player_progress
+    UNION ALL SELECT 'planets_discovered_ge_5', count(*) FILTER (WHERE planets_discovered >= 5)::float8 FROM player_progress
+    UNION ALL SELECT 'planets_discovered_ge_10', count(*) FILTER (WHERE planets_discovered >= 10)::float8 FROM player_progress
+    UNION ALL SELECT 'buildings_completed_ge_1', count(*) FILTER (WHERE completed_buildings >= 1)::float8 FROM player_progress
+    UNION ALL SELECT 'buildings_completed_ge_5', count(*) FILTER (WHERE completed_buildings >= 5)::float8 FROM player_progress
+    UNION ALL SELECT 'buildings_completed_ge_10', count(*) FILTER (WHERE completed_buildings >= 10)::float8 FROM player_progress
+    UNION ALL SELECT 'buildings_completed_ge_25', count(*) FILTER (WHERE completed_buildings >= 25)::float8 FROM player_progress
+    UNION ALL SELECT 'ships_built_ge_1', count(*) FILTER (WHERE built_ships >= 1)::float8 FROM player_progress
+    UNION ALL SELECT 'ships_built_ge_3', count(*) FILTER (WHERE built_ships >= 3)::float8 FROM player_progress
+    UNION ALL SELECT 'ships_built_ge_10', count(*) FILTER (WHERE built_ships >= 10)::float8 FROM player_progress
+    UNION ALL SELECT 'research_levels_ge_1', count(*) FILTER (WHERE research_levels >= 1)::float8 FROM player_progress
+    UNION ALL SELECT 'research_levels_ge_3', count(*) FILTER (WHERE research_levels >= 3)::float8 FROM player_progress
+    UNION ALL SELECT 'research_levels_ge_8', count(*) FILTER (WHERE research_levels >= 8)::float8 FROM player_progress
+    UNION ALL SELECT 'research_levels_ge_16', count(*) FILTER (WHERE research_levels >= 16)::float8 FROM player_progress
+  `));
+
+  for (const row of rows) {
+    samples.push({
+      name: 'nu_product_progression_players',
+      help: 'Distinct players who reached a product progression milestone.',
+      type: 'gauge',
+      value: toNumber(row.players),
+      labels: { milestone: normalizeLabelValue(row.milestone) },
     });
   }
 }

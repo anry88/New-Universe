@@ -8,7 +8,7 @@ Analytics is intentionally local-first in this milestone:
 - Frontend events are emitted as browser `CustomEvent("nu:analytics")` and can be mirrored to PostHog only when `VITE_POSTHOG_KEY` is explicitly configured.
 - No external analytics provider is required for local verification or default production startup.
 
-Production observability for aggregate product health is documented separately in [`docs/production/observability.md`](../production/observability.md). It exports `/metrics` for VictoriaMetrics/Grafana with DAU/WAU/MAU, comparable-period player deltas, observed play time, sessions, and system-development averages. Those metrics come from the `player_activity_daily` rollup, not from per-user metric labels.
+Production observability for aggregate product health is documented separately in [`docs/production/observability.md`](../production/observability.md). It exports `/metrics` for VictoriaMetrics/Grafana with DAU/WAU/MAU, absolute comparable-period player deltas, observed play time, sessions, system-development averages, funnel milestone counts for tutorial completion, discovered planets, completed buildings, built ships, and research levels, plus Telegram Stars checkout funnel aggregates. Activity-window metrics come from the `player_activity_daily` rollup; milestone and monetization metrics are aggregated from source-of-truth gameplay/payment tables without per-user metric labels.
 
 ## Privacy Rules
 
