@@ -891,7 +891,23 @@ describe("combat tick — processDueCombat", () => {
     });
   }
 
-  it("bomber damages a non-CC building first; HP drops gradually under orbital fire", async () => {
+  async function runBombingTicks(t0: Date, seconds: number[]) {
+    for (const second of seconds) {
+      await processDueCombat({
+        now: new Date(t0.getTime() + second * 1000),
+        skipNotifications: true,
+      });
+    }
+  }
+
+  function tenSecondTicks(start: number, end: number): number[] {
+    return Array.from(
+      { length: Math.floor((end - start) / 10) + 1 },
+      (_, index) => start + index * 10,
+    );
+  }
+
+  it("bomber damages a non-CC building first; HP drops gradually under surface fire", async () => {
     const s = await setupBombingScenario("A");
     const t0 = new Date("2026-07-01T00:00:00.000Z");
 
@@ -1033,16 +1049,17 @@ describe("combat tick — processDueCombat", () => {
     const t0 = new Date("2026-07-01T00:00:00.000Z");
 
     await processDueCombat({ now: t0, skipNotifications: true });
-    for (const seconds of [10, 20, 30, 40]) {
-      await processDueCombat({
-        now: new Date(t0.getTime() + seconds * 1000),
-        skipNotifications: true,
-      });
-    }
+    await runBombingTicks(t0, [10, 20, 30, 40]);
+    const mineAfterOpeningPasses = await db.query.buildings.findFirst({
+      where: eq(buildings.id, s.mineId!),
+    });
+    expect(mineAfterOpeningPasses!.hp).toBeGreaterThan(0);
+    expect(mineAfterOpeningPasses!.hp).toBeLessThan(1000);
+
+    await runBombingTicks(t0, tenSecondTicks(50, 420));
     const mine = await db.query.buildings.findFirst({
       where: eq(buildings.id, s.mineId!),
     });
-    // mine is now destroyed (hp=0, destroyedAt set), still a row
     expect(mine!.hp).toBe(0);
     expect(mine!.destroyedAt).not.toBeNull();
 
@@ -1055,7 +1072,7 @@ describe("combat tick — processDueCombat", () => {
     // lastCombatTickAt but applies no damage yet, so we run one more tick to
     // see the CC actually take a hit.
     await processDueCombat({
-      now: new Date(t0.getTime() + 50_000),
+      now: new Date(t0.getTime() + 430_000),
       skipNotifications: true,
     });
     const ccAfterFirstTouch = await db.query.buildings.findFirst({
@@ -1065,7 +1082,7 @@ describe("combat tick — processDueCombat", () => {
     expect(ccAfterFirstTouch!.lastCombatTickAt).not.toBeNull();
 
     await processDueCombat({
-      now: new Date(t0.getTime() + 60_000),
+      now: new Date(t0.getTime() + 440_000),
       skipNotifications: true,
     });
     const ccDamaged = await db.query.buildings.findFirst({
@@ -1087,12 +1104,7 @@ describe("combat tick — processDueCombat", () => {
     const t0 = new Date("2026-07-01T00:00:00.000Z");
     await processDueCombat({ now: t0, skipNotifications: true });
 
-    for (const seconds of [10, 20, 30, 40]) {
-      await processDueCombat({
-        now: new Date(t0.getTime() + seconds * 1000),
-        skipNotifications: true,
-      });
-    }
+    await runBombingTicks(t0, tenSecondTicks(10, 420));
 
     const remainingBuildings = await db
       .select({ id: buildings.id })

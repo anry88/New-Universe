@@ -104,6 +104,8 @@ function destinationToSystem(
       isDiscovered: true,
       isColonized: planet.isColonized,
       isOwnedColony: planet.isOwnedColony,
+      buildingCount: planet.buildingCount,
+      lastCombatTickAt: planet.lastCombatTickAt,
       resources: planet.resources ?? [],
     }));
 

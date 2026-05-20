@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
 import { systemMapOrbitRadiusForSlot } from '@shared/format/systemMapLayout.js';
 import {
   formatCommonSystemDisplayName,
@@ -16,6 +16,7 @@ import type {
 import { JUMP_DRIVE_RESEARCH_GATE } from '../../config/research-unlocks.js';
 import { db as defaultDb } from '../../db/index.js';
 import {
+  buildings,
   colonies,
   discoveredPlanets,
   discoveredSystems,
@@ -264,7 +265,13 @@ async function loadKnownDestinationPlanets(
   const planetIds = planetRows.map((planet) => planet.id);
   if (planetIds.length === 0) return new Map();
 
-  const [discoveryRows, colonyRows, resourceRows, richnessRows] = await Promise.all([
+  const [
+    discoveryRows,
+    colonyRows,
+    resourceRows,
+    richnessRows,
+    buildingRows,
+  ] = await Promise.all([
     database
       .select({ planetId: discoveredPlanets.planetId })
       .from(discoveredPlanets)
@@ -291,7 +298,10 @@ async function loadKnownDestinationPlanets(
         storageCap: resourceDefinitions.defaultStorageCap,
       })
       .from(planetResources)
-      .innerJoin(resourceDefinitions, eq(resourceDefinitions.id, planetResources.resourceId))
+      .innerJoin(
+        resourceDefinitions,
+        eq(resourceDefinitions.id, planetResources.resourceId),
+      )
       .where(inArray(planetResources.planetId, planetIds)),
     database
       .select({
@@ -301,6 +311,21 @@ async function loadKnownDestinationPlanets(
       })
       .from(richness)
       .where(inArray(richness.planetId, planetIds)),
+    database
+      .select({
+        planetId: buildings.planetId,
+        buildingCount: sql<number>`count(*)::int`,
+        lastCombatTickAt: sql<Date | null>`max(${buildings.lastCombatTickAt})`,
+      })
+      .from(buildings)
+      .where(
+        and(
+          inArray(buildings.planetId, planetIds),
+          isNull(buildings.destroyedAt),
+          gt(buildings.hp, 0),
+        ),
+      )
+      .groupBy(buildings.planetId),
   ]);
 
   const discoveredPlanetIds = new Set(discoveryRows.map((row) => row.planetId));
@@ -314,6 +339,15 @@ async function loadKnownDestinationPlanets(
     string,
     NonNullable<JumpGateDestinationPlanetSummary['resources']>
   >();
+  const buildingStateByPlanetId = new Map(
+    buildingRows.map((row) => [
+      row.planetId,
+      {
+        buildingCount: Number(row.buildingCount),
+        lastCombatTickAt: serializeDate(row.lastCombatTickAt),
+      },
+    ]),
+  );
   for (const row of resourceRows) {
     const planetRows = resourcesByPlanetId.get(row.planetId) ?? [];
     planetRows.push({
@@ -322,7 +356,8 @@ async function loadKnownDestinationPlanets(
       amount: row.amount.toString(),
       lastUpdateAt: row.lastUpdateAt.toISOString(),
       regenRate: row.regenRate.toString(),
-      richness: richnessByPlanetResource.get(`${row.planetId}:${row.resourceId}`) ?? 0,
+      richness:
+        richnessByPlanetResource.get(`${row.planetId}:${row.resourceId}`) ?? 0,
       storageCap: row.storageCap.toString(),
     });
     resourcesByPlanetId.set(row.planetId, planetRows);
@@ -336,6 +371,7 @@ async function loadKnownDestinationPlanets(
 
     const isDiscovered = discoveredPlanetIds.has(planet.id);
     const colonyOwnerId = colonyByPlanetId.get(planet.id);
+    const buildingState = buildingStateByPlanetId.get(planet.id);
     // Active colonies are intentionally visible to other players in opened
     // public systems so hostile holdings can be recognized, surveyed, bombed,
     // and only then colonized.
@@ -349,10 +385,16 @@ async function loadKnownDestinationPlanets(
       biome: isVisible ? planet.biome : null,
       size: isVisible ? planet.size : null,
       slotCount: isVisible ? planet.slotCount : null,
-      resources: isVisible ? (resourcesByPlanetId.get(planet.id) ?? []) : undefined,
+      resources: isVisible
+        ? (resourcesByPlanetId.get(planet.id) ?? [])
+        : undefined,
       isDiscovered: isVisible,
       isColonized: Boolean(colonyOwnerId),
       isOwnedColony: colonyOwnerId === userId,
+      buildingCount: isVisible ? (buildingState?.buildingCount ?? 0) : undefined,
+      lastCombatTickAt: isVisible
+        ? (buildingState?.lastCombatTickAt ?? null)
+        : undefined,
     });
     summaries.set(planet.systemId, systemSummaries);
   }

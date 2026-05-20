@@ -215,6 +215,7 @@
   "map.sendColonizer": "Отправить колонизатор",
   "map.foreignColony": "Вражеская колония",
   "map.bombardBeforeColonize": "Сначала уничтожьте действующие постройки бомбардировкой, затем отправляйте колонизатор.",
+  "map.hostileBuildings": "Построек для уничтожения: {count}",
   "map.shipContact.own": "Корабль флота",
   "map.shipContact.hostile": "Вражеский корабль",
   "map.shipStatus.hostile": "Враг",

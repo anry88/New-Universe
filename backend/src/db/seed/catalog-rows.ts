@@ -822,6 +822,7 @@ export const SHIP_TYPE_CATALOG_ROWS: ShipCatalogRow[] = [
         shieldMultiplier: 0.5,
       },
       engagementRange: "orbital",
+      bombardmentRange: "close",
       armor: 20,
       evasion: 0.12,
     } as CombatStats,
@@ -974,6 +975,7 @@ export const SHIP_TYPE_CATALOG_ROWS: ShipCatalogRow[] = [
         shieldMultiplier: 0.55,
       },
       engagementRange: "orbital",
+      bombardmentRange: "medium",
       armor: 55,
       evasion: 0.08,
     } as CombatStats,
@@ -1131,6 +1133,7 @@ export const SHIP_TYPE_CATALOG_ROWS: ShipCatalogRow[] = [
         shieldMultiplier: 0.6,
       },
       engagementRange: "orbital",
+      bombardmentRange: "medium",
       armor: 140,
       evasion: 0.03,
     } as CombatStats,
@@ -1351,6 +1354,7 @@ export const SHIP_TYPE_CATALOG_ROWS: ShipCatalogRow[] = [
         shieldMultiplier: 1.0,
       },
       engagementRange: "orbital",
+      bombardmentRange: "long",
       // Nuclear missile salvo — picked up by `resolveAttackerHits` and
       // restricted to medium/heavy hostile hulls; light hulls can still evade
       // the warhead's evasionCounterThreshold.

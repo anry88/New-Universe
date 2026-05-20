@@ -9,6 +9,7 @@ import {
   type CombatStats,
   type EngagementRange,
   canTargetShips,
+  bombardmentRangeToSectorDistance,
   effectiveDpsAgainst,
   effectiveShieldDpsAgainst,
   engagementRangeToSectorDistance,
@@ -25,6 +26,8 @@ import { resolveMissilePayloadDps } from "./missiles.js";
 export const COMBAT_TICK_MAX_DT_SEC = 3;
 export const COMBAT_REENGAGEMENT_RESET_SEC = 15;
 export const SHIP_COMBAT_DAMAGE_TIME_SCALE = 0.08;
+export const SURFACE_BOMBARDMENT_DAMAGE_TIME_SCALE =
+  SHIP_COMBAT_DAMAGE_TIME_SCALE;
 
 export interface CombatActor {
   id: string;
@@ -353,9 +356,8 @@ export function resolveBomberHits(
     if (!bomber.hostSystemId) continue;
     if (!bomber.position) continue;
     const range =
-      engagementRangeToSectorDistance(
-        bomber.combatStats.engagementRange as EngagementRange | undefined,
-      ) * weaponRangeMultiplierFor(bomber);
+      bombardmentRangeToSectorDistance(bomber.combatStats) *
+      weaponRangeMultiplierFor(bomber);
     if (range <= 0) continue;
 
     for (const [planetId, planetBuildings] of buildingsByPlanet) {

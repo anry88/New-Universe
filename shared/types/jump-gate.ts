@@ -68,6 +68,10 @@ export interface JumpGateDestinationPlanetSummary {
   isDiscovered: boolean;
   isColonized: boolean;
   isOwnedColony: boolean;
+  /** Number of currently standing buildings visible for active colonies. */
+  buildingCount?: number;
+  /** Most recent surface-combat tick touching one of the planet's standing buildings. */
+  lastCombatTickAt?: string | null;
 }
 
 export interface JumpGateStateResponse {

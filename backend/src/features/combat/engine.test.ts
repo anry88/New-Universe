@@ -3,6 +3,7 @@ import {
   COMBAT_TICK_MAX_DT_SEC,
   COMBAT_REENGAGEMENT_RESET_SEC,
   SHIP_COMBAT_DAMAGE_TIME_SCALE,
+  SURFACE_BOMBARDMENT_DAMAGE_TIME_SCALE,
   computeTickDamage,
   isFreshCombatTouch,
   isDefenderProtectedFromAttacker,
@@ -16,6 +17,7 @@ import {
   type CombatActor,
 } from "./engine.js";
 import {
+  bombardmentRangeToSectorDistance,
   engagementRangeToSectorDistance,
   effectiveDpsAgainst,
 } from "@shared/types/combat.js";
@@ -92,6 +94,24 @@ describe("combat engine — engagement range", () => {
     expect(engagementRangeToSectorDistance("long")).toBeCloseTo(4.4, 6);
     expect(engagementRangeToSectorDistance("orbital")).toBeCloseTo(4.4, 6);
     expect(engagementRangeToSectorDistance(undefined)).toBe(0);
+  });
+
+  it("keeps orbital surface bombing on an explicit fighter-scale range", () => {
+    expect(
+      bombardmentRangeToSectorDistance({
+        engagementRange: "orbital",
+        bombardmentRange: "close",
+      }),
+    ).toBeCloseTo(engagementRangeToSectorDistance("close"), 6);
+    expect(
+      bombardmentRangeToSectorDistance({
+        engagementRange: "orbital",
+        bombardmentRange: "medium",
+      }),
+    ).toBeCloseTo(engagementRangeToSectorDistance("medium"), 6);
+    expect(
+      bombardmentRangeToSectorDistance({ engagementRange: "orbital" }),
+    ).toBeCloseTo(engagementRangeToSectorDistance("close"), 6);
   });
 });
 
@@ -457,13 +477,18 @@ describe("combat engine — computeTickDamage", () => {
     expect(computeTickDamage(defender, 30, 12_000)).toBe(60);
   });
 
-  it("can slow ship combat elapsed-time damage without changing catalog DPS", () => {
+  it("can slow ship/surface combat elapsed-time damage without changing catalog DPS", () => {
     const defender = { lastCombatTickAtMs: 10_000 };
     expect(
       computeTickDamage(defender, 30, 12_000, {
         timeScale: SHIP_COMBAT_DAMAGE_TIME_SCALE,
       }),
     ).toBe(60 * SHIP_COMBAT_DAMAGE_TIME_SCALE);
+    expect(
+      computeTickDamage(defender, 30, 12_000, {
+        timeScale: SURFACE_BOMBARDMENT_DAMAGE_TIME_SCALE,
+      }),
+    ).toBe(60 * SURFACE_BOMBARDMENT_DAMAGE_TIME_SCALE);
   });
 
   it("caps elapsed time at COMBAT_TICK_MAX_DT_SEC", () => {
@@ -617,7 +642,7 @@ describe("combat engine — resolveBomberHits", () => {
         planetId: "far",
         systemId: "sys-1",
         targetClass: "building",
-        position: { x: 5, y: 0 },
+        position: { x: 1.3, y: 0 },
       }),
     ];
 

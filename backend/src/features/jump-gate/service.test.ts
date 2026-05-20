@@ -20,6 +20,7 @@ import {
 } from '../../db/schema.js';
 import { getJumpGateState } from './service.js';
 import { seedResources } from '../../db/seed/resources.js';
+import { seedBuildingTypes } from '../../db/seed/building-types.js';
 import {
   formatCommonSystemDisplayName,
   homeSystemShortTag,
@@ -65,6 +66,7 @@ describe('getJumpGateState', () => {
     await db.delete(systems);
     await db.delete(users);
     await seedResources();
+    await seedBuildingTypes();
   });
 
   it('returns locked state and a home anchor before completed Jump Drive research', async () => {
@@ -283,6 +285,26 @@ describe('getJumpGateState', () => {
       ownerId: rival.id,
       planetId: colonizedPlanet.id,
     });
+    await db.insert(buildings).values([
+      {
+        planetId: colonizedPlanet.id,
+        typeId: 'command_center',
+        slotIndex: 0,
+        level: 1,
+        hp: 1000,
+        maxHp: 1000,
+        lastCombatTickAt: new Date('2026-05-13T00:05:00.000Z'),
+      },
+      {
+        planetId: colonizedPlanet.id,
+        typeId: 'mine',
+        slotIndex: 1,
+        level: 1,
+        hp: 750,
+        maxHp: 1000,
+        lastCombatTickAt: new Date('2026-05-13T00:05:10.000Z'),
+      },
+    ]);
     await db.insert(discoveredSystems).values({
       userId: user.id,
       systemId: publicSystem.id,
@@ -310,7 +332,9 @@ describe('getJumpGateState', () => {
       ],
     });
 
-    const occupied = destination.planets.find((planet) => planet.id === colonizedPlanet.id)!;
+    const occupied = destination.planets.find(
+      (planet) => planet.id === colonizedPlanet.id,
+    )!;
     expect(occupied).toMatchObject({
       name: 'a111-2',
       biome: 'ice',
@@ -318,6 +342,8 @@ describe('getJumpGateState', () => {
       isDiscovered: true,
       isColonized: true,
       isOwnedColony: false,
+      buildingCount: 2,
+      lastCombatTickAt: '2026-05-13T00:05:10.000Z',
       resources: [
         expect.objectContaining({
           resourceId: 'silicon',
@@ -326,7 +352,9 @@ describe('getJumpGateState', () => {
       ],
     });
 
-    const hidden = destination.planets.find((planet) => planet.id === hiddenPlanet.id)!;
+    const hidden = destination.planets.find(
+      (planet) => planet.id === hiddenPlanet.id,
+    )!;
     expect(hidden).toMatchObject({
       name: null,
       biome: null,

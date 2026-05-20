@@ -22,7 +22,10 @@ import { formatHomeSystemTitleForUser } from '../lib/homeSystemTitle';
 import { useI18n } from '../lib/i18n';
 import { useJumpGateState, useRandomJump } from '../hooks/useJumpGateState';
 import { useShipTypes } from '../hooks/useShips';
-import { useSystemTacticalState } from '../hooks/useSystemTacticalState';
+import {
+  shouldPollSystemTacticalState,
+  useSystemTacticalState,
+} from '../hooks/useSystemTacticalState';
 import {
   formatCommonSystemDisplayName,
   homeSystemShortTag,
@@ -158,6 +161,8 @@ function destinationToSystem(destination: JumpGateKnownDestinationSummary, local
       isDiscovered: true,
       isColonized: planet.isColonized,
       isOwnedColony: planet.isOwnedColony,
+      buildingCount: planet.buildingCount,
+      lastCombatTickAt: planet.lastCombatTickAt,
       resources: planet.resources ?? [],
     }));
 
@@ -182,7 +187,12 @@ function destinationToSystem(destination: JumpGateKnownDestinationSummary, local
  */
 export function SystemMapPage() {
   const { data: meData, isLoading } = useMe();
-  const { data: jumpGateState, isLoading: jumpGateLoading } = useJumpGateState();
+  const jumpGateQuery = useJumpGateState();
+  const {
+    data: jumpGateState,
+    isLoading: jumpGateLoading,
+    refetch: refetchJumpGateState,
+  } = jumpGateQuery;
   const { data: shipTypes } = useShipTypes();
   const randomJump = useRandomJump();
   const navigate = useNavigate();
@@ -213,6 +223,18 @@ export function SystemMapPage() {
     return home;
   }, [home, locale, selectedDestination]);
   const { data: tacticalState } = useSystemTacticalState(renderedSystem?.id);
+  const shouldRefreshDestinationPlanets = selectedDestination
+    ? shouldPollSystemTacticalState(tacticalState)
+    : false;
+  useEffect(() => {
+    if (!shouldRefreshDestinationPlanets) return;
+    void refetchJumpGateState();
+  }, [
+    refetchJumpGateState,
+    selectedDestination?.systemId,
+    shouldRefreshDestinationPlanets,
+    tacticalState?.updatedAt,
+  ]);
   const canSelectSector = Boolean(home);
   const ownedPlanetIds = useMemo(() => {
     return new Set(
