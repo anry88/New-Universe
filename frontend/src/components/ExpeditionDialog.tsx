@@ -86,11 +86,7 @@ function destinationToSystem(
   destination: JumpGateKnownDestinationSummary,
   locale: string,
 ): HomeSystem {
-  const namingLocale: HomeNamingLocale = locale === "ru" ? "ru" : "en";
-  const systemName = formatCommonSystemDisplayName(
-    namingLocale,
-    destination.shortTag ?? homeSystemShortTag(destination.systemId),
-  );
+  const systemName = destinationSystemDisplayName(destination, locale);
   const planets: Planet[] = destination.planets
     .filter((planet) => planet.isDiscovered)
     .map((planet) => ({
@@ -118,8 +114,22 @@ function destinationToSystem(
     sectorZ: destination.sector.z,
     name: systemName,
     seed: destination.seed,
+    renameCount: destination.renameCount,
     planets,
   };
+}
+
+function destinationSystemDisplayName(
+  destination: JumpGateKnownDestinationSummary,
+  locale: string,
+) {
+  const shortTag = destination.shortTag ?? homeSystemShortTag(destination.systemId);
+  if (destination.renameCount > 0 && destination.systemName) {
+    return destination.systemName;
+  }
+
+  const namingLocale: HomeNamingLocale = locale === "ru" ? "ru" : "en";
+  return formatCommonSystemDisplayName(namingLocale, shortTag);
 }
 
 function pointFromUnknown(value: unknown): SystemMapPoint | null {
@@ -999,11 +1009,7 @@ export function ExpeditionDialog({
                 {knownDestinations.map((destination) => {
                   const active =
                     selectedDestination?.systemId === destination.systemId;
-                  const namingLocale: HomeNamingLocale = locale === "ru" ? "ru" : "en";
-                  const systemName = formatCommonSystemDisplayName(
-                    namingLocale,
-                    destination.shortTag ?? homeSystemShortTag(destination.systemId),
-                  );
+                  const systemName = destinationSystemDisplayName(destination, locale);
                   return (
                     <button
                       key={destination.systemId}

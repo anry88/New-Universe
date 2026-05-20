@@ -2833,7 +2833,7 @@ export function CosmicSystemRenderer({
         onClick={resetView}
         style={{
           position: "absolute",
-          top: 70,
+          top: "clamp(104px, 13vh, 132px)",
           right: 12,
           padding: "6px 10px",
           fontFamily: "var(--font-mono)",

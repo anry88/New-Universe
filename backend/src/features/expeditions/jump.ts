@@ -137,9 +137,10 @@ function sortSystemsForJump(
 
 function summarizeTargetSystem(system: typeof systems.$inferSelect) {
   const shortTag = homeSystemShortTag(system.id);
+  const defaultName = formatCommonSystemDisplayName('en', shortTag);
   return {
     id: system.id,
-    name: formatCommonSystemDisplayName('en', shortTag),
+    name: system.renameCount > 0 ? system.name : defaultName,
     shortTag,
     sector: {
       x: system.sectorX,
@@ -155,10 +156,12 @@ function serializeDestination(
   row: typeof discoveredSystems.$inferSelect,
 ): JumpGateKnownDestinationSummary {
   const shortTag = homeSystemShortTag(system.id);
+  const defaultName = formatCommonSystemDisplayName('en', shortTag);
   return {
     systemId: system.id,
-    systemName: formatCommonSystemDisplayName('en', shortTag),
+    systemName: system.renameCount > 0 ? system.name : defaultName,
     shortTag,
+    renameCount: system.renameCount,
     sector: {
       x: system.sectorX,
       y: system.sectorY,
