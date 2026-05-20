@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { RESOURCE_ENTITY_LABELS } from '@shared/types/entity-labels';
-import { calculateRegen, getResourceLabel, getResourceSymbol, RESOURCE_ICON_IDS } from './resources';
+import {
+  ResourceAmountList,
+  calculateRegen,
+  getResourceLabel,
+  getResourceSymbol,
+  RESOURCE_ICON_IDS,
+} from './resources';
 
 const NON_GAMEPLAY_RESOURCE_LABELS = new Set(['metal', 'solid_mineral', 'gas', 'oil_or_methane', 'water_or_biomass']);
 
@@ -24,6 +31,37 @@ describe('resource icon resolver', () => {
     expect(getResourceLabel('military_alloy', 'ru')).toBe('Серебряная сталь');
     expect(getResourceLabel('military_composite', 'en')).toBe('C/SiC Composite');
     expect(getResourceLabel('military_composite', 'ru')).toBe('C/SiC-композит');
+  });
+
+  it('uses flex gap instead of visible separators by default', () => {
+    const markup = renderToStaticMarkup(
+      ResourceAmountList({
+        items: [
+          { resourceId: 'iron', amount: 838 },
+          { resourceId: 'silicon', amount: 419 },
+        ],
+        locale: 'en',
+      }),
+    );
+
+    expect(markup).not.toContain('resource-amount-sep');
+    expect(markup).not.toContain('·');
+  });
+
+  it('keeps explicit separators attached to resource items for wrapped rows', () => {
+    const markup = renderToStaticMarkup(
+      ResourceAmountList({
+        items: [
+          { resourceId: 'iron', amount: 838 },
+          { resourceId: 'silicon', amount: 419 },
+        ],
+        separator: '/',
+        locale: 'en',
+      }),
+    );
+
+    expect(markup).not.toContain('class="resource-amount-sep">/</span><span class="resource-amount"');
+    expect(markup).toContain('class="resource-amount-sep">/</span>');
   });
 });
 

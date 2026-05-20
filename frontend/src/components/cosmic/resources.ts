@@ -294,27 +294,34 @@ export interface ResourceAmountListProps {
 export function ResourceAmountList({
   items,
   prefix,
-  separator = '·',
+  separator,
   iconSize = 14,
   className = 'resource-amount-list',
   locale = 'en',
 }: ResourceAmountListProps): React.ReactElement {
+  const hasPrefix = prefix !== undefined && prefix !== null && prefix !== false && prefix !== '';
+  const hasSeparator = separator !== undefined && separator !== null && separator !== false && separator !== '';
+
   return React.createElement(
     'span',
     { className },
-    items.flatMap((item, index) => [
-      index > 0
-        ? React.createElement('span', { key: `${item.resourceId}-${index}-sep`, className: 'resource-amount-sep' }, separator)
-        : null,
-      React.createElement(ResourceAmount, {
+    items.map((item, index) => {
+      const itemPrefix = index > 0 && hasSeparator
+        ? React.createElement(React.Fragment, null, [
+          React.createElement('span', { key: 'separator', className: 'resource-amount-sep' }, separator),
+          hasPrefix ? React.createElement('span', { key: 'prefix' }, prefix) : null,
+        ])
+        : hasPrefix ? prefix : undefined;
+
+      return React.createElement(ResourceAmount, {
         key: `${item.resourceId}-${index}`,
         resourceId: item.resourceId,
         amount: item.amount,
-        prefix,
+        prefix: itemPrefix,
         iconSize,
         locale,
-      }),
-    ]),
+      });
+    }),
   );
 }
 

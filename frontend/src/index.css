@@ -787,9 +787,16 @@ button.cosmic-card:disabled {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  max-width: 100%;
+  min-width: 0;
   vertical-align: middle;
 }
+.resource-amount-list {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
 .resource-amount {
+  flex: 0 0 auto;
   white-space: nowrap;
 }
 .resource-amount-sep {
@@ -1619,6 +1626,9 @@ button.cosmic-card:disabled {
   cursor: pointer;
   width: 100%;
 }
+.bopt > * {
+  min-width: 0;
+}
 .bopt:disabled {
   cursor: not-allowed;
 }
@@ -1671,8 +1681,11 @@ button.cosmic-card:disabled {
 }
 .bopt-meta {
   display: flex;
-  gap: 12px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 6px 12px;
   margin-top: 3px;
+  min-width: 0;
 }
 .bopt-desc {
   font-family: var(--font-body);
@@ -1758,11 +1771,22 @@ button.cosmic-card:disabled {
   background: rgba(255, 90, 110, 0.1);
 }
 .bopt-cost {
+  flex: 1 1 180px;
   font-family: var(--font-mono);
   font-size: 10px;
   color: var(--text-dim);
+  max-width: 100%;
+  min-width: 0;
+}
+.bopt-cost > .resource-amount-list {
+  width: 100%;
 }
 .bopt-time {
+  flex: 0 0 auto;
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  white-space: nowrap;
   color: var(--accent);
 }
 
@@ -2268,11 +2292,18 @@ button.cosmic-card:disabled {
   font-family: var(--font-mono);
   font-size: 10px;
   line-height: 1.35;
+  min-width: 0;
 }
-.shipyard-detail-line > span {
+.shipyard-detail-line > span:first-child {
   color: var(--text-faint);
   text-transform: uppercase;
   letter-spacing: 0.08em;
+}
+.shipyard-detail-line > .resource-amount-list {
+  color: var(--text-dim);
+  letter-spacing: 0;
+  min-width: 0;
+  text-transform: none;
 }
 .shipyard-detail-line b {
   color: var(--text);
