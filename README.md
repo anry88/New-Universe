@@ -9,6 +9,7 @@ New Universe — это многопользовательская космич�
 - [New Universe GDD Addendum v1.1](docs/New_Universe_GDD_Addendum_v1.1.pdf)
 - [Infrastructure Costs](docs/Stellar_Forge_Infra_Costs.pdf)
 - [Production Environment Plan](docs/production/environment.md)
+- [Production Observability](docs/production/observability.md)
 - [Production Release Workflow](docs/production/release-workflow.md)
 - [Architecture Diagrams](docs/Stellar_Forge_Diagrams.html)
 - [Launch Security Checklist](docs/security/launch-checklist.md)

@@ -5,6 +5,7 @@ import { authRateLimit } from '../../lib/rate-limit.js';
 import { securityRouteConfig } from '../../lib/security.js';
 import { env } from '../../lib/env.js';
 import { analyticsNumberBand, trackBackendEvent } from '../../lib/analytics.js';
+import { recordPlayerActivity } from '../../lib/metrics.js';
 
 export async function authRoutes(app: FastifyInstance) {
   app.post(
@@ -20,6 +21,9 @@ export async function authRoutes(app: FastifyInstance) {
         tutorialCompleted: Boolean(user.tutorialCompletedAt),
         diamondsBalanceBand: analyticsNumberBand(user.diamonds, 500),
       }, { userId: user.id, requestId: request.id });
+      void recordPlayerActivity(user.id).catch((err) => {
+        request.log.warn({ err }, 'Failed to record player activity');
+      });
 
       const cookieOptions = [
         `session=${token}`,

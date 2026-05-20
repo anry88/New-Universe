@@ -45,6 +45,7 @@ All notable changes to New Universe will be documented in this file.
 
 ### Added
 
+- `P4-OPS-001`: добавлен production observability слой для Grafana/VictoriaMetrics — Prometheus-compatible `/metrics`, in-process HTTP counters/histogram, Postgres/Redis health gauges, source-of-truth queue backlog/due-age metrics, aggregate `player_activity_daily` rollup для DAU/WAU/MAU, времени в игре и развития систем, Grafana dashboard JSON, VictoriaMetrics vmalert rules и runbook `docs/production/observability.md`.
 - `P4-MON-001`: реализована Telegram Stars монетизация алмазов с pack ladder 100/500/2500/5000/10000 за 20/85/350/600/1000 Stars, shop-страницей, `/monetization/stars/*` API, idempotent `successful_payment`, pre-checkout validation, `/paysupport` refund flow через админские чаты, Bot API `refundStarPayment`, refund reversal алмазов, аналитикой Stars-событий и readiness-доками `docs/product/monetization.md` / `docs/product/telegram-policy-checklist.md`.
 - `P4-ANA-001`: добавлен local-first слой продуктовой аналитики — shared taxonomy/sanitizer, backend Pino-события `analytics.event`, frontend `nu:analytics` events с optional PostHog key, focused tests и документация `docs/analytics/events.md`.
 - Локальное улучшение уведомлений: Telegram push-сообщения теперь локализуются по `preferredLocale`, у профиля появились RU/EN настройки категорий уведомлений, а новые события покрывают открытие планеты, основание колонии колонизатором, доставку груза, завершение строительства корабля и начало боя.

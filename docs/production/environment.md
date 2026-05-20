@@ -50,7 +50,7 @@ flowchart LR
 | Redis | Upstash Redis Free | BullMQ queues/repeat jobs, rate-limit state, and short-lived coordination keys. | Use the Redis/TCP URL with TLS, not REST-only credentials. Watch command volume closely; BullMQ can exceed free limits. |
 | DNS/TLS | Cloudflare | Owns `app.<domain>` and `api.<domain>` when a domain exists; can proxy the app and API. | Cloudflare Pages gives HTTPS automatically. Fly also provides TLS; put Cloudflare in front only after webhook and real IP behavior are verified. |
 | Object storage | Cloudflare R2 Free, optional | Stores encrypted logical backups if we add scheduled `pg_dump` before soft launch. | Do not use R2 for runtime game state. Current app assets are static frontend files. |
-| Observability | Sentry Free + provider dashboards | Captures frontend/backend exceptions and basic deploy health. | Add alert routing before inviting users outside the core test group. |
+| Observability | Sentry Free + VictoriaMetrics/vmalert + Grafana | Captures frontend/backend exceptions plus `/metrics` time-series for API, worker queues, DB/Redis health, and aggregate product analytics. | Alert and dashboard definitions live in [`docs/production/observability.md`](observability.md); keep scrape access private or protected at the network edge. |
 
 ## Domains
 
@@ -139,7 +139,8 @@ Prices are public-plan estimates checked on 2026-05-13. Real bills depend on pro
 | Redis | Upstash Redis Free | $0 | Free plan has 256MB and 500K commands/month ([Upstash pricing](https://upstash.com/pricing/redis)). BullMQ may exceed this; upgrade to Fixed 250MB ($10/mo) if command volume is high. |
 | Object backups | Cloudflare R2 Free | $0 | R2 Free includes 10GB-month storage and free egress ([R2 pricing](https://developers.cloudflare.com/r2/pricing/)). Use for encrypted logical backup artifacts only after backup automation exists. |
 | Error tracking | Sentry Developer/Free | $0 | Use until event volume/team access requires Team ($26/mo listed by Sentry). Backend/frontend DSNs are configured separately. |
-| Analytics | Local structured logs + optional PostHog key | $0 | P4-ANA-001 adds local-first taxonomy and emitters. Backend logs `analytics.event`; frontend dispatches `nu:analytics`. PostHog remains disabled unless `VITE_POSTHOG_KEY` is intentionally configured. |
+| Metrics / alerts | VictoriaMetrics + vmalert + Grafana, tiny self-hosted or provider-managed | $0-10+ depending on hosting | P4-OPS-001 adds Prometheus-compatible `/metrics`, VictoriaMetrics alert rules, and a Grafana dashboard. Use provider metrics only as fallback; product analytics panels need the app scrape endpoint. |
+| Analytics | Local structured logs + optional PostHog key + aggregate `/metrics` rollup | $0 | P4-ANA-001 adds local-first taxonomy and emitters. Backend logs `analytics.event`; frontend dispatches `nu:analytics`. P4-OPS-001 adds `player_activity_daily` aggregate panels for active players, play time, and system development. PostHog remains disabled unless `VITE_POSTHOG_KEY` is intentionally configured. |
 | Domain | Provider of choice | about $10-20/year | Optional for internal closed alpha, required before public branding and stable BotFather config. |
 
 Expected first bill:
@@ -167,7 +168,7 @@ The soft-launch paid path remains: Cloudflare Pages + Fly/Hetzner compute + Neon
 These are not blockers for this planning task, but they must be handled before a broad launch:
 
 - Add a production CORS allowlist instead of registering `@fastify/cors` with defaults.
-- Add a deep readiness endpoint or deploy check that verifies Postgres and Redis, not only process health from `/health`.
+- Add a deep readiness endpoint or deploy check that verifies Postgres and Redis, not only process health from `/health`; `/metrics` already exposes `nu_db_available` and `nu_redis_available` for monitoring.
 - Decide whether to use Fly.io process groups, two Fly apps, or a tiny VM before writing deploy automation.
 - Validate BullMQ against the chosen Upstash Redis endpoint with a real worker smoke test.
 - Add backup automation and restore rehearsal before any non-test users create durable state.
