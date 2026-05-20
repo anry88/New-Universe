@@ -62,6 +62,19 @@ export interface SectorSystemAnchor {
   lastActivityAt?: string;
   colonyCount: number;
   shipCount: number;
+  /**
+   * Number of times this system has been renamed (across all players).
+   * First rename is free; subsequent renames cost diamonds. Required
+   * here so the sector UI can show the cost preview.
+   */
+  renameCount: number;
+  /**
+   * Number of own active colonies in this system. Required so the sector
+   * UI can decide whether to surface the rename button at all.
+   */
+  ownColonyCount: number;
+  /** Number of foreign active colonies in this system (rename blocker). */
+  foreignColonyCount: number;
 }
 
 export interface SectorSystemAnchorsPayload {

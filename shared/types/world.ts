@@ -66,6 +66,8 @@ export interface Planet {
   buildingCount?: number;
   /** Recent surface-combat timestamp for map polling/visual state. */
   lastCombatTickAt?: string | null;
+  /** Server-side rename counter; first rename is free, subsequent paid. */
+  renameCount?: number;
   energy?: PlanetEnergyStatus;
   resources?: PlanetResource[];
   buildings?: Building[];
@@ -78,10 +80,16 @@ export interface HomeSystem {
   sectorX: number;
   sectorY: number;
   sectorZ: number;
-  /** Legacy English-shaped label in DB; prefer localized title from `shortTag` + player slug. */
+  /**
+   * Stored system name. New home systems are auto-named with random
+   * characters (`xxxx-xxxx`); legacy systems keep the original
+   * "{slug}'s system" / "Система {slug}" wording. Renaming overwrites this.
+   */
   name: string;
   seed: number;
   /** Four-char lowercase id derived from `id` (`homeSystemShortTag`); planet names use `{shortTag}-N`. */
   shortTag?: string;
+  /** Server-side rename counter; first rename is free, subsequent paid. */
+  renameCount?: number;
   planets?: Planet[];
 }

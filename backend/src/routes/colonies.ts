@@ -4,8 +4,11 @@ import { env } from '../lib/env.js';
 import { foundColony } from '../features/colonies/found-colony.js';
 import { checkColonizationGates } from '../features/colonies/colonization-rules.js';
 import { COLONIZATION_RULES } from '../config/colonization-rules.js';
+import { renamePlanet, RenameError } from '../features/world/rename.js';
+import { trackBackendEvent } from '../lib/analytics.js';
 import { mutationRateLimit } from '../lib/rate-limit.js';
 import { nonEmptyStringSchema, objectBodySchema, securityRouteConfig } from '../lib/security.js';
+import { MAX_ENTITY_NAME_LENGTH } from '@shared/format/entityNameValidation.js';
 
 /**
  * Colonies routes.
@@ -69,6 +72,49 @@ export async function coloniesRoutes(app: FastifyInstance) {
         error: 'Bad Request',
         message: err.message,
       });
+    }
+  });
+
+  /**
+   * POST /colonies/:planetId/rename
+   * Renames a colonized planet. First rename is free, subsequent renames
+   * cost diamonds. Rejects with a typed error on validation failure or
+   * domain-level block (not own colony, insufficient diamonds, etc.).
+   */
+  app.post('/:planetId/rename', {
+    config: securityRouteConfig(mutationRateLimit, 'body-and-params'),
+    schema: {
+      params: objectBodySchema({ planetId: nonEmptyStringSchema }, ['planetId']),
+      body: objectBodySchema(
+        {
+          name: { type: 'string', minLength: 1, maxLength: MAX_ENTITY_NAME_LENGTH },
+        },
+        ['name'],
+      ),
+    },
+  }, async (request, reply) => {
+    const userId = (request as any).userId;
+    const { planetId } = request.params as { planetId: string };
+    const { name } = request.body as { name: string };
+
+    try {
+      const result = await renamePlanet(userId, planetId, name);
+      trackBackendEvent('planet_renamed', {
+        renameCount: result.renameCount,
+        diamondsSpent: result.diamondsSpent,
+        diamondsRemaining: result.diamondsRemaining,
+      }, { userId });
+      return reply.send(result);
+    } catch (err) {
+      if (err instanceof RenameError) {
+        const status = err.code === 'not_found' ? 404 : err.code === 'not_owned' ? 403 : 400;
+        return reply.status(status).send({
+          status: 'error',
+          code: err.code,
+          message: err.message,
+        });
+      }
+      throw err;
     }
   });
 

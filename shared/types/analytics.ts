@@ -193,6 +193,18 @@ export const ANALYTICS_EVENT_DEFINITIONS = {
     description: 'A Telegram Stars payment was refunded.',
     safeProperties: ['packDiamonds', 'priceStars', 'reasonCode'],
   },
+  planet_renamed: {
+    category: 'economy',
+    surfaces: ['backend'],
+    description: 'A colonized planet was renamed by its owner.',
+    safeProperties: ['renameCount', 'diamondsSpent', 'diamondsRemaining'],
+  },
+  system_renamed: {
+    category: 'economy',
+    surfaces: ['backend'],
+    description: 'A system was renamed by a player holding the only colonies in it.',
+    safeProperties: ['renameCount', 'diamondsSpent', 'diamondsRemaining', 'isHome'],
+  },
 } as const satisfies Record<string, AnalyticsEventDefinition>;
 
 export type AnalyticsEventName = keyof typeof ANALYTICS_EVENT_DEFINITIONS;

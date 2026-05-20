@@ -11,10 +11,9 @@ import {
 } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 import {
-  formatHomeSystemDisplayName,
   formatPlanetCode,
+  homeSystemRandomTag,
   homeSystemShortTag,
-  sanitizePlayerSlug,
 } from '@shared/format/homeSystemNaming.js';
 import {
   BIOME_ORBIT_TIER,
@@ -201,12 +200,11 @@ export async function generateHomeSystem(userId: string, tx?: any) {
       .returning();
 
     const shortTag = homeSystemShortTag(system.id);
-    const slug = sanitizePlayerSlug(userRow.tgUsername, userRow.tgFirstName);
-    const systemDisplayEn = formatHomeSystemDisplayName('en', slug, shortTag);
+    const randomName = homeSystemRandomTag(system.id);
 
     await database
       .update(systems)
-      .set({ name: systemDisplayEn })
+      .set({ name: randomName })
       .where(eq(systems.id, system.id));
 
     const biomeOrbitPlan = HOME_PLANET_ORBIT_PLAN;

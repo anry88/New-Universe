@@ -16,6 +16,12 @@ export const systems = pgTable('systems', {
   z: numeric('z', { precision: 10, scale: 2 }).notNull(),
   name: text('name').notNull(),
   seed: integer('seed').notNull(),
+  /**
+   * Per-system rename counter (shared across owners). First rename is free,
+   * subsequent ones cost diamonds — including after a hostile takeover, so
+   * the cost ratchet survives the original namer being wiped.
+   */
+  renameCount: integer('rename_count').notNull().default(0),
 }, (table) => ({
   ownerIdx: index('systems_owner_id_idx').on(table.ownerId),
 }));
@@ -27,6 +33,11 @@ export const planets = pgTable('planets', {
   size: integer('size').notNull(),
   slotCount: integer('slot_count').notNull(),
   name: text('name').notNull(),
+  /**
+   * Per-planet rename counter. First rename is free, subsequent ones cost
+   * diamonds. Counter persists across colony ownership changes.
+   */
+  renameCount: integer('rename_count').notNull().default(0),
 }, (table) => ({
   systemIdx: index('planets_system_id_idx').on(table.systemId),
 }));

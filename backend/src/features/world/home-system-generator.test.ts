@@ -8,7 +8,11 @@ import { BIOME_ORBIT_TIER, HOME_SYSTEM_BASE_BIOMES } from './biomes.js';
 import { db } from '../../db/index.js';
 import { users, systems, planets, richness, planetResources, buildings } from '../../db/schema.js';
 import { eq, and } from 'drizzle-orm';
-import { formatPlanetCode, homeSystemShortTag } from '@shared/format/homeSystemNaming.js';
+import {
+  formatPlanetCode,
+  homeSystemRandomTag,
+  homeSystemShortTag,
+} from '@shared/format/homeSystemNaming.js';
 import {
   buildSystemMapLayouts,
   SYSTEM_MAP_ORBIT_BASE,
@@ -38,8 +42,8 @@ describe('Home System Generator', () => {
     expect(system?.isHome).toBe(true);
     expect(system?.ownerId).toBe(user.id);
     const shortTag = homeSystemShortTag(systemId1);
-    expect(system?.name).toContain(shortTag);
-    expect(system?.name).toContain('system');
+    expect(system?.name).toBe(homeSystemRandomTag(systemId1));
+    expect(system?.name.startsWith(shortTag)).toBe(true);
 
     const systemPlanets = await db.query.planets.findMany({
       where: eq(planets.systemId, systemId1),
