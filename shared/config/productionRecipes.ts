@@ -129,10 +129,27 @@ export const PRODUCTION_RECIPES: ProductionRecipe[] = [
     output: { resourceId: 'fuel', amount: 1 },
     inputs: [
       { resourceId: 'methane', amount: 3.5 },
+      { resourceId: 'oxygen', amount: 0.8 },
       { resourceId: 'water', amount: 0.2 },
       { resourceId: 'sulfur', amount: 0.05 },
     ],
     baseDurationSec: 14,
+  },
+  {
+    id: 'fuel_from_hydrogen_oxygen',
+    buildingTypeId: 'refinery',
+    name: { ru: 'Топливо из водорода', en: 'Fuel from Hydrogen' },
+    description: {
+      ru: 'Синтезирует корабельное топливо из водорода и кислорода.',
+      en: 'Synthesizes ship fuel from hydrogen and oxygen.',
+    },
+    output: { resourceId: 'fuel', amount: 1 },
+    inputs: [
+      { resourceId: 'hydrogen', amount: 2 },
+      { resourceId: 'oxygen', amount: 1 },
+      { resourceId: 'water', amount: 0.1 },
+    ],
+    baseDurationSec: 12,
   },
   {
     id: 'jump_fuel_from_ice_tritium',
@@ -145,6 +162,7 @@ export const PRODUCTION_RECIPES: ProductionRecipe[] = [
     output: { resourceId: 'jump_fuel', amount: 1 },
     inputs: [
       { resourceId: 'ice', amount: 3 },
+      { resourceId: 'hydrogen', amount: 0.5 },
       { resourceId: 'tritium', amount: 0.05 },
       { resourceId: 'sulfur', amount: 0.2 },
     ],
