@@ -11,7 +11,7 @@ Cross-cutting Fastify hooks and `preHandler` plugins. Everything in this folder 
   3. `isInitDataExpired(validatedData.auth_date)` is `true` (older than 1 hour, malformed, or more than 60 seconds in the future).
   4. The parsed `initData` did not contain a `user` field.
   
-  On success it sets `request.user = validatedData.user` (typed via `types/fastify.d.ts`) so downstream handlers can read the verified Telegram user without re-parsing. The `index.ts` `preHandler` hook then enriches `request.log` with `userId: request.user.id` automatically.
+  On success it sets `request.user = validatedData.user` and `request.telegramInitData = validatedData` (typed via `types/fastify.d.ts`) so downstream handlers can read the verified Telegram user and safe fields such as `start_param` without re-parsing. The `index.ts` `preHandler` hook then enriches `request.log` with `userId: request.user.id` automatically.
 - **`telegram-auth.test.ts`** — Vitest coverage for the failure paths plus the happy path, including stale and future-dated `auth_date` replay rejection.
 
 ## Adding a middleware

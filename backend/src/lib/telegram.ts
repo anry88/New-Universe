@@ -17,6 +17,7 @@ export interface TelegramInitData {
   user?: TelegramUser;
   chat_instance?: string;
   chat_type?: string;
+  start_param?: string;
   auth_date: number;
   hash: string;
 }
@@ -83,6 +84,7 @@ export function validateTelegramInitData(initData: string, botToken: string): Te
     user,
     chat_instance: urlParams.get('chat_instance') || undefined,
     chat_type: urlParams.get('chat_type') || undefined,
+    start_param: urlParams.get('start_param') || undefined,
     auth_date: authDate,
     hash,
   };

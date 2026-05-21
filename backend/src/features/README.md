@@ -35,16 +35,19 @@ Planet infrastructure management.
 Telegram-Mini-App authentication. The route layer delegates everything to `authService` and only translates between HTTP framing (header validation, cookie setting) and the service result.
 
 - **`routes.ts`** — `authRoutes(app)` registers `POST /telegram` (mounted at `/auth` from `index.ts`, so the public path is `POST /auth/telegram`) with the auth-specific rate limit and `telegram-init-data` security metadata. The route uses `telegramAuthMiddleware` as a `preHandler`, so by the time the handler runs `request.user` is a verified `TelegramUser`. The handler:
-  - Calls `authService.loginWithTelegram(request.user!)` and receives `{ user, token }`.
+  - Calls `authService.loginWithTelegram(request.user!, { registrationSourceCode })` and receives `{ user, token }` plus internal registration metadata.
+  - Emits `user_registered` only when a new `users` row was created, including the sanitized registration source/type for acquisition analysis.
   - Builds a `Set-Cookie` value: `session=<token>; HttpOnly; Path=/; SameSite=Strict; Max-Age=<30 days>`. The `Secure` flag is added only when `NODE_ENV === 'production'`.
   - Returns the JSON `{ user, token }`.
 - **`service.ts`** — `AuthService.loginWithTelegram(telegramUser)`:
   - Looks up `users` by `tgId` (converted to `bigint`).
-  - If the user does not exist, opens a transaction (`db.transaction(...)`) and inserts the new row from `telegram.id`, `telegram.username`, `telegram.first_name`, initializes **`preferredLocale`** from Telegram `language_code` (`ru*` → `ru`, otherwise `en`), seeds **`diamonds`** with `env.DIAMOND_STARTING_GRANT`, then immediately calls `generateHomeSystem(newUser.id, tx)` so registration plus world bootstrap commit atomically.
+  - If the user does not exist, resolves a sanitized Telegram referral code from `initData.start_param` or the pending `/start <code>` table, opens a transaction (`db.transaction(...)`) and inserts the new row from `telegram.id`, `telegram.username`, `telegram.first_name`, initializes **`registrationSource`** (`direct` or `telegram_start`) and **`registrationSourceCode`**, initializes **`preferredLocale`** from Telegram `language_code` (`ru*` → `ru`, otherwise `en`), seeds **`diamonds`** with `env.DIAMOND_STARTING_GRANT`, then immediately calls `generateHomeSystem(newUser.id, tx)` and consumes any pending referral row so registration plus world bootstrap commit atomically.
+  - Existing users are returned as-is; login never overwrites their original registration source.
   - Throws `'Failed to create or find user'` if neither lookup nor insert produced a row (defensive guard against a malformed transaction result).
   - Signs a JWT with `{ userId: user.id }` using `env.JWT_SECRET` and a 30-day expiry.
-  - Returns `{ user: { ...user, tgId: user.tgId.toString() }, token }`. The `tgId` is converted to a string because BigInt does not survive JSON serialization.
+  - Returns `{ user, token }` plus internal `{ createdUser, registrationSource }` metadata for route analytics. `tgId` is converted to a string because BigInt does not survive JSON serialization; registration-source fields stay out of the public user payload.
   - The exported singleton is `authService = new AuthService()`.
+- **`registration-source.ts`** — validates Telegram start/referral codes (`[A-Za-z0-9_-]`, max 64 chars), records pending `/start <code>` values for Telegram actors that do not yet have a user row, and normalizes direct-vs-Telegram-start source metadata used by auth.
 - **`auth.test.ts`** — Vitest suite covering the service in isolation: it asserts that an existing `tgId` is reused (no insert, no home-system generation), that a missing `tgId` triggers `users.insert` plus `generateHomeSystem`, and that the issued JWT verifies with `env.JWT_SECRET`.
 
 ## `bot/`
@@ -54,7 +57,7 @@ Telegram Bot logic and webhook handling.
 - **`README.md`** — [Detailed bot documentation](./bot/README.md).
 - **`service.ts`** — `BotService` singleton for processing Telegram updates.
 - **`webhook.ts`** — Dispatcher for incoming Telegram updates.
-- **`commands.ts`** — `handleStartCommand`, admin-only `/add_diamond`, and Telegram Stars support commands (`/paysupport`, `/answer`, `/refund`, `/reject`, `/ask`) with admin-chat authorization and localized player replies. `/start` also clears `users.telegram_notifications_blocked_at`, because an incoming command proves the bot is no longer blocked for that Telegram user.
+- **`commands.ts`** — `handleStartCommand`, admin-only `/add_diamond`, and Telegram Stars support commands (`/paysupport`, `/answer`, `/refund`, `/reject`, `/ask`) with admin-chat authorization and localized player replies. `/start` also clears `users.telegram_notifications_blocked_at`, because an incoming command proves the bot is no longer blocked for that Telegram user, and stores a sanitized deep-link referral code for not-yet-registered Telegram actors without changing existing user rows.
 - **`push.ts`** — `sendPush(userId, type, payload)` service to queue push notifications in the database.
 
 ## `monetization/`

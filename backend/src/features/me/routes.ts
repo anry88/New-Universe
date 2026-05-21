@@ -486,8 +486,13 @@ export async function meRoutes(app: FastifyInstance) {
         };
       });
 
+      const publicUser = Object.fromEntries(
+        Object.entries(user).filter(([key]) => (
+          key !== "registrationSource" && key !== "registrationSourceCode"
+        )),
+      ) as Omit<typeof user, "registrationSource" | "registrationSourceCode">;
       const userObj = {
-        ...user,
+        ...publicUser,
         tgId: user.tgId.toString(),
         notificationPreferences: normalizeNotificationPreferences(
           user.notificationPreferences,

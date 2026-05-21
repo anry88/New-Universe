@@ -90,7 +90,7 @@ export async function handleTelegramUpdate(update: TelegramUpdate) {
 
   if (command === '/start') {
     logger.info({ chatId }, 'Handling /start command');
-    await handleStartCommand(chatId, message.from);
+    await handleStartCommand(chatId, message.from, args[0]);
     return;
   }
 

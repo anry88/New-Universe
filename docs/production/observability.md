@@ -70,13 +70,16 @@ Activity is recorded by the backend from explicit frontend online-session signal
 | `nu_product_players_registered_previous` | `window` | New player registrations in the comparable previous period. |
 | `nu_product_players_registered_delta` | `window` | Absolute registration difference versus the comparable previous period. |
 | `nu_product_players_registered_change_ratio` | `window` | Registration change versus the comparable previous period. |
+| `nu_product_players_registered_by_source` | `window`, `source_type`, `source` | New registrations in the current period grouped by captured source. New direct registrations use `source_type="direct"` / `source="direct"`; captured Telegram deep-link starts use `source_type="telegram_start"` and the sanitized referral code; uncaptured historical rows remain `unknown`. |
+| `nu_product_players_registered_by_source_previous` | `window`, `source_type`, `source` | Same source breakdown for the comparable previous period. |
+| `nu_product_players_registered_by_source_delta` | `window`, `source_type`, `source` | Absolute source-specific registration difference versus the comparable previous period. |
 | `nu_product_play_time_seconds_sum` | `window` | Total observed play time for the period. |
 | `nu_product_play_time_seconds_avg_per_active_player` | `window` | Observed play time divided by active players. |
 | `nu_product_session_seconds_avg` | `window` | Observed play time divided by session count. |
 | `nu_product_system_development_avg` | `dimension` | Average development indicators: `development_score`, `active_colonies`, `completed_buildings`, `average_building_level`, `ships`, `research_levels`, `max_research_level`. `development_score` is computed from source-of-truth gameplay rows rather than the currently stale `users.power_score` field. |
 | `nu_product_progression_players` | `milestone` | Distinct players who reached funnel milestones: `tutorial_completed`, `planets_discovered_ge_1|3|5|10`, `buildings_completed_ge_1|5|10|25`, `ships_built_ge_1|3|10`, `research_levels_ge_1|3|8|16`. |
 
-The Grafana dashboard uses the absolute `*_delta` metrics for player comparisons so day/week/month changes are shown as player counts, not percentages. Ratio metrics remain available for alerts where a relative drop threshold is clearer than a raw count.
+The Grafana dashboard uses the absolute `*_delta` metrics for player comparisons so day/week/month changes are shown as player counts, not percentages. It also includes a registration-source panel that compares current and previous day/week/month windows for direct, unknown, and Telegram referral-code registrations. Ratio metrics remain available for alerts where a relative drop threshold is clearer than a raw count.
 
 Product, progression, and monetization aggregates are cached inside the API process for 5 minutes. Ordinary health, HTTP, and queue metrics stay fresh on every scrape. This keeps `/metrics` light enough for a 30-second VictoriaMetrics scrape interval while still giving Grafana stable closed-alpha trend panels.
 
