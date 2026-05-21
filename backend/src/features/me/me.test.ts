@@ -8,6 +8,7 @@ import jwt from "jsonwebtoken";
 import { db } from "../../db/index.js";
 import {
   buildings,
+  colonies,
   discoveredPlanets,
   expeditions,
   playerActivityDaily,
@@ -279,6 +280,24 @@ describe("Me Routes", () => {
     ]);
     await db.insert(buildings).values({
       planetId: capitalPlanet.id,
+      typeId: "command_center",
+      slotIndex: 0,
+      level: 1,
+    });
+    await db.insert(colonies).values([
+      {
+        ownerId: user.id,
+        planetId: capitalPlanet.id,
+        foundedAt: new Date(Date.now() - 60_000),
+      },
+      {
+        ownerId: user.id,
+        planetId: innerPlanet.id,
+        foundedAt: new Date(),
+      },
+    ]);
+    await db.insert(buildings).values({
+      planetId: innerPlanet.id,
       typeId: "command_center",
       slotIndex: 0,
       level: 1,

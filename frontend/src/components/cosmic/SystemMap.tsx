@@ -107,7 +107,7 @@ interface CosmicSystemRendererProps {
     planet: Planet;
     isOwnedPlanet: boolean;
     isForeignColony: boolean;
-  }) => { label: string; disabled?: boolean } | null;
+  }) => { label: string; disabled?: boolean; compact?: boolean } | null;
 }
 
 export interface PlanetLayout {
@@ -1599,6 +1599,7 @@ interface OwnMapShipAction {
   label: string;
   icon: React.ReactNode;
   disabled: boolean;
+  compact?: boolean;
 }
 
 function actionForOwnMapShip({
@@ -1649,6 +1650,18 @@ function actionForOwnMapShip({
     icon: <Send size={14} />,
     disabled: !canIssueOrders,
   };
+}
+
+function compactResourceAmount(
+  planet: Planet,
+  resourceId: "fuel" | "jump_fuel",
+): number {
+  return Math.floor(
+    Number(
+      planet.resources?.find((resource) => resource.resourceId === resourceId)
+        ?.amount ?? 0,
+    ),
+  );
 }
 
 function SelectedMapShipCard({
@@ -1714,6 +1727,136 @@ function SelectedMapShipCard({
           t,
         }))
       : null;
+
+  if (ownAction?.compact && ownShip) {
+    return (
+      <div
+        className="cosmic-selection-card animate-in slide-in-from-bottom-4 duration-300"
+        data-testid="map-ship-card"
+        style={{
+          position: "absolute",
+          left: "50%",
+          bottom: 110,
+          transform: "translateX(-50%)",
+          width: "calc(100% - 40px)",
+          maxWidth: 320,
+          padding: "10px 12px",
+          border: "1px solid var(--line-strong)",
+          borderRadius: 12,
+          background: "rgba(14,20,36,0.94)",
+          backdropFilter: "blur(10px)",
+          color: "var(--text)",
+          zIndex: 6,
+          pointerEvents: "auto",
+        }}
+      >
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "34px minmax(0, 1fr) 26px",
+            gap: 9,
+            alignItems: "center",
+          }}
+        >
+          <ShipIconBadge
+            typeId={typeId}
+            status={ownShip.status}
+            size={28}
+            title={title}
+          />
+          <div style={{ minWidth: 0 }}>
+            <div
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: 15,
+                fontWeight: 700,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {title}
+            </div>
+            <div
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 9,
+                letterSpacing: "0.12em",
+                color: "var(--text-faint)",
+                textTransform: "uppercase",
+              }}
+            >
+              {status}
+            </div>
+          </div>
+          <button
+            type="button"
+            aria-label={t("common.close")}
+            onClick={onClose}
+            style={{
+              width: 26,
+              height: 26,
+              display: "grid",
+              placeItems: "center",
+              borderRadius: 8,
+              border: "1px solid var(--line)",
+              background: "rgba(5,8,17,0.6)",
+              color: "var(--text-dim)",
+              padding: 0,
+            }}
+          >
+            <X size={14} />
+          </button>
+        </div>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 6,
+            marginTop: 8,
+          }}
+        >
+          <div className="ship-stat" style={{ textAlign: "left" }}>
+            <span>{t("expedition.fuel")}</span>
+            <b>
+              {ownShip.fuel ?? 0} / {shipType?.fuelCapacity ?? 0}
+            </b>
+          </div>
+          <div className="ship-stat" style={{ textAlign: "left" }}>
+            <span>{t("expedition.jumpFuel")}</span>
+            <b>
+              {ownShip.jumpFuel ?? 0} / {shipType?.jumpFuelCapacity ?? 0}
+            </b>
+          </div>
+        </div>
+        {onAction ? (
+          <button
+            type="button"
+            className="cosmic-cta"
+            disabled={ownAction.disabled}
+            onClick={() => {
+              if (ownAction.disabled) return;
+              onAction(ownShip, shipType, activeExpedition);
+            }}
+            style={{
+              width: "100%",
+              marginTop: 9,
+              padding: "8px 10px",
+              fontSize: 10,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 7,
+              opacity: ownAction.disabled ? 0.45 : 1,
+            }}
+          >
+            {ownAction.icon}
+            <span>{ownAction.label.toUpperCase()}</span>
+          </button>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div
@@ -1917,6 +2060,139 @@ function SelectedMapShipCard({
           <span>{ownAction.label.toUpperCase()}</span>
         </button>
       ) : null}
+    </div>
+  );
+}
+
+function SelectedMapPlanetCompactCard({
+  planet,
+  action,
+  onAction,
+  onClose,
+}: {
+  planet: Planet;
+  action: { label: string; disabled?: boolean; compact?: boolean };
+  onAction: () => void;
+  onClose: () => void;
+}) {
+  const { locale, t } = useI18n();
+  const biome = resolveBiome(
+    planet.isDiscovered !== false ? planet.biome : "unknown",
+  );
+  return (
+    <div
+      className="cosmic-selection-card animate-in slide-in-from-bottom-4 duration-300"
+      data-testid="selection-card"
+      style={{
+        position: "absolute",
+        left: "50%",
+        bottom: 110,
+        transform: "translateX(-50%)",
+        width: "calc(100% - 40px)",
+        maxWidth: 320,
+        padding: "10px 12px",
+        border: "1px solid var(--line-strong)",
+        borderRadius: 12,
+        background: "rgba(14,20,36,0.94)",
+        backdropFilter: "blur(10px)",
+        color: "var(--text)",
+        zIndex: 5,
+        pointerEvents: "auto",
+      }}
+    >
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 1fr) 26px",
+          gap: 9,
+          alignItems: "center",
+        }}
+      >
+        <div style={{ minWidth: 0 }}>
+          <div
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 9,
+              letterSpacing: "0.14em",
+              color: BIOME_META[biome].accent,
+              textTransform: "uppercase",
+            }}
+          >
+            {getBiomeTag(biome, locale)}
+          </div>
+          <div
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 15,
+              fontWeight: 700,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {planet.isDiscovered !== false ? planet.name : t("map.unmappedPlanet")}
+          </div>
+        </div>
+        <button
+          type="button"
+          aria-label={t("common.close")}
+          onClick={onClose}
+          style={{
+            width: 26,
+            height: 26,
+            display: "grid",
+            placeItems: "center",
+            borderRadius: 8,
+            border: "1px solid var(--line)",
+            background: "rgba(5,8,17,0.6)",
+            color: "var(--text-dim)",
+            padding: 0,
+          }}
+        >
+          <X size={14} />
+        </button>
+      </div>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 6,
+          marginTop: 8,
+        }}
+      >
+        {(["fuel", "jump_fuel"] as const).map((resourceId) => (
+          <div
+            key={resourceId}
+            className="ship-stat"
+            style={{ textAlign: "left" }}
+          >
+            <span
+              style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
+            >
+              <ResourceIcon resourceId={resourceId} size={13} />
+              {getResourceLabel(resourceId, locale)}
+            </span>
+            <b>{compactResourceAmount(planet, resourceId)}</b>
+          </div>
+        ))}
+      </div>
+      <button
+        type="button"
+        className="cosmic-cta"
+        disabled={action.disabled}
+        onClick={() => {
+          if (!action.disabled) onAction();
+        }}
+        style={{
+          width: "100%",
+          marginTop: 9,
+          padding: "8px 10px",
+          fontSize: 10,
+          opacity: action.disabled ? 0.45 : 1,
+        }}
+      >
+        {action.label.toUpperCase()}
+      </button>
     </div>
   );
 }
@@ -2186,6 +2462,13 @@ export function CosmicSystemRenderer({
   const selectedBuildingCount = selected
     ? (selected.planet.buildingCount ?? selected.planet.buildings?.length ?? 0)
     : 0;
+  const selectedPlanetAction = selected
+    ? (planetActionOverride?.({
+        planet: selected.planet,
+        isOwnedPlanet: selectedIsOwnedPlanet,
+        isForeignColony: selectedIsForeignColony,
+      }) ?? null)
+    : null;
 
   const orbitRadii = useMemo(() => {
     return buildSystemMapOrbitGuideRadii(
@@ -2921,7 +3204,22 @@ export function CosmicSystemRenderer({
       ) : null}
 
       {/* Selected planet info card */}
-      {!expeditionPick && selected && !selectedMapShip && (
+      {!expeditionPick &&
+      selected &&
+      !selectedMapShip &&
+      selectedPlanetAction?.compact ? (
+        <SelectedMapPlanetCompactCard
+          planet={selected.planet}
+          action={selectedPlanetAction}
+          onAction={() => onPlanetClick(selected.planet)}
+          onClose={() => setSelectedId(null)}
+        />
+      ) : null}
+
+      {!expeditionPick &&
+      selected &&
+      !selectedMapShip &&
+      !selectedPlanetAction?.compact ? (
         <div
           className="cosmic-selection-card animate-in slide-in-from-bottom-4 duration-300"
           data-testid="selection-card"
@@ -3122,24 +3420,15 @@ export function CosmicSystemRenderer({
             <button
               type="button"
               disabled={
-                planetActionOverride
-                  ? Boolean(
-                      planetActionOverride({
-                        planet: selected.planet,
-                        isOwnedPlanet: selectedIsOwnedPlanet,
-                        isForeignColony: selectedIsForeignColony,
-                      })?.disabled,
-                    )
+                selectedPlanetAction
+                  ? Boolean(selectedPlanetAction.disabled)
                   : selected.planet.isDiscovered === false
               }
               onClick={() => {
-                const override = planetActionOverride?.({
-                  planet: selected.planet,
-                  isOwnedPlanet: selectedIsOwnedPlanet,
-                  isForeignColony: selectedIsForeignColony,
-                });
-                if (override) {
-                  if (!override.disabled) onPlanetClick(selected.planet);
+                if (selectedPlanetAction) {
+                  if (!selectedPlanetAction.disabled) {
+                    onPlanetClick(selected.planet);
+                  }
                   return;
                 }
                 if (selectedIsOwnedPlanet) {
@@ -3159,20 +3448,13 @@ export function CosmicSystemRenderer({
                 marginTop: 10,
                 padding: "10px 14px",
                 opacity:
-                  planetActionOverride?.({
-                    planet: selected.planet,
-                    isOwnedPlanet: selectedIsOwnedPlanet,
-                    isForeignColony: selectedIsForeignColony,
-                  })?.disabled || selected.planet.isDiscovered === false
+                  selectedPlanetAction?.disabled ||
+                  selected.planet.isDiscovered === false
                     ? 0.5
                     : 1,
               }}
             >
-              {planetActionOverride?.({
-                planet: selected.planet,
-                isOwnedPlanet: selectedIsOwnedPlanet,
-                isForeignColony: selectedIsForeignColony,
-              })?.label ??
+              {selectedPlanetAction?.label ??
                 (selected.planet.isDiscovered === false
                   ? t("map.discoveryRequired")
                   : selectedIsOwnedPlanet
@@ -3181,7 +3463,7 @@ export function CosmicSystemRenderer({
             </button>
           ) : null}
         </div>
-      )}
+      ) : null}
 
       {!expeditionPick && selected && (
         <FoundColonyDialog

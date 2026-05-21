@@ -458,7 +458,7 @@
   "refuel_dialog_target": "Цель",
   "refuel_dialog_source": "Заправщик",
   "refuel_dialog_ship_tanks": "Баки",
-  "refuel_dialog_reserve": "Резерв",
+  "refuel_dialog_reserve": "Топливный груз",
   "refuel_dialog_planet_stockpile": "Планета",
   "refuel_dialog_fuel_label": "Обычное топливо",
   "refuel_dialog_jump_fuel_label": "Прыжковое топливо",
