@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useMe } from "../hooks/useMe";
+import { useJumpGateState } from "../hooks/useJumpGateState";
 import {
   useBuildShip,
   useRushShip,
@@ -49,6 +50,7 @@ import {
 import { isCargoTransferShip, isCargoTransferShipType } from "../lib/fleet";
 import type { ExpeditionRouteMode } from "@shared/config/expeditionRouting";
 import { researchBranchLabel } from "@shared/types/research";
+import { destinationToSystem } from "../lib/jump-gate-destination";
 
 function formatDuration(totalSeconds: number): string {
   const seconds = Math.max(0, Math.ceil(totalSeconds));
@@ -134,6 +136,7 @@ function ShipBuildQueue({
  */
 export function ShipsPage() {
   const { data: meData } = useMe();
+  const { data: jumpGateState } = useJumpGateState();
   const { data: shipTypes } = useShipTypes();
   const { data: shipQueueData } = useShipQueue();
   const buildShip = useBuildShip();
@@ -180,6 +183,16 @@ export function ShipsPage() {
     jumpGateDestinationSystemId
       ? "jump_gate"
       : "local";
+  const selectedJumpGateDestination = useMemo(
+    () =>
+      jumpGateDestinationSystemId
+        ? (jumpGateState?.knownDestinations.find(
+            (destination) =>
+              destination.systemId === jumpGateDestinationSystemId,
+          ) ?? null)
+        : null,
+    [jumpGateDestinationSystemId, jumpGateState?.knownDestinations],
+  );
 
   const getShipType = (typeId: string) =>
     shipTypes?.find((t) => t.id === typeId);
@@ -331,6 +344,32 @@ export function ShipsPage() {
     : null;
   const selectedShipSupportsJumpGate =
     Boolean(selectedShipType) && selectedShipType?.role !== "logistics";
+  const refuelDialogSystem = useMemo(() => {
+    if (
+      requestedInitialRouteMode === "jump_gate" &&
+      selectedJumpGateDestination
+    ) {
+      return destinationToSystem(selectedJumpGateDestination, locale);
+    }
+    return meData?.homeSystem ?? null;
+  }, [
+    locale,
+    meData?.homeSystem,
+    requestedInitialRouteMode,
+    selectedJumpGateDestination,
+  ]);
+  const refuelerInDialogSystem = Boolean(
+    refuelingShip?.locationPlanetId &&
+    refuelDialogSystem?.planets?.some(
+      (planet) => planet.id === refuelingShip.locationPlanetId,
+    ),
+  );
+  const refuelDialogRouteMode: ExpeditionRouteMode =
+    requestedInitialRouteMode === "jump_gate" &&
+    selectedJumpGateDestination &&
+    !refuelerInDialogSystem
+      ? "jump_gate"
+      : "local";
 
   return (
     <div
@@ -1021,7 +1060,7 @@ export function ShipsPage() {
           />
         )}
 
-      {refuelingShip && meData?.homeSystem && (
+      {refuelingShip && meData?.homeSystem && refuelDialogSystem && (
         <RefuelDialog
           sourceShip={refuelingShip}
           sourceType={getShipType(refuelingShip.typeId)!}
@@ -1030,10 +1069,17 @@ export function ShipsPage() {
               (planet) => planet.id === refuelingShip.locationPlanetId,
             ) ?? null
           }
-          system={meData.homeSystem}
+          sourceSystem={meData.homeSystem}
+          system={refuelDialogSystem}
           planets={planets}
           allShips={ships}
           allShipTypes={shipTypes ?? []}
+          routeMode={refuelDialogRouteMode}
+          destinationSystemId={
+            refuelDialogRouteMode === "jump_gate"
+              ? selectedJumpGateDestination?.systemId
+              : null
+          }
           initialTargetShipId={refuelTargetShipId ?? undefined}
           initialMode={refuelMode}
           onClose={() => {

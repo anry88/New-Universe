@@ -3,9 +3,11 @@ import { and, eq, inArray } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import {
   colonies,
+  discoveredSystems,
   expeditions,
   planetResources,
   planets,
+  researchProgress,
   ships,
   systems,
   users,
@@ -65,6 +67,111 @@ describe("refuelShip", () => {
     });
 
     return { userId: user.id, planetId: planet.id };
+  }
+
+  async function createHomePlanet() {
+    const [user] = await db
+      .insert(users)
+      .values({
+        tgId: BigInt(Math.floor(Math.random() * 1_000_000_000)),
+        tgUsername: `refuel_gate_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+        tgFirstName: "Refuel Gate",
+      })
+      .returning();
+
+    const [system] = await db
+      .insert(systems)
+      .values({
+        ownerId: user.id,
+        isHome: true,
+        sectorX: 10,
+        sectorY: 20,
+        sectorZ: 0,
+        x: "1000",
+        y: "2000",
+        z: "0",
+        name: `Refuel Gate Home ${user.id}`,
+        seed: Math.floor(Math.random() * 1_000_000),
+      })
+      .returning();
+
+    const [planet] = await db
+      .insert(planets)
+      .values({
+        systemId: system.id,
+        name: `Gate-Home-${user.id.slice(0, 8)}`,
+        biome: "terran",
+        size: 10,
+        slotCount: 10,
+      })
+      .returning();
+
+    await db.insert(colonies).values({
+      ownerId: user.id,
+      planetId: planet.id,
+      status: "active",
+    });
+
+    return { userId: user.id, system, planetId: planet.id };
+  }
+
+  async function unlockJumpGate(userId: string) {
+    await db
+      .insert(researchProgress)
+      .values({ userId, branch: "jump_drive", level: 1 })
+      .onConflictDoUpdate({
+        target: [researchProgress.userId, researchProgress.branch],
+        set: { level: 1 },
+      });
+  }
+
+  async function createKnownPublicDestination(
+    userId: string,
+    homeSystem: typeof systems.$inferSelect,
+    options: { withColony?: boolean } = {},
+  ) {
+    const [system] = await db
+      .insert(systems)
+      .values({
+        name: `Refuel Public ${Date.now()}`,
+        sectorX: homeSystem.sectorX + 6,
+        sectorY: homeSystem.sectorY + 8,
+        sectorZ: homeSystem.sectorZ,
+        x: (Number(homeSystem.x) + 600).toFixed(2),
+        y: (Number(homeSystem.y) + 800).toFixed(2),
+        z: Number(homeSystem.z).toFixed(2),
+        seed: Math.floor(Math.random() * 1_000_000),
+        ownerId: null,
+        isHome: false,
+      })
+      .returning();
+
+    const [planet] = await db
+      .insert(planets)
+      .values({
+        systemId: system.id,
+        name: `Gate-Target-${userId.slice(0, 8)}`,
+        biome: "green",
+        size: 12,
+        slotCount: 10,
+      })
+      .returning();
+
+    await db.insert(discoveredSystems).values({
+      userId,
+      systemId: system.id,
+      source: "random_jump",
+    });
+
+    if (options.withColony) {
+      await db.insert(colonies).values({
+        ownerId: userId,
+        planetId: planet.id,
+        status: "active",
+      });
+    }
+
+    return { system, planet };
   }
 
   async function spawnShip(args: {
@@ -442,6 +549,120 @@ describe("refuelShip", () => {
     expect(movingResult.code).toBe("refuel_ship_not_idle");
     expect(remoteResult.success).toBe(true);
     expect(remoteResult.data!.expedition?.targetPlanetId).toBe(other.planetId);
+  });
+
+  it("launches a transfer through a known Jump Gate destination", async () => {
+    const fixture = await createHomePlanet();
+    await unlockJumpGate(fixture.userId);
+    const destination = await createKnownPublicDestination(
+      fixture.userId,
+      fixture.system,
+    );
+    const source = await spawnShip({
+      ownerId: fixture.userId,
+      planetId: fixture.planetId,
+      typeId: "refueler",
+      fuel: "500",
+      jumpFuel: "100",
+      refuelFuel: "100",
+      refuelJumpFuel: "100",
+    });
+    const target = await spawnShip({
+      ownerId: fixture.userId,
+      planetId: destination.planet.id,
+      typeId: "scout",
+      fuel: "0",
+      jumpFuel: "0",
+    });
+
+    const result = await refuelShip(fixture.userId, {
+      sourceShipId: source.id,
+      targetShipId: target.id,
+      routeMode: "jump_gate",
+      destinationSystemId: destination.system.id,
+      fuel: 10,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data!.expedition?.targetPlanetId).toBe(destination.planet.id);
+    expect(Number(result.data!.sourceShip.jumpFuel)).toBe(50);
+
+    const stored = await db.query.expeditions.findFirst({
+      where: eq(expeditions.id, result.data!.expedition!.id),
+    });
+    expect(stored?.result).toMatchObject({
+      routeMode: "jump_gate",
+      destinationSystemId: destination.system.id,
+      jumpFuelRequired: 50,
+    });
+
+    await completeExpedition(fixture.userId, result.data!.expedition!.id);
+
+    const deliveredRows = await db
+      .select({
+        id: ships.id,
+        locationPlanetId: ships.locationPlanetId,
+        fuel: ships.fuel,
+        status: ships.status,
+      })
+      .from(ships)
+      .where(inArray(ships.id, [source.id, target.id]));
+    const byId = new Map(deliveredRows.map((ship) => [ship.id, ship]));
+    expect(Number(byId.get(target.id)!.fuel)).toBe(10);
+    expect(byId.get(source.id)!.locationPlanetId).toBe(destination.planet.id);
+    expect(byId.get(source.id)!.status).toBe("idle");
+  });
+
+  it("launches refueler replenishment through a known Jump Gate destination", async () => {
+    const fixture = await createHomePlanet();
+    await unlockJumpGate(fixture.userId);
+    const destination = await createKnownPublicDestination(
+      fixture.userId,
+      fixture.system,
+      { withColony: true },
+    );
+    await setPlanetResource(destination.planet.id, "fuel", "1000");
+    await setPlanetResource(destination.planet.id, "jump_fuel", "500");
+    const source = await spawnShip({
+      ownerId: fixture.userId,
+      planetId: fixture.planetId,
+      typeId: "refueler",
+      fuel: "500",
+      jumpFuel: "100",
+      refuelFuel: "0",
+      refuelJumpFuel: "0",
+    });
+
+    const result = await replenishRefueler(fixture.userId, {
+      sourceShipId: source.id,
+      targetPlanetId: destination.planet.id,
+      routeMode: "jump_gate",
+      destinationSystemId: destination.system.id,
+    });
+
+    expect(result.success).toBe(true);
+    expect(Number(result.data!.sourceShip.jumpFuel)).toBe(50);
+
+    const stored = await db.query.expeditions.findFirst({
+      where: eq(expeditions.id, result.data!.expedition!.id),
+    });
+    expect(stored?.result).toMatchObject({
+      routeMode: "jump_gate",
+      destinationSystemId: destination.system.id,
+      jumpFuelRequired: 50,
+      deliveryMode: "refuel_replenish",
+    });
+
+    await completeExpedition(fixture.userId, result.data!.expedition!.id);
+
+    const replenished = await db.query.ships.findFirst({
+      where: eq(ships.id, source.id),
+    });
+    expect(replenished!.locationPlanetId).toBe(destination.planet.id);
+    expect(Number(replenished!.fuel)).toBe(500);
+    expect(Number(replenished!.jumpFuel)).toBe(200);
+    expect(Number(replenished!.refuelFuel)).toBeGreaterThan(0);
+    expect(Number(replenished!.refuelJumpFuel)).toBe(200);
   });
 
   it("launches refueler replenishment as a routed order and fills tanks on arrival", async () => {

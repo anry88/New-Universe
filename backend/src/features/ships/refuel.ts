@@ -1,6 +1,7 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { db as defaultDb } from "../../db/index.js";
 import {
+  discoveredSystems,
   expeditions,
   planetResources,
   planets,
@@ -15,12 +16,19 @@ import {
   getResearchEffectsForUser,
 } from "../research/effects.js";
 import {
+  calculateJumpGateJumpFuelRequired,
   calculateExpeditionEtaSeconds,
   calculateExpeditionRequiredFuel,
   calculateSectorRouteDistance,
+  type ExpeditionRouteMode,
   JUMP_FUEL_RESOURCE_ID,
 } from "@shared/config/expeditionRouting.js";
-import { systemMapPlanetDistanceLy } from "@shared/format/systemMapLayout.js";
+import {
+  buildSystemMapLayouts,
+  systemMapJumpGatePoint,
+  systemMapPlanetDistanceLy,
+  systemMapPointDistanceLy,
+} from "@shared/format/systemMapLayout.js";
 import {
   type RefuelErrorCode,
   type RefuelErrorDetails,
@@ -30,6 +38,7 @@ import {
   type RefuelResponse,
   formatRefuelErrorMessage,
 } from "@shared/types/refuel.js";
+import { getJumpGateState } from "../jump-gate/service.js";
 
 export interface RefuelResult<
   TData = RefuelResponse | RefuelReplenishResponse,
@@ -78,10 +87,15 @@ type PlanetRouteTarget = {
 };
 
 type RoutePlan = {
+  routeMode: ExpeditionRouteMode;
+  destinationSystemId: string | null;
   targetPlanet: PlanetRouteTarget;
   requestedDistance: number;
   distance: number;
   fuelRequired: number;
+  jumpFuelRequired: number;
+  originGateDistance: number | null;
+  targetGateDistance: number | null;
   speed: number;
   engineFactor: number;
   etaSeconds: number;
@@ -248,12 +262,36 @@ async function loadPlanetRouteTarget(
   return rows[0] ?? null;
 }
 
+async function distanceBetweenSystemGateAndPlanet(
+  tx: Tx,
+  systemId: string,
+  systemSeed: number,
+  planetId: string,
+): Promise<number | null> {
+  const systemPlanets = await tx.query.planets.findMany({
+    where: eq(planets.systemId, systemId),
+  });
+  const planetLayout = buildSystemMapLayouts(
+    systemPlanets,
+    Number(systemSeed),
+  ).find((layout) => layout.id === planetId);
+  if (!planetLayout) return null;
+
+  return systemMapPointDistanceLy(systemMapJumpGatePoint(), planetLayout);
+}
+
 async function buildRoutePlan(
   userId: string,
   source: RefuelShipRow,
   targetPlanetId: string,
   tx: Tx,
+  routeMode: ExpeditionRouteMode = "local",
+  destinationSystemId?: string | null,
 ): Promise<RoutePlan | RefuelResult> {
+  if (routeMode !== "local" && routeMode !== "jump_gate") {
+    return refuelFailure(400, { code: "refuel_invalid_route_mode" });
+  }
+
   if (
     !source.locationPlanetId ||
     !source.originSystemId ||
@@ -271,7 +309,85 @@ async function buildRoutePlan(
   }
 
   let requestedDistance = 0;
-  if (source.originSystemId === targetPlanet.systemId) {
+  let resolvedDestinationSystemId: string | null = null;
+  let originGateDistance: number | null = null;
+  let targetGateDistance: number | null = null;
+  let jumpFuelRequired = 0;
+
+  if (routeMode === "jump_gate") {
+    if (!destinationSystemId) {
+      return refuelFailure(400, { code: "refuel_destination_required" });
+    }
+
+    const gateState = await getJumpGateState(userId, { database: tx });
+    if (!gateState.unlocked) {
+      return refuelFailure(400, {
+        code:
+          gateState.lockedReason?.code === "jump_drive_required"
+            ? "refuel_jump_drive_required"
+            : "refuel_jump_gate_locked",
+      });
+    }
+
+    if (gateState.calibration.status === "calibrating") {
+      return refuelFailure(400, { code: "refuel_jump_gate_calibrating" });
+    }
+
+    const knownDestination = await tx.query.discoveredSystems.findFirst({
+      where: and(
+        eq(discoveredSystems.userId, userId),
+        eq(discoveredSystems.systemId, destinationSystemId),
+      ),
+    });
+    if (!knownDestination) {
+      return refuelFailure(404, {
+        code: "refuel_known_destination_not_found",
+      });
+    }
+
+    const [destinationSystem] = await tx
+      .select()
+      .from(systems)
+      .where(
+        and(
+          eq(systems.id, destinationSystemId),
+          eq(systems.isHome, false),
+          isNull(systems.ownerId),
+        ),
+      )
+      .limit(1);
+    if (!destinationSystem) {
+      return refuelFailure(400, {
+        code: "refuel_known_destination_not_public",
+      });
+    }
+
+    if (targetPlanet.systemId !== destinationSystem.id) {
+      return refuelFailure(400, {
+        code: "refuel_target_wrong_gate_destination",
+      });
+    }
+
+    originGateDistance = await distanceBetweenSystemGateAndPlanet(
+      tx,
+      source.originSystemId,
+      Number(source.originSystemSeed),
+      source.locationPlanetId,
+    );
+    targetGateDistance = await distanceBetweenSystemGateAndPlanet(
+      tx,
+      destinationSystem.id,
+      Number(destinationSystem.seed),
+      targetPlanet.id,
+    );
+    if (originGateDistance === null || targetGateDistance === null) {
+      return refuelFailure(404, { code: "refuel_target_planet_not_found" });
+    }
+
+    resolvedDestinationSystemId = destinationSystem.id;
+    requestedDistance = originGateDistance + targetGateDistance;
+    jumpFuelRequired = calculateJumpGateJumpFuelRequired(false);
+  } else if (source.originSystemId === targetPlanet.systemId) {
     const systemPlanets = await tx.query.planets.findMany({
       where: eq(planets.systemId, source.originSystemId),
     });
@@ -310,6 +426,13 @@ async function buildRoutePlan(
       required: fuelRequired,
     });
   }
+  if (jumpFuelRequired > source.jumpFuelCapacity) {
+    return refuelFailure(400, {
+      code: "refuel_travel_jump_fuel_exceeded",
+      capacity: source.jumpFuelCapacity,
+      required: jumpFuelRequired,
+    });
+  }
 
   const researchEffects = await getResearchEffectsForUser(userId, tx);
   const speed = applyShipSpeed(Number(source.speed), researchEffects);
@@ -320,10 +443,15 @@ async function buildRoutePlan(
   );
 
   return {
+    routeMode,
+    destinationSystemId: resolvedDestinationSystemId,
     targetPlanet,
     requestedDistance,
     distance,
     fuelRequired,
+    jumpFuelRequired,
+    originGateDistance,
+    targetGateDistance,
     speed,
     engineFactor,
     etaSeconds,
@@ -335,26 +463,54 @@ async function ensureTravelFuel(
   source: RefuelShipRow,
   route: RoutePlan,
   tx: Tx,
-): Promise<{ remainingFuel: number } | RefuelResult> {
+): Promise<
+  { remainingFuel: number; remainingJumpFuel: number } | RefuelResult
+> {
   const currentFuel = Number(source.fuel);
-  const neededFromPlanet = Math.max(0, route.fuelRequired - currentFuel);
-  if (neededFromPlanet > 0) {
+  const currentJumpFuel = Number(source.jumpFuel);
+  const neededFuelFromPlanet = Math.max(0, route.fuelRequired - currentFuel);
+  const neededJumpFuelFromPlanet = Math.max(
+    0,
+    route.jumpFuelRequired - currentJumpFuel,
+  );
+  if (neededFuelFromPlanet > 0 || neededJumpFuelFromPlanet > 0) {
+    const costs = [];
+    if (neededFuelFromPlanet > 0) {
+      costs.push({ resourceId: "fuel", amount: neededFuelFromPlanet });
+    }
+    if (neededJumpFuelFromPlanet > 0) {
+      costs.push({
+        resourceId: JUMP_FUEL_RESOURCE_ID,
+        amount: neededJumpFuelFromPlanet,
+      });
+    }
+
     const spendResult = await spendResources(
       source.locationPlanetId!,
-      [{ resourceId: "fuel", amount: neededFromPlanet }],
+      costs,
       tx,
     );
     if (!spendResult.success) {
+      const resourceId = spendResult.details?.resourceId;
+      const fuelType =
+        resourceId === JUMP_FUEL_RESOURCE_ID ? "jump_fuel" : "fuel";
+      const current = fuelType === "jump_fuel" ? currentJumpFuel : currentFuel;
+      const requested =
+        fuelType === "jump_fuel" ? route.jumpFuelRequired : route.fuelRequired;
       return refuelFailure(400, {
         code: "refuel_source_insufficient",
-        fuelType: "fuel",
-        available: currentFuel + Number(spendResult.details?.available ?? 0),
-        requested: route.fuelRequired,
+        fuelType,
+        available: current + Number(spendResult.details?.available ?? 0),
+        requested,
       });
     }
   }
 
-  return { remainingFuel: currentFuel + neededFromPlanet - route.fuelRequired };
+  return {
+    remainingFuel: currentFuel + neededFuelFromPlanet - route.fuelRequired,
+    remainingJumpFuel:
+      currentJumpFuel + neededJumpFuelFromPlanet - route.jumpFuelRequired,
+  };
 }
 
 async function reserveSupportFuel(
@@ -483,7 +639,14 @@ export async function refuelShip(
   userId: string,
   req: RefuelRequest,
 ): Promise<RefuelResult<RefuelResponse>> {
-  const { targetShipId, sourceShipId, fuel = 0, jumpFuel = 0 } = req;
+  const {
+    targetShipId,
+    sourceShipId,
+    fuel = 0,
+    jumpFuel = 0,
+    routeMode = "local",
+    destinationSystemId = null,
+  } = req;
   const db = defaultDb;
 
   if (targetShipId === sourceShipId) {
@@ -553,6 +716,8 @@ export async function refuelShip(
       sourceShipRow,
       targetShipRow.locationPlanetId,
       tx,
+      routeMode,
+      destinationSystemId,
     );
     if (isRefuelFailure(route)) {
       return route as RefuelResult<RefuelResponse>;
@@ -588,15 +753,19 @@ export async function refuelShip(
         status: "in_flight",
         eta: route.eta,
         result: {
-          routeMode: "local",
+          routeMode: route.routeMode,
+          destinationSystemId: route.destinationSystemId,
           deliveryMode: "refuel_transfer",
           targetShipId: targetShipRow.id,
           targetPlanetName: route.targetPlanet.name,
           fuel,
           jumpFuel,
           fuelRequired: route.fuelRequired,
+          jumpFuelRequired: route.jumpFuelRequired,
           distance: route.distance,
           requestedDistance: route.requestedDistance,
+          originGateDistance: route.originGateDistance ?? undefined,
+          targetGateDistance: route.targetGateDistance ?? undefined,
           originSystemId: sourceShipRow.originSystemId,
           targetSystemId: route.targetPlanet.systemId,
           speed: route.speed,
@@ -613,6 +782,7 @@ export async function refuelShip(
         status: "moving",
         locationPlanetId: null,
         fuel: travelFuel.remainingFuel.toFixed(2),
+        jumpFuel: travelFuel.remainingJumpFuel.toFixed(2),
         refuelFuel: reserve.sourceRefuelFuelAfter.toFixed(2),
         refuelJumpFuel: reserve.sourceRefuelJumpFuelAfter.toFixed(2),
         cargoJson: {
@@ -777,7 +947,12 @@ export async function replenishRefueler(
   userId: string,
   req: RefuelReplenishRequest,
 ): Promise<RefuelResult<RefuelReplenishResponse>> {
-  const { sourceShipId, targetPlanetId } = req;
+  const {
+    sourceShipId,
+    targetPlanetId,
+    routeMode = "local",
+    destinationSystemId = null,
+  } = req;
 
   if (!sourceShipId || !targetPlanetId) {
     return refuelFailure(400, {
@@ -822,7 +997,14 @@ export async function replenishRefueler(
       }) as RefuelResult<RefuelReplenishResponse>;
     }
 
-    const route = await buildRoutePlan(userId, source, targetPlanetId, tx);
+    const route = await buildRoutePlan(
+      userId,
+      source,
+      targetPlanetId,
+      tx,
+      routeMode,
+      destinationSystemId,
+    );
     if (isRefuelFailure(route)) {
       return route as RefuelResult<RefuelReplenishResponse>;
     }
@@ -845,12 +1027,16 @@ export async function replenishRefueler(
         status: "in_flight",
         eta: route.eta,
         result: {
-          routeMode: "local",
+          routeMode: route.routeMode,
+          destinationSystemId: route.destinationSystemId,
           deliveryMode: "refuel_replenish",
           targetPlanetName: route.targetPlanet.name,
           fuelRequired: route.fuelRequired,
+          jumpFuelRequired: route.jumpFuelRequired,
           distance: route.distance,
           requestedDistance: route.requestedDistance,
+          originGateDistance: route.originGateDistance ?? undefined,
+          targetGateDistance: route.targetGateDistance ?? undefined,
           originSystemId: source.originSystemId,
           targetSystemId: route.targetPlanet.systemId,
           speed: route.speed,
@@ -867,6 +1053,7 @@ export async function replenishRefueler(
         status: "moving",
         locationPlanetId: null,
         fuel: travelFuel.remainingFuel.toFixed(2),
+        jumpFuel: travelFuel.remainingJumpFuel.toFixed(2),
         cargoJson: {},
       })
       .where(eq(ships.id, source.id))

@@ -22,17 +22,16 @@ import {
 import { RenameEntityDialog } from "../components/RenameEntityDialog";
 import { formatHomeSystemTitleForUser } from "../lib/homeSystemTitle";
 import { useI18n } from "../lib/i18n";
+import {
+  destinationSystemDisplayName,
+  destinationToSystem,
+} from "../lib/jump-gate-destination";
 import { useJumpGateState, useRandomJump } from "../hooks/useJumpGateState";
 import { useShipTypes } from "../hooks/useShips";
 import {
   shouldPollSystemTacticalState,
   useSystemTacticalState,
 } from "../hooks/useSystemTacticalState";
-import {
-  formatCommonSystemDisplayName,
-  homeSystemShortTag,
-  type HomeNamingLocale,
-} from "@shared/format/homeSystemNaming";
 import {
   type ExpeditionRouteMode,
   JUMP_FUEL_RESOURCE_ID,
@@ -45,7 +44,7 @@ import type {
 } from "@shared/types/jump-gate";
 import type { Expedition } from "@shared/types/expeditions";
 import type { Ship, ShipType } from "@shared/types/ships";
-import type { HomeSystem, Planet } from "@shared/types/world";
+import type { HomeSystem } from "@shared/types/world";
 import { systemMapJumpGatePoint } from "@shared/format/systemMapLayout";
 import { isCargoTransferShipType } from "../lib/fleet";
 import { isShipReadyForOrders } from "../lib/ship-queue";
@@ -163,64 +162,6 @@ function destinationCounts(destination: JumpGateKnownDestinationSummary) {
 
 function destinationOwnedColony(destination: JumpGateKnownDestinationSummary) {
   return destination.planets.find((planet) => planet.isOwnedColony) ?? null;
-}
-
-function commonSystemDisplayName(
-  destination: JumpGateKnownDestinationSummary,
-  locale: string,
-) {
-  const namingLocale: HomeNamingLocale = locale === "ru" ? "ru" : "en";
-  return formatCommonSystemDisplayName(
-    namingLocale,
-    destination.shortTag ?? homeSystemShortTag(destination.systemId),
-  );
-}
-
-function destinationSystemDisplayName(
-  destination: JumpGateKnownDestinationSummary,
-  locale: string,
-) {
-  if (destination.renameCount > 0 && destination.systemName) {
-    return destination.systemName;
-  }
-
-  return commonSystemDisplayName(destination, locale);
-}
-
-function destinationToSystem(
-  destination: JumpGateKnownDestinationSummary,
-  locale: string,
-): HomeSystem {
-  const planets: Planet[] = destination.planets
-    .filter((planet) => planet.isDiscovered)
-    .map((planet) => ({
-      id: planet.id,
-      systemId: planet.systemId,
-      biome: planet.biome ?? "unknown",
-      size: planet.size ?? 10,
-      slotCount: planet.slotCount ?? 0,
-      name: planet.name ?? `#${planet.orbitIndex}`,
-      orbitIndex: planet.orbitIndex,
-      isDiscovered: true,
-      isColonized: planet.isColonized,
-      isOwnedColony: planet.isOwnedColony,
-      buildingCount: planet.buildingCount,
-      lastCombatTickAt: planet.lastCombatTickAt,
-      resources: planet.resources ?? [],
-    }));
-
-  return {
-    id: destination.systemId,
-    ownerId: "",
-    isHome: false,
-    sectorX: destination.sector.x,
-    sectorY: destination.sector.y,
-    sectorZ: destination.sector.z,
-    name: destinationSystemDisplayName(destination, locale),
-    seed: destination.seed,
-    renameCount: destination.renameCount,
-    planets,
-  };
 }
 
 /**
@@ -879,6 +820,7 @@ export function SystemMapPage() {
               (planet) => planet.id === refuelingShip.locationPlanetId,
             ) ?? null
           }
+          sourceSystem={meData.homeSystem}
           system={activeSystem}
           planets={meData.planets ?? []}
           allShips={meData.ships ?? []}
@@ -1037,7 +979,7 @@ function SystemSelectorPanel({
         {destinations.map((destination) => {
           const counts = destinationCounts(destination);
           const active = selectedSystemId === destination.systemId;
-          const systemName = commonSystemDisplayName(destination, locale);
+          const systemName = destinationSystemDisplayName(destination, locale);
           return (
             <button
               key={destination.systemId}
@@ -1445,7 +1387,7 @@ function JumpGatePanel({
           const canScout = counts.unknown > 0;
           const canColonize = counts.colonizerTargets > 0;
           const canCargo = Boolean(colony);
-          const systemName = commonSystemDisplayName(destination, locale);
+          const systemName = destinationSystemDisplayName(destination, locale);
           return (
             <div
               key={destination.systemId}
