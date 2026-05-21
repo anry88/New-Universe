@@ -4,6 +4,7 @@ import { env } from '../../lib/env.js';
 import { logger } from '../../lib/logger.js';
 import { db } from '../../db/index.js';
 import { users } from '../../db/schema.js';
+import { recordTelegramStartRegistrationSource } from '../auth/registration-source.js';
 import { grantDiamondsToUserByUsername } from '../resources/wallet.js';
 import {
   answerPaymentSupportRequest,
@@ -195,8 +196,15 @@ async function clearTelegramNotificationBlock(actor?: TelegramUser): Promise<voi
   }
 }
 
-export async function handleStartCommand(chatId: number, actor?: TelegramUser) {
+export async function handleStartCommand(chatId: number, actor?: TelegramUser, startParameter?: string) {
   await clearTelegramNotificationBlock(actor);
+  const referralCode = await recordTelegramStartRegistrationSource(actor, startParameter);
+  if (referralCode) {
+    logger.info(
+      { chatId, telegramUserId: actor?.id != null ? String(actor.id) : null },
+      'Captured Telegram /start registration source',
+    );
+  }
 
   const appUrl = env.PUBLIC_FRONTEND_URL || 'https://new-universe.app';
   

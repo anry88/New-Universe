@@ -1,4 +1,5 @@
 export type AnalyticsCategory =
+  | "acquisition"
   | "retention"
   | "onboarding"
   | "building"
@@ -30,6 +31,12 @@ export const ANALYTICS_EVENT_DEFINITIONS = {
     surfaces: ["frontend", "backend"],
     description: "A Telegram-authenticated game session was established.",
     safeProperties: ["locale", "tutorialCompleted", "diamondsBalanceBand"],
+  },
+  user_registered: {
+    category: "acquisition",
+    surfaces: ["backend"],
+    description: "A new Telegram player account was created.",
+    safeProperties: ["registrationSource", "registrationSourceCode"],
   },
   page_viewed: {
     category: "retention",

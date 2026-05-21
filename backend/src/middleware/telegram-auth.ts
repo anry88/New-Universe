@@ -35,4 +35,5 @@ export async function telegramAuthMiddleware(
   }
 
   request.user = validatedData.user;
+  request.telegramInitData = validatedData;
 }

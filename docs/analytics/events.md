@@ -1,6 +1,6 @@
 # Product Analytics Event Taxonomy
 
-This document is the launch-readiness taxonomy for task **P4-ANA-001**. It defines the first analytics surface for onboarding, retention, building, ships, research, expeditions, economy, market readiness, and monetization readiness.
+This document is the launch-readiness taxonomy for task **P4-ANA-001**. It defines the first analytics surface for acquisition, onboarding, retention, building, ships, research, expeditions, economy, market readiness, and monetization readiness.
 
 Analytics is intentionally local-first in this milestone:
 
@@ -8,7 +8,7 @@ Analytics is intentionally local-first in this milestone:
 - Frontend events are emitted as browser `CustomEvent("nu:analytics")` and can be mirrored to PostHog only when `VITE_POSTHOG_KEY` is explicitly configured.
 - No external analytics provider is required for local verification or default production startup.
 
-Production observability for aggregate product health is documented separately in [`docs/production/observability.md`](../production/observability.md). It exports `/metrics` for VictoriaMetrics/Grafana with DAU/WAU/MAU, absolute comparable-period player deltas, observed play time, sessions, system-development averages, funnel milestone counts for tutorial completion, discovered planets, completed buildings, built ships, and research levels, plus Telegram Stars checkout funnel aggregates. Activity-window metrics come from the `player_activity_daily` rollup; milestone and monetization metrics are aggregated from source-of-truth gameplay/payment tables without per-user metric labels.
+Production observability for aggregate product health is documented separately in [`docs/production/observability.md`](../production/observability.md). It exports `/metrics` for VictoriaMetrics/Grafana with DAU/WAU/MAU, absolute comparable-period player deltas, registration-source breakdowns, observed play time, sessions, system-development averages, funnel milestone counts for tutorial completion, discovered planets, completed buildings, built ships, and research levels, plus Telegram Stars checkout funnel aggregates. Activity-window metrics come from the `player_activity_daily` rollup; registration-source, milestone, and monetization metrics are aggregated from source-of-truth tables without per-user metric labels.
 
 ## Privacy Rules
 
@@ -32,6 +32,7 @@ All event properties pass through `sanitizeAnalyticsEventProperties()` from `sha
 | ------------------------------------- | ------------ | ----------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
 | `client_session_started`              | retention    | frontend          | `locale`, `path`, `isTelegramEnvironment`                          | Fired once when the Mini App shell starts.                                                          |
 | `session_authenticated`               | retention    | frontend, backend | `locale`, `tutorialCompleted`, `diamondsBalanceBand`               | Backend is canonical for authenticated sessions; frontend is useful for client startup diagnostics. |
+| `user_registered`                     | acquisition  | backend           | `registrationSource`, `registrationSourceCode`                     | Fired only when a new `users` row is created; existing users are not re-attributed.                 |
 | `page_viewed`                         | retention    | frontend          | `path`, `locale`                                                   | Routed page views only, no query payloads.                                                          |
 | `tutorial_synced`                     | onboarding   | backend           | `tutorialStep`, `tutorialCompleted`, `claimedRewardCount`          | Progress sync state after server-side detection.                                                    |
 | `tutorial_reward_claimed`             | onboarding   | backend           | `stepId`, `rewardGranted`, `rewardDiamonds`, `tutorialCompleted`   | One-time tutorial diamond reward claim.                                                             |

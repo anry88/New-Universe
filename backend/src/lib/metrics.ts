@@ -49,6 +49,14 @@ interface ProductPeriodRow {
   previous_sessions: unknown;
 }
 
+interface RegistrationSourcePeriodRow {
+  period: ProductWindow;
+  source_type: unknown;
+  source: unknown;
+  registered_players: unknown;
+  previous_registered_players: unknown;
+}
+
 interface SystemDevelopmentRow {
   development_score: unknown;
   active_colonies: unknown;
@@ -357,6 +365,7 @@ async function appendCachedAnalyticsMetricSamples(samples: MetricSample[]): Prom
 async function collectAnalyticsMetricSamples(): Promise<MetricSample[]> {
   const samples: MetricSample[] = [];
   await appendProductMetricSamples(samples);
+  await appendRegistrationSourceMetricSamples(samples);
   await appendSystemDevelopmentMetricSamples(samples);
   await appendMonetizationMetricSamples(samples);
   await appendProgressionMilestoneMetricSamples(samples);
@@ -704,6 +713,162 @@ async function appendProductMetricSamples(samples: MetricSample[]): Promise<void
       labels: { window: period },
     });
   }
+}
+
+async function appendRegistrationSourceMetricSamples(samples: MetricSample[]): Promise<void> {
+  const rows = asRows<RegistrationSourcePeriodRow>(await db.execute(sql`
+    WITH periods AS (
+      SELECT * FROM (VALUES
+        ('day'::text, CURRENT_DATE, CURRENT_DATE + 1, CURRENT_DATE - 1, CURRENT_DATE),
+        ('week'::text, CURRENT_DATE - 6, CURRENT_DATE + 1, CURRENT_DATE - 13, CURRENT_DATE - 6),
+        ('month'::text, CURRENT_DATE - 29, CURRENT_DATE + 1, CURRENT_DATE - 59, CURRENT_DATE - 29)
+      ) AS p(period, start_date, end_date, previous_start_date, previous_end_date)
+    ),
+    current_registration_rows AS (
+      SELECT
+        periods.period,
+        CASE
+          WHEN users.registration_source = 'telegram_start' THEN 'telegram_start'
+          WHEN users.registration_source = 'direct' THEN 'direct'
+          ELSE 'unknown'
+        END AS source_type,
+        CASE
+          WHEN users.registration_source = 'telegram_start'
+            AND nullif(trim(users.registration_source_code), '') IS NOT NULL
+            THEN users.registration_source_code
+          WHEN users.registration_source = 'direct' THEN 'direct'
+          ELSE 'unknown'
+        END AS source
+      FROM periods
+      JOIN users
+        ON users.created_at >= periods.start_date::timestamp
+       AND users.created_at < periods.end_date::timestamp
+    ),
+    current_sources AS (
+      SELECT
+        period,
+        source_type,
+        source,
+        count(*)::float8 AS registered_players
+      FROM current_registration_rows
+      GROUP BY period, source_type, source
+    ),
+    previous_registration_rows AS (
+      SELECT
+        periods.period,
+        CASE
+          WHEN users.registration_source = 'telegram_start' THEN 'telegram_start'
+          WHEN users.registration_source = 'direct' THEN 'direct'
+          ELSE 'unknown'
+        END AS source_type,
+        CASE
+          WHEN users.registration_source = 'telegram_start'
+            AND nullif(trim(users.registration_source_code), '') IS NOT NULL
+            THEN users.registration_source_code
+          WHEN users.registration_source = 'direct' THEN 'direct'
+          ELSE 'unknown'
+        END AS source
+      FROM periods
+      JOIN users
+        ON users.created_at >= periods.previous_start_date::timestamp
+       AND users.created_at < periods.previous_end_date::timestamp
+    ),
+    previous_sources AS (
+      SELECT
+        period,
+        source_type,
+        source,
+        count(*)::float8 AS previous_registered_players
+      FROM previous_registration_rows
+      GROUP BY period, source_type, source
+    ),
+    source_windows AS (
+      SELECT period, source_type, source FROM current_sources
+      UNION
+      SELECT period, source_type, source FROM previous_sources
+    )
+    SELECT
+      source_windows.period,
+      source_windows.source_type,
+      source_windows.source,
+      coalesce(current_sources.registered_players, 0)::float8 AS registered_players,
+      coalesce(previous_sources.previous_registered_players, 0)::float8 AS previous_registered_players
+    FROM source_windows
+    LEFT JOIN current_sources
+      ON current_sources.period = source_windows.period
+     AND current_sources.source_type = source_windows.source_type
+     AND current_sources.source = source_windows.source
+    LEFT JOIN previous_sources
+      ON previous_sources.period = source_windows.period
+     AND previous_sources.source_type = source_windows.source_type
+     AND previous_sources.source = source_windows.source
+  `));
+
+  const rowsByKey = new Map(rows.map((row) => [
+    registrationSourceRowKey(row.period, row.source_type, row.source),
+    row,
+  ]));
+  const emittedKeys = new Set<string>();
+
+  for (const window of PRODUCT_WINDOWS) {
+    for (const sourceType of ['direct', 'unknown'] as const) {
+      const key = registrationSourceRowKey(window, sourceType, sourceType);
+      emittedKeys.add(key);
+      appendRegistrationSourceSamples(samples, rowsByKey.get(key) ?? {
+        period: window,
+        source_type: sourceType,
+        source: sourceType,
+        registered_players: 0,
+        previous_registered_players: 0,
+      });
+    }
+  }
+
+  for (const row of rows) {
+    const key = registrationSourceRowKey(row.period, row.source_type, row.source);
+    if (!emittedKeys.has(key)) {
+      appendRegistrationSourceSamples(samples, row);
+    }
+  }
+}
+
+function registrationSourceRowKey(period: unknown, sourceType: unknown, source: unknown): string {
+  return `${String(period)}|${String(sourceType)}|${String(source)}`;
+}
+
+function appendRegistrationSourceSamples(samples: MetricSample[], row: RegistrationSourcePeriodRow): void {
+  const window = PRODUCT_WINDOWS.includes(row.period) ? row.period : 'day';
+  const sourceType = normalizeRegistrationSourceType(row.source_type);
+  const source = normalizeRegistrationSourceLabel(row.source, sourceType);
+  const registeredPlayers = toNumber(row.registered_players);
+  const previousRegisteredPlayers = toNumber(row.previous_registered_players);
+  const labels = {
+    window,
+    source_type: sourceType,
+    source,
+  };
+
+  samples.push({
+    name: 'nu_product_players_registered_by_source',
+    help: 'Newly registered players grouped by captured registration source in the current product analytics window.',
+    type: 'gauge',
+    value: registeredPlayers,
+    labels,
+  });
+  samples.push({
+    name: 'nu_product_players_registered_by_source_previous',
+    help: 'Newly registered players grouped by captured registration source in the previous comparable product analytics window.',
+    type: 'gauge',
+    value: previousRegisteredPlayers,
+    labels,
+  });
+  samples.push({
+    name: 'nu_product_players_registered_by_source_delta',
+    help: 'Absolute registration-source difference versus the previous comparable window.',
+    type: 'gauge',
+    value: registeredPlayers - previousRegisteredPlayers,
+    labels,
+  });
 }
 
 async function appendSystemDevelopmentMetricSamples(samples: MetricSample[]): Promise<void> {
@@ -1061,6 +1226,24 @@ function normalizeRoute(route: string): string {
 
 function normalizeQueueName(queue: string): QueueName {
   return (QUEUE_NAMES as readonly string[]).includes(queue) ? (queue as QueueName) : 'expeditions';
+}
+
+function normalizeRegistrationSourceType(value: unknown): string {
+  const sourceType = typeof value === 'string' ? value.trim() : '';
+  if (sourceType === 'direct' || sourceType === 'telegram_start') {
+    return sourceType;
+  }
+
+  return 'unknown';
+}
+
+function normalizeRegistrationSourceLabel(value: unknown, sourceType: string): string {
+  if (sourceType === 'direct') {
+    return 'direct';
+  }
+
+  const source = typeof value === 'string' ? value.trim() : '';
+  return source ? normalizeLabelValue(source) : 'unknown';
 }
 
 function normalizeLabelValue(value: string): string {

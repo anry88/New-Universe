@@ -14,7 +14,17 @@ export async function authRoutes(app: FastifyInstance) {
       preHandler: [telegramAuthMiddleware],
     },
     async (request, reply) => {
-      const { user, token } = await authService.loginWithTelegram(request.user!);
+      const { user, token, createdUser, registrationSource } = await authService.loginWithTelegram(
+        request.user!,
+        { registrationSourceCode: request.telegramInitData?.start_param },
+      );
+      if (createdUser) {
+        trackBackendEvent('user_registered', {
+          registrationSource: registrationSource.registrationSource,
+          registrationSourceCode: registrationSource.registrationSourceCode,
+        }, { userId: user.id, requestId: request.id });
+      }
+
       trackBackendEvent('session_authenticated', {
         locale: user.preferredLocale,
         tutorialCompleted: Boolean(user.tutorialCompletedAt),

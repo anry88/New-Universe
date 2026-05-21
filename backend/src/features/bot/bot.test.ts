@@ -2,7 +2,12 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { handleTelegramUpdate } from './webhook.js';
 import { TelegramUpdate } from '../../lib/telegram.js';
 import { db } from '../../db/index.js';
-import { starPaymentSupportRequests, starPayments, users } from '../../db/schema.js';
+import {
+  starPaymentSupportRequests,
+  starPayments,
+  telegramRegistrationReferrals,
+  users,
+} from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { buildStarsInvoicePayload } from '../monetization/service.js';
 
@@ -80,6 +85,64 @@ describe('Bot Feature', () => {
       columns: { telegramNotificationsBlockedAt: true },
     });
     expect(fetched?.telegramNotificationsBlockedAt).toBeNull();
+
+    await db.delete(users).where(eq(users.id, user.id));
+  });
+
+  it('captures a Telegram /start referral code before account registration', async () => {
+    const now = Date.now();
+    const tgId = 735000 + now;
+    const update: TelegramUpdate = {
+      update_id: 12,
+      message: {
+        message_id: 112,
+        chat: { id: tgId, type: 'private' },
+        text: '/start _tgr_TDf151JhYjYy',
+        from: { id: tgId, first_name: 'Referral' },
+      },
+    };
+
+    await handleTelegramUpdate(update);
+
+    const pendingReferral = await db.query.telegramRegistrationReferrals.findFirst({
+      where: eq(telegramRegistrationReferrals.tgId, BigInt(tgId)),
+    });
+    expect(pendingReferral).toMatchObject({
+      referralCode: '_tgr_TDf151JhYjYy',
+    });
+
+    await db
+      .delete(telegramRegistrationReferrals)
+      .where(eq(telegramRegistrationReferrals.tgId, BigInt(tgId)));
+  });
+
+  it('does not capture a Telegram /start referral code for an existing account', async () => {
+    const now = Date.now();
+    const tgId = 736000 + now;
+    const [user] = await db
+      .insert(users)
+      .values({
+        tgId: BigInt(tgId),
+        tgUsername: `existing_referral_${now}`,
+        tgFirstName: 'ExistingReferral',
+      })
+      .returning({ id: users.id });
+    const update: TelegramUpdate = {
+      update_id: 13,
+      message: {
+        message_id: 113,
+        chat: { id: tgId, type: 'private' },
+        text: '/start _tgr_existing_user',
+        from: { id: tgId, first_name: 'ExistingReferral' },
+      },
+    };
+
+    await handleTelegramUpdate(update);
+
+    const pendingReferral = await db.query.telegramRegistrationReferrals.findFirst({
+      where: eq(telegramRegistrationReferrals.tgId, BigInt(tgId)),
+    });
+    expect(pendingReferral).toBeUndefined();
 
     await db.delete(users).where(eq(users.id, user.id));
   });

@@ -3,6 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { playerActivityDaily, users } from '../db/schema.js';
 import {
+  collectNewUniverseMetrics,
   formatActivityTimestamp,
   formatMetricSamples,
   metricsMachineId,
@@ -131,6 +132,28 @@ describe('metrics formatting', () => {
         playSeconds: 9_000,
         sessionCount: 2,
       });
+    } finally {
+      await db.delete(users).where(eq(users.id, user.id));
+    }
+  });
+
+  it('exports registration source metrics for captured referral codes', async () => {
+    const code = `_tgr_metrics_${Date.now()}`;
+    const tgId = BigInt(Date.now()) * 1000n + BigInt(Math.floor(Math.random() * 1000));
+    const [user] = await db.insert(users).values({
+      tgId,
+      tgFirstName: 'MetricsReferral',
+      registrationSource: 'telegram_start',
+      registrationSourceCode: code,
+    }).returning({ id: users.id });
+
+    try {
+      const output = await collectNewUniverseMetrics();
+      const labels = `{source="${code}",source_type="telegram_start",window="day"}`;
+
+      expect(output).toContain(`nu_product_players_registered_by_source${labels} 1`);
+      expect(output).toContain(`nu_product_players_registered_by_source_previous${labels} 0`);
+      expect(output).toContain(`nu_product_players_registered_by_source_delta${labels} 1`);
     } finally {
       await db.delete(users).where(eq(users.id, user.id));
     }

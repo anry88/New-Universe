@@ -323,6 +323,13 @@
       "when": 1779500000016,
       "tag": "0047_damp_clea",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1779500000017,
+      "tag": "0048_friendly_talkback",
+      "breakpoints": true
     }
   ]
 }
