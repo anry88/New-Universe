@@ -473,6 +473,7 @@
   "refuel.map.selectTarget": "Select Target",
   "refuel.map.sourceSelected": "Source Refueler",
   "refuel.map.pickShip": "Select a ship on the map.",
+  "refuel.map.stationedPoint": "Stationed point",
   "refuel.map.selectPlanet": "Select Planet",
   "refuel.map.notOwnedPlanet": "Unavailable",
   "refuel.map.pickPlanet": "Select an owned planet on the map.",

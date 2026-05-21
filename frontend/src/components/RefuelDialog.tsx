@@ -10,11 +10,14 @@ import {
   systemMapJumpGatePoint,
   systemMapPlanetDistanceLy,
   systemMapPointDistanceLy,
+  type SystemMapPoint,
 } from "@shared/format/systemMapLayout";
+import type { SystemTacticalFleetContact } from "@shared/types/system-tactical";
 import type { Ship, ShipType } from "@shared/types/ships";
 import type { HomeSystem, Planet } from "@shared/types/world";
 import { useJumpGateState } from "../hooks/useJumpGateState";
 import { useRefuel, useRefuelReplenish } from "../hooks/useShips";
+import { useSystemTacticalState } from "../hooks/useSystemTacticalState";
 import { buildExpeditionPreview } from "../lib/expedition-routing";
 import { useI18n } from "../lib/i18n";
 import {
@@ -84,6 +87,18 @@ function gateDistance(
     : null;
 }
 
+function planetMapPoint(
+  system: HomeSystem,
+  planetId: string | null,
+): SystemMapPoint | null {
+  if (!planetId) return null;
+  const layout = buildSystemMapLayouts(
+    system.planets ?? [],
+    Number(system.seed),
+  ).find((entry) => entry.id === planetId);
+  return layout ? { x: layout.x, y: layout.y } : null;
+}
+
 export function RefuelDialog({
   sourceShip,
   sourceType,
@@ -132,6 +147,29 @@ export function RefuelDialog({
   );
   const routeTargetsAvailable =
     activeRouteMode === "local" || selectedDestination !== null;
+  const { data: tacticalState } = useSystemTacticalState(
+    activeRouteMode === "jump_gate" && routeTargetsAvailable
+      ? renderedSystem.id
+      : null,
+  );
+  const visibleFleetContacts =
+    tacticalState?.systemId === renderedSystem.id
+      ? tacticalState.fleetContacts
+      : [];
+  const stationedOwnContacts = useMemo(
+    () =>
+      new Map(
+        visibleFleetContacts
+          .filter(
+            (contact) =>
+              contact.relation === "self" &&
+              contact.visibility === "full" &&
+              contact.status === "stationed",
+          )
+          .map((contact) => [contact.id, contact]),
+      ),
+    [visibleFleetContacts],
+  );
 
   useEffect(() => {
     if (activeRouteMode !== "jump_gate" || knownDestinations.length === 0) {
@@ -194,15 +232,21 @@ export function RefuelDialog({
 
   const targetCandidates = useMemo(
     () =>
-      allShips.filter(
-        (ship) =>
+      allShips.filter((ship) => {
+        const isDockedInRenderedSystem =
+          ship.locationPlanetId != null &&
+          planetIdsInSystem.has(ship.locationPlanetId);
+        const stationedContact = stationedOwnContacts.get(ship.id) ?? null;
+        const isReadyTarget =
+          isShipReadyForOrders(ship) || stationedContact !== null;
+        return (
           ship.id !== sourceShip.id &&
           ship.status !== "destroyed" &&
-          isShipReadyForOrders(ship) &&
-          ship.locationPlanetId != null &&
-          planetIdsInSystem.has(ship.locationPlanetId),
-      ),
-    [allShips, planetIdsInSystem, sourceShip.id],
+          isReadyTarget &&
+          (isDockedInRenderedSystem || stationedContact !== null)
+        );
+      }),
+    [allShips, planetIdsInSystem, sourceShip.id, stationedOwnContacts],
   );
   const targetCandidateIds = useMemo(
     () => new Set(targetCandidates.map((ship) => ship.id)),
@@ -211,6 +255,9 @@ export function RefuelDialog({
 
   const targetShip =
     targetCandidates.find((ship) => ship.id === targetShipId) ?? null;
+  const targetShipContact: SystemTacticalFleetContact | null = targetShip
+    ? (stationedOwnContacts.get(targetShip.id) ?? null)
+    : null;
   const targetType = targetShip
     ? (typeById.get(targetShip.typeId) ?? null)
     : null;
@@ -224,6 +271,12 @@ export function RefuelDialog({
   const activeTargetPlanet = activeTargetPlanetId
     ? (planetById.get(activeTargetPlanetId) ?? null)
     : null;
+  const activeTargetPoint =
+    mode === "transfer" && targetShipContact
+      ? targetShipContact.point
+      : planetMapPoint(renderedSystem, activeTargetPlanetId);
+  const hasActiveRouteTarget =
+    mode === "transfer" ? Boolean(targetShip) : Boolean(activeTargetPlanetId);
 
   const sameSystemDistance = routeDistance(
     renderedSystem,
@@ -233,15 +286,15 @@ export function RefuelDialog({
   const sourceRouteSystem =
     activeRouteMode === "jump_gate" ? (sourceSystem ?? system) : renderedSystem;
   const jumpGateRouteDistance =
-    activeRouteMode === "jump_gate" && activeTargetPlanetId
+    activeRouteMode === "jump_gate" && activeTargetPoint
       ? (() => {
           const originGateDistance = gateDistance(
             sourceRouteSystem,
             sourceShip.locationPlanetId,
           );
-          const targetGateDistance = gateDistance(
-            renderedSystem,
-            activeTargetPlanetId,
+          const targetGateDistance = systemMapPointDistanceLy(
+            systemMapJumpGatePoint(),
+            activeTargetPoint,
           );
           if (originGateDistance === null || targetGateDistance === null) {
             return null;
@@ -250,7 +303,7 @@ export function RefuelDialog({
         })()
       : null;
   const routePreview =
-    activeTargetPlanetId &&
+    hasActiveRouteTarget &&
     ((activeRouteMode === "jump_gate" && jumpGateRouteDistance !== null) ||
       (activeRouteMode === "local" && sameSystemDistance !== null))
       ? buildExpeditionPreview({
@@ -277,7 +330,7 @@ export function RefuelDialog({
           speed: Number(sourceType.speed),
         })
       : null;
-  const hasRoutePreview = activeTargetPlanetId ? routePreview !== null : true;
+  const hasRoutePreview = hasActiveRouteTarget ? routePreview !== null : true;
   const travelFuelRequired = routePreview?.fuelRequired ?? 0;
   const travelJumpFuelRequired = routePreview?.jumpFuelRequired ?? 0;
   const sourcePlanetFuel = resourceAmount(sourcePlanet, "fuel");
@@ -476,37 +529,24 @@ export function RefuelDialog({
         </button>
       </div>
 
-      <div className="refuel-mode-tabs">
-        <button
-          type="button"
-          className={mode === "transfer" ? "active" : ""}
-          onClick={() => resetSelectionForMode("transfer")}
-        >
-          <Fuel size={15} />
-          {t("refuel_dialog_transfer_button")}
-        </button>
-        <button
-          type="button"
-          className={mode === "replenish" ? "active" : ""}
-          onClick={() => resetSelectionForMode("replenish")}
-        >
-          <Droplets size={15} />
-          {t("refuel.replenish.button")}
-        </button>
-      </div>
-
-      <div className="refuel-route-card">
-        <div className="refuel-route-head">
-          <span>{t("refuel.route.selector").toUpperCase()}</span>
-          <b>
-            {activeRouteMode === "jump_gate" && selectedDestination
-              ? destinationSystemDisplayName(selectedDestination, locale)
-              : activeRouteMode === "jump_gate"
-                ? t("refuel.route.noDestinations")
-                : t("expedition.routeLocal")}
-          </b>
-        </div>
-        <div className="refuel-route-tabs">
+      <div className="refuel-command-bar">
+        <div className="refuel-command-grid">
+          <button
+            type="button"
+            className={mode === "transfer" ? "active" : ""}
+            onClick={() => resetSelectionForMode("transfer")}
+          >
+            <Fuel size={14} />
+            {t("refuel_dialog_transfer_button")}
+          </button>
+          <button
+            type="button"
+            className={mode === "replenish" ? "active" : ""}
+            onClick={() => resetSelectionForMode("replenish")}
+          >
+            <Droplets size={14} />
+            {t("refuel.replenish.button")}
+          </button>
           {(["local", "jump_gate"] as ExpeditionRouteMode[]).map(
             (routeOption) => {
               const active = activeRouteMode === routeOption;
@@ -562,6 +602,14 @@ export function RefuelDialog({
           ships={mode === "transfer" ? mapShips : []}
           shipTypes={allShipTypes}
           expeditions={[]}
+          fleetContacts={
+            activeRouteMode === "jump_gate" && mode === "transfer"
+              ? visibleFleetContacts
+              : []
+          }
+          fleetContactsAuthoritative={
+            activeRouteMode === "jump_gate" && mode === "transfer"
+          }
           onPlanetClick={(planet) => {
             if (mode !== "replenish") return;
             if (!ownedPlanetIds.has(planet.id)) return;
@@ -667,7 +715,10 @@ export function RefuelDialog({
               <b>
                 {targetShip && targetType
                   ? `${targetType.name[locale]} · ${
-                      activeTargetPlanet?.name ?? t("common.unknown")
+                      activeTargetPlanet?.name ??
+                      (targetShipContact
+                        ? t("refuel.map.stationedPoint")
+                        : t("common.unknown"))
                     }`
                   : t("refuel.map.pickShip")}
               </b>
@@ -828,83 +879,42 @@ export function RefuelDialog({
           background: rgba(14,20,36,0.86);
           color: var(--text-dim);
         }
-        .refuel-mode-tabs {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 8px;
-          margin-bottom: 8px;
+        .refuel-command-bar {
+          flex: 0 0 auto;
+          margin-bottom: 6px;
+          padding: 6px;
+          border: 1px solid rgba(148,163,184,0.14);
+          border-radius: 10px;
+          background: rgba(8,12,22,0.66);
         }
-        .refuel-mode-tabs button {
-          min-height: 38px;
+        .refuel-command-grid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 6px;
+        }
+        .refuel-command-grid button,
+        .refuel-destination-strip button {
+          min-height: 30px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          gap: 7px;
+          gap: 5px;
           border: 1px solid var(--line);
-          border-radius: 10px;
-          background: rgba(8,12,22,0.78);
-          color: var(--text-dim);
-          font-size: 12px;
-          font-weight: 800;
-        }
-        .refuel-mode-tabs button.active {
-          border-color: var(--accent);
-          background: rgba(91,215,255,0.16);
-          color: var(--accent);
-        }
-        .refuel-route-card {
-          flex: 0 0 auto;
-          margin-bottom: 8px;
-          padding: 8px;
-          border: 1px solid rgba(148,163,184,0.14);
-          border-radius: 12px;
-          background: rgba(8,12,22,0.66);
-        }
-        .refuel-route-head {
-          display: flex;
-          justify-content: space-between;
-          gap: 10px;
-          align-items: center;
-          margin-bottom: 7px;
-        }
-        .refuel-route-head span {
-          font-family: var(--font-mono);
-          font-size: 9px;
-          letter-spacing: 0.12em;
-          color: var(--text-faint);
-        }
-        .refuel-route-head b {
-          min-width: 0;
-          max-width: 58%;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          color: var(--text);
-          font-size: 11px;
-          text-align: right;
-        }
-        .refuel-route-tabs {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 8px;
-        }
-        .refuel-route-tabs button,
-        .refuel-destination-strip button {
-          min-height: 32px;
-          border: 1px solid var(--line);
-          border-radius: 9px;
+          border-radius: 8px;
           background: rgba(5,8,17,0.62);
           color: var(--text-dim);
-          font-size: 11px;
+          font-size: 10px;
           font-weight: 800;
+          line-height: 1.15;
+          text-align: center;
         }
-        .refuel-route-tabs button.active,
+        .refuel-command-grid button.active,
         .refuel-destination-strip button.active {
           border-color: var(--accent);
           background: rgba(91,215,255,0.14);
           color: var(--accent);
         }
-        .refuel-route-tabs button:disabled {
+        .refuel-command-grid button:disabled {
           opacity: 0.45;
           cursor: not-allowed;
         }
@@ -912,7 +922,7 @@ export function RefuelDialog({
           display: flex;
           gap: 8px;
           overflow-x: auto;
-          padding: 8px 0 1px;
+          padding: 6px 0 1px;
         }
         .refuel-destination-strip button {
           flex: 0 0 auto;
@@ -931,8 +941,8 @@ export function RefuelDialog({
         }
         .refuel-map-frame {
           position: relative;
-          flex: 1 1 50%;
-          min-height: 190px;
+          flex: 1 1 58%;
+          min-height: 230px;
           overflow: hidden;
           border: 1px solid var(--line);
           border-radius: 16px;
@@ -944,10 +954,10 @@ export function RefuelDialog({
         }
         .refuel-map-panel {
           flex: 0 1 auto;
-          max-height: 44%;
+          max-height: 38%;
           overflow-y: auto;
-          margin-top: 10px;
-          padding: 12px;
+          margin-top: 8px;
+          padding: 10px;
           border: 1px solid var(--line);
           border-radius: 16px;
           background: rgba(10,14,26,0.78);
@@ -964,9 +974,9 @@ export function RefuelDialog({
         }
         .refuel-source-grid {
           display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 8px;
-          margin-bottom: 10px;
+          grid-template-columns: repeat(3, minmax(108px, 1fr));
+          gap: 6px;
+          margin-bottom: 8px;
         }
         .refuel-stat,
         .refuel-selection-summary {
@@ -974,7 +984,7 @@ export function RefuelDialog({
           border: 1px solid rgba(148,163,184,0.14);
           border-radius: 10px;
           background: rgba(14,20,36,0.66);
-          padding: 8px 9px;
+          padding: 7px 8px;
         }
         .refuel-stat span,
         .refuel-selection-summary span {
@@ -1047,11 +1057,11 @@ export function RefuelDialog({
           border-radius: 10px;
         }
         @media (max-width: 520px) {
-          .refuel-source-grid {
-            grid-template-columns: 1fr;
+          .refuel-command-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
           }
           .refuel-map-panel {
-            max-height: 48%;
+            max-height: 42%;
           }
         }
       `}</style>

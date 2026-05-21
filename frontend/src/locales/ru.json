@@ -473,6 +473,7 @@
   "refuel.map.selectTarget": "Выбрать цель",
   "refuel.map.sourceSelected": "Этот заправщик",
   "refuel.map.pickShip": "Выберите корабль на карте.",
+  "refuel.map.stationedPoint": "Точка стоянки",
   "refuel.map.selectPlanet": "Выбрать планету",
   "refuel.map.notOwnedPlanet": "Недоступно",
   "refuel.map.pickPlanet": "Выберите свою планету на карте.",
