@@ -146,9 +146,14 @@ export function ShipsPage() {
   const [refuelTargetShipId, setRefuelTargetShipId] = useState<string | null>(
     null,
   );
+  const [refuelMode, setRefuelMode] = useState<"transfer" | "replenish">(
+    "transfer",
+  );
   const [selectedPlanetId, setSelectedPlanetId] = useState<string | null>(null);
   const [expandedShipId, setExpandedShipId] = useState<string | null>(null);
-  const [expandedShipyardTypeId, setExpandedShipyardTypeId] = useState<string | null>(null);
+  const [expandedShipyardTypeId, setExpandedShipyardTypeId] = useState<
+    string | null
+  >(null);
   const [now, setNow] = useState(Date.now());
 
   const ships = meData?.ships || [];
@@ -322,7 +327,7 @@ export function ShipsPage() {
     ? getShipType(selectedShip.typeId)
     : null;
   const selectedShipExpedition = selectedShip
-    ? activeExpeditionByShipId.get(selectedShip.id) ?? null
+    ? (activeExpeditionByShipId.get(selectedShip.id) ?? null)
     : null;
   const selectedShipSupportsJumpGate =
     Boolean(selectedShipType) && selectedShipType?.role !== "logistics";
@@ -677,7 +682,8 @@ export function ShipsPage() {
                 lastCombatMs != null &&
                 now - lastCombatMs <= RECENT_COMBAT_WINDOW_MS;
               const canIssueOrders =
-                !isDestroyed && (isIdle || (isStationed && !isCargoShip && !isDiscoveryProbe));
+                !isDestroyed &&
+                (isIdle || (isStationed && !isCargoShip && !isDiscoveryProbe));
               const localRefueler =
                 isIdle && ship.locationPlanetId
                   ? ships.find(
@@ -707,17 +713,17 @@ export function ShipsPage() {
                 activeExpedition?.status === "stationed"
                   ? t("ships.deployed")
                   : activeExpedition?.status === "returning"
-                  ? t("ships.returning")
-                  : t("ships.outbound");
+                    ? t("ships.returning")
+                    : t("ships.outbound");
               const baseShipLocation = isIdle
                 ? `${t("ships.orbit")} · ${origin.sectorX}:${origin.sectorY}:${origin.sectorZ}`
                 : isBuilding
                   ? `${t("ships.underConstruction")}${etaSec != null ? ` · ETA ${formatDuration(etaSec)}` : ""}`
                   : activeExpedition?.status === "stationed"
                     ? `${t("ships.deployed")} · ${activeExpedition.targetX}:${activeExpedition.targetY}:${activeExpedition.targetZ}`
-                  : activeExpedition && expeditionEtaSec != null
-                    ? `${t("ships.inTransit")} · ${expeditionLegLabel} · ETA ${formatDuration(expeditionEtaSec)}`
-                    : `${t("ships.inTransit")} · ${t("ships.syncingRoute")}`;
+                    : activeExpedition && expeditionEtaSec != null
+                      ? `${t("ships.inTransit")} · ${expeditionLegLabel} · ETA ${formatDuration(expeditionEtaSec)}`
+                      : `${t("ships.inTransit")} · ${t("ships.syncingRoute")}`;
               const shipLocation = isInCombat
                 ? `${t("ships.state.combat")} · ${baseShipLocation}`
                 : baseShipLocation;
@@ -737,9 +743,9 @@ export function ShipsPage() {
                   ? t("ships.building").toUpperCase()
                   : activeExpedition?.status === "stationed"
                     ? t("ships.deployed").toUpperCase()
-                  : expeditionEtaSec != null
-                    ? `ETA ${formatDuration(expeditionEtaSec)}`
-                    : t("ships.inTransit").toUpperCase();
+                    : expeditionEtaSec != null
+                      ? `ETA ${formatDuration(expeditionEtaSec)}`
+                      : t("ships.inTransit").toUpperCase();
               const handlePrimaryAction = () => {
                 if (isCargoShip) {
                   if (!ship.locationPlanetId) return;
@@ -755,6 +761,7 @@ export function ShipsPage() {
                   return;
                 }
                 if (ship.typeId === "refueler" && isIdle) {
+                  setRefuelMode("transfer");
                   setRefuelingShip(ship);
                   return;
                 }
@@ -849,6 +856,30 @@ export function ShipsPage() {
                             {ship.jumpFuel} / {type?.jumpFuelCapacity ?? 0}
                           </b>
                         </div>
+                        {ship.typeId === "refueler" ? (
+                          <>
+                            <div className="ship-stat">
+                              <span>
+                                {t("refuel_dialog_reserve")} ·{" "}
+                                {t("expedition.fuel")}
+                              </span>
+                              <b>
+                                {Number(ship.refuelFuel ?? 0).toFixed(0)} /{" "}
+                                {type?.refuelFuelCapacity ?? 0}
+                              </b>
+                            </div>
+                            <div className="ship-stat">
+                              <span>
+                                {t("refuel_dialog_reserve")} ·{" "}
+                                {t("expedition.jumpFuel")}
+                              </span>
+                              <b>
+                                {Number(ship.refuelJumpFuel ?? 0).toFixed(0)} /{" "}
+                                {type?.refuelJumpFuelCapacity ?? 0}
+                              </b>
+                            </div>
+                          </>
+                        ) : null}
                         {isDamaged ? (
                           <div
                             className="ship-stat"
@@ -906,11 +937,14 @@ export function ShipsPage() {
                         {ship.typeId === "refueler" && isIdle && (
                           <button
                             type="button"
-                            onClick={() => setRefuelingShip(ship)}
+                            onClick={() => {
+                              setRefuelMode("replenish");
+                              setRefuelingShip(ship);
+                            }}
                             className="cosmic-cta"
                             style={{ padding: "6px 12px", fontSize: 11 }}
                           >
-                            {t("refuel_dialog_title").toUpperCase()}
+                            {t("refuel.replenish.button").toUpperCase()}
                           </button>
                         )}
                         {ship.typeId !== "refueler" &&
@@ -919,6 +953,7 @@ export function ShipsPage() {
                             <button
                               type="button"
                               onClick={() => {
+                                setRefuelMode("transfer");
                                 setRefuelingShip(localRefueler);
                                 setRefuelTargetShipId(ship.id);
                               }}
@@ -963,14 +998,19 @@ export function ShipsPage() {
             initialRouteMode={
               selectedShipExpedition?.status === "stationed"
                 ? "jump_gate"
-                : selectedShipSupportsJumpGate ? requestedInitialRouteMode : "local"
+                : selectedShipSupportsJumpGate
+                  ? requestedInitialRouteMode
+                  : "local"
             }
             initialDestinationSystemId={
               selectedShipExpedition?.status === "stationed"
-                ? typeof selectedShipExpedition.result?.destinationSystemId === "string"
+                ? typeof selectedShipExpedition.result?.destinationSystemId ===
+                  "string"
                   ? selectedShipExpedition.result.destinationSystemId
                   : jumpGateDestinationSystemId
-                : selectedShipSupportsJumpGate ? jumpGateDestinationSystemId : null
+                : selectedShipSupportsJumpGate
+                  ? jumpGateDestinationSystemId
+                  : null
             }
             stationedExpedition={
               selectedShipExpedition?.status === "stationed"
@@ -981,7 +1021,7 @@ export function ShipsPage() {
           />
         )}
 
-      {refuelingShip && (
+      {refuelingShip && meData?.homeSystem && (
         <RefuelDialog
           sourceShip={refuelingShip}
           sourceType={getShipType(refuelingShip.typeId)!}
@@ -990,12 +1030,16 @@ export function ShipsPage() {
               (planet) => planet.id === refuelingShip.locationPlanetId,
             ) ?? null
           }
+          system={meData.homeSystem}
+          planets={planets}
           allShips={ships}
           allShipTypes={shipTypes ?? []}
           initialTargetShipId={refuelTargetShipId ?? undefined}
+          initialMode={refuelMode}
           onClose={() => {
             setRefuelingShip(null);
             setRefuelTargetShipId(null);
+            setRefuelMode("transfer");
           }}
         />
       )}
