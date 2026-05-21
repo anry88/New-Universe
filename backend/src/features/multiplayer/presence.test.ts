@@ -40,6 +40,7 @@ async function createUser(username: string) {
     .values({
       tgId: randomTgId(),
       tgUsername: username,
+      playerNickname: username.replace(/_/g, " ").slice(0, 30),
     })
     .returning();
 
@@ -401,7 +402,7 @@ describe("getSectorPresence", () => {
       planetId: rivalColonyPlanet.id,
       visibility: "summary",
     });
-    expect(foreignColony?.subtitle).toContain("@longrivalnam");
+    expect(foreignColony?.subtitle).toContain("longrivalname x");
 
     const ownFleet = payload.entities.find((e) => e.kind === "own_ship");
     expect(ownFleet).toMatchObject({

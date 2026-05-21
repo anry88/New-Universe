@@ -21,6 +21,12 @@ export interface User {
   tgId: string;
   tgUsername: string | null;
   tgFirstName: string | null;
+  /** Player-facing game nickname. Null means the first-login gate must collect it. */
+  playerNickname: string | null;
+  /** Counts paid/free profile changes after the initial nickname write. */
+  playerNicknameChangeCount: number;
+  /** Server-suggested initial nickname while playerNickname is still null. */
+  playerNicknameSuggestion?: string | null;
   preferredLocale: Locale;
   notificationPreferences: NotificationPreferences;
   telegramNotificationsBlockedAt: string | null;

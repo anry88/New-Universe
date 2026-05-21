@@ -27,6 +27,7 @@ async function createUser(suffix: string) {
     .values({
       tgId: BigInt(Math.floor(Math.random() * 1e12)),
       tgUsername: `systems_${suffix}_${Date.now()}`,
+      playerNickname: `Pilot ${suffix.replace(/_/g, " ").slice(0, 20)}`,
     })
     .returning();
 
@@ -279,7 +280,7 @@ describe("getSystemTacticalState", () => {
       relation: "foreign",
       visibility: "summary",
       status: "stationed",
-      ownerAlias: expect.stringContaining("@systems_fore"),
+      ownerAlias: "Pilot foreign",
       shipTypeId: shipType.id,
       hp: 180,
       maxHp: 280,
@@ -395,7 +396,7 @@ describe("getSystemTacticalState", () => {
           id: foreignShip.id,
           relation: "foreign",
           visibility: "summary",
-          ownerAlias: expect.stringContaining("@systems_mixe"),
+          ownerAlias: "Pilot mixed foreign",
           hp: 90,
           point: { x: 55, y: 0 },
         }),

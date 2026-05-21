@@ -58,6 +58,9 @@ describe('Auth Routes', () => {
     const body = response.json();
     expect(body.user.tgId).toBe(tgId.toString());
     expect(body.user.preferredLocale).toBe('ru');
+    expect(body.user.playerNickname).toBeNull();
+    expect(body.user.playerNicknameChangeCount).toBe(0);
+    expect(body.user.playerNicknameSuggestion).toBe('newuser');
     expect(body.user.diamonds).toBe(env.DIAMOND_STARTING_GRANT);
     expect(body.user.registrationSource).toBeUndefined();
     expect(body.user.registrationSourceCode).toBeUndefined();

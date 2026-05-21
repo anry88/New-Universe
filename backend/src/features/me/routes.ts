@@ -62,9 +62,19 @@ import {
 import { loadExpansionColonies } from "../colonies/colonization-rules.js";
 import { SHIP_STATUS_DESTROYED } from "@shared/types/combat.js";
 import type { StartOnlineSessionResponse } from "@shared/types/activity.js";
+import {
+  PlayerNicknameError,
+  suggestPlayerNickname,
+  updatePlayerNickname,
+} from "./nickname.js";
+import type {
+  UpdatePlayerNicknameRequest,
+  UpdatePlayerNicknameResponse,
+} from "@shared/types/player-nickname.js";
 
 type UserRow = typeof users.$inferSelect;
 type UpdatePreferencesRequestBody = Partial<UpdatePreferredLocaleRequest> | null;
+const ENTITY_NAME_PAYLOAD_MAX_LENGTH = 256;
 
 function normalizedOrbitIndex(planet: { orbitIndex?: number | null }): number {
   return typeof planet.orbitIndex === "number" && planet.orbitIndex >= 1
@@ -544,6 +554,9 @@ export async function meRoutes(app: FastifyInstance) {
         notificationPreferences: normalizeNotificationPreferences(
           user.notificationPreferences,
         ),
+        playerNicknameSuggestion: user.playerNickname
+          ? null
+          : suggestPlayerNickname(user),
         tutorialStep: tutorialProgress.tutorialStepCompleted,
         tutorialCompletedAt: tutorialProgress.tutorialCompletedAt?.toISOString() ?? null,
         tutorialRewardsClaimed: tutorialProgress.tutorialRewardsClaimed,
@@ -641,5 +654,36 @@ export async function meRoutes(app: FastifyInstance) {
       preferredLocale,
       notificationPreferences,
     } satisfies UpdatePreferredLocaleResponse);
+  });
+
+  app.patch("/nickname", {
+    config: securityRouteConfig(mutationRateLimit, 'body'),
+    schema: {
+      body: objectBodySchema(
+        {
+          name: { type: 'string', maxLength: ENTITY_NAME_PAYLOAD_MAX_LENGTH },
+        },
+        ['name'],
+      ),
+    },
+  }, async (request, reply) => {
+    const user = await loadSessionUser(request, reply);
+    if (!user) return;
+
+    const body = request.body as UpdatePlayerNicknameRequest;
+    try {
+      const result = await updatePlayerNickname(user.id, body.name);
+      return reply.send(result satisfies UpdatePlayerNicknameResponse);
+    } catch (err) {
+      if (err instanceof PlayerNicknameError) {
+        const status = err.code === 'user_not_found' ? 404 : 400;
+        return reply.status(status).send({
+          status: 'error',
+          code: err.code,
+          message: err.message,
+        } satisfies UpdatePlayerNicknameResponse);
+      }
+      throw err;
+    }
   });
 }

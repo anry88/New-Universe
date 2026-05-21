@@ -27,10 +27,12 @@ function nameErrorMessage(code: EntityNameErrorCode): string {
   switch (code) {
     case 'empty':
       return 'Name cannot be empty.';
+    case 'too_short':
+      return 'Name is too short (min 3 characters).';
     case 'too_long':
       return 'Name is too long (max 30 characters).';
     case 'invalid_chars':
-      return 'Only Latin letters, digits, spaces and hyphens are allowed.';
+      return 'Only Russian/Latin letters, digits, spaces and hyphens are allowed.';
     case 'profanity':
       return 'Name contains profanity.';
   }

@@ -1,10 +1,12 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
+import { Pencil } from 'lucide-react';
 import { useMe } from '../hooks/useMe';
 import { apiFetch } from '../lib/api';
 import { formatHomeSystemTitleForUser } from '../lib/homeSystemTitle';
 import { CosmicBackground, CosmicBottomNav } from '../components/cosmic/atoms';
+import { PlayerNicknameDialog } from '../components/PlayerNicknameDialog';
 import { useI18n } from '../lib/i18n';
 import type { Locale, UpdatePreferredLocaleResponse } from '@shared/types/locale';
 import {
@@ -40,6 +42,7 @@ export function ProfilePage() {
     React.useState<NotificationCategory | null>(null);
   const [localeError, setLocaleError] = React.useState<string | null>(null);
   const [notificationError, setNotificationError] = React.useState<string | null>(null);
+  const [isNicknameDialogOpen, setIsNicknameDialogOpen] = React.useState(false);
 
   const homeSystem = user?.homeSystem;
   const sectorTag = homeSystem
@@ -52,6 +55,12 @@ export function ProfilePage() {
     ...DEFAULT_NOTIFICATION_PREFERENCES,
     ...(user?.notificationPreferences ?? {}),
   };
+  const playerNickname =
+    user?.playerNickname ||
+    user?.playerNicknameSuggestion ||
+    user?.tgUsername ||
+    t('profile.commander');
+  const playerInitial = playerNickname.charAt(0).toLocaleUpperCase(locale);
 
   const updateLocale = async (nextLocale: Locale) => {
     if (nextLocale === locale || isSavingLocale) return;
@@ -135,12 +144,38 @@ export function ProfilePage() {
             boxShadow: '0 0 20px rgba(91, 215, 255, 0.2)',
             fontFamily: 'monospace'
           }}>
-            {user?.tgUsername?.charAt(0).toUpperCase() || 'U'}
+            {playerInitial || 'U'}
           </div>
 
           <div style={{ textAlign: 'center' }}>
-            <h1 style={{ fontSize: '24px', margin: 0, color: 'var(--text)', fontWeight: 600 }}>
-              {user?.tgUsername?.toUpperCase() || t('profile.commander').toUpperCase()}
+            <h1 style={{
+                fontSize: '24px',
+                margin: 0,
+                fontWeight: 600,
+                lineHeight: 1.15,
+              }}>
+              <button
+                type="button"
+                aria-label={t('profile.editNickname')}
+                onClick={() => setIsNicknameDialogOpen(true)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  maxWidth: 'min(320px, 86vw)',
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text)',
+                  cursor: 'pointer',
+                  padding: 0,
+                  font: 'inherit',
+                  lineHeight: 'inherit',
+                }}
+              >
+                <span style={{ overflowWrap: 'anywhere' }}>{playerNickname}</span>
+                <Pencil size={15} color="var(--accent)" aria-hidden="true" />
+              </button>
             </h1>
             <p style={{ color: 'var(--accent)', fontSize: '11px', margin: '6px 0 0 0', letterSpacing: '0.1em', opacity: 0.8 }}>
               {sectorTag}
@@ -309,6 +344,15 @@ export function ProfilePage() {
       </div>
 
       <CosmicBottomNav />
+      {user && isNicknameDialogOpen && (
+        <PlayerNicknameDialog
+          currentName={user.playerNickname}
+          suggestedName={user.playerNicknameSuggestion}
+          changeCount={user.playerNicknameChangeCount}
+          diamondBalance={user.diamonds}
+          onClose={() => setIsNicknameDialogOpen(false)}
+        />
+      )}
     </div>
   );
 }

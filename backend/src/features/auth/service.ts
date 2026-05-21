@@ -10,6 +10,7 @@ import {
   REGISTRATION_SOURCE_DIRECT,
   registrationSourceFromCode,
 } from './registration-source.js';
+import { suggestPlayerNickname } from '../me/nickname.js';
 
 interface TelegramLoginOptions {
   registrationSourceCode?: string | null;
@@ -80,6 +81,9 @@ export class AuthService {
       user: {
         ...publicUser,
         tgId: user.tgId.toString(),
+        playerNicknameSuggestion: user.playerNickname
+          ? null
+          : suggestPlayerNickname(user),
       }, 
       token,
       createdUser,

@@ -19,6 +19,7 @@ import {
   systems,
   users,
 } from "../../db/schema.js";
+import { suggestPlayerNickname } from "../me/nickname.js";
 
 type SystemsDatabase = typeof defaultDb;
 
@@ -45,12 +46,12 @@ function serializeDate(value: Date | string | null | undefined): string | null {
 }
 
 function maskPublicAlias(user: {
+  id: string;
+  playerNickname: string | null;
   tgUsername: string | null;
   tgFirstName: string | null;
 }): string | null {
-  if (user.tgUsername) return `@${user.tgUsername.slice(0, 12)}`;
-  if (user.tgFirstName) return `${user.tgFirstName.slice(0, 1)}...`;
-  return null;
+  return user.playerNickname ?? suggestPlayerNickname(user);
 }
 
 function pointFromUnknown(value: unknown): SystemMapPoint | null {
@@ -265,6 +266,8 @@ export async function loadSystemFleetContacts(
       eta: expeditions.eta,
       tgUsername: users.tgUsername,
       tgFirstName: users.tgFirstName,
+      userId: users.id,
+      playerNickname: users.playerNickname,
     })
     .from(expeditions)
     .innerJoin(ships, eq(ships.id, expeditions.shipId))
@@ -304,7 +307,14 @@ export async function loadSystemFleetContacts(
         relation: isOwnContact ? "self" : "foreign",
         visibility: isOwnContact ? "full" : "summary",
         status,
-        ownerAlias: isOwnContact ? null : maskPublicAlias(row),
+        ownerAlias: isOwnContact
+          ? null
+          : maskPublicAlias({
+              id: row.userId,
+              playerNickname: row.playerNickname,
+              tgUsername: row.tgUsername,
+              tgFirstName: row.tgFirstName,
+            }),
         shipTypeId: row.shipTypeId,
         fuel: isOwnContact ? row.shipFuel : undefined,
         jumpFuel: isOwnContact ? row.shipJumpFuel : undefined,

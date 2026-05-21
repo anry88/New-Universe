@@ -26,6 +26,7 @@ import type {
   SectorSystemAnchorTag,
   WorldPosition,
 } from "@shared/types/multiplayer.js";
+import { suggestPlayerNickname } from "../me/nickname.js";
 
 export type {
   PresenceEntityKind,
@@ -101,12 +102,12 @@ function numericToFloat(v: unknown): number {
 }
 
 function maskPublicAlias(u: {
+  id: string;
+  playerNickname: string | null;
   tgUsername: string | null;
   tgFirstName: string | null;
 }): string {
-  if (u.tgUsername) return `@${u.tgUsername.slice(0, 12)}`;
-  if (u.tgFirstName) return `${u.tgFirstName.slice(0, 1)}•••`;
-  return "Player";
+  return u.playerNickname ?? suggestPlayerNickname(u);
 }
 
 function toWorldPosition(row: {
@@ -434,6 +435,7 @@ async function loadPublicMasks(
   const profiles = await db
     .select({
       id: users.id,
+      playerNickname: users.playerNickname,
       tgUsername: users.tgUsername,
       tgFirstName: users.tgFirstName,
     })

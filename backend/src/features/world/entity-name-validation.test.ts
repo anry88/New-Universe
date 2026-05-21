@@ -21,6 +21,17 @@ describe('validateEntityName', () => {
     });
   });
 
+  it('accepts Russian/Cyrillic names', () => {
+    expect(validateEntityName('Новая Земля')).toEqual({
+      valid: true,
+      normalized: 'Новая Земля',
+    });
+    expect(validateEntityName('Сектор-7')).toEqual({
+      valid: true,
+      normalized: 'Сектор-7',
+    });
+  });
+
   it('trims surrounding whitespace and collapses interior runs', () => {
     expect(validateEntityName('  alpha   one  ')).toEqual({
       valid: true,
@@ -36,13 +47,17 @@ describe('validateEntityName', () => {
     });
   });
 
+  it('rejects names shorter than the global minimum', () => {
+    expect(validateEntityName('Ок')).toEqual({
+      valid: false,
+      error: 'too_short',
+      normalized: 'Ок',
+    });
+  });
+
   it('rejects names longer than the global maximum', () => {
     const tooLong = 'a'.repeat(MAX_ENTITY_NAME_LENGTH + 1);
     expect(validateEntityName(tooLong).error).toBe('too_long');
-  });
-
-  it('rejects Cyrillic input with invalid_chars', () => {
-    expect(validateEntityName('Земля').error).toBe('invalid_chars');
   });
 
   it('rejects punctuation outside the allowed set', () => {
@@ -56,9 +71,9 @@ describe('validateEntityName', () => {
     expect(validateEntityName('PiZdEc').error).toBe('profanity');
   });
 
-  it('catches Cyrillic profanity (via invalid_chars or profanity)', () => {
+  it('catches Cyrillic profanity', () => {
     const result = validateEntityName('блядь');
-    expect(['invalid_chars', 'profanity']).toContain(result.error);
+    expect(result.error).toBe('profanity');
   });
 
   it('catches English profanity with leet/run noise', () => {
