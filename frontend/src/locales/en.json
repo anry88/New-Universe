@@ -604,7 +604,7 @@
   "rename.system.disabled.noColony": "Establish a colony here to rename the system.",
   "rename.system.disabled.foreign": "Cannot rename while another player has a colony here.",
   "nickname.requiredTitle": "Choose nickname",
-  "nickname.requiredHelp": "This name is shown to other players. Initial setup is free and does not use your free profile change.",
+  "nickname.requiredHelp": "This name is visible to other players. You can change it later in your profile.",
   "nickname.editTitle": "Edit nickname",
   "nickname.firstChangeFree": "First nickname change is free.",
   "nickname.cost": "Costs ◆ {cost} diamonds.",
