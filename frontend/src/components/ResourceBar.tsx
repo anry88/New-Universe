@@ -25,6 +25,22 @@ interface ResourceWithAmount extends PlanetResource {
 
 const TOP_BAR_RESOURCE_PRIORITY = ['iron', 'silicon', 'carbon'] as const;
 
+function resourceAmount(resource: PlanetResource): number {
+  const amount = typeof resource.amount === 'number'
+    ? resource.amount
+    : parseFloat(String(resource.amount));
+  return Number.isFinite(amount) ? amount : 0;
+}
+
+function toResourceWithAmount(resource: PlanetResource): ResourceWithAmount {
+  const amount = resourceAmount(resource);
+  return {
+    ...resource,
+    currentAmount: amount,
+    targetAmount: amount,
+  };
+}
+
 export function orderTopBarResources<T extends { resourceId: string }>(rows: T[]): T[] {
   const priorityRank = new Map<string, number>(
     TOP_BAR_RESOURCE_PRIORITY.map((resourceId, index) => [resourceId, index]),
@@ -62,41 +78,32 @@ export function ResourceBar({ planetId, planetLabel }: ResourceBarProps) {
   const [purchaseBusy, setPurchaseBusy] = useState(false);
   const tickRef = useRef<number | undefined>(undefined);
   const lastUpdateRef = useRef<number>(Date.now());
+  const homePlanetResources = meData?.homeSystem?.planets?.[0]?.resources;
 
-  const fetchResources = useCallback(async () => {
-    if (planetId) {
-      try {
-        const data = await apiFetch<{ resources: PlanetResource[] }>(planetInventoryApiPath(planetId));
-        setResources(
-          data.resources.map((r) => ({
-            ...r,
-            currentAmount: typeof r.amount === 'number' ? r.amount : parseFloat(String(r.amount)),
-            targetAmount: typeof r.amount === 'number' ? r.amount : parseFloat(String(r.amount)),
-          })),
-        );
-        return;
-      } catch (err) {
-        console.error('Failed to fetch resources for planet:', planetId, err);
-        /* fall through */
-      }
-    }
+  const fetchPlanetResources = useCallback(async () => {
+    if (!planetId) return;
 
-    if (meData?.homeSystem?.planets?.[0]?.resources) {
-      const mockResources = meData.homeSystem.planets[0].resources;
-      setResources(
-        mockResources.map((r) => ({
-          ...r,
-          currentAmount: parseFloat(String(r.amount)),
-          targetAmount: parseFloat(String(r.amount)),
-        })),
-      );
+    try {
+      const data = await apiFetch<{ resources: PlanetResource[] }>(planetInventoryApiPath(planetId));
+      setResources(data.resources.map(toResourceWithAmount));
+    } catch (err) {
+      console.error('Failed to fetch resources for planet:', planetId, err);
     }
-  }, [planetId, meData]);
+  }, [planetId]);
 
   useEffect(() => {
+    if (!planetId) return;
+
     lastUpdateRef.current = Date.now();
-    void fetchResources();
-  }, [fetchResources]);
+    void fetchPlanetResources();
+  }, [fetchPlanetResources, planetId]);
+
+  useEffect(() => {
+    if (planetId) return;
+
+    lastUpdateRef.current = Date.now();
+    setResources(homePlanetResources ? homePlanetResources.map(toResourceWithAmount) : []);
+  }, [homePlanetResources, planetId]);
 
   useEffect(() => {
     const animate = () => {
@@ -204,7 +211,7 @@ export function ResourceBar({ planetId, planetLabel }: ResourceBarProps) {
       queryClient.setQueryData<User>(['me'], (old) =>
         old ? { ...old, diamonds: result.diamondsRemaining } : old,
       );
-      void fetchResources();
+      void fetchPlanetResources();
       void queryClient.invalidateQueries({ queryKey: ['me'] });
       setPurchaseOpen(false);
     } catch (err: unknown) {
