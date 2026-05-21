@@ -10,7 +10,7 @@ import { useI18n } from "../lib/i18n";
 import { isShipReadyForOrders } from "../lib/ship-queue";
 import { CosmicBackground } from "./cosmic/atoms";
 import { CosmicSystemRenderer } from "./cosmic/SystemMap";
-import { getShipLabel, ShipIconBadge } from "./cosmic/ships";
+import { ShipIconBadge } from "./cosmic/ships";
 import { ResourceAmount } from "./cosmic/resources";
 
 type RefuelMode = "transfer" | "replenish";
@@ -70,7 +70,9 @@ export function RefuelDialog({
   const replenish = useRefuelReplenish();
   const [mode, setMode] = useState<RefuelMode>(initialMode);
   const [targetShipId, setTargetShipId] = useState(initialTargetShipId ?? "");
-  const [targetPlanetId, setTargetPlanetId] = useState("");
+  const [targetPlanetId, setTargetPlanetId] = useState(
+    initialMode === "replenish" ? (sourceShip.locationPlanetId ?? "") : "",
+  );
   const [fuelAmount, setFuelAmount] = useState(0);
   const [jumpFuelAmount, setJumpFuelAmount] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -235,6 +237,18 @@ export function RefuelDialog({
     setJumpFuelAmount(0);
   };
 
+  const selectTargetShip = (shipId: string) => {
+    setTargetShipId(shipId);
+    setFuelAmount(0);
+    setJumpFuelAmount(0);
+    setError(null);
+  };
+
+  const selectReplenishPlanet = (planetId: string) => {
+    setTargetPlanetId(planetId);
+    setError(null);
+  };
+
   const handleTransfer = async () => {
     if (!targetShip) return;
     try {
@@ -314,25 +328,22 @@ export function RefuelDialog({
       <div className="refuel-map-frame">
         <CosmicBackground accent="#5BD7FF" starSeed={17} />
         <CosmicSystemRenderer
+          key={mode}
           system={system}
-          ships={mapShips}
+          ships={mode === "transfer" ? mapShips : []}
           shipTypes={allShipTypes}
           expeditions={[]}
           onPlanetClick={(planet) => {
             if (mode !== "replenish") return;
             if (!ownedPlanetIds.has(planet.id)) return;
-            setTargetPlanetId(planet.id);
-            setError(null);
+            selectReplenishPlanet(planet.id);
           }}
           ownedPlanetIds={ownedPlanetIds}
           showOrbitRings={true}
           onOwnShipAction={(ship) => {
             if (mode !== "transfer") return;
             if (!targetCandidateIds.has(ship.id)) return;
-            setTargetShipId(ship.id);
-            setFuelAmount(0);
-            setJumpFuelAmount(0);
-            setError(null);
+            selectTargetShip(ship.id);
           }}
           ownShipActionOverride={({ ship }) => {
             if (mode !== "transfer") return null;
@@ -344,15 +355,17 @@ export function RefuelDialog({
                   : t("refuel.map.selectTarget"),
               icon: <Target size={14} />,
               disabled: !selectable,
+              compact: true,
             };
           }}
-          planetActionOverride={({ planet, isOwnedPlanet }) => {
+          planetActionOverride={({ isOwnedPlanet }) => {
             if (mode !== "replenish") return null;
             return {
               label: isOwnedPlanet
                 ? t("refuel.map.selectPlanet")
                 : t("refuel.map.notOwnedPlanet"),
               disabled: !isOwnedPlanet,
+              compact: true,
             };
           }}
         />

@@ -11,11 +11,11 @@ import { CosmicBackground, CosmicBottomNav } from '../components/cosmic/atoms';
 import { ChevronLeft, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ResourceAmountList } from '../components/cosmic/resources';
-import { resolveBuildingType } from '../components/cosmic/buildings';
 import { estimateRushDiamondCost } from '@shared/types/diamonds';
 import { formatTimerDuration, timerSnapshot } from '../lib/timers';
 import { useI18n } from '../lib/i18n';
 import { getActiveResearch, researchStartBlockedByActive } from '../lib/research-queue';
+import { readyLabLevel, selectResearchPlanet } from '../lib/research-planet';
 
 const BRANCH_COLORS: Record<string, string> = {
   mining: '#C7A582',
@@ -70,20 +70,16 @@ export function ResearchPage() {
   const [panel, setPanel] = useState<DetailPanel>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const homePlanet = meData?.homeSystem?.planets?.[0];
-  const homePlanetId = homePlanet?.id;
-  const homePlanetResources = homePlanet?.resources;
+  const researchPlanet = selectResearchPlanet(meData?.planets);
+  const researchPlanetId = researchPlanet?.id;
+  const researchPlanetResources = researchPlanet?.resources;
   const activeResearch = getActiveResearch(meData?.research);
   const activeResearchDef = activeResearch ? TECH_TREE_DATA.find((entry) => entry.branch === activeResearch.branch && entry.level === activeResearch.level + 1) : undefined;
 
-  const labBuilding = homePlanet?.buildings?.find((b) => {
-    const def = resolveBuildingType(b.typeId);
-    return def === resolveBuildingType('lab');
-  });
-  const labLevel = labBuilding?.level ?? 0;
+  const labLevel = readyLabLevel(researchPlanet);
 
   const handleStart = async (def: TechTreeEntry) => {
-    if (!homePlanetId) return;
+    if (!researchPlanetId) return;
     const queueBlock = researchStartBlockedByActive(def.branch, meData?.research);
     if (queueBlock) {
       setActionError(t('research.queueBusyError'));
@@ -93,7 +89,7 @@ export function ResearchPage() {
     try {
       await startResearch.mutateAsync({
         branch: def.branch,
-        planetId: homePlanetId,
+        planetId: researchPlanetId,
         estimatedDurationSec: def.timeSec,
       });
       setPanel(null);
@@ -116,7 +112,7 @@ export function ResearchPage() {
     <div className="cosmic-screen" style={{ '--accent': '#5BD7FF' } as React.CSSProperties}>
       <CosmicBackground accent="#5BD7FF" starSeed={42} />
 
-      <ResourceBar planetId={homePlanetId} />
+      <ResourceBar planetId={researchPlanetId} planetLabel={researchPlanet?.name} />
 
       <div className="page-head" style={{ position: 'relative', zIndex: 2 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -238,7 +234,7 @@ export function ResearchPage() {
           def={panel.def}
           labLevel={labLevel}
           research={meData?.research}
-          planetResources={homePlanetResources}
+          planetResources={researchPlanetResources}
           startResearch={startResearch}
           rushResearch={rushResearch}
           diamondBalance={meData?.diamonds ?? 0}

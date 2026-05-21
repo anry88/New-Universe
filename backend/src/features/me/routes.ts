@@ -81,15 +81,55 @@ function hasReadyCommandCenter(planet: {
   );
 }
 
-function comparePlayerPlanets(a: any, b: any): number {
+function comparePlayerPlanets(
+  a: any,
+  b: any,
+  homeCapitalPlanetId?: string | null,
+): number {
   const capitalDelta =
-    Number(hasReadyCommandCenter(b)) - Number(hasReadyCommandCenter(a));
+    Number(b.id === homeCapitalPlanetId) - Number(a.id === homeCapitalPlanetId);
   if (capitalDelta !== 0) return capitalDelta;
+
+  const settledDelta =
+    Number(b.isColonized === true) - Number(a.isColonized === true);
+  if (settledDelta !== 0) return settledDelta;
 
   const orbitDelta = normalizedOrbitIndex(a) - normalizedOrbitIndex(b);
   if (orbitDelta !== 0) return orbitDelta;
 
   return String(a.id).localeCompare(String(b.id));
+}
+
+function findHomeCapitalPlanetId(
+  homeSystemId: string | undefined,
+  userColonies: Array<{
+    planetId: string;
+    foundedAt: Date;
+    planet: { systemId: string; orbitIndex?: number | null };
+  }>,
+  homePlanets: Array<{
+    id: string;
+    orbitIndex?: number | null;
+    buildings?: Array<{ typeId: string; queueAction?: string | null }>;
+  }>,
+): string | null {
+  if (!homeSystemId) return null;
+
+  const oldestHomeColony = userColonies
+    .filter((colony) => colony.planet.systemId === homeSystemId)
+    .sort((a, b) => {
+      const foundedDelta = a.foundedAt.getTime() - b.foundedAt.getTime();
+      if (foundedDelta !== 0) return foundedDelta;
+      return (
+        normalizedOrbitIndex(a.planet) - normalizedOrbitIndex(b.planet) ||
+        a.planetId.localeCompare(b.planetId)
+      );
+    })[0];
+
+  if (oldestHomeColony) return oldestHomeColony.planetId;
+
+  const commandCenterFallback = homePlanets.find(hasReadyCommandCenter);
+  return commandCenterFallback?.id ?? null;
 }
 
 function readBearerToken(request: FastifyRequest): string | null {
@@ -330,9 +370,16 @@ export async function meRoutes(app: FastifyInstance) {
         };
       };
 
+      const homeCapitalPlanetId = findHomeCapitalPlanetId(
+        homeSystem?.id,
+        userColonies,
+        homeSystem?.planets ?? [],
+      );
       const homePlanets = (homeSystem?.planets || [])
         .map(markPlanetSettlement)
-        .sort(comparePlayerPlanets);
+        .sort((a: any, b: any) =>
+          comparePlayerPlanets(a, b, homeCapitalPlanetId),
+        );
       const homePlanetIds = new Set(homePlanets.map((planet: any) => planet.id));
       const colonyPlanets = userColonies
         .map((c) => markPlanetSettlement(c.planet))
