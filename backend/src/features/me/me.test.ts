@@ -80,6 +80,9 @@ describe("Me Routes", () => {
     const body = response.json();
     expect(body.user.tgId).toBe(tgId.toString());
     expect(body.user.preferredLocale).toBe("en");
+    expect(body.user.playerNickname).toBeNull();
+    expect(body.user.playerNicknameChangeCount).toBe(0);
+    expect(body.user.playerNicknameSuggestion).toBe("metest");
     expect(body.user.notificationPreferences).toEqual(DEFAULT_NOTIFICATION_PREFERENCES);
     expect(body.user.ships).toBeDefined();
     expect(Array.isArray(body.user.ships)).toBe(true);
@@ -104,6 +107,39 @@ describe("Me Routes", () => {
     });
 
     expect(response.statusCode).toBe(401);
+  });
+
+  it("updates the player nickname through the profile endpoint", async () => {
+    const app = Fastify();
+    await app.register(meRoutes, { prefix: "/me" });
+
+    const [user] = await db
+      .insert(users)
+      .values({
+        tgId: BigInt(Math.floor(Math.random() * 100000000)),
+        tgUsername: "route_nick",
+        diamonds: 20,
+      })
+      .returning();
+    const token = jwt.sign({ userId: user.id }, env.JWT_SECRET, {
+      expiresIn: "30d",
+    });
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/me/nickname",
+      headers: { authorization: `Bearer ${token}` },
+      payload: { name: "Марс Пилот" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      playerNickname: "Марс Пилот",
+      playerNicknameChangeCount: 0,
+      diamondsSpent: 0,
+      diamondsRemaining: 20,
+      initialWrite: true,
+    });
   });
 
   it("starts an explicit online session for the active user", async () => {

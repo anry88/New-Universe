@@ -1,5 +1,6 @@
 /**
- * Shared validation for player-supplied entity names (planet / system renames).
+ * Shared validation for player-supplied entity names (planet / system renames
+ * and player nicknames).
  *
  * Frontend uses the same module so the UI can mirror the exact reasons the
  * backend will reject the request — there must be no drift between the
@@ -7,20 +8,19 @@
  *
  * Rules:
  *   1. Trimmed length in [MIN_ENTITY_NAME_LENGTH, MAX_ENTITY_NAME_LENGTH].
- *   2. Allowed characters: `A-Z`, `a-z`, `0-9`, space, hyphen.
- *      Russian/Cyrillic characters are explicitly rejected so the rendered
- *      name fits the cosmic UI typography (and so we don't need to maintain
- *      a localized profanity list per script).
+ *   2. Allowed characters: `A-Z`, `a-z`, `А-Я`, `а-я`, `Ё`, `ё`, `0-9`,
+ *      space, hyphen.
  *   3. Profanity filter that catches common Russian (Cyrillic and
  *      transliterated to Latin) and English vulgar roots. The list is small
  *      on purpose — it covers the obvious cases and is easy to extend.
  */
 
-export const MIN_ENTITY_NAME_LENGTH = 1;
+export const MIN_ENTITY_NAME_LENGTH = 3;
 export const MAX_ENTITY_NAME_LENGTH = 30;
 
 export type EntityNameErrorCode =
   | 'empty'
+  | 'too_short'
   | 'too_long'
   | 'invalid_chars'
   | 'profanity';
@@ -259,13 +259,20 @@ export function containsProfanity(input: string): boolean {
   return containsLatinProfanity(buildLatinSignatures(input));
 }
 
-const ALLOWED_CHARS_RE = /^[A-Za-z0-9 -]+$/;
+const ALLOWED_CHARS_RE = /^[A-Za-zА-Яа-яЁё0-9 -]+$/u;
 
 export function validateEntityName(rawInput: string): EntityNameValidationResult {
   const normalized = normalizeWhitespace(rawInput ?? '');
 
   if (normalized.length < MIN_ENTITY_NAME_LENGTH) {
-    return { valid: false, error: 'empty', normalized };
+    if (normalized.length === 0) {
+      return { valid: false, error: 'empty', normalized };
+    }
+    return { valid: false, error: 'too_short', normalized };
+  }
+
+  if (containsProfanity(rawInput ?? '') || containsProfanity(normalized)) {
+    return { valid: false, error: 'profanity', normalized };
   }
 
   if (normalized.length > MAX_ENTITY_NAME_LENGTH) {
@@ -274,16 +281,6 @@ export function validateEntityName(rawInput: string): EntityNameValidationResult
 
   if (!ALLOWED_CHARS_RE.test(normalized)) {
     return { valid: false, error: 'invalid_chars', normalized };
-  }
-
-  // Profanity is also checked against the *raw* input (with diacritics /
-  // leet / Cyrillic intact) because the allowed-chars rule above already
-  // ensures the stored form is Latin — but users sometimes type Cyrillic
-  // expecting it to be transliterated. We match both surfaces so that
-  // pasting `хуй` is rejected with a profanity error rather than passing
-  // silently after being stripped down to spaces.
-  if (containsProfanity(rawInput ?? '') || containsProfanity(normalized)) {
-    return { valid: false, error: 'profanity', normalized };
   }
 
   return { valid: true, normalized };

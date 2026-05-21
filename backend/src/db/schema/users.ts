@@ -6,6 +6,8 @@ export const users = pgTable('users', {
   tgId: bigint('tg_id', { mode: 'bigint' }).unique().notNull(),
   tgUsername: text('tg_username'),
   tgFirstName: text('tg_first_name'),
+  playerNickname: text('player_nickname'),
+  playerNicknameChangeCount: integer('player_nickname_change_count').notNull().default(0),
   registrationSource: text('registration_source', { enum: ['direct', 'telegram_start'] }),
   registrationSourceCode: text('registration_source_code'),
   preferredLocale: text('preferred_locale', { enum: ['en', 'ru'] }).notNull().default('en'),

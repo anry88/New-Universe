@@ -11,6 +11,7 @@ import {
   openOnlineActivitySession,
   setOnlineActivityTrackingEnabled,
 } from './lib/api';
+import { PlayerNicknameDialog } from './components/PlayerNicknameDialog';
 
 const queryClient = new QueryClient();
 
@@ -143,6 +144,18 @@ function AppContent() {
 
   if (isAuthLoading || !authUser || isMeLoading || !meData) {
     return <AppLoading />;
+  }
+
+  if (!meData.playerNickname) {
+    return (
+      <PlayerNicknameDialog
+        currentName={meData.playerNickname}
+        suggestedName={meData.playerNicknameSuggestion}
+        changeCount={meData.playerNicknameChangeCount}
+        diamondBalance={meData.diamonds}
+        required
+      />
+    );
   }
 
   const showTutorial = Boolean(meData && !meData.tutorialCompletedAt && !tutorialHidden);

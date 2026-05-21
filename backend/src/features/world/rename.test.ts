@@ -146,7 +146,10 @@ describe('renamePlanet', () => {
     const planetId = await createPlanetRow(systemId);
     await createColonyRow(userId, planetId);
 
-    await expect(renamePlanet(userId, planetId, 'Земля')).rejects.toBeInstanceOf(RenameError);
+    await expect(renamePlanet(userId, planetId, 'Зе')).rejects.toBeInstanceOf(RenameError);
+    await expect(renamePlanet(userId, planetId, 'Зе')).rejects.toMatchObject({
+      code: 'too_short',
+    });
     await expect(renamePlanet(userId, planetId, 'blyad')).rejects.toMatchObject({
       code: 'profanity',
     });
