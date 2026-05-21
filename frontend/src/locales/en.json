@@ -465,6 +465,8 @@
   "refuel_dialog_transfer_button": "Transfer Fuel",
   "refuel.replenish.button": "Refill Tanks",
   "refuel.replenish.targetPlanet": "Refill planet",
+  "refuel.route.selector": "Route",
+  "refuel.route.noDestinations": "No known Jump Gate destinations.",
   "refuel.routeFuel": "Route fuel",
   "refuel.launchTransfer": "Launch Refueler",
   "refuel.launchReplenish": "Launch Refill",

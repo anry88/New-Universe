@@ -465,6 +465,8 @@
   "refuel_dialog_transfer_button": "Передать топливо",
   "refuel.replenish.button": "Пополнить баки",
   "refuel.replenish.targetPlanet": "Планета дозаправки",
+  "refuel.route.selector": "Маршрут",
+  "refuel.route.noDestinations": "Нет известных направлений Прыжковых врат.",
   "refuel.routeFuel": "Топливо на маршрут",
   "refuel.launchTransfer": "Запустить заправщик",
   "refuel.launchReplenish": "Запустить пополнение",
