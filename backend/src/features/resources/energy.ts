@@ -41,6 +41,7 @@ export type PlanetEnergyInput = {
   name: string;
   biome: string;
   size: number;
+  orbitIndex?: number | null;
   system?: {
     ownerId: string | null;
   } | null;
