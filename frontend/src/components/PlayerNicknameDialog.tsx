@@ -269,7 +269,9 @@ export function PlayerNicknameDialog({
           >
             {mutation.isPending
               ? t('nickname.submitting')
-              : cost === 0
+              : required
+                ? t('nickname.submit')
+                : cost === 0
                 ? `${t('nickname.submit')} · ${t('common.free')}`
                 : `${t('nickname.submit')} · ◆ ${cost}`}
           </button>

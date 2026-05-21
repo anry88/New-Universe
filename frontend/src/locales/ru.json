@@ -604,7 +604,7 @@
   "rename.system.disabled.noColony": "Колонизируйте планету, чтобы переименовать систему.",
   "rename.system.disabled.foreign": "Нельзя переименовать: в системе есть чужая колония.",
   "nickname.requiredTitle": "Выберите ник",
-  "nickname.requiredHelp": "Это имя видно другим игрокам. Первая запись бесплатна и не тратит бесплатную смену в профиле.",
+  "nickname.requiredHelp": "Это имя будет видно другим игрокам. Позже его можно сменить в профиле.",
   "nickname.editTitle": "Изменить ник",
   "nickname.firstChangeFree": "Первая смена ника бесплатна.",
   "nickname.cost": "Стоимость: ◆ {cost} алмазов.",
