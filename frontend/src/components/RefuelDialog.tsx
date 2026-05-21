@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Droplets, Fuel, Target, X, Zap } from "lucide-react";
 import {
   calculateJumpGateJumpFuelRequired,
@@ -13,9 +13,14 @@ import {
 } from "@shared/format/systemMapLayout";
 import type { Ship, ShipType } from "@shared/types/ships";
 import type { HomeSystem, Planet } from "@shared/types/world";
+import { useJumpGateState } from "../hooks/useJumpGateState";
 import { useRefuel, useRefuelReplenish } from "../hooks/useShips";
 import { buildExpeditionPreview } from "../lib/expedition-routing";
 import { useI18n } from "../lib/i18n";
+import {
+  destinationSystemDisplayName,
+  destinationToSystem,
+} from "../lib/jump-gate-destination";
 import { isShipReadyForOrders } from "../lib/ship-queue";
 import { CosmicBackground } from "./cosmic/atoms";
 import { CosmicSystemRenderer } from "./cosmic/SystemMap";
@@ -88,16 +93,21 @@ export function RefuelDialog({
   planets,
   allShips,
   allShipTypes,
-  routeMode = "local",
-  destinationSystemId = null,
+  routeMode: initialRouteMode = "local",
+  destinationSystemId: initialDestinationSystemId = null,
   initialTargetShipId,
   initialMode = "transfer",
   onClose,
 }: RefuelDialogProps) {
   const { t, locale } = useI18n();
+  const { data: jumpGateState } = useJumpGateState();
   const refuel = useRefuel();
   const replenish = useRefuelReplenish();
   const [mode, setMode] = useState<RefuelMode>(initialMode);
+  const [selectedRouteMode, setSelectedRouteMode] =
+    useState<ExpeditionRouteMode>(initialRouteMode);
+  const [selectedDestinationSystemId, setSelectedDestinationSystemId] =
+    useState(initialDestinationSystemId ?? "");
   const [targetShipId, setTargetShipId] = useState(initialTargetShipId ?? "");
   const [targetPlanetId, setTargetPlanetId] = useState(
     initialMode === "replenish" ? (sourceShip.locationPlanetId ?? "") : "",
@@ -106,9 +116,44 @@ export function RefuelDialog({
   const [jumpFuelAmount, setJumpFuelAmount] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
+  const knownDestinations = jumpGateState?.knownDestinations ?? [];
+  const selectedDestination =
+    knownDestinations.find(
+      (destination) => destination.systemId === selectedDestinationSystemId,
+    ) ?? null;
+  const activeRouteMode: ExpeditionRouteMode =
+    selectedRouteMode === "jump_gate" ? "jump_gate" : "local";
+  const renderedSystem = useMemo(
+    () =>
+      activeRouteMode === "jump_gate" && selectedDestination
+        ? destinationToSystem(selectedDestination, locale)
+        : system,
+    [activeRouteMode, locale, selectedDestination, system],
+  );
+  const routeTargetsAvailable =
+    activeRouteMode === "local" || selectedDestination !== null;
+
+  useEffect(() => {
+    if (activeRouteMode !== "jump_gate" || knownDestinations.length === 0) {
+      return;
+    }
+    if (
+      !knownDestinations.some(
+        (destination) => destination.systemId === selectedDestinationSystemId,
+      )
+    ) {
+      setSelectedDestinationSystemId(knownDestinations[0].systemId);
+    }
+  }, [activeRouteMode, knownDestinations, selectedDestinationSystemId]);
+
   const planetIdsInSystem = useMemo(
-    () => new Set((system.planets ?? []).map((planet) => planet.id)),
-    [system.planets],
+    () =>
+      new Set(
+        routeTargetsAvailable
+          ? (renderedSystem.planets ?? []).map((planet) => planet.id)
+          : [],
+      ),
+    [renderedSystem.planets, routeTargetsAvailable],
   );
   const ownedPlanetIds = useMemo(() => {
     const ownedIds = new Set(
@@ -116,20 +161,20 @@ export function RefuelDialog({
         .filter((planet) => planet.isColonized !== false)
         .map((planet) => planet.id),
     );
-    for (const planet of system.planets ?? []) {
+    for (const planet of renderedSystem.planets ?? []) {
       if (planet.isOwnedColony === true) ownedIds.add(planet.id);
     }
     return ownedIds;
-  }, [planets, system.planets]);
+  }, [planets, renderedSystem.planets]);
   const planetById = useMemo(
     () =>
       new Map(
-        [...(system.planets ?? []), ...planets].map((planet) => [
+        [...(renderedSystem.planets ?? []), ...planets].map((planet) => [
           planet.id,
           planet,
         ]),
       ),
-    [planets, system.planets],
+    [planets, renderedSystem.planets],
   );
   const typeById = useMemo(
     () => new Map(allShipTypes.map((shipType) => [shipType.id, shipType])),
@@ -181,29 +226,29 @@ export function RefuelDialog({
     : null;
 
   const sameSystemDistance = routeDistance(
-    system,
+    renderedSystem,
     sourceShip.locationPlanetId,
     activeTargetPlanetId,
   );
-  const sourceRouteSystem = sourceSystem ?? system;
+  const sourceRouteSystem =
+    activeRouteMode === "jump_gate" ? (sourceSystem ?? system) : renderedSystem;
   const jumpGateRouteDistance =
-    routeMode === "jump_gate" && activeTargetPlanetId
+    activeRouteMode === "jump_gate" && activeTargetPlanetId
       ? (() => {
           const originGateDistance = gateDistance(
             sourceRouteSystem,
             sourceShip.locationPlanetId,
           );
-          const targetGateDistance = gateDistance(system, activeTargetPlanetId);
+          const targetGateDistance = gateDistance(
+            renderedSystem,
+            activeTargetPlanetId,
+          );
           if (originGateDistance === null || targetGateDistance === null) {
             return null;
           }
           return originGateDistance + targetGateDistance;
         })()
       : null;
-  const activeRouteMode: ExpeditionRouteMode =
-    routeMode === "jump_gate" && Boolean(destinationSystemId)
-      ? "jump_gate"
-      : "local";
   const routePreview =
     activeTargetPlanetId &&
     ((activeRouteMode === "jump_gate" && jumpGateRouteDistance !== null) ||
@@ -214,7 +259,10 @@ export function RefuelDialog({
             x: sourceRouteSystem.sectorX,
             y: sourceRouteSystem.sectorY,
           },
-          targetSector: { x: system.sectorX, y: system.sectorY },
+          targetSector: {
+            x: renderedSystem.sectorX,
+            y: renderedSystem.sectorY,
+          },
           sameSystemPlanetDistance:
             activeRouteMode === "local" ? sameSystemDistance : null,
           jumpGateRouteDistance,
@@ -309,9 +357,44 @@ export function RefuelDialog({
 
   const resetSelectionForMode = (nextMode: RefuelMode) => {
     setMode(nextMode);
+    setTargetShipId("");
+    setTargetPlanetId(
+      nextMode === "replenish" && activeRouteMode === "local"
+        ? (sourceShip.locationPlanetId ?? "")
+        : "",
+    );
     setError(null);
     setFuelAmount(0);
     setJumpFuelAmount(0);
+  };
+
+  const resetMapSelection = (nextRouteMode: ExpeditionRouteMode) => {
+    setTargetShipId("");
+    setTargetPlanetId(
+      mode === "replenish" && nextRouteMode === "local"
+        ? (sourceShip.locationPlanetId ?? "")
+        : "",
+    );
+    setFuelAmount(0);
+    setJumpFuelAmount(0);
+    setError(null);
+  };
+
+  const selectRouteMode = (nextRouteMode: ExpeditionRouteMode) => {
+    setSelectedRouteMode(nextRouteMode);
+    if (
+      nextRouteMode === "jump_gate" &&
+      !selectedDestinationSystemId &&
+      knownDestinations[0]
+    ) {
+      setSelectedDestinationSystemId(knownDestinations[0].systemId);
+    }
+    resetMapSelection(nextRouteMode);
+  };
+
+  const selectDestination = (systemId: string) => {
+    setSelectedDestinationSystemId(systemId);
+    resetMapSelection("jump_gate");
   };
 
   const selectTargetShip = (shipId: string) => {
@@ -335,7 +418,9 @@ export function RefuelDialog({
         sourceShipId: sourceShip.id,
         routeMode: activeRouteMode,
         destinationSystemId:
-          activeRouteMode === "jump_gate" ? destinationSystemId : undefined,
+          activeRouteMode === "jump_gate"
+            ? selectedDestination?.systemId
+            : undefined,
         fuel: clampedFuelAmount,
         jumpFuel: clampedJumpFuelAmount,
       });
@@ -354,7 +439,9 @@ export function RefuelDialog({
         targetPlanetId: selectedReplenishPlanet.id,
         routeMode: activeRouteMode,
         destinationSystemId:
-          activeRouteMode === "jump_gate" ? destinationSystemId : undefined,
+          activeRouteMode === "jump_gate"
+            ? selectedDestination?.systemId
+            : undefined,
       });
       onClose();
     } catch (err: unknown) {
@@ -408,11 +495,70 @@ export function RefuelDialog({
         </button>
       </div>
 
+      <div className="refuel-route-card">
+        <div className="refuel-route-head">
+          <span>{t("refuel.route.selector").toUpperCase()}</span>
+          <b>
+            {activeRouteMode === "jump_gate" && selectedDestination
+              ? destinationSystemDisplayName(selectedDestination, locale)
+              : activeRouteMode === "jump_gate"
+                ? t("refuel.route.noDestinations")
+                : t("expedition.routeLocal")}
+          </b>
+        </div>
+        <div className="refuel-route-tabs">
+          {(["local", "jump_gate"] as ExpeditionRouteMode[]).map(
+            (routeOption) => {
+              const active = activeRouteMode === routeOption;
+              const disabled =
+                routeOption === "jump_gate" && knownDestinations.length === 0;
+              return (
+                <button
+                  key={routeOption}
+                  type="button"
+                  className={active ? "active" : ""}
+                  disabled={disabled}
+                  onClick={() => selectRouteMode(routeOption)}
+                >
+                  {routeOption === "local"
+                    ? t("expedition.routeLocal")
+                    : t("expedition.routeJumpGate")}
+                </button>
+              );
+            },
+          )}
+        </div>
+        {activeRouteMode === "jump_gate" ? (
+          knownDestinations.length > 0 ? (
+            <div className="refuel-destination-strip">
+              {knownDestinations.map((destination) => {
+                const active =
+                  destination.systemId === selectedDestination?.systemId;
+                return (
+                  <button
+                    key={destination.systemId}
+                    type="button"
+                    className={active ? "active" : ""}
+                    onClick={() => selectDestination(destination.systemId)}
+                  >
+                    {destinationSystemDisplayName(destination, locale)}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="refuel-route-empty">
+              {t("refuel.route.noDestinations")}
+            </div>
+          )
+        ) : null}
+      </div>
+
       <div className="refuel-map-frame">
         <CosmicBackground accent="#5BD7FF" starSeed={17} />
         <CosmicSystemRenderer
-          key={mode}
-          system={system}
+          key={`${mode}:${activeRouteMode}:${selectedDestination?.systemId ?? "local"}`}
+          system={renderedSystem}
           ships={mode === "transfer" ? mapShips : []}
           shipTypes={allShipTypes}
           expeditions={[]}
@@ -705,6 +851,83 @@ export function RefuelDialog({
           border-color: var(--accent);
           background: rgba(91,215,255,0.16);
           color: var(--accent);
+        }
+        .refuel-route-card {
+          flex: 0 0 auto;
+          margin-bottom: 8px;
+          padding: 8px;
+          border: 1px solid rgba(148,163,184,0.14);
+          border-radius: 12px;
+          background: rgba(8,12,22,0.66);
+        }
+        .refuel-route-head {
+          display: flex;
+          justify-content: space-between;
+          gap: 10px;
+          align-items: center;
+          margin-bottom: 7px;
+        }
+        .refuel-route-head span {
+          font-family: var(--font-mono);
+          font-size: 9px;
+          letter-spacing: 0.12em;
+          color: var(--text-faint);
+        }
+        .refuel-route-head b {
+          min-width: 0;
+          max-width: 58%;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          color: var(--text);
+          font-size: 11px;
+          text-align: right;
+        }
+        .refuel-route-tabs {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 8px;
+        }
+        .refuel-route-tabs button,
+        .refuel-destination-strip button {
+          min-height: 32px;
+          border: 1px solid var(--line);
+          border-radius: 9px;
+          background: rgba(5,8,17,0.62);
+          color: var(--text-dim);
+          font-size: 11px;
+          font-weight: 800;
+        }
+        .refuel-route-tabs button.active,
+        .refuel-destination-strip button.active {
+          border-color: var(--accent);
+          background: rgba(91,215,255,0.14);
+          color: var(--accent);
+        }
+        .refuel-route-tabs button:disabled {
+          opacity: 0.45;
+          cursor: not-allowed;
+        }
+        .refuel-destination-strip {
+          display: flex;
+          gap: 8px;
+          overflow-x: auto;
+          padding: 8px 0 1px;
+        }
+        .refuel-destination-strip button {
+          flex: 0 0 auto;
+          max-width: 180px;
+          padding: 0 10px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .refuel-route-empty {
+          margin-top: 8px;
+          color: var(--text-faint);
+          font-family: var(--font-mono);
+          font-size: 10px;
+          line-height: 1.35;
         }
         .refuel-map-frame {
           position: relative;
