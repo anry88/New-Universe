@@ -5,6 +5,7 @@ import { playerActivityDaily, users } from '../db/schema.js';
 import {
   formatActivityTimestamp,
   formatMetricSamples,
+  metricsMachineId,
   recordPlayerActivity,
   startPlayerActivitySession,
 } from './metrics.js';
@@ -91,6 +92,12 @@ describe('metrics formatting', () => {
     expect(formatActivityTimestamp(new Date('2026-05-20T10:00:00.000Z'))).toBe(
       '2026-05-20T10:00:00.000Z',
     );
+  });
+
+  it('normalizes Fly machine ids for HTTP metric labels', () => {
+    expect(metricsMachineId({ FLY_MACHINE_ID: '  e8226d6c3936d8  ' })).toBe('e8226d6c3936d8');
+    expect(metricsMachineId({ FLY_MACHINE_ID: 'rough fog' })).toBe('rough_fog');
+    expect(metricsMachineId({})).toBe('local');
   });
 
   it('ignores online activity pings before an explicit session start', async () => {
