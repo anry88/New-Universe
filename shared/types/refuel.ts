@@ -1,11 +1,16 @@
 import type { Locale } from "./locale.js";
 import { shipLabel } from "./entity-labels.js";
+import type { ExpeditionRouteMode } from "../config/expeditionRouting.js";
 
 export interface RefuelRequest {
   /** The ship receiving fuel. */
   targetShipId: string;
   /** The refueler ship providing fuel. */
   sourceShipId: string;
+  /** Route family used to reach the target ship. */
+  routeMode?: ExpeditionRouteMode;
+  /** Known public destination system used when `routeMode` is `jump_gate`. */
+  destinationSystemId?: string | null;
   /** Amount of ordinary fuel to transfer. */
   fuel?: number;
   /** Amount of jump fuel to transfer. */
@@ -42,6 +47,10 @@ export interface RefuelReplenishRequest {
   sourceShipId: string;
   /** Owned planet where the refueler should refill own tanks and support reserves. */
   targetPlanetId: string;
+  /** Route family used to reach the target planet. */
+  routeMode?: ExpeditionRouteMode;
+  /** Known public destination system used when `routeMode` is `jump_gate`. */
+  destinationSystemId?: string | null;
 }
 
 export interface RefuelReplenishResponse {
@@ -76,7 +85,16 @@ export type RefuelErrorCode =
   | "refuel_source_not_refueler"
   | "refuel_no_fuel_requested"
   | "refuel_exceeds_tank"
+  | "refuel_invalid_route_mode"
+  | "refuel_destination_required"
+  | "refuel_jump_drive_required"
+  | "refuel_jump_gate_locked"
+  | "refuel_jump_gate_calibrating"
+  | "refuel_known_destination_not_found"
+  | "refuel_known_destination_not_public"
+  | "refuel_target_wrong_gate_destination"
   | "refuel_travel_fuel_exceeded"
+  | "refuel_travel_jump_fuel_exceeded"
   | "refuel_source_insufficient";
 
 export type RefuelErrorDetails =
@@ -97,8 +115,21 @@ export type RefuelErrorDetails =
       current: number;
       requested: number;
     }
+  | { code: "refuel_invalid_route_mode" }
+  | { code: "refuel_destination_required" }
+  | { code: "refuel_jump_drive_required" }
+  | { code: "refuel_jump_gate_locked" }
+  | { code: "refuel_jump_gate_calibrating" }
+  | { code: "refuel_known_destination_not_found" }
+  | { code: "refuel_known_destination_not_public" }
+  | { code: "refuel_target_wrong_gate_destination" }
   | {
       code: "refuel_travel_fuel_exceeded";
+      capacity: number;
+      required: number;
+    }
+  | {
+      code: "refuel_travel_jump_fuel_exceeded";
       capacity: number;
       required: number;
     }
@@ -158,10 +189,46 @@ export function formatRefuelErrorMessage(
       return locale === "ru"
         ? `Превышена ёмкость бака: доступно ${error.capacity}, текущий запас ${error.current}, запрошено ${error.requested}.`
         : `Tank capacity exceeded: capacity ${error.capacity}, current ${error.current}, requested ${error.requested}.`;
+    case "refuel_invalid_route_mode":
+      return locale === "ru"
+        ? "Выберите доступный маршрут для заправщика."
+        : "Select an available refueler route.";
+    case "refuel_destination_required":
+      return locale === "ru"
+        ? "Выберите известное направление Прыжковых врат."
+        : "Select a known Jump Gate destination.";
+    case "refuel_jump_drive_required":
+      return locale === "ru"
+        ? "Для маршрута через врата нужен Прыжковый двигатель уровня 1."
+        : "Jump Drive research level 1 is required for gate routes.";
+    case "refuel_jump_gate_locked":
+      return locale === "ru"
+        ? "Прыжковые врата заблокированы."
+        : "Jump Gate is locked.";
+    case "refuel_jump_gate_calibrating":
+      return locale === "ru"
+        ? "Прыжковые врата ещё калибруются."
+        : "Jump Gate calibration is still in progress.";
+    case "refuel_known_destination_not_found":
+      return locale === "ru"
+        ? "Это направление Прыжковых врат больше недоступно."
+        : "This Jump Gate destination is no longer available.";
+    case "refuel_known_destination_not_public":
+      return locale === "ru"
+        ? "Направление Прыжковых врат должно вести в открытую общую систему."
+        : "Jump Gate destination must be a public common system.";
+    case "refuel_target_wrong_gate_destination":
+      return locale === "ru"
+        ? "Цель заправщика должна находиться в выбранной системе Прыжковых врат."
+        : "Refueler target must be in the selected Jump Gate system.";
     case "refuel_travel_fuel_exceeded":
       return locale === "ru"
         ? `Маршрут требует ${error.required} топлива, но бак заправщика вмещает только ${error.capacity}.`
         : `Route requires ${error.required} fuel, but the refueler tank only holds ${error.capacity}.`;
+    case "refuel_travel_jump_fuel_exceeded":
+      return locale === "ru"
+        ? `Маршрут требует ${error.required} прыжкового топлива, но бак заправщика вмещает только ${error.capacity}.`
+        : `Route requires ${error.required} jump fuel, but the refueler tank only holds ${error.capacity}.`;
     case "refuel_source_insufficient":
       return locale === "ru"
         ? `Заправщик не имеет достаточно топлива: доступно ${error.available}, запрошено ${error.requested}.`

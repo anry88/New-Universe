@@ -93,6 +93,7 @@ interface CosmicSystemRendererProps {
   minimumOrbitCount?: number;
   emptyStateLabel?: string | null;
   showOrbitRings?: boolean;
+  disablePlanetSelection?: boolean;
   onOwnShipAction?: (
     ship: Ship,
     shipType: ShipType | null,
@@ -628,6 +629,7 @@ interface PlanetMarkersProps {
   now: number;
   canPickPlanet: boolean;
   isPicking: boolean;
+  selectionDisabled?: boolean;
   onPickPlanet?: (planetId: string) => void;
   onSelectPlanet: (planetId: string) => void;
 }
@@ -640,6 +642,7 @@ const PlanetMarkers = React.memo(function PlanetMarkers({
   now,
   canPickPlanet,
   isPicking,
+  selectionDisabled = false,
   onPickPlanet,
   onSelectPlanet,
 }: PlanetMarkersProps) {
@@ -686,14 +689,18 @@ const PlanetMarkers = React.memo(function PlanetMarkers({
               padding: 0,
               cursor: canPickPlanet
                 ? "pointer"
-                : isPicking
-                  ? "inherit"
-                  : "pointer",
+                : selectionDisabled
+                  ? "default"
+                  : isPicking
+                    ? "inherit"
+                    : "pointer",
               pointerEvents: canPickPlanet
                 ? "auto"
-                : isPicking
+                : selectionDisabled
                   ? "none"
-                  : "auto",
+                  : isPicking
+                    ? "none"
+                    : "auto",
               filter:
                 isForeignColony || hasRecentSurfaceCombat
                   ? "drop-shadow(0 0 14px rgba(239,68,68,0.74))"
@@ -2130,7 +2137,9 @@ function SelectedMapPlanetCompactCard({
               whiteSpace: "nowrap",
             }}
           >
-            {planet.isDiscovered !== false ? planet.name : t("map.unmappedPlanet")}
+            {planet.isDiscovered !== false
+              ? planet.name
+              : t("map.unmappedPlanet")}
           </div>
         </div>
         <button
@@ -2155,7 +2164,7 @@ function SelectedMapPlanetCompactCard({
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "1fr 1fr",
+          gridTemplateColumns: "1fr",
           gap: 6,
           marginTop: 8,
         }}
@@ -2164,15 +2173,32 @@ function SelectedMapPlanetCompactCard({
           <div
             key={resourceId}
             className="ship-stat"
-            style={{ textAlign: "left" }}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 1fr) auto",
+              alignItems: "center",
+              gap: 8,
+              minWidth: 0,
+              textAlign: "left",
+            }}
           >
             <span
-              style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                minWidth: 0,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
             >
               <ResourceIcon resourceId={resourceId} size={13} />
               {getResourceLabel(resourceId, locale)}
             </span>
-            <b>{compactResourceAmount(planet, resourceId)}</b>
+            <b style={{ justifySelf: "end" }}>
+              {compactResourceAmount(planet, resourceId)}
+            </b>
           </div>
         ))}
       </div>
@@ -2263,6 +2289,7 @@ export function CosmicSystemRenderer({
   minimumOrbitCount,
   emptyStateLabel,
   showOrbitRings = true,
+  disablePlanetSelection = false,
   onOwnShipAction,
   ownShipActionOverride,
   planetActionOverride,
@@ -2510,10 +2537,14 @@ export function CosmicSystemRenderer({
   const onPickPlanet = expeditionPick?.onPickPlanet;
   const pickedTargetPlanetId = expeditionPick?.targetPlanetId ?? null;
 
-  const selectPlanet = useCallback((planetId: string) => {
-    setSelectedId(planetId);
-    setSelectedShip(null);
-  }, []);
+  const selectPlanet = useCallback(
+    (planetId: string) => {
+      if (disablePlanetSelection) return;
+      setSelectedId(planetId);
+      setSelectedShip(null);
+    },
+    [disablePlanetSelection],
+  );
 
   const selectOwnShip = useCallback((shipId: string) => {
     setSelectedShip({ kind: "own", id: shipId });
@@ -3065,6 +3096,7 @@ export function CosmicSystemRenderer({
             isPicking={isPicking}
             onPickPlanet={onPickPlanet}
             onSelectPlanet={selectPlanet}
+            selectionDisabled={disablePlanetSelection}
           />
 
           {/* Ship markers use the shared Cosmic Atlas hull set near parking orbit or on trails. */}

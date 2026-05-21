@@ -1,7 +1,16 @@
 import React, { useMemo, useState } from "react";
 import { Droplets, Fuel, Target, X, Zap } from "lucide-react";
-import { JUMP_FUEL_RESOURCE_ID } from "@shared/config/expeditionRouting";
-import { systemMapPlanetDistanceLy } from "@shared/format/systemMapLayout";
+import {
+  calculateJumpGateJumpFuelRequired,
+  JUMP_FUEL_RESOURCE_ID,
+  type ExpeditionRouteMode,
+} from "@shared/config/expeditionRouting";
+import {
+  buildSystemMapLayouts,
+  systemMapJumpGatePoint,
+  systemMapPlanetDistanceLy,
+  systemMapPointDistanceLy,
+} from "@shared/format/systemMapLayout";
 import type { Ship, ShipType } from "@shared/types/ships";
 import type { HomeSystem, Planet } from "@shared/types/world";
 import { useRefuel, useRefuelReplenish } from "../hooks/useShips";
@@ -19,10 +28,13 @@ interface RefuelDialogProps {
   sourceShip: Ship;
   sourceType: ShipType;
   sourcePlanet?: Planet | null;
+  sourceSystem?: HomeSystem | null;
   system: HomeSystem;
   planets: Planet[];
   allShips: Ship[];
   allShipTypes: ShipType[];
+  routeMode?: ExpeditionRouteMode;
+  destinationSystemId?: string | null;
   initialTargetShipId?: string;
   initialMode?: RefuelMode;
   onClose: () => void;
@@ -53,14 +65,31 @@ function routeDistance(
   );
 }
 
+function gateDistance(
+  system: HomeSystem | null | undefined,
+  planetId: string | null,
+) {
+  if (!system || !planetId) return null;
+  const layout = buildSystemMapLayouts(
+    system.planets ?? [],
+    Number(system.seed),
+  ).find((entry) => entry.id === planetId);
+  return layout
+    ? systemMapPointDistanceLy(systemMapJumpGatePoint(), layout)
+    : null;
+}
+
 export function RefuelDialog({
   sourceShip,
   sourceType,
   sourcePlanet,
+  sourceSystem,
   system,
   planets,
   allShips,
   allShipTypes,
+  routeMode = "local",
+  destinationSystemId = null,
   initialTargetShipId,
   initialMode = "transfer",
   onClose,
@@ -81,18 +110,26 @@ export function RefuelDialog({
     () => new Set((system.planets ?? []).map((planet) => planet.id)),
     [system.planets],
   );
-  const ownedPlanetIds = useMemo(
-    () =>
-      new Set(
-        planets
-          .filter((planet) => planet.isColonized !== false)
-          .map((planet) => planet.id),
-      ),
-    [planets],
-  );
+  const ownedPlanetIds = useMemo(() => {
+    const ownedIds = new Set(
+      planets
+        .filter((planet) => planet.isColonized !== false)
+        .map((planet) => planet.id),
+    );
+    for (const planet of system.planets ?? []) {
+      if (planet.isOwnedColony === true) ownedIds.add(planet.id);
+    }
+    return ownedIds;
+  }, [planets, system.planets]);
   const planetById = useMemo(
-    () => new Map(planets.map((planet) => [planet.id, planet])),
-    [planets],
+    () =>
+      new Map(
+        [...(system.planets ?? []), ...planets].map((planet) => [
+          planet.id,
+          planet,
+        ]),
+      ),
+    [planets, system.planets],
   );
   const typeById = useMemo(
     () => new Map(allShipTypes.map((shipType) => [shipType.id, shipType])),
@@ -132,8 +169,9 @@ export function RefuelDialog({
   const targetType = targetShip
     ? (typeById.get(targetShip.typeId) ?? null)
     : null;
-  const selectedReplenishPlanet =
-    planets.find((planet) => planet.id === targetPlanetId) ?? null;
+  const selectedReplenishPlanet = targetPlanetId
+    ? (planetById.get(targetPlanetId) ?? null)
+    : null;
   const activeTargetPlanetId =
     mode === "transfer"
       ? (targetShip?.locationPlanetId ?? null)
@@ -147,13 +185,43 @@ export function RefuelDialog({
     sourceShip.locationPlanetId,
     activeTargetPlanetId,
   );
+  const sourceRouteSystem = sourceSystem ?? system;
+  const jumpGateRouteDistance =
+    routeMode === "jump_gate" && activeTargetPlanetId
+      ? (() => {
+          const originGateDistance = gateDistance(
+            sourceRouteSystem,
+            sourceShip.locationPlanetId,
+          );
+          const targetGateDistance = gateDistance(system, activeTargetPlanetId);
+          if (originGateDistance === null || targetGateDistance === null) {
+            return null;
+          }
+          return originGateDistance + targetGateDistance;
+        })()
+      : null;
+  const activeRouteMode: ExpeditionRouteMode =
+    routeMode === "jump_gate" && Boolean(destinationSystemId)
+      ? "jump_gate"
+      : "local";
   const routePreview =
-    activeTargetPlanetId && sameSystemDistance !== null
+    activeTargetPlanetId &&
+    ((activeRouteMode === "jump_gate" && jumpGateRouteDistance !== null) ||
+      (activeRouteMode === "local" && sameSystemDistance !== null))
       ? buildExpeditionPreview({
-          routeMode: "local",
-          originSector: { x: system.sectorX, y: system.sectorY },
+          routeMode: activeRouteMode,
+          originSector: {
+            x: sourceRouteSystem.sectorX,
+            y: sourceRouteSystem.sectorY,
+          },
           targetSector: { x: system.sectorX, y: system.sectorY },
-          sameSystemPlanetDistance: sameSystemDistance,
+          sameSystemPlanetDistance:
+            activeRouteMode === "local" ? sameSystemDistance : null,
+          jumpGateRouteDistance,
+          jumpFuelRequiredOverride:
+            activeRouteMode === "jump_gate"
+              ? calculateJumpGateJumpFuelRequired(false)
+              : undefined,
           hasTargetPlanet: true,
           isColonizer: false,
           shipRole: sourceType.role,
@@ -161,7 +229,9 @@ export function RefuelDialog({
           speed: Number(sourceType.speed),
         })
       : null;
+  const hasRoutePreview = activeTargetPlanetId ? routePreview !== null : true;
   const travelFuelRequired = routePreview?.fuelRequired ?? 0;
+  const travelJumpFuelRequired = routePreview?.jumpFuelRequired ?? 0;
   const sourcePlanetFuel = resourceAmount(sourcePlanet, "fuel");
   const sourcePlanetJumpFuel = resourceAmount(
     sourcePlanet,
@@ -175,8 +245,15 @@ export function RefuelDialog({
     0,
     sourcePlanetFuel - Math.max(0, travelFuelRequired - sourceOwnFuel),
   );
+  const sourcePlanetJumpFuelAfterTravel = Math.max(
+    0,
+    sourcePlanetJumpFuel -
+      Math.max(0, travelJumpFuelRequired - sourceOwnJumpFuel),
+  );
   const canPayTravelFuel =
-    sourceOwnFuel + sourcePlanetFuel >= travelFuelRequired;
+    hasRoutePreview &&
+    sourceOwnFuel + sourcePlanetFuel >= travelFuelRequired &&
+    sourceOwnJumpFuel + sourcePlanetJumpFuel >= travelJumpFuelRequired;
   const sourceFuelTransferAvailable =
     sourceRefuelFuel +
     Math.min(
@@ -187,7 +264,7 @@ export function RefuelDialog({
     sourceRefuelJumpFuel +
     Math.min(
       Math.max(0, sourceType.refuelJumpFuelCapacity - sourceRefuelJumpFuel),
-      sourcePlanetJumpFuel,
+      sourcePlanetJumpFuelAfterTravel,
     );
   const maxFuel = Math.floor(
     Math.max(
@@ -256,6 +333,9 @@ export function RefuelDialog({
       await refuel.mutateAsync({
         targetShipId: targetShip.id,
         sourceShipId: sourceShip.id,
+        routeMode: activeRouteMode,
+        destinationSystemId:
+          activeRouteMode === "jump_gate" ? destinationSystemId : undefined,
         fuel: clampedFuelAmount,
         jumpFuel: clampedJumpFuelAmount,
       });
@@ -272,6 +352,9 @@ export function RefuelDialog({
       await replenish.mutateAsync({
         sourceShipId: sourceShip.id,
         targetPlanetId: selectedReplenishPlanet.id,
+        routeMode: activeRouteMode,
+        destinationSystemId:
+          activeRouteMode === "jump_gate" ? destinationSystemId : undefined,
       });
       onClose();
     } catch (err: unknown) {
@@ -340,6 +423,7 @@ export function RefuelDialog({
           }}
           ownedPlanetIds={ownedPlanetIds}
           showOrbitRings={true}
+          disablePlanetSelection={mode === "transfer"}
           onOwnShipAction={(ship) => {
             if (mode !== "transfer") return;
             if (!targetCandidateIds.has(ship.id)) return;
@@ -410,23 +494,6 @@ export function RefuelDialog({
             </b>
           </div>
           <div className="refuel-stat">
-            <span>{t("refuel_dialog_planet_stockpile")}</span>
-            <b>
-              <ResourceAmount
-                resourceId="fuel"
-                amount={sourcePlanetFuel}
-                iconSize={12}
-                locale={locale}
-              />
-              <ResourceAmount
-                resourceId="jump_fuel"
-                amount={sourcePlanetJumpFuel}
-                iconSize={12}
-                locale={locale}
-              />
-            </b>
-          </div>
-          <div className="refuel-stat">
             <span>{t("refuel.routeFuel")}</span>
             <b>
               <ResourceAmount
@@ -435,6 +502,14 @@ export function RefuelDialog({
                 iconSize={12}
                 locale={locale}
               />
+              {travelJumpFuelRequired > 0 ? (
+                <ResourceAmount
+                  resourceId="jump_fuel"
+                  amount={travelJumpFuelRequired}
+                  iconSize={12}
+                  locale={locale}
+                />
+              ) : null}
             </b>
           </div>
         </div>

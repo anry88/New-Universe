@@ -178,6 +178,8 @@ export async function shipsRoutes(app: FastifyInstance) {
           {
             targetShipId: nonEmptyStringSchema,
             sourceShipId: nonEmptyStringSchema,
+            routeMode: { type: "string", enum: ["local", "jump_gate"] },
+            destinationSystemId: { type: "string", minLength: 1 },
             fuel: { type: "number", minimum: 0 },
             jumpFuel: { type: "number", minimum: 0 },
           },
@@ -230,6 +232,8 @@ export async function shipsRoutes(app: FastifyInstance) {
           {
             sourceShipId: nonEmptyStringSchema,
             targetPlanetId: nonEmptyStringSchema,
+            routeMode: { type: "string", enum: ["local", "jump_gate"] },
+            destinationSystemId: { type: "string", minLength: 1 },
           },
           ["sourceShipId", "targetPlanetId"],
         ),
