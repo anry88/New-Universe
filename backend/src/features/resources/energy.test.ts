@@ -10,8 +10,8 @@ import {
 
 describe('planet energy formulas', () => {
   it('makes solar output noticeably stronger on inner orbits than outer orbits', () => {
-    const inner = solarEnergyMultiplier({ id: 'inner', name: 'home-1', biome: 'volcanic' });
-    const outer = solarEnergyMultiplier({ id: 'outer', name: 'home-8', biome: 'ice' });
+    const inner = solarEnergyMultiplier({ id: 'inner', name: 'home-1', biome: 'volcanic', orbitIndex: 1 });
+    const outer = solarEnergyMultiplier({ id: 'outer', name: 'home-8', biome: 'ice', orbitIndex: 8 });
 
     expect(inner).toBeGreaterThan(outer);
     expect(inner - outer).toBeGreaterThan(0.8);
@@ -91,6 +91,7 @@ describe('planet energy formulas', () => {
             id: planetId,
             name: 'home-1',
             biome: 'volcanic',
+            orbitIndex: 1,
             size: 12,
             system: { ownerId: 'user-energy' },
             buildings: [
@@ -130,7 +131,7 @@ describe('planet energy formulas', () => {
     const state = await resolvePlanetEnergyState(planetId, database);
 
     expect(state.capacity).toBeCloseTo(625, 4);
-    expect(state.produced).toBeCloseTo(50 * solarEnergyMultiplier({ id: planetId, name: 'home-1', biome: 'volcanic' }) * 1.18, 4);
+    expect(state.produced).toBeCloseTo(50 * solarEnergyMultiplier({ id: planetId, name: 'home-1', biome: 'volcanic', orbitIndex: 1 }) * 1.18, 4);
     expect(state.consumed).toBeCloseTo(9.2, 4);
     expect(state.buildingStates['battery-1'].capacity).toBeCloseTo(625, 4);
   });
@@ -198,6 +199,7 @@ describe('planet energy formulas', () => {
               id: planetId,
               name: 'home-1',
               biome: 'volcanic',
+              orbitIndex: 1,
               size: 12,
               system: { ownerId: 'user-energy-cache' },
               buildings: [

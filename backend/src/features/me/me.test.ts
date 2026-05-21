@@ -7,6 +7,8 @@ import { env } from "../../lib/env.js";
 import jwt from "jsonwebtoken";
 import { db } from "../../db/index.js";
 import {
+  buildings,
+  discoveredPlanets,
   expeditions,
   playerActivityDaily,
   planets,
@@ -221,6 +223,87 @@ describe("Me Routes", () => {
     const body = response.json();
     expect(body.user.ships.map((ship: { id: string }) => ship.id)).toContain(liveShip.id);
     expect(body.user.ships.map((ship: { id: string }) => ship.id)).not.toContain(destroyedShip.id);
+  });
+
+  it("keeps home planet ordering tied to orbit metadata, not renamed labels", async () => {
+    const app = Fastify();
+    await app.register(meRoutes, { prefix: "/me" });
+
+    const suffix = `${Date.now()}_${Math.floor(Math.random() * 1_000_000)}`;
+    const [user] = await db
+      .insert(users)
+      .values({
+        tgId: BigInt(Math.floor(Math.random() * 100000000)),
+        tgUsername: `me_orbit_${suffix}`,
+      })
+      .returning();
+    const [system] = await db
+      .insert(systems)
+      .values({
+        name: `Orbit Stable ${suffix}`,
+        sectorX: 13,
+        sectorY: 14,
+        sectorZ: 0,
+        x: "0.00",
+        y: "0.00",
+        z: "0.00",
+        seed: 77,
+        ownerId: user.id,
+        isHome: true,
+      })
+      .returning();
+    const [innerPlanet, capitalPlanet] = await db
+      .insert(planets)
+      .values([
+        {
+          systemId: system.id,
+          name: `Aardvark Renamed ${suffix}`,
+          biome: "volcanic",
+          size: 12,
+          slotCount: 8,
+          orbitIndex: 1,
+        },
+        {
+          systemId: system.id,
+          name: `Zulu Capital ${suffix}`,
+          biome: "green",
+          size: 22,
+          slotCount: 22,
+          orbitIndex: 6,
+        },
+      ])
+      .returning();
+    await db.insert(discoveredPlanets).values([
+      { userId: user.id, planetId: innerPlanet.id },
+      { userId: user.id, planetId: capitalPlanet.id },
+    ]);
+    await db.insert(buildings).values({
+      planetId: capitalPlanet.id,
+      typeId: "command_center",
+      slotIndex: 0,
+      level: 1,
+    });
+
+    const token = jwt.sign({ userId: user.id }, env.JWT_SECRET, {
+      expiresIn: "30d",
+    });
+    const response = await app.inject({
+      method: "GET",
+      url: "/me",
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.user.planets[0]).toMatchObject({
+      id: capitalPlanet.id,
+      orbitIndex: 6,
+    });
+    expect(
+      body.user.homeSystem.planets.find(
+        (planet: { id: string }) => planet.id === innerPlanet.id,
+      ),
+    ).toMatchObject({ orbitIndex: 1 });
   });
 
   it("updates preferred locale for the active user", async () => {

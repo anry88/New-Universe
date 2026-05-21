@@ -66,6 +66,32 @@ import type { StartOnlineSessionResponse } from "@shared/types/activity.js";
 type UserRow = typeof users.$inferSelect;
 type UpdatePreferencesRequestBody = Partial<UpdatePreferredLocaleRequest> | null;
 
+function normalizedOrbitIndex(planet: { orbitIndex?: number | null }): number {
+  return typeof planet.orbitIndex === "number" && planet.orbitIndex >= 1
+    ? Math.floor(planet.orbitIndex)
+    : Number.MAX_SAFE_INTEGER;
+}
+
+function hasReadyCommandCenter(planet: {
+  buildings?: Array<{ typeId: string; queueAction?: string | null }>;
+}): boolean {
+  return (planet.buildings ?? []).some(
+    (building) =>
+      building.typeId === "command_center" && building.queueAction !== "build",
+  );
+}
+
+function comparePlayerPlanets(a: any, b: any): number {
+  const capitalDelta =
+    Number(hasReadyCommandCenter(b)) - Number(hasReadyCommandCenter(a));
+  if (capitalDelta !== 0) return capitalDelta;
+
+  const orbitDelta = normalizedOrbitIndex(a) - normalizedOrbitIndex(b);
+  if (orbitDelta !== 0) return orbitDelta;
+
+  return String(a.id).localeCompare(String(b.id));
+}
+
 function readBearerToken(request: FastifyRequest): string | null {
   const authHeader = request.headers.authorization;
   return authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
@@ -157,15 +183,10 @@ export async function meRoutes(app: FastifyInstance) {
             with: {
               buildings: true,
             },
-            // Planet ids are random UUIDs, so the default query order is
-            // effectively random. The frontend treats `planets[0]` as the
-            // home/capital planet (e.g. for resource-bar context and the
-            // research lab lookup), and any other planet would surface
-            // wrong totals and break research gating. Planet names follow
-            // the `<tag>-<orbit>` convention (capital is always `-1`),
-            // so an ascending lexical order on `name` always puts the
-            // capital first.
-            orderBy: [asc(planets.name)],
+            // Planet ids are random UUIDs, so keep a stable physical order
+            // from orbit metadata. User-visible names are mutable and must
+            // never affect map or default-settlement ordering.
+            orderBy: [asc(planets.orbitIndex), asc(planets.id)],
           },
         },
       });
@@ -186,6 +207,7 @@ export async function meRoutes(app: FastifyInstance) {
               size: 0,
               slotCount: 0,
               name: "Unknown Planet",
+              orbitIndex: p.orbitIndex,
               isDiscovered: false,
               buildings: [],
             };
@@ -308,7 +330,9 @@ export async function meRoutes(app: FastifyInstance) {
         };
       };
 
-      const homePlanets = (homeSystem?.planets || []).map(markPlanetSettlement);
+      const homePlanets = (homeSystem?.planets || [])
+        .map(markPlanetSettlement)
+        .sort(comparePlayerPlanets);
       const homePlanetIds = new Set(homePlanets.map((planet: any) => planet.id));
       const colonyPlanets = userColonies
         .map((c) => markPlanetSettlement(c.planet))
@@ -394,6 +418,7 @@ export async function meRoutes(app: FastifyInstance) {
         name: planet.name,
         biome: planet.biome,
         size: planet.size,
+        orbitIndex: planet.orbitIndex,
         system: planet.system ?? null,
         buildings: (planet.buildings ?? []).map((building: any) => {
           const typeInfo = building.type ?? buildingTypeMap.get(building.typeId) ?? null;

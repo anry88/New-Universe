@@ -33,6 +33,7 @@ export const planets = pgTable('planets', {
   size: integer('size').notNull(),
   slotCount: integer('slot_count').notNull(),
   name: text('name').notNull(),
+  orbitIndex: integer('orbit_index'),
   /**
    * Per-planet rename counter. First rename is free, subsequent ones cost
    * diamonds. Counter persists across colony ownership changes.

@@ -59,6 +59,7 @@ describe('Home System Generator', () => {
     );
     expect(capital).toBeDefined();
     expect(capital!.biome).toBe('green');
+    expect(capital!.orbitIndex).toBe(6);
   });
 
   it('should guarantee basic resources and tritium distribution', async () => {
@@ -420,14 +421,14 @@ describe('Home System Generator', () => {
 
   it('lays out discovered planets visually from hot inner worlds to cold outer worlds', async () => {
     const planetsForLayout = [
-      { id: 'ice', name: 'x-8', biome: 'ice', size: 26 },
-      { id: 'capital', name: 'x-1', biome: 'green', size: 22 },
-      { id: 'volcanic-a', name: 'x-2', biome: 'volcanic', size: 12 },
-      { id: 'volcanic-b', name: 'x-3', biome: 'volcanic', size: 14 },
-      { id: 'gas', name: 'x-7', biome: 'gas_giant', size: 36 },
-      { id: 'ocean', name: 'x-6', biome: 'ocean', size: 22 },
-      { id: 'rocky-a', name: 'x-4', biome: 'rocky', size: 14 },
-      { id: 'rocky-b', name: 'x-5', biome: 'rocky', size: 15 },
+      { id: 'ice', name: 'x-8', biome: 'ice', size: 26, orbitIndex: 8 },
+      { id: 'capital', name: 'x-1', biome: 'green', size: 22, orbitIndex: 6 },
+      { id: 'volcanic-a', name: 'x-2', biome: 'volcanic', size: 12, orbitIndex: 1 },
+      { id: 'volcanic-b', name: 'x-3', biome: 'volcanic', size: 14, orbitIndex: 2 },
+      { id: 'gas', name: 'x-7', biome: 'gas_giant', size: 36, orbitIndex: 7 },
+      { id: 'ocean', name: 'x-6', biome: 'ocean', size: 22, orbitIndex: 5 },
+      { id: 'rocky-a', name: 'x-4', biome: 'rocky', size: 14, orbitIndex: 3 },
+      { id: 'rocky-b', name: 'x-5', biome: 'rocky', size: 15, orbitIndex: 4 },
     ];
 
     const layouts = buildSystemMapLayouts(planetsForLayout, 123);
@@ -448,7 +449,7 @@ describe('Home System Generator', () => {
       layouts.find((layout) => layout.id === 'ocean')!.orbitRadius,
     );
     const capitalOnlyLayout = buildSystemMapLayouts(
-      [{ id: 'capital', name: 'x-1', biome: 'green', size: 22 }],
+      [{ id: 'capital', name: 'x-1', biome: 'green', size: 22, orbitIndex: 6 }],
       123,
     )[0]!;
     const capitalLayout = layouts.find((layout) => layout.id === 'capital')!;

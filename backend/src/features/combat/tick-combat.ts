@@ -267,6 +267,7 @@ async function loadSystemCombatLayouts(
       name: planets.name,
       biome: planets.biome,
       size: planets.size,
+      orbitIndex: planets.orbitIndex,
     })
     .from(planets)
     .where(inArray(planets.systemId, [...systemsById.keys()]));

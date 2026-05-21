@@ -262,10 +262,11 @@ async function loadKnownDestinationPlanets(
       biome: planets.biome,
       size: planets.size,
       slotCount: planets.slotCount,
+      orbitIndex: planets.orbitIndex,
     })
     .from(planets)
     .where(inArray(planets.systemId, systemIds))
-    .orderBy(planets.systemId, planets.name, planets.id);
+    .orderBy(planets.systemId, planets.orbitIndex, planets.id);
 
   const planetIds = planetRows.map((planet) => planet.id);
   if (planetIds.length === 0) return new Map();
@@ -371,8 +372,9 @@ async function loadKnownDestinationPlanets(
   const summaries = new Map<string, JumpGateDestinationPlanetSummary[]>();
 
   for (const planet of planetRows) {
-    const orbitIndex = (orbitIndexBySystemId.get(planet.systemId) ?? 0) + 1;
-    orbitIndexBySystemId.set(planet.systemId, orbitIndex);
+    const fallbackOrbitIndex = (orbitIndexBySystemId.get(planet.systemId) ?? 0) + 1;
+    const orbitIndex = planet.orbitIndex ?? fallbackOrbitIndex;
+    orbitIndexBySystemId.set(planet.systemId, Math.max(fallbackOrbitIndex, orbitIndex));
 
     const isDiscovered = discoveredPlanetIds.has(planet.id);
     const colonyOwnerId = colonyByPlanetId.get(planet.id);

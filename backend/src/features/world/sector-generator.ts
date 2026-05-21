@@ -334,6 +334,7 @@ export async function generateSystemsInSector(sector: any, targetCount: number =
         size,
         slotCount,
         name: formatPlanetCode(systemShortTag, p + 1),
+        orbitIndex: p + 1,
       }).returning();
 
       const richnessByResource = generateCommonPlanetRichness(

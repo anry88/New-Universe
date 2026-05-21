@@ -224,14 +224,18 @@ export async function generateHomeSystem(userId: string, tx?: any) {
     // (volcanic → ice). The frontend renderer sorts visually by
     // biome-orbit tier, so the *visual* layout still places green in a
     // deeper habitable ring even though it is stored as `-1` in the database.
-    const capitalPlan = biomeOrbitPlan.find((entry) => entry.isCapital)!;
+    const orbitPlanWithSlots = biomeOrbitPlan.map((entry, index) => ({
+      entry,
+      orbitIndex: index + 1,
+    }));
+    const capitalPlan = orbitPlanWithSlots.find((slot) => slot.entry.isCapital)!;
     const insertionPlan = [
       capitalPlan,
-      ...biomeOrbitPlan.filter((entry) => entry !== capitalPlan),
+      ...orbitPlanWithSlots.filter((slot) => slot !== capitalPlan),
     ];
 
     for (let i = 0; i < insertionPlan.length; i++) {
-      const planetPlan = insertionPlan[i]!;
+      const { entry: planetPlan, orbitIndex } = insertionPlan[i]!;
       const biomeType = planetPlan.biome;
       const isCapital = planetPlan.isCapital === true;
       const sizeClass = BIOME_SIZE_CLASS[biomeType];
@@ -251,6 +255,7 @@ export async function generateHomeSystem(userId: string, tx?: any) {
           size,
           slotCount,
           name: formatPlanetCode(shortTag, i + 1),
+          orbitIndex,
         })
         .returning();
 

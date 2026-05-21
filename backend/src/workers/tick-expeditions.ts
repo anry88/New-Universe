@@ -158,6 +158,7 @@ async function discoverHomePlanetsAlongRoute(
       name: planets.name,
       biome: planets.biome,
       size: planets.size,
+      orbitIndex: planets.orbitIndex,
     })
     .from(planets)
     .where(eq(planets.systemId, originSystem.id));
@@ -269,6 +270,7 @@ async function discoverJumpGateDestinationPlanetsAlongRoute(
       name: planets.name,
       biome: planets.biome,
       size: planets.size,
+      orbitIndex: planets.orbitIndex,
     })
     .from(planets)
     .where(eq(planets.systemId, destinationSystem.id));
