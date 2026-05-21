@@ -28,37 +28,38 @@ All event properties pass through `sanitizeAnalyticsEventProperties()` from `sha
 
 ## Event Catalog
 
-| Event | Category | Surface | Safe properties | Notes |
-| --- | --- | --- | --- | --- |
-| `client_session_started` | retention | frontend | `locale`, `path`, `isTelegramEnvironment` | Fired once when the Mini App shell starts. |
-| `session_authenticated` | retention | frontend, backend | `locale`, `tutorialCompleted`, `diamondsBalanceBand` | Backend is canonical for authenticated sessions; frontend is useful for client startup diagnostics. |
-| `page_viewed` | retention | frontend | `path`, `locale` | Routed page views only, no query payloads. |
-| `tutorial_synced` | onboarding | backend | `tutorialStep`, `tutorialCompleted`, `claimedRewardCount` | Progress sync state after server-side detection. |
-| `tutorial_reward_claimed` | onboarding | backend | `stepId`, `rewardGranted`, `rewardDiamonds`, `tutorialCompleted` | One-time tutorial diamond reward claim. |
-| `building_started` | building | backend | `buildingTypeId`, `slotIndex`, `selectedResourceId`, `rushCost` | Construction queue item created. |
-| `building_upgraded` | building | backend | `buildingTypeId`, `fromLevel`, `rushCost` | Upgrade queue item created. |
-| `building_rushed` | building | backend | `diamondsSpent`, `diamondsRemaining` | Existing diamond spend flow, not real-money purchase. |
-| `building_demolished` | building | backend | `refundResourceCount` | Demolition succeeded. |
-| `extractor_resource_changed` | building | backend | `selectedResourceId` | Completed extractor retargeted. |
-| `ship_build_started` | ships | backend | `shipTypeId`, `rushCost` | Ship construction queue item created. |
-| `ship_build_rushed` | ships | backend | `diamondsSpent`, `diamondsRemaining` | Existing diamond rush flow. |
-| `ship_refueled` | ships | backend | `fuel`, `jumpFuel` | Refueler transfer succeeded. |
-| `research_started` | research | backend | `branch`, `level`, `durationSeconds` | Research timer started. |
-| `research_rushed` | research | backend | `branch`, `level`, `diamondsSpent`, `diamondsRemaining` | Existing diamond rush flow. |
-| `expedition_launched` | expeditions | backend | `routeMode`, `hasTargetPlanet`, `fuelRequired`, `jumpFuelRequired` | Ordinary and Jump Gate mission launch. |
-| `expedition_jump_requested` | expeditions | backend | `mode`, `jumpFuelRequired` | Random or known-destination Jump Gate jump accepted. |
-| `cargo_transfer_started` | expeditions | backend | `routeMode`, `resourceLineCount` | Cargo transfer launched. |
-| `resource_conversion_completed` | economy | backend | `fromResourceId`, `toResourceId`, `amount` | Processor conversion succeeded. |
-| `production_started` | economy | backend | `recipeId`, `quantity`, `durationSeconds` | Manual production order started. |
-| `diamond_resource_purchase_quoted` | monetization | backend | `resourceId`, `amount`, `diamondsNeeded`, `unitsPerDiamond` | Existing in-game diamond quote, not Telegram Stars. |
-| `diamond_resource_purchase_completed` | monetization | backend | `resourceId`, `amount`, `diamondsSpent`, `diamondsRemaining` | Existing in-game diamond spend. |
-| `market_order_created` | market | backend | `resourceId`, `orderType`, `amountBand`, `priceBand` | Reserved; no runtime market exists today. |
-| `market_order_filled` | market | backend | `resourceId`, `orderType`, `amountBand`, `priceBand` | Reserved until escrowed market settlement is implemented. |
-| `market_order_cancelled` | market | backend | `resourceId`, `orderType`, `amountBand` | Reserved until market cancellation/refund rules exist. |
-| `stars_diamond_pack_viewed` | monetization | frontend | `packDiamonds`, `priceStars`, `bonusPercentVsPrevious` | Fired when the Stars shop displays configured diamond packs. |
-| `stars_checkout_started` | monetization | frontend, backend | `packDiamonds`, `priceStars` | Fired when a Stars invoice is requested/opened. |
-| `stars_checkout_completed` | monetization | backend | `packDiamonds`, `priceStars` | Fired after Telegram sends `successful_payment` and diamonds are credited once. |
-| `stars_refund_issued` | monetization | backend | `packDiamonds`, `priceStars`, `reasonCode` | Fired after admin-approved `refundStarPayment` succeeds and diamonds are reversed. |
+| Event                                 | Category     | Surface           | Safe properties                                                    | Notes                                                                                               |
+| ------------------------------------- | ------------ | ----------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| `client_session_started`              | retention    | frontend          | `locale`, `path`, `isTelegramEnvironment`                          | Fired once when the Mini App shell starts.                                                          |
+| `session_authenticated`               | retention    | frontend, backend | `locale`, `tutorialCompleted`, `diamondsBalanceBand`               | Backend is canonical for authenticated sessions; frontend is useful for client startup diagnostics. |
+| `page_viewed`                         | retention    | frontend          | `path`, `locale`                                                   | Routed page views only, no query payloads.                                                          |
+| `tutorial_synced`                     | onboarding   | backend           | `tutorialStep`, `tutorialCompleted`, `claimedRewardCount`          | Progress sync state after server-side detection.                                                    |
+| `tutorial_reward_claimed`             | onboarding   | backend           | `stepId`, `rewardGranted`, `rewardDiamonds`, `tutorialCompleted`   | One-time tutorial diamond reward claim.                                                             |
+| `building_started`                    | building     | backend           | `buildingTypeId`, `slotIndex`, `selectedResourceId`, `rushCost`    | Construction queue item created.                                                                    |
+| `building_upgraded`                   | building     | backend           | `buildingTypeId`, `fromLevel`, `rushCost`                          | Upgrade queue item created.                                                                         |
+| `building_rushed`                     | building     | backend           | `diamondsSpent`, `diamondsRemaining`                               | Existing diamond spend flow, not real-money purchase.                                               |
+| `building_demolished`                 | building     | backend           | `refundResourceCount`                                              | Demolition succeeded.                                                                               |
+| `extractor_resource_changed`          | building     | backend           | `selectedResourceId`                                               | Completed extractor retargeted.                                                                     |
+| `ship_build_started`                  | ships        | backend           | `shipTypeId`, `rushCost`                                           | Ship construction queue item created.                                                               |
+| `ship_build_rushed`                   | ships        | backend           | `diamondsSpent`, `diamondsRemaining`                               | Existing diamond rush flow.                                                                         |
+| `ship_refuel_transfer_started`        | ships        | backend           | `fuel`, `jumpFuel`                                                 | Refueler transfer order launched.                                                                   |
+| `ship_refuel_replenish_started`       | ships        | backend           | `targetPlanetId`                                                   | Refueler refill order launched.                                                                     |
+| `research_started`                    | research     | backend           | `branch`, `level`, `durationSeconds`                               | Research timer started.                                                                             |
+| `research_rushed`                     | research     | backend           | `branch`, `level`, `diamondsSpent`, `diamondsRemaining`            | Existing diamond rush flow.                                                                         |
+| `expedition_launched`                 | expeditions  | backend           | `routeMode`, `hasTargetPlanet`, `fuelRequired`, `jumpFuelRequired` | Ordinary and Jump Gate mission launch.                                                              |
+| `expedition_jump_requested`           | expeditions  | backend           | `mode`, `jumpFuelRequired`                                         | Random or known-destination Jump Gate jump accepted.                                                |
+| `cargo_transfer_started`              | expeditions  | backend           | `routeMode`, `resourceLineCount`                                   | Cargo transfer launched.                                                                            |
+| `resource_conversion_completed`       | economy      | backend           | `fromResourceId`, `toResourceId`, `amount`                         | Processor conversion succeeded.                                                                     |
+| `production_started`                  | economy      | backend           | `recipeId`, `quantity`, `durationSeconds`                          | Manual production order started.                                                                    |
+| `diamond_resource_purchase_quoted`    | monetization | backend           | `resourceId`, `amount`, `diamondsNeeded`, `unitsPerDiamond`        | Existing in-game diamond quote, not Telegram Stars.                                                 |
+| `diamond_resource_purchase_completed` | monetization | backend           | `resourceId`, `amount`, `diamondsSpent`, `diamondsRemaining`       | Existing in-game diamond spend.                                                                     |
+| `market_order_created`                | market       | backend           | `resourceId`, `orderType`, `amountBand`, `priceBand`               | Reserved; no runtime market exists today.                                                           |
+| `market_order_filled`                 | market       | backend           | `resourceId`, `orderType`, `amountBand`, `priceBand`               | Reserved until escrowed market settlement is implemented.                                           |
+| `market_order_cancelled`              | market       | backend           | `resourceId`, `orderType`, `amountBand`                            | Reserved until market cancellation/refund rules exist.                                              |
+| `stars_diamond_pack_viewed`           | monetization | frontend          | `packDiamonds`, `priceStars`, `bonusPercentVsPrevious`             | Fired when the Stars shop displays configured diamond packs.                                        |
+| `stars_checkout_started`              | monetization | frontend, backend | `packDiamonds`, `priceStars`                                       | Fired when a Stars invoice is requested/opened.                                                     |
+| `stars_checkout_completed`            | monetization | backend           | `packDiamonds`, `priceStars`                                       | Fired after Telegram sends `successful_payment` and diamonds are credited once.                     |
+| `stars_refund_issued`                 | monetization | backend           | `packDiamonds`, `priceStars`, `reasonCode`                         | Fired after admin-approved `refundStarPayment` succeeds and diamonds are reversed.                  |
 
 ## Local Verification
 
@@ -82,7 +83,9 @@ Manual local sink check:
 2. In the browser console, optionally run:
 
    ```js
-   window.addEventListener('nu:analytics', (event) => console.log(event.detail));
+   window.addEventListener("nu:analytics", (event) =>
+     console.log(event.detail),
+   );
    ```
 
 3. Navigate between pages and log in through the mock Telegram environment.

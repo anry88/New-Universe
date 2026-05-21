@@ -6,7 +6,7 @@ Gate scenario for `P3-COM-012` and roll-up issue [`P3-EPIC-COMBAT`](https://gith
 
 - `backend/tests/e2e/combat-regression.test.ts` exercises the integrated path: Weapons research setup, Military Shipyard construction, light combat ship production, fuel loading, ship combat, orbital bombing, Command Center wipe, and colonization re-check after hostile structures are gone.
 - `backend/src/features/combat/*.test.ts` covers the deterministic combat engine: ship-vs-ship targeting, elapsed-time idempotency, bomber priority, shield absorption/recharge, rocket-carrier missile limits, and abstract Weapons V payload rules.
-- `backend/src/features/ships/refuel.test.ts` covers refuel transfer behavior, including idle/same-planet validation, target tank capacity, separate refueler reserve loading from owned planet stockpiles, source balance rollback, and concurrent transfer serialization so a refueler cannot be overdrawn.
+- `backend/src/features/ships/refuel.test.ts` covers routed refuel transfer behavior, including idle/docked validation, target tank capacity before launch and at arrival, separate refueler reserve loading from owned planet stockpiles, source balance rollback, concurrent transfer serialization so a refueler cannot be overdrawn, and refueler replenish orders.
 - `tools/balance-sim` mirrors combat economy inputs for durability bands, bomber time-to-destroy, fuel/refuel capacity ranges, advanced Common Pool materials, and atomic-reactor energy recipes.
 
 ## Local Verification

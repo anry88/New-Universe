@@ -9,7 +9,12 @@ import type {
   ShipQueueItem,
   ShipType,
 } from "@shared/types/ships";
-import type { RefuelRequest, RefuelResponse } from "@shared/types/refuel";
+import type {
+  RefuelReplenishRequest,
+  RefuelReplenishResponse,
+  RefuelRequest,
+  RefuelResponse,
+} from "@shared/types/refuel";
 
 const MAX_TIMEOUT_MS = 2_147_483_647;
 
@@ -176,6 +181,20 @@ export function useRefuel() {
   return useMutation({
     mutationFn: (body: RefuelRequest) =>
       apiFetch<RefuelResponse>("/ships/refuel", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["me"] });
+    },
+  });
+}
+
+export function useRefuelReplenish() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: RefuelReplenishRequest) =>
+      apiFetch<RefuelReplenishResponse>("/ships/refuel/replenish", {
         method: "POST",
         body: JSON.stringify(body),
       }),
