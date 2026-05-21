@@ -80,14 +80,23 @@ export function OnboardingPage({ onSkip, onContinueToGame, onEnter }: Onboarding
   };
 
   useEffect(() => {
-    const sync = () =>
-      apiFetch('/tutorial/sync', { method: 'POST' })
-        .then(() => refetch())
-        .catch(() => undefined);
+    let active = true;
+
+    const sync = async () => {
+      try {
+        await apiFetch('/tutorial/sync', { method: 'POST' });
+        if (active) {
+          await refetch();
+        }
+      } catch {
+        /* best-effort tutorial progress sync */
+      }
+    };
 
     void sync();
-    const timer = window.setInterval(sync, 7000);
-    return () => window.clearInterval(timer);
+    return () => {
+      active = false;
+    };
   }, [refetch]);
 
   const claimReward = async (stepId: TutorialStepId) => {

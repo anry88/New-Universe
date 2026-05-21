@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { useAuth, useAuthStore } from './hooks/useAuth';
 import { useMe } from './hooks/useMe';
+import { useMeCompletionRefresh } from './hooks/useMeCompletionRefresh';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { I18nProvider, useI18n } from './lib/i18n';
@@ -58,6 +59,7 @@ function AppContent() {
   const authUser = useAuthStore((state) => state.user);
   const authToken = useAuthStore((state) => state.token);
   const { data: meData, isLoading: isMeLoading, error: meError } = useMe();
+  useMeCompletionRefresh(meData, Boolean(authToken));
   const { setLocale, t } = useI18n();
   const [telegramRuntimeAvailable] = useState(hasTelegramAuthLaunchParams);
   const [tutorialHidden, setTutorialHidden] = useState(false);
