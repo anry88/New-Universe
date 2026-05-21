@@ -137,6 +137,10 @@ export function formatActivityTimestamp(now: Date): string {
   return now.toISOString();
 }
 
+export function metricsMachineId(envValues: Record<string, string | undefined> = process.env): string {
+  return envValues.FLY_MACHINE_ID ? normalizeLabelValue(envValues.FLY_MACHINE_ID) : 'local';
+}
+
 export function recordHttpRequest(input: {
   method: string;
   route: string;
@@ -216,6 +220,8 @@ export function formatMetricSamples(samples: MetricSample[]): string {
 }
 
 function appendHttpMetricSamples(samples: MetricSample[]): void {
+  const machineId = metricsMachineId();
+
   for (const counter of httpCounters.values()) {
     samples.push({
       name: 'nu_http_requests_total',
@@ -223,6 +229,7 @@ function appendHttpMetricSamples(samples: MetricSample[]): void {
       type: 'counter',
       value: counter.count,
       labels: {
+        machine_id: machineId,
         method: counter.method,
         route: counter.route,
         status_code: counter.statusCode,
@@ -238,6 +245,7 @@ function appendHttpMetricSamples(samples: MetricSample[]): void {
         type: 'histogram',
         value: duration.bucketCounts[index] ?? 0,
         labels: {
+          machine_id: machineId,
           method: duration.method,
           route: duration.route,
           le: bucket === Number.POSITIVE_INFINITY ? '+Inf' : String(bucket),
@@ -250,6 +258,7 @@ function appendHttpMetricSamples(samples: MetricSample[]): void {
       type: 'histogram',
       value: duration.sum,
       labels: {
+        machine_id: machineId,
         method: duration.method,
         route: duration.route,
       },
@@ -260,6 +269,7 @@ function appendHttpMetricSamples(samples: MetricSample[]): void {
       type: 'histogram',
       value: duration.count,
       labels: {
+        machine_id: machineId,
         method: duration.method,
         route: duration.route,
       },

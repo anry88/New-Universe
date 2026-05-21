@@ -101,8 +101,8 @@ The first day after deployment will undercount play time because registration ba
 | --- | --- | --- |
 | `nu_api_up` | none | API process can render `/metrics`. This is the dashboard and alert signal for API availability, so staging/prod scrape-job label differences do not create false `No data` panels. |
 | `nu_process_uptime_seconds` | none | API process uptime. |
-| `nu_http_requests_total` | `method`, `route`, `status_code` | In-process HTTP request counter since last API restart. |
-| `nu_http_request_duration_seconds_*` | `method`, `route`, `le` | In-process HTTP duration histogram since last API restart. |
+| `nu_http_requests_total` | `machine_id`, `method`, `route`, `status_code` | In-process HTTP request counter since last API restart. `machine_id` comes from Fly's `FLY_MACHINE_ID` and prevents load-balanced `/metrics` scrapes from merging different process counters into one time series. |
+| `nu_http_request_duration_seconds_*` | `machine_id`, `method`, `route`, `le` | In-process HTTP duration histogram since last API restart. `machine_id` keeps histogram buckets separated per API process before Grafana/VictoriaMetrics aggregate them. |
 | `nu_db_available` / `nu_db_ping_seconds` | none | Postgres health from the metrics collector. |
 | `nu_redis_available` / `nu_redis_ping_seconds` | none | Redis health from the metrics collector. |
 | `nu_game_queue_items` | `queue`, `state` | Source-of-truth game work rows grouped by queue and state. Queues: `buildings`, `ships`, `research`, `expeditions`, `notifications`, `production_orders`. |
@@ -110,7 +110,7 @@ The first day after deployment will undercount play time because registration ba
 | `nu_metrics_collection_success` | `collector=database|redis|product_analytics` | Collector health for partial `/metrics` failures. |
 | `nu_product_analytics_cache_age_seconds` | none | Age of the cached product/progression/monetization aggregate payload. |
 
-The p95 latency panel uses a fixed 10-minute histogram rate and connects gaps up to 10 minutes. Closed-alpha traffic can be sparse enough that a short dynamic rate window has no samples; availability and error-rate panels remain the outage signals.
+The p95 latency panel uses a fixed 10-minute histogram rate, keeps `machine_id` and `method` in the query legend, and connects gaps up to 10 minutes. Closed-alpha traffic can be sparse enough that a short dynamic rate window has no samples; availability and error-rate panels remain the outage signals.
 
 ## Alert thresholds
 

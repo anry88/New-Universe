@@ -15,6 +15,7 @@ All notable changes to New Universe will be documented in this file.
 
 ### Fixed
 
+- Локальный багфикс observability: HTTP counters/histograms в `/metrics` получили `machine_id` label, а Grafana API Request Rate и API Latency p95 теперь показывают series по `machine_id/method/route`, чтобы load-balanced scrape общего Fly hostname не склеивал process-local counters разных машин и не рисовал ложные req/s/latency spikes.
 - Критичный багфикс переименования планет: орбиты, координаты карты, route-distance и solar output теперь используют стабильный `orbitIndex`, а не парсят индекс из пользовательского имени планеты.
 - Локальный багфикс клиентского polling: онбординг больше не запускает 7-секундный цикл `POST /tutorial/sync` → `/me`, `useMe()` стал чистым React Query hook без per-consumer таймеров, completion-refetch теперь один на всё приложение, а планетарный `ResourceBar` больше не рефетчит инвентарь при каждом обновлении `/me`.
 - Локальный UI-багфикс переименования: системная карта теперь открывает переименование по тапу на верхнее имя системы, карточка имени не перекрывает кнопку сброса масштаба, диалог переименования находится выше фиксированной нижней панели, а имя планеты снова отображается отдельной строкой под классом.

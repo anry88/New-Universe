@@ -325,12 +325,12 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "sum(rate(nu_http_requests_total[$__rate_interval])) by (route, status_code)",
-          "legendFormat": "{{route}} {{status_code}}",
+          "expr": "sum by (machine_id, method, route, status_code) (rate(nu_http_requests_total[$__rate_interval]))",
+          "legendFormat": "{{machine_id}} {{method}} {{route}} {{status_code}}",
           "refId": "A"
         }
       ],
-      "title": "API Request Rate",
+      "title": "API Request Rate by Machine",
       "type": "timeseries"
     },
     {
@@ -383,12 +383,12 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "histogram_quantile(0.95, sum(rate(nu_http_request_duration_seconds_bucket[10m])) by (le, route))",
-          "legendFormat": "p95 {{route}}",
+          "expr": "histogram_quantile(0.95, sum by (machine_id, method, route, le) (rate(nu_http_request_duration_seconds_bucket[10m])))",
+          "legendFormat": "p95 {{machine_id}} {{method}} {{route}}",
           "refId": "A"
         }
       ],
-      "title": "API Latency p95 (10m)",
+      "title": "API Latency p95 by Machine (10m)",
       "type": "timeseries"
     },
     {
