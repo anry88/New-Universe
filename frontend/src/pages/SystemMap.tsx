@@ -1,11 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useMe } from '../hooks/useMe';
-import { CosmicSystemRenderer } from '../components/cosmic/SystemMap';
-import { ExpeditionDialog } from '../components/ExpeditionDialog';
-import { RefuelDialog } from '../components/RefuelDialog';
-import { CosmicBottomNav } from '../components/cosmic/atoms';
-import { ShipIconBadge } from '../components/cosmic/ships';
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useMe } from "../hooks/useMe";
+import { CosmicSystemRenderer } from "../components/cosmic/SystemMap";
+import { ExpeditionDialog } from "../components/ExpeditionDialog";
+import { RefuelDialog } from "../components/RefuelDialog";
+import { CosmicBottomNav } from "../components/cosmic/atoms";
+import { ShipIconBadge } from "../components/cosmic/ships";
 import {
   AlertTriangle,
   ChevronLeft,
@@ -18,41 +18,44 @@ import {
   Rocket,
   Send,
   X,
-} from 'lucide-react';
-import { RenameEntityDialog } from '../components/RenameEntityDialog';
-import { formatHomeSystemTitleForUser } from '../lib/homeSystemTitle';
-import { useI18n } from '../lib/i18n';
-import { useJumpGateState, useRandomJump } from '../hooks/useJumpGateState';
-import { useShipTypes } from '../hooks/useShips';
+} from "lucide-react";
+import { RenameEntityDialog } from "../components/RenameEntityDialog";
+import { formatHomeSystemTitleForUser } from "../lib/homeSystemTitle";
+import { useI18n } from "../lib/i18n";
+import { useJumpGateState, useRandomJump } from "../hooks/useJumpGateState";
+import { useShipTypes } from "../hooks/useShips";
 import {
   shouldPollSystemTacticalState,
   useSystemTacticalState,
-} from '../hooks/useSystemTacticalState';
+} from "../hooks/useSystemTacticalState";
 import {
   formatCommonSystemDisplayName,
   homeSystemShortTag,
   type HomeNamingLocale,
-} from '@shared/format/homeSystemNaming';
+} from "@shared/format/homeSystemNaming";
 import {
   type ExpeditionRouteMode,
   JUMP_FUEL_RESOURCE_ID,
   JUMP_GATE_JUMP_FUEL_COST,
-} from '@shared/config/expeditionRouting';
-import { SYSTEM_RENAME_DIAMOND_COST } from '@shared/types/entity-rename';
+} from "@shared/config/expeditionRouting";
+import { SYSTEM_RENAME_DIAMOND_COST } from "@shared/types/entity-rename";
 import type {
   JumpGateKnownDestinationSummary,
   JumpGateStateResponse,
-} from '@shared/types/jump-gate';
-import type { Expedition } from '@shared/types/expeditions';
-import type { Ship, ShipType } from '@shared/types/ships';
-import type { HomeSystem, Planet } from '@shared/types/world';
-import { systemMapJumpGatePoint } from '@shared/format/systemMapLayout';
-import { isCargoTransferShipType } from '../lib/fleet';
-import { isShipReadyForOrders } from '../lib/ship-queue';
+} from "@shared/types/jump-gate";
+import type { Expedition } from "@shared/types/expeditions";
+import type { Ship, ShipType } from "@shared/types/ships";
+import type { HomeSystem, Planet } from "@shared/types/world";
+import { systemMapJumpGatePoint } from "@shared/format/systemMapLayout";
+import { isCargoTransferShipType } from "../lib/fleet";
+import { isShipReadyForOrders } from "../lib/ship-queue";
 
-type TFunction = (key: string, params?: Record<string, string | number>) => string;
-const LAST_GALAXY_SYSTEM_STORAGE_KEY = 'nu:last-galaxy-system-id';
-const LAST_GALAXY_HOME_SENTINEL = 'home';
+type TFunction = (
+  key: string,
+  params?: Record<string, string | number>,
+) => string;
+const LAST_GALAXY_SYSTEM_STORAGE_KEY = "nu:last-galaxy-system-id";
+const LAST_GALAXY_HOME_SENTINEL = "home";
 
 function readLastGalaxySystemId(): string | null {
   try {
@@ -81,14 +84,14 @@ interface ReconProbeOption {
 }
 
 function formatDateTime(value: string | null, locale: string) {
-  if (!value) return '';
+  if (!value) return "";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return new Intl.DateTimeFormat(locale === 'ru' ? 'ru-RU' : 'en-US', {
-    month: 'short',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat(locale === "ru" ? "ru-RU" : "en-US", {
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
   }).format(date);
 }
 
@@ -97,43 +100,63 @@ function jumpGateStatusLabel(
   isLoading: boolean,
   t: TFunction,
 ) {
-  if (isLoading) return t('common.processing');
-  if (!state?.unlocked) return t('jumpGate.status.locked');
+  if (isLoading) return t("common.processing");
+  if (!state?.unlocked) return t("jumpGate.status.locked");
   return t(`jumpGate.status.${state.calibration.status}`);
 }
 
-function formatLockedReason(state: JumpGateStateResponse | undefined, t: TFunction) {
-  if (!state?.lockedReason) return t('jumpGate.error.locked');
-  if (state.lockedReason.code === 'jump_drive_required') {
-    return t('jumpGate.locked.jumpDriveRequired', {
+function formatLockedReason(
+  state: JumpGateStateResponse | undefined,
+  t: TFunction,
+) {
+  if (!state?.lockedReason) return t("jumpGate.error.locked");
+  if (state.lockedReason.code === "jump_drive_required") {
+    return t("jumpGate.locked.jumpDriveRequired", {
       level: state.lockedReason.requiredResearch?.level ?? 1,
     });
   }
-  return t('jumpGate.locked.homeSystemMissing');
+  return t("jumpGate.locked.homeSystemMissing");
 }
 
 function formatJumpGateError(message: string, t: TFunction) {
   const normalized = message.toLowerCase();
-  if (normalized.includes('not enough jump_fuel') || normalized.includes('not enough jump fuel')) {
-    return t('jumpGate.error.insufficientJumpFuel');
+  if (
+    normalized.includes("not enough jump_fuel") ||
+    normalized.includes("not enough jump fuel")
+  ) {
+    return t("jumpGate.error.insufficientJumpFuel");
   }
-  if (normalized.includes('jump drive research level 1 required')) return t('jumpGate.locked.jumpDriveRequired', { level: 1 });
-  if (normalized.includes('jump gate is locked')) return t('jumpGate.error.locked');
-  if (normalized.includes('jump gate calibration is still in progress')) return t('jumpGate.random.calibrationInProgress');
-  if (normalized.includes('random_jump_cooldown')) return t('jumpGate.error.randomCooldownShort');
-  if (normalized.includes('random jump is still on cooldown')) return t('jumpGate.error.randomCooldownShort');
-  if (normalized.includes('random discovery limit reached')) return t('jumpGate.error.randomDiscoveryLimit');
-  if (normalized.includes('ship state changed')) return t('jumpGate.error.shipChanged');
-  if (normalized.includes('recon probe')) return t('jumpGate.error.noJumpShip');
-  return message.includes('_') ? t('jumpGate.error.unavailable') : message;
+  if (normalized.includes("jump drive research level 1 required"))
+    return t("jumpGate.locked.jumpDriveRequired", { level: 1 });
+  if (normalized.includes("jump gate is locked"))
+    return t("jumpGate.error.locked");
+  if (normalized.includes("jump gate calibration is still in progress"))
+    return t("jumpGate.random.calibrationInProgress");
+  if (normalized.includes("random_jump_cooldown"))
+    return t("jumpGate.error.randomCooldownShort");
+  if (normalized.includes("random jump is still on cooldown"))
+    return t("jumpGate.error.randomCooldownShort");
+  if (normalized.includes("random discovery limit reached"))
+    return t("jumpGate.error.randomDiscoveryLimit");
+  if (normalized.includes("ship state changed"))
+    return t("jumpGate.error.shipChanged");
+  if (normalized.includes("recon probe")) return t("jumpGate.error.noJumpShip");
+  return message.includes("_") ? t("jumpGate.error.unavailable") : message;
 }
 
 function destinationCounts(destination: JumpGateKnownDestinationSummary) {
-  const discovered = destination.planets.filter((planet) => planet.isDiscovered).length;
-  const colonies = destination.planets.filter((planet) => planet.isOwnedColony).length;
-  const unknown = destination.planets.filter((planet) => !planet.isDiscovered).length;
+  const discovered = destination.planets.filter(
+    (planet) => planet.isDiscovered,
+  ).length;
+  const colonies = destination.planets.filter(
+    (planet) => planet.isOwnedColony,
+  ).length;
+  const unknown = destination.planets.filter(
+    (planet) => !planet.isDiscovered,
+  ).length;
   const colonizerTargets = destination.planets.filter(
-    (planet) => planet.isDiscovered && !planet.isColonized && !planet.isOwnedColony,
+    (planet) =>
+      planet.isDiscovered && !planet.isColonized && !planet.isOwnedColony,
   ).length;
   return { discovered, colonies, unknown, colonizerTargets };
 }
@@ -142,8 +165,11 @@ function destinationOwnedColony(destination: JumpGateKnownDestinationSummary) {
   return destination.planets.find((planet) => planet.isOwnedColony) ?? null;
 }
 
-function commonSystemDisplayName(destination: JumpGateKnownDestinationSummary, locale: string) {
-  const namingLocale: HomeNamingLocale = locale === 'ru' ? 'ru' : 'en';
+function commonSystemDisplayName(
+  destination: JumpGateKnownDestinationSummary,
+  locale: string,
+) {
+  const namingLocale: HomeNamingLocale = locale === "ru" ? "ru" : "en";
   return formatCommonSystemDisplayName(
     namingLocale,
     destination.shortTag ?? homeSystemShortTag(destination.systemId),
@@ -161,13 +187,16 @@ function destinationSystemDisplayName(
   return commonSystemDisplayName(destination, locale);
 }
 
-function destinationToSystem(destination: JumpGateKnownDestinationSummary, locale: string): HomeSystem {
+function destinationToSystem(
+  destination: JumpGateKnownDestinationSummary,
+  locale: string,
+): HomeSystem {
   const planets: Planet[] = destination.planets
     .filter((planet) => planet.isDiscovered)
     .map((planet) => ({
       id: planet.id,
       systemId: planet.systemId,
-      biome: planet.biome ?? 'unknown',
+      biome: planet.biome ?? "unknown",
       size: planet.size ?? 10,
       slotCount: planet.slotCount ?? 0,
       name: planet.name ?? `#${planet.orbitIndex}`,
@@ -182,7 +211,7 @@ function destinationToSystem(destination: JumpGateKnownDestinationSummary, local
 
   return {
     id: destination.systemId,
-    ownerId: '',
+    ownerId: "",
     isHome: false,
     sectorX: destination.sector.x,
     sectorY: destination.sector.y,
@@ -215,7 +244,7 @@ export function SystemMapPage() {
   const { locale, t } = useI18n();
   const [isGatePanelOpen, setIsGatePanelOpen] = useState(false);
   const [isSystemSelectorOpen, setIsSystemSelectorOpen] = useState(false);
-  const [randomJumpShipId, setRandomJumpShipId] = useState('');
+  const [randomJumpShipId, setRandomJumpShipId] = useState("");
   const [gateError, setGateError] = useState<string | null>(null);
   const [gateNotice, setGateNotice] = useState<string | null>(null);
   const [lastStoredSystemId, setLastStoredSystemId] = useState(() =>
@@ -223,19 +252,24 @@ export function SystemMapPage() {
   );
   const [missionShip, setMissionShip] = useState<Ship | null>(null);
   const [refuelingShip, setRefuelingShip] = useState<Ship | null>(null);
+  const [refuelMode, setRefuelMode] = useState<"transfer" | "replenish">(
+    "transfer",
+  );
   const [isRenameSystemOpen, setIsRenameSystemOpen] = useState(false);
 
   const home = meData?.homeSystem ?? null;
   const knownDestinations = jumpGateState?.knownDestinations ?? [];
-  const selectedSystemId = searchParams.get('systemId');
+  const selectedSystemId = searchParams.get("systemId");
   const selectedDestination = useMemo(
     () =>
-      knownDestinations.find((destination) => destination.systemId === selectedSystemId) ??
-      null,
+      knownDestinations.find(
+        (destination) => destination.systemId === selectedSystemId,
+      ) ?? null,
     [knownDestinations, selectedSystemId],
   );
   const renderedSystem = useMemo<HomeSystem | null>(() => {
-    if (selectedDestination) return destinationToSystem(selectedDestination, locale);
+    if (selectedDestination)
+      return destinationToSystem(selectedDestination, locale);
     return home;
   }, [home, locale, selectedDestination]);
   const { data: tacticalState } = useSystemTacticalState(renderedSystem?.id);
@@ -264,9 +298,9 @@ export function SystemMapPage() {
       (meData?.expeditions ?? [])
         .filter(
           (expedition) =>
-            expedition.status === 'in_flight' ||
-            expedition.status === 'returning' ||
-            expedition.status === 'stationed',
+            expedition.status === "in_flight" ||
+            expedition.status === "returning" ||
+            expedition.status === "stationed",
         )
         .map((expedition) => [expedition.shipId, expedition]),
     );
@@ -274,7 +308,8 @@ export function SystemMapPage() {
   const homeCapital = useMemo(
     () =>
       meData?.planets?.find(
-        (planet) => planet.systemId === home?.id && planet.isColonized !== false,
+        (planet) =>
+          planet.systemId === home?.id && planet.isColonized !== false,
       ) ??
       meData?.planets?.find((planet) => planet.isColonized !== false) ??
       null,
@@ -282,18 +317,27 @@ export function SystemMapPage() {
   );
   const reconProbeOptions = useMemo<ReconProbeOption[]>(() => {
     const typeById = new Map((shipTypes ?? []).map((type) => [type.id, type]));
-    const planetById = new Map((meData?.planets ?? []).map((planet) => [planet.id, planet]));
+    const planetById = new Map(
+      (meData?.planets ?? []).map((planet) => [planet.id, planet]),
+    );
 
     return (meData?.ships ?? []).flatMap((ship) => {
       const type = typeById.get(ship.typeId);
-      const supportsRandomJump = ship.typeId === 'recon_probe' || type?.role === 'exploration';
-      if (!supportsRandomJump || ship.status !== 'idle' || !ship.locationPlanetId) return [];
+      const supportsRandomJump =
+        ship.typeId === "recon_probe" || type?.role === "exploration";
+      if (
+        !supportsRandomJump ||
+        ship.status !== "idle" ||
+        !ship.locationPlanetId
+      )
+        return [];
 
       const planet = planetById.get(ship.locationPlanetId);
       const jumpFuelAvailable = Math.floor(
         Number(
-          planet?.resources?.find((resource) => resource.resourceId === JUMP_FUEL_RESOURCE_ID)?.amount ??
-            0,
+          planet?.resources?.find(
+            (resource) => resource.resourceId === JUMP_FUEL_RESOURCE_ID,
+          )?.amount ?? 0,
         ),
       );
 
@@ -301,7 +345,7 @@ export function SystemMapPage() {
         {
           ship,
           type,
-          planetName: planet?.name ?? t('common.unknown'),
+          planetName: planet?.name ?? t("common.unknown"),
           jumpFuelAvailable,
         },
       ];
@@ -312,68 +356,75 @@ export function SystemMapPage() {
     reconProbeOptions[0] ??
     null;
   const missionShipType = missionShip
-    ? shipTypes?.find((type) => type.id === missionShip.typeId) ?? null
+    ? (shipTypes?.find((type) => type.id === missionShip.typeId) ?? null)
     : null;
   const missionShipExpedition = missionShip
-    ? activeExpeditionByShipId.get(missionShip.id) ?? null
+    ? (activeExpeditionByShipId.get(missionShip.id) ?? null)
     : null;
   const missionShipSupportsJumpGate =
-    Boolean(missionShipType) && missionShipType?.role !== 'logistics';
+    Boolean(missionShipType) && missionShipType?.role !== "logistics";
   const missionInitialRouteMode: ExpeditionRouteMode =
-    missionShipExpedition?.status === 'stationed'
-      ? 'jump_gate'
+    missionShipExpedition?.status === "stationed"
+      ? "jump_gate"
       : selectedDestination && missionShipSupportsJumpGate
-        ? 'jump_gate'
-        : 'local';
+        ? "jump_gate"
+        : "local";
   const missionInitialDestinationSystemId =
-    missionShipExpedition?.status === 'stationed'
-      ? typeof missionShipExpedition.result?.destinationSystemId === 'string'
+    missionShipExpedition?.status === "stationed"
+      ? typeof missionShipExpedition.result?.destinationSystemId === "string"
         ? missionShipExpedition.result.destinationSystemId
-        : selectedDestination?.systemId ?? null
+        : (selectedDestination?.systemId ?? null)
       : selectedDestination && missionShipSupportsJumpGate
         ? selectedDestination.systemId
         : null;
   const refuelingShipType = refuelingShip
-    ? shipTypes?.find((type) => type.id === refuelingShip.typeId) ?? null
+    ? (shipTypes?.find((type) => type.id === refuelingShip.typeId) ?? null)
     : null;
   const randomJumpBlockedReason = useMemo(() => {
-    if (jumpGateLoading) return t('common.processing');
-    if (!jumpGateState) return t('jumpGate.error.loadFailed');
+    if (jumpGateLoading) return t("common.processing");
+    if (!jumpGateState) return t("jumpGate.error.loadFailed");
     if (!jumpGateState.unlocked) return formatLockedReason(jumpGateState, t);
-    if (jumpGateState.calibration.status === 'calibrating') {
-      return t('jumpGate.random.calibrationInProgress');
+    if (jumpGateState.calibration.status === "calibrating") {
+      return t("jumpGate.random.calibrationInProgress");
     }
     if (!jumpGateState.randomJumpAvailability.available) {
       if (
-        jumpGateState.randomJumpAvailability.blockedCode === 'random_jump_cooldown' &&
+        jumpGateState.randomJumpAvailability.blockedCode ===
+          "random_jump_cooldown" &&
         jumpGateState.randomJumpAvailability.readyAt
       ) {
-        return t('jumpGate.error.randomCooldown', {
-          time: formatDateTime(jumpGateState.randomJumpAvailability.readyAt, locale),
+        return t("jumpGate.error.randomCooldown", {
+          time: formatDateTime(
+            jumpGateState.randomJumpAvailability.readyAt,
+            locale,
+          ),
         });
       }
-      return t('jumpGate.error.unavailable');
+      return t("jumpGate.error.unavailable");
     }
-    if (!selectedReconProbe) return t('jumpGate.error.noJumpShip');
+    if (!selectedReconProbe) return t("jumpGate.error.noJumpShip");
     if (selectedReconProbe.jumpFuelAvailable < JUMP_GATE_JUMP_FUEL_COST) {
-      return t('jumpGate.error.insufficientJumpFuel');
+      return t("jumpGate.error.insufficientJumpFuel");
     }
     return null;
   }, [jumpGateLoading, jumpGateState, locale, selectedReconProbe, t]);
 
   useEffect(() => {
     if (reconProbeOptions.length === 0) {
-      if (randomJumpShipId) setRandomJumpShipId('');
+      if (randomJumpShipId) setRandomJumpShipId("");
       return;
     }
-    if (!reconProbeOptions.some((option) => option.ship.id === randomJumpShipId)) {
+    if (
+      !reconProbeOptions.some((option) => option.ship.id === randomJumpShipId)
+    ) {
       setRandomJumpShipId(reconProbeOptions[0].ship.id);
     }
   }, [reconProbeOptions, randomJumpShipId]);
 
   useEffect(() => {
     if (selectedSystemId || !jumpGateState) return;
-    if (!lastStoredSystemId || lastStoredSystemId === LAST_GALAXY_HOME_SENTINEL) return;
+    if (!lastStoredSystemId || lastStoredSystemId === LAST_GALAXY_HOME_SENTINEL)
+      return;
     const known = knownDestinations.some(
       (destination) => destination.systemId === lastStoredSystemId,
     );
@@ -409,27 +460,40 @@ export function SystemMapPage() {
     setGateError(null);
     setGateNotice(null);
     if (randomJumpBlockedReason || !selectedReconProbe) {
-      setGateError(randomJumpBlockedReason ?? t('jumpGate.error.noJumpShip'));
+      setGateError(randomJumpBlockedReason ?? t("jumpGate.error.noJumpShip"));
       return;
     }
 
     try {
-      const result = await randomJump.mutateAsync({ shipId: selectedReconProbe.ship.id });
+      const result = await randomJump.mutateAsync({
+        shipId: selectedReconProbe.ship.id,
+      });
       setGateNotice(
-        t('jumpGate.random.launched', {
+        t("jumpGate.random.launched", {
           time: formatDateTime(result.queueItem.completesAt, locale),
         }),
       );
     } catch (err) {
-      setGateError(formatJumpGateError(err instanceof Error ? err.message : String(err), t));
+      setGateError(
+        formatJumpGateError(
+          err instanceof Error ? err.message : String(err),
+          t,
+        ),
+      );
     }
   };
 
-  const openDestinationFleet = (destination: JumpGateKnownDestinationSummary) => {
-    navigate(`/ships?route=jump_gate&destinationSystemId=${encodeURIComponent(destination.systemId)}`);
+  const openDestinationFleet = (
+    destination: JumpGateKnownDestinationSummary,
+  ) => {
+    navigate(
+      `/ships?route=jump_gate&destinationSystemId=${encodeURIComponent(destination.systemId)}`,
+    );
   };
 
-  const openDestinationCargo = (destination: JumpGateKnownDestinationSummary) => {
+  const openDestinationCargo = (
+    destination: JumpGateKnownDestinationSummary,
+  ) => {
     const colony = destinationOwnedColony(destination);
     if (!homeCapital || !colony) return;
     navigate(
@@ -437,7 +501,9 @@ export function SystemMapPage() {
     );
   };
 
-  const openDestinationSector = (destination: JumpGateKnownDestinationSummary) => {
+  const openDestinationSector = (
+    destination: JumpGateKnownDestinationSummary,
+  ) => {
     persistLastGalaxySystemId(destination.systemId);
     setLastStoredSystemId(destination.systemId);
     setSearchParams({ systemId: destination.systemId });
@@ -459,26 +525,39 @@ export function SystemMapPage() {
       return;
     }
 
-    if (ship.typeId === 'recon_probe') {
+    if (ship.typeId === "recon_probe") {
       setIsGatePanelOpen(true);
       return;
     }
 
-    if (ship.typeId === 'refueler' && isShipReadyForOrders(ship)) {
+    if (ship.typeId === "refueler" && isShipReadyForOrders(ship)) {
+      setRefuelMode("transfer");
       setRefuelingShip(ship);
       return;
     }
 
-    if (activeExpedition?.status === 'stationed' || isShipReadyForOrders(ship)) {
+    if (
+      activeExpedition?.status === "stationed" ||
+      isShipReadyForOrders(ship)
+    ) {
       setMissionShip(ship);
     }
   };
 
   if (isLoading) {
     return (
-      <div className="cosmic-screen" style={{ '--accent': '#5BD7FF', display: 'grid', placeItems: 'center' } as React.CSSProperties}>
+      <div
+        className="cosmic-screen"
+        style={
+          {
+            "--accent": "#5BD7FF",
+            display: "grid",
+            placeItems: "center",
+          } as React.CSSProperties
+        }
+      >
         <div className="qstrip-bar" style={{ width: 80 }}>
-          <div className="qstrip-fill" style={{ width: '60%' }} />
+          <div className="qstrip-fill" style={{ width: "60%" }} />
         </div>
       </div>
     );
@@ -486,16 +565,25 @@ export function SystemMapPage() {
 
   if (!meData?.homeSystem) {
     return (
-      <div className="cosmic-screen" style={{ '--accent': '#5BD7FF', display: 'grid', placeItems: 'center' } as React.CSSProperties}>
-        <div style={{ textAlign: 'center', color: 'var(--text-dim)' }}>
-          <p style={{ marginBottom: 16 }}>{t('map.noHome')}</p>
+      <div
+        className="cosmic-screen"
+        style={
+          {
+            "--accent": "#5BD7FF",
+            display: "grid",
+            placeItems: "center",
+          } as React.CSSProperties
+        }
+      >
+        <div style={{ textAlign: "center", color: "var(--text-dim)" }}>
+          <p style={{ marginBottom: 16 }}>{t("map.noHome")}</p>
           <button
             type="button"
-            onClick={() => navigate('/')}
+            onClick={() => navigate("/")}
             className="cosmic-cta"
-            style={{ padding: '8px 14px' }}
+            style={{ padding: "8px 14px" }}
           >
-            {t('common.goBack')}
+            {t("common.goBack")}
           </button>
         </div>
       </div>
@@ -508,34 +596,41 @@ export function SystemMapPage() {
     ? destinationSystemDisplayName(selectedDestination, locale)
     : formatHomeSystemTitleForUser(meData);
   const activeOwnedColonyCount = (meData.planets ?? []).filter(
-    (planet) => planet.systemId === activeSystem.id && planet.isColonized !== false,
+    (planet) =>
+      planet.systemId === activeSystem.id && planet.isColonized !== false,
   ).length;
   const activeForeignColonyCount =
     activeSystem.planets?.filter(
       (planet) => planet.isColonized === true && planet.isOwnedColony === false,
     ).length ?? 0;
-  const canRenameActiveSystem = activeOwnedColonyCount > 0 && activeForeignColonyCount === 0;
+  const canRenameActiveSystem =
+    activeOwnedColonyCount > 0 && activeForeignColonyCount === 0;
 
   return (
-    <div className="cosmic-screen" style={{ '--accent': '#5BD7FF', position: 'relative' } as React.CSSProperties}>
+    <div
+      className="cosmic-screen"
+      style={
+        { "--accent": "#5BD7FF", position: "relative" } as React.CSSProperties
+      }
+    >
       {/* Header overlay */}
       <div
         style={{
-          position: 'absolute',
+          position: "absolute",
           top: 0,
           left: 0,
           right: 0,
           zIndex: 10,
-          padding: '14px 16px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          pointerEvents: 'none',
+          padding: "14px 16px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          pointerEvents: "none",
         }}
       >
         <button
           type="button"
-          aria-label={t('common.back')}
+          aria-label={t("common.back")}
           onClick={() => {
             if (isViewingDestination) {
               persistLastGalaxySystemId(null);
@@ -543,16 +638,16 @@ export function SystemMapPage() {
               setSearchParams({});
               return;
             }
-            navigate('/');
+            navigate("/");
           }}
           style={{
             padding: 8,
             borderRadius: 999,
-            background: 'rgba(14,20,36,0.85)',
-            border: '1px solid var(--line)',
-            backdropFilter: 'blur(8px)',
-            color: 'var(--text)',
-            pointerEvents: 'auto',
+            background: "rgba(14,20,36,0.85)",
+            border: "1px solid var(--line)",
+            backdropFilter: "blur(8px)",
+            color: "var(--text)",
+            pointerEvents: "auto",
           }}
         >
           <ChevronLeft size={20} />
@@ -561,79 +656,86 @@ export function SystemMapPage() {
         <button
           type="button"
           disabled={!canRenameActiveSystem}
-          aria-label={t('rename.system.title')}
-          title={canRenameActiveSystem ? t('rename.system.title') : undefined}
+          aria-label={t("rename.system.title")}
+          title={canRenameActiveSystem ? t("rename.system.title") : undefined}
           onClick={() => {
             if (canRenameActiveSystem) setIsRenameSystemOpen(true);
           }}
           style={{
-            background: 'rgba(14,20,36,0.85)',
-            border: '1px solid var(--line)',
+            background: "rgba(14,20,36,0.85)",
+            border: "1px solid var(--line)",
             borderRadius: 12,
-            padding: '8px 14px',
-            backdropFilter: 'blur(8px)',
-            pointerEvents: 'auto',
-            textAlign: 'center',
-            flex: '0 1 min(54vw, 360px)',
-            maxWidth: 'min(54vw, 360px)',
+            padding: "8px 14px",
+            backdropFilter: "blur(8px)",
+            pointerEvents: "auto",
+            textAlign: "center",
+            flex: "0 1 min(54vw, 360px)",
+            maxWidth: "min(54vw, 360px)",
             minWidth: 0,
-            margin: '0 8px',
-            color: 'var(--text)',
-            cursor: canRenameActiveSystem ? 'pointer' : 'default',
+            margin: "0 8px",
+            color: "var(--text)",
+            cursor: canRenameActiveSystem ? "pointer" : "default",
           }}
         >
           <div
             style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
               gap: 6,
-              maxWidth: '100%',
-              fontFamily: 'var(--font-display)',
+              maxWidth: "100%",
+              fontFamily: "var(--font-display)",
               fontWeight: 600,
               fontSize: 13,
               lineHeight: 1.2,
-              color: 'var(--text)',
+              color: "var(--text)",
             }}
           >
-            <span style={{ overflowWrap: 'anywhere' }}>{activeSystemTitle}</span>
-            {canRenameActiveSystem ? <Pencil size={12} aria-hidden="true" /> : null}
+            <span style={{ overflowWrap: "anywhere" }}>
+              {activeSystemTitle}
+            </span>
+            {canRenameActiveSystem ? (
+              <Pencil size={12} aria-hidden="true" />
+            ) : null}
           </div>
           <div
             style={{
-              fontFamily: 'var(--font-mono)',
+              fontFamily: "var(--font-mono)",
               fontSize: 9,
-              letterSpacing: '0.18em',
-              color: 'var(--text-faint)',
+              letterSpacing: "0.18em",
+              color: "var(--text-faint)",
               marginTop: 2,
             }}
           >
-            {t('map.sector').toUpperCase()} {activeSystem.sectorX}:{activeSystem.sectorY}:{activeSystem.sectorZ}
+            {t("map.sector").toUpperCase()} {activeSystem.sectorX}:
+            {activeSystem.sectorY}:{activeSystem.sectorZ}
           </div>
         </button>
 
         <button
           type="button"
           disabled={!canSelectSector}
-          title={!canSelectSector ? t('map.sectorLocked') : undefined}
+          title={!canSelectSector ? t("map.sectorLocked") : undefined}
           onClick={() => {
             if (!canSelectSector) return;
             setIsSystemSelectorOpen(true);
           }}
           style={{
-            pointerEvents: 'auto',
+            pointerEvents: "auto",
             borderRadius: 10,
-            border: '1px solid var(--line)',
-            background: canSelectSector ? 'rgba(14,20,36,0.85)' : 'rgba(30,41,59,0.72)',
-            color: canSelectSector ? 'var(--accent)' : 'var(--text-faint)',
+            border: "1px solid var(--line)",
+            background: canSelectSector
+              ? "rgba(14,20,36,0.85)"
+              : "rgba(30,41,59,0.72)",
+            color: canSelectSector ? "var(--accent)" : "var(--text-faint)",
             fontSize: 11,
-            fontFamily: 'var(--font-mono)',
-            padding: '8px 10px',
-            backdropFilter: 'blur(8px)',
-            cursor: canSelectSector ? 'pointer' : 'not-allowed',
+            fontFamily: "var(--font-mono)",
+            padding: "8px 10px",
+            backdropFilter: "blur(8px)",
+            cursor: canSelectSector ? "pointer" : "not-allowed",
           }}
         >
-          {t('map.sector')}
+          {t("map.sector")}
         </button>
       </div>
 
@@ -643,13 +745,13 @@ export function SystemMapPage() {
           when the parent flex container measures awkwardly. */}
       <div
         style={{
-          flex: '1 1 auto',
-          position: 'relative',
+          flex: "1 1 auto",
+          position: "relative",
           minHeight: 0,
-          width: '100%',
+          width: "100%",
           // Reserve space for the bottom nav (~64px) so the renderer doesn't
           // hide behind it on short viewports.
-          height: 'calc(100vh - 64px)',
+          height: "calc(100vh - 64px)",
         }}
       >
         <CosmicSystemRenderer
@@ -662,17 +764,23 @@ export function SystemMapPage() {
               ? tacticalState.fleetContacts
               : []
           }
-          fleetContactsAuthoritative={tacticalState?.systemId === activeSystem.id}
+          fleetContactsAuthoritative={
+            tacticalState?.systemId === activeSystem.id
+          }
           onPlanetClick={(planet) => navigate(`/planet/${planet.id}`)}
-          onColonizeClick={() => navigate('/ships')}
+          onColonizeClick={() => navigate("/ships")}
           ownedPlanetIds={ownedPlanetIds}
           jumpGate={{
-            unlocked: selectedDestination ? true : Boolean(jumpGateState?.unlocked),
+            unlocked: selectedDestination
+              ? true
+              : Boolean(jumpGateState?.unlocked),
             statusLabel: selectedDestination
-              ? t('jumpGate.destination.portal')
+              ? t("jumpGate.destination.portal")
               : jumpGateStatusLabel(jumpGateState, jumpGateLoading, t),
             onClick: () => setIsGatePanelOpen(true),
-            position: selectedDestination ? systemMapJumpGatePoint() : undefined,
+            position: selectedDestination
+              ? systemMapJumpGatePoint()
+              : undefined,
           }}
           minimumOrbitCount={selectedDestination?.planetCount}
           showOrbitRings={true}
@@ -742,7 +850,9 @@ export function SystemMapPage() {
         />
       ) : null}
 
-      {missionShip && missionShipType && !isCargoTransferShipType(missionShipType) ? (
+      {missionShip &&
+      missionShipType &&
+      !isCargoTransferShipType(missionShipType) ? (
         <ExpeditionDialog
           ship={missionShip}
           shipType={missionShipType}
@@ -752,7 +862,7 @@ export function SystemMapPage() {
           initialRouteMode={missionInitialRouteMode}
           initialDestinationSystemId={missionInitialDestinationSystemId}
           stationedExpedition={
-            missionShipExpedition?.status === 'stationed'
+            missionShipExpedition?.status === "stationed"
               ? missionShipExpedition
               : null
           }
@@ -769,9 +879,15 @@ export function SystemMapPage() {
               (planet) => planet.id === refuelingShip.locationPlanetId,
             ) ?? null
           }
+          system={activeSystem}
+          planets={meData.planets ?? []}
           allShips={meData.ships ?? []}
           allShipTypes={shipTypes ?? []}
-          onClose={() => setRefuelingShip(null)}
+          initialMode={refuelMode}
+          onClose={() => {
+            setRefuelingShip(null);
+            setRefuelMode("transfer");
+          }}
         />
       ) : null}
 
@@ -806,47 +922,55 @@ function SystemSelectorPanel({
   return (
     <div
       style={{
-        position: 'absolute',
+        position: "absolute",
         left: 12,
         right: 12,
         top: 78,
         zIndex: 35,
-        maxHeight: 'min(58dvh, 520px)',
-        overflowY: 'auto',
-        border: '1px solid rgba(91,215,255,0.28)',
+        maxHeight: "min(58dvh, 520px)",
+        overflowY: "auto",
+        border: "1px solid rgba(91,215,255,0.28)",
         borderRadius: 12,
-        background: 'linear-gradient(180deg, rgba(8,12,22,0.97), rgba(10,18,32,0.95))',
-        boxShadow: '0 22px 70px rgba(0,0,0,0.42)',
-        backdropFilter: 'blur(14px)',
+        background:
+          "linear-gradient(180deg, rgba(8,12,22,0.97), rgba(10,18,32,0.95))",
+        boxShadow: "0 22px 70px rgba(0,0,0,0.42)",
+        backdropFilter: "blur(14px)",
         padding: 12,
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          gap: 12,
+          alignItems: "center",
+        }}
+      >
         <div style={{ minWidth: 0 }}>
           <div
             style={{
-              fontFamily: 'var(--font-mono)',
-              color: 'var(--accent)',
+              fontFamily: "var(--font-mono)",
+              color: "var(--accent)",
               fontSize: 10,
-              letterSpacing: '0.14em',
+              letterSpacing: "0.14em",
               fontWeight: 800,
             }}
           >
-            {t('map.systemSelector.tag').toUpperCase()}
+            {t("map.systemSelector.tag").toUpperCase()}
           </div>
-          <div style={{ color: 'var(--text)', fontWeight: 900, fontSize: 15 }}>
-            {t('map.systemSelector.title')}
+          <div style={{ color: "var(--text)", fontWeight: 900, fontSize: 15 }}>
+            {t("map.systemSelector.title")}
           </div>
         </div>
         <button
           type="button"
           onClick={onClose}
-          aria-label={t('common.close')}
+          aria-label={t("common.close")}
           style={{
-            border: '1px solid var(--line)',
+            border: "1px solid var(--line)",
             borderRadius: 999,
-            background: 'rgba(14,20,36,0.86)',
-            color: 'var(--text-dim)',
+            background: "rgba(14,20,36,0.86)",
+            color: "var(--text-dim)",
             padding: 8,
           }}
         >
@@ -854,29 +978,60 @@ function SystemSelectorPanel({
         </button>
       </div>
 
-      <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
+      <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
         <button
           type="button"
           onClick={onSelectHome}
           style={{
-            textAlign: 'left',
+            textAlign: "left",
             borderRadius: 10,
-            border: selectedSystemId === null ? '1px solid var(--accent)' : '1px solid rgba(148,163,184,0.22)',
-            background: selectedSystemId === null ? 'rgba(91,215,255,0.14)' : 'rgba(5,8,17,0.74)',
-            color: 'var(--text)',
-            padding: '10px 11px',
+            border:
+              selectedSystemId === null
+                ? "1px solid var(--accent)"
+                : "1px solid rgba(148,163,184,0.22)",
+            background:
+              selectedSystemId === null
+                ? "rgba(91,215,255,0.14)"
+                : "rgba(5,8,17,0.74)",
+            color: "var(--text)",
+            padding: "10px 11px",
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-            <span style={{ fontWeight: 900, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              gap: 10,
+            }}
+          >
+            <span
+              style={{
+                fontWeight: 900,
+                fontSize: 13,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
               {homeLabel}
             </span>
-            <span style={{ color: 'var(--text-faint)', fontFamily: 'var(--font-mono)', fontSize: 10 }}>
+            <span
+              style={{
+                color: "var(--text-faint)",
+                fontFamily: "var(--font-mono)",
+                fontSize: 10,
+              }}
+            >
               [{homeSector[0]}, {homeSector[1]}, {homeSector[2]}]
             </span>
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-            <GateBadge icon={<Compass size={12} />} text={t('map.systemSelector.home')} />
+          <div
+            style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}
+          >
+            <GateBadge
+              icon={<Compass size={12} />}
+              text={t("map.systemSelector.home")}
+            />
           </div>
         </button>
         {destinations.map((destination) => {
@@ -889,33 +1044,78 @@ function SystemSelectorPanel({
               type="button"
               onClick={() => onSelect(destination)}
               style={{
-                textAlign: 'left',
+                textAlign: "left",
                 borderRadius: 10,
-                border: active ? '1px solid var(--accent)' : '1px solid rgba(148,163,184,0.22)',
-                background: active ? 'rgba(91,215,255,0.14)' : 'rgba(5,8,17,0.74)',
-                color: 'var(--text)',
-                padding: '10px 11px',
+                border: active
+                  ? "1px solid var(--accent)"
+                  : "1px solid rgba(148,163,184,0.22)",
+                background: active
+                  ? "rgba(91,215,255,0.14)"
+                  : "rgba(5,8,17,0.74)",
+                color: "var(--text)",
+                padding: "10px 11px",
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-                <span style={{ fontWeight: 900, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 10,
+                }}
+              >
+                <span
+                  style={{
+                    fontWeight: 900,
+                    fontSize: 13,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
                   {systemName}
                 </span>
-                <span style={{ color: 'var(--text-faint)', fontFamily: 'var(--font-mono)', fontSize: 10 }}>
-                  [{destination.sector.x}, {destination.sector.y}, {destination.sector.z}]
+                <span
+                  style={{
+                    color: "var(--text-faint)",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 10,
+                  }}
+                >
+                  [{destination.sector.x}, {destination.sector.y},{" "}
+                  {destination.sector.z}]
                 </span>
               </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-                <GateBadge icon={<Compass size={12} />} text={t('jumpGate.destination.badgeDiscovered', { count: counts.discovered })} />
-                <GateBadge icon={<Package size={12} />} text={t('jumpGate.destination.badgeColony', { count: counts.colonies })} />
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 6,
+                  marginTop: 8,
+                }}
+              >
+                <GateBadge
+                  icon={<Compass size={12} />}
+                  text={t("jumpGate.destination.badgeDiscovered", {
+                    count: counts.discovered,
+                  })}
+                />
+                <GateBadge
+                  icon={<Package size={12} />}
+                  text={t("jumpGate.destination.badgeColony", {
+                    count: counts.colonies,
+                  })}
+                />
                 <GateBadge
                   icon={<Send size={12} />}
                   text={
                     destination.lastVisitedAt
-                      ? t('jumpGate.destination.badgeLastVisited', {
-                          time: formatDateTime(destination.lastVisitedAt, locale),
+                      ? t("jumpGate.destination.badgeLastVisited", {
+                          time: formatDateTime(
+                            destination.lastVisitedAt,
+                            locale,
+                          ),
                         })
-                      : t('jumpGate.destination.badgeNeverVisited')
+                      : t("jumpGate.destination.badgeNeverVisited")
                   }
                 />
               </div>
@@ -973,117 +1173,155 @@ function JumpGatePanel({
   return (
     <div
       style={{
-        position: 'absolute',
+        position: "absolute",
         left: 12,
         right: 12,
         bottom: 82,
         zIndex: 30,
-        maxHeight: 'min(72dvh, 680px)',
-        overflowY: 'auto',
-        border: '1px solid rgba(91,215,255,0.28)',
+        maxHeight: "min(72dvh, 680px)",
+        overflowY: "auto",
+        border: "1px solid rgba(91,215,255,0.28)",
         borderRadius: 16,
-        background: 'linear-gradient(180deg, rgba(8,12,22,0.96), rgba(10,18,32,0.94))',
-        boxShadow: '0 22px 70px rgba(0,0,0,0.42)',
-        backdropFilter: 'blur(14px)',
+        background:
+          "linear-gradient(180deg, rgba(8,12,22,0.96), rgba(10,18,32,0.94))",
+        boxShadow: "0 22px 70px rgba(0,0,0,0.42)",
+        backdropFilter: "blur(14px)",
         padding: 14,
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          gap: 12,
+          alignItems: "flex-start",
+        }}
+      >
         <div style={{ minWidth: 0 }}>
           <div
             style={{
-              fontFamily: 'var(--font-mono)',
-              color: 'var(--accent)',
+              fontFamily: "var(--font-mono)",
+              color: "var(--accent)",
               fontSize: 10,
-              letterSpacing: '0.14em',
+              letterSpacing: "0.14em",
               fontWeight: 800,
             }}
           >
-            {t('jumpGate.panel.tag').toUpperCase()}
+            {t("jumpGate.panel.tag").toUpperCase()}
           </div>
-          <div style={{ fontFamily: 'var(--font-display)', color: 'var(--text)', fontSize: 18, fontWeight: 700 }}>
-            {t('jumpGate.title')}
+          <div
+            style={{
+              fontFamily: "var(--font-display)",
+              color: "var(--text)",
+              fontSize: 18,
+              fontWeight: 700,
+            }}
+          >
+            {t("jumpGate.title")}
           </div>
-          <div style={{ color: 'var(--text-dim)', fontSize: 12, marginTop: 3 }}>
+          <div style={{ color: "var(--text-dim)", fontSize: 12, marginTop: 3 }}>
             {jumpGateStatusLabel(state, isLoading, t)}
           </div>
         </div>
         <button
           type="button"
           onClick={onClose}
-          aria-label={t('common.close')}
+          aria-label={t("common.close")}
           style={{
-            border: '1px solid var(--line)',
+            border: "1px solid var(--line)",
             borderRadius: 999,
-            background: 'rgba(14,20,36,0.86)',
-            color: 'var(--text-dim)',
-            padding: '8px 10px',
+            background: "rgba(14,20,36,0.86)",
+            color: "var(--text-dim)",
+            padding: "8px 10px",
           }}
         >
-          {t('common.close')}
+          {t("common.close")}
         </button>
       </div>
 
       <div
         style={{
-          display: 'grid',
+          display: "grid",
           gap: 10,
-          gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
+          gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
           marginTop: 14,
         }}
       >
         <div
           style={{
-            border: '1px solid var(--line)',
+            border: "1px solid var(--line)",
             borderRadius: 12,
-            background: 'rgba(14,20,36,0.72)',
+            background: "rgba(14,20,36,0.72)",
             padding: 12,
             minWidth: 0,
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text)', fontWeight: 800, fontSize: 13 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              color: "var(--text)",
+              fontWeight: 800,
+              fontSize: 13,
+            }}
+          >
             {selectedShip ? (
               <ShipIconBadge
                 typeId={selectedShip.ship.typeId}
                 status={selectedShip.ship.status}
                 size={22}
-                title={selectedShip.type?.name[locale as 'en' | 'ru'] ?? selectedShip.ship.typeId}
+                title={
+                  selectedShip.type?.name[locale as "en" | "ru"] ??
+                  selectedShip.ship.typeId
+                }
               />
             ) : (
               <Rocket size={16} color="var(--accent)" />
             )}
-            {t('jumpGate.random.action')}
+            {t("jumpGate.random.action")}
           </div>
           <div style={{ marginTop: 10 }}>
             <select
-              value={selectedShip?.ship.id ?? ''}
+              value={selectedShip?.ship.id ?? ""}
               onChange={(event) => onSelectShip(event.target.value)}
               disabled={reconProbeOptions.length === 0}
               style={{
-                width: '100%',
+                width: "100%",
                 minWidth: 0,
-                border: '1px solid var(--line)',
+                border: "1px solid var(--line)",
                 borderRadius: 10,
-                background: 'rgba(5,8,17,0.86)',
-                color: 'var(--text)',
-                padding: '8px 10px',
+                background: "rgba(5,8,17,0.86)",
+                color: "var(--text)",
+                padding: "8px 10px",
                 fontSize: 12,
               }}
             >
               {reconProbeOptions.length === 0 ? (
-                <option value="">{t('jumpGate.random.noShipOption')}</option>
+                <option value="">{t("jumpGate.random.noShipOption")}</option>
               ) : (
                 reconProbeOptions.map((option) => (
                   <option key={option.ship.id} value={option.ship.id}>
-                    {(option.type?.name[locale as 'en' | 'ru'] ?? option.ship.typeId)} · {option.planetName}
+                    {option.type?.name[locale as "en" | "ru"] ??
+                      option.ship.typeId}{" "}
+                    · {option.planetName}
                   </option>
                 ))
               )}
             </select>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 9, color: 'var(--text-dim)', fontSize: 11 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              marginTop: 9,
+              color: "var(--text-dim)",
+              fontSize: 11,
+            }}
+          >
             <Fuel size={14} />
-            {t('jumpGate.random.jumpFuel', {
+            {t("jumpGate.random.jumpFuel", {
               available: selectedShip?.jumpFuelAvailable ?? 0,
               required: JUMP_GATE_JUMP_FUEL_COST,
             })}
@@ -1093,25 +1331,40 @@ function JumpGatePanel({
             disabled={isRandomJumpPending || Boolean(randomJumpBlockedReason)}
             onClick={onRandomJump}
             style={{
-              width: '100%',
+              width: "100%",
               marginTop: 10,
-              border: 'none',
+              border: "none",
               borderRadius: 12,
-              padding: '11px 12px',
+              padding: "11px 12px",
               background:
                 isRandomJumpPending || randomJumpBlockedReason
-                  ? 'rgba(51,65,85,0.75)'
-                  : 'linear-gradient(135deg, #0891b2, #2563eb)',
-              color: isRandomJumpPending || randomJumpBlockedReason ? 'var(--text-faint)' : '#fff',
+                  ? "rgba(51,65,85,0.75)"
+                  : "linear-gradient(135deg, #0891b2, #2563eb)",
+              color:
+                isRandomJumpPending || randomJumpBlockedReason
+                  ? "var(--text-faint)"
+                  : "#fff",
               fontWeight: 900,
               fontSize: 12,
-              cursor: isRandomJumpPending || randomJumpBlockedReason ? 'not-allowed' : 'pointer',
+              cursor:
+                isRandomJumpPending || randomJumpBlockedReason
+                  ? "not-allowed"
+                  : "pointer",
             }}
           >
-            {isRandomJumpPending ? t('common.processing') : t('jumpGate.random.action')}
+            {isRandomJumpPending
+              ? t("common.processing")
+              : t("jumpGate.random.action")}
           </button>
           {randomJumpBlockedReason ? (
-            <div style={{ marginTop: 8, color: '#fbbf24', fontSize: 11, lineHeight: 1.35 }}>
+            <div
+              style={{
+                marginTop: 8,
+                color: "#fbbf24",
+                fontSize: 11,
+                lineHeight: 1.35,
+              }}
+            >
               {randomJumpBlockedReason}
             </div>
           ) : null}
@@ -1119,24 +1372,46 @@ function JumpGatePanel({
 
         <div
           style={{
-            border: '1px solid var(--line)',
+            border: "1px solid var(--line)",
             borderRadius: 12,
-            background: 'rgba(14,20,36,0.58)',
+            background: "rgba(14,20,36,0.58)",
             padding: 12,
             minWidth: 0,
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text)', fontWeight: 800, fontSize: 13 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              color: "var(--text)",
+              fontWeight: 800,
+              fontSize: 13,
+            }}
+          >
             <RadioTower size={16} color="var(--accent)" />
-            {t('jumpGate.destinations.known')}
+            {t("jumpGate.destinations.known")}
           </div>
-          <div style={{ marginTop: 10, color: 'var(--text-dim)', fontSize: 12 }}>
+          <div
+            style={{ marginTop: 10, color: "var(--text-dim)", fontSize: 12 }}
+          >
             {destinations.length === 0
-              ? t('jumpGate.destinations.empty')
-              : t('jumpGate.destinations.count', { count: destinations.length })}
+              ? t("jumpGate.destinations.empty")
+              : t("jumpGate.destinations.count", {
+                  count: destinations.length,
+                })}
           </div>
           {!state?.unlocked ? (
-            <div style={{ display: 'flex', gap: 8, color: '#fbbf24', fontSize: 11, lineHeight: 1.35, marginTop: 10 }}>
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                color: "#fbbf24",
+                fontSize: 11,
+                lineHeight: 1.35,
+                marginTop: 10,
+              }}
+            >
               <AlertTriangle size={15} />
               <span>{formatLockedReason(state, t)}</span>
             </div>
@@ -1148,11 +1423,13 @@ function JumpGatePanel({
         <div
           style={{
             marginTop: 10,
-            border: `1px solid ${gateError ? 'rgba(248,113,113,0.45)' : 'rgba(91,215,255,0.35)'}`,
+            border: `1px solid ${gateError ? "rgba(248,113,113,0.45)" : "rgba(91,215,255,0.35)"}`,
             borderRadius: 12,
-            background: gateError ? 'rgba(127,29,29,0.24)' : 'rgba(8,145,178,0.13)',
-            color: gateError ? '#fecaca' : '#bfdbfe',
-            padding: '9px 10px',
+            background: gateError
+              ? "rgba(127,29,29,0.24)"
+              : "rgba(8,145,178,0.13)",
+            color: gateError ? "#fecaca" : "#bfdbfe",
+            padding: "9px 10px",
             fontSize: 12,
             lineHeight: 1.35,
           }}
@@ -1161,7 +1438,7 @@ function JumpGatePanel({
         </div>
       ) : null}
 
-      <div style={{ display: 'grid', gap: 10, marginTop: 12 }}>
+      <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
         {destinations.map((destination) => {
           const counts = destinationCounts(destination);
           const colony = destinationOwnedColony(destination);
@@ -1173,71 +1450,122 @@ function JumpGatePanel({
             <div
               key={destination.systemId}
               style={{
-                border: '1px solid rgba(148,163,184,0.22)',
+                border: "1px solid rgba(148,163,184,0.22)",
                 borderRadius: 12,
-                background: 'rgba(5,8,17,0.74)',
+                background: "rgba(5,8,17,0.74)",
                 padding: 12,
                 minWidth: 0,
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start' }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 10,
+                  alignItems: "flex-start",
+                }}
+              >
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ color: 'var(--text)', fontWeight: 900, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div
+                    style={{
+                      color: "var(--text)",
+                      fontWeight: 900,
+                      fontSize: 13,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
                     {systemName}
                   </div>
-                  <div style={{ color: 'var(--text-faint)', fontFamily: 'var(--font-mono)', fontSize: 10, marginTop: 3 }}>
-                    [{destination.sector.x}, {destination.sector.y}, {destination.sector.z}]
+                  <div
+                    style={{
+                      color: "var(--text-faint)",
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 10,
+                      marginTop: 3,
+                    }}
+                  >
+                    [{destination.sector.x}, {destination.sector.y},{" "}
+                    {destination.sector.z}]
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => onOpenSector(destination)}
                   style={{
-                    flex: '0 0 auto',
-                    border: '1px solid var(--line)',
+                    flex: "0 0 auto",
+                    border: "1px solid var(--line)",
                     borderRadius: 999,
-                    background: 'rgba(14,20,36,0.76)',
-                    color: 'var(--accent)',
-                    padding: '7px 9px',
+                    background: "rgba(14,20,36,0.76)",
+                    color: "var(--accent)",
+                    padding: "7px 9px",
                   }}
-                  aria-label={t('jumpGate.destination.actions.sector')}
+                  aria-label={t("jumpGate.destination.actions.sector")}
                 >
                   <Navigation size={15} />
                 </button>
               </div>
 
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-                <GateBadge icon={<Package size={12} />} text={t('jumpGate.destination.badgeColony', { count: counts.colonies })} />
-                <GateBadge icon={<Compass size={12} />} text={t('jumpGate.destination.badgeDiscovered', { count: counts.discovered })} />
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 6,
+                  marginTop: 10,
+                }}
+              >
+                <GateBadge
+                  icon={<Package size={12} />}
+                  text={t("jumpGate.destination.badgeColony", {
+                    count: counts.colonies,
+                  })}
+                />
+                <GateBadge
+                  icon={<Compass size={12} />}
+                  text={t("jumpGate.destination.badgeDiscovered", {
+                    count: counts.discovered,
+                  })}
+                />
                 <GateBadge
                   icon={<Send size={12} />}
                   text={
                     destination.lastVisitedAt
-                      ? t('jumpGate.destination.badgeLastVisited', {
-                          time: formatDateTime(destination.lastVisitedAt, locale),
+                      ? t("jumpGate.destination.badgeLastVisited", {
+                          time: formatDateTime(
+                            destination.lastVisitedAt,
+                            locale,
+                          ),
                         })
-                      : t('jumpGate.destination.badgeNeverVisited')
+                      : t("jumpGate.destination.badgeNeverVisited")
                   }
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 7, marginTop: 10 }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                  gap: 7,
+                  marginTop: 10,
+                }}
+              >
                 <DestinationActionButton
                   disabled={!canScout}
-                  label={t('jumpGate.destination.actions.scout')}
-                  blockedLabel={t('jumpGate.destination.blocked.noSurvey')}
+                  label={t("jumpGate.destination.actions.scout")}
+                  blockedLabel={t("jumpGate.destination.blocked.noSurvey")}
                   onClick={() => onOpenFleet(destination)}
                 />
                 <DestinationActionButton
                   disabled={!canColonize}
-                  label={t('jumpGate.destination.actions.colonize')}
-                  blockedLabel={t('jumpGate.destination.blocked.noColonize')}
+                  label={t("jumpGate.destination.actions.colonize")}
+                  blockedLabel={t("jumpGate.destination.blocked.noColonize")}
                   onClick={() => onOpenFleet(destination)}
                 />
                 <DestinationActionButton
                   disabled={!canCargo}
-                  label={t('jumpGate.destination.actions.cargo')}
-                  blockedLabel={t('jumpGate.destination.blocked.noCargo')}
+                  label={t("jumpGate.destination.actions.cargo")}
+                  blockedLabel={t("jumpGate.destination.blocked.noCargo")}
                   onClick={() => onOpenCargo(destination)}
                 />
               </div>
@@ -1253,21 +1581,21 @@ function GateBadge({ icon, text }: { icon: React.ReactNode; text: string }) {
   return (
     <span
       style={{
-        display: 'inline-flex',
-        alignItems: 'center',
+        display: "inline-flex",
+        alignItems: "center",
         gap: 5,
         minWidth: 0,
-        border: '1px solid rgba(148,163,184,0.2)',
+        border: "1px solid rgba(148,163,184,0.2)",
         borderRadius: 999,
-        background: 'rgba(14,20,36,0.66)',
-        color: 'var(--text-dim)',
-        padding: '5px 7px',
+        background: "rgba(14,20,36,0.66)",
+        color: "var(--text-dim)",
+        padding: "5px 7px",
         fontSize: 10,
         lineHeight: 1.1,
       }}
     >
       {icon}
-      <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{text}</span>
+      <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>{text}</span>
     </span>
   );
 }
@@ -1291,16 +1619,16 @@ function DestinationActionButton({
       title={disabled ? blockedLabel : label}
       style={{
         minHeight: 38,
-        border: '1px solid var(--line)',
+        border: "1px solid var(--line)",
         borderRadius: 10,
-        background: disabled ? 'rgba(51,65,85,0.46)' : 'rgba(14,165,233,0.13)',
-        color: disabled ? 'var(--text-faint)' : 'var(--accent)',
+        background: disabled ? "rgba(51,65,85,0.46)" : "rgba(14,165,233,0.13)",
+        color: disabled ? "var(--text-faint)" : "var(--accent)",
         fontWeight: 900,
         fontSize: 10,
         lineHeight: 1.12,
-        padding: '7px 6px',
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        overflowWrap: 'anywhere',
+        padding: "7px 6px",
+        cursor: disabled ? "not-allowed" : "pointer",
+        overflowWrap: "anywhere",
       }}
     >
       {disabled ? blockedLabel : label}

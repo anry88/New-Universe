@@ -98,6 +98,16 @@ interface CosmicSystemRendererProps {
     shipType: ShipType | null,
     expedition: Expedition | null,
   ) => void;
+  ownShipActionOverride?: (args: {
+    ship: Ship;
+    shipType: ShipType | null;
+    expedition: Expedition | null;
+  }) => OwnMapShipAction | null;
+  planetActionOverride?: (args: {
+    planet: Planet;
+    isOwnedPlanet: boolean;
+    isForeignColony: boolean;
+  }) => { label: string; disabled?: boolean } | null;
 }
 
 export interface PlanetLayout {
@@ -248,7 +258,10 @@ export function isForeignColonizedPlanet(
   planet: Pick<Planet, "id" | "isColonized" | "isOwnedColony">,
   ownedPlanetIds: ReadonlySet<string>,
 ): boolean {
-  return planet.isColonized === true && !isPlanetOwnedByViewer(planet, ownedPlanetIds);
+  return (
+    planet.isColonized === true &&
+    !isPlanetOwnedByViewer(planet, ownedPlanetIds)
+  );
 }
 
 function combatDps(stats: CombatStats | null | undefined): number {
@@ -368,7 +381,10 @@ export function tacticalExpeditionTouchesSystem(
   expedition: Expedition,
   systemId: string,
 ): boolean {
-  const result = expedition.result as Record<string, unknown> | null | undefined;
+  const result = expedition.result as
+    | Record<string, unknown>
+    | null
+    | undefined;
   if (result?.routeMode !== "jump_gate") return false;
   const destinationSystemId =
     typeof result.destinationSystemId === "string"
@@ -531,8 +547,7 @@ export function buildFleetContactRenderPoints(
     const totalAtPoint = pointTotals.get(pointKey) ?? 1;
     const indexAtPoint = pointSeen.get(pointKey) ?? 0;
     pointSeen.set(pointKey, indexAtPoint + 1);
-    const spread =
-      totalAtPoint > 1 ? Math.min(22, 8 + totalAtPoint * 2) : 0;
+    const spread = totalAtPoint > 1 ? Math.min(22, 8 + totalAtPoint * 2) : 0;
     const spreadAngle =
       (Math.PI * 2 * indexAtPoint) / totalAtPoint - Math.PI / 2;
     renderPoints.set(contact.id, {
@@ -679,11 +694,12 @@ const PlanetMarkers = React.memo(function PlanetMarkers({
                 : isPicking
                   ? "none"
                   : "auto",
-              filter: isForeignColony || hasRecentSurfaceCombat
-                ? "drop-shadow(0 0 14px rgba(239,68,68,0.74))"
-                : isSelected
-                  ? `drop-shadow(0 0 10px ${meta.accent})`
-                  : "drop-shadow(0 6px 14px rgba(0,0,0,0.5))",
+              filter:
+                isForeignColony || hasRecentSurfaceCombat
+                  ? "drop-shadow(0 0 14px rgba(239,68,68,0.74))"
+                  : isSelected
+                    ? `drop-shadow(0 0 10px ${meta.accent})`
+                    : "drop-shadow(0 6px 14px rgba(0,0,0,0.5))",
             }}
           >
             {isForeignColony || hasRecentSurfaceCombat ? (
@@ -1579,7 +1595,7 @@ function statusLabelForMapShip(
   return t("common.status");
 }
 
-interface MapShipAction {
+interface OwnMapShipAction {
   label: string;
   icon: React.ReactNode;
   disabled: boolean;
@@ -1595,7 +1611,7 @@ function actionForOwnMapShip({
   shipType: ShipType | null;
   activeExpedition: Expedition | null;
   t: (key: string) => string;
-}): MapShipAction {
+}): OwnMapShipAction {
   const isCargoShip = shipType ? isCargoTransferShipType(shipType) : false;
   const isDiscoveryProbe = ship.typeId === "recon_probe";
   const isStationed = activeExpedition?.status === "stationed";
@@ -1642,6 +1658,7 @@ function SelectedMapShipCard({
   shipType,
   activeExpedition,
   onAction,
+  actionOverride,
   onClose,
 }: {
   selection: MapShipSelection;
@@ -1654,6 +1671,11 @@ function SelectedMapShipCard({
     shipType: ShipType | null,
     expedition: Expedition | null,
   ) => void;
+  actionOverride?: (args: {
+    ship: Ship;
+    shipType: ShipType | null;
+    expedition: Expedition | null;
+  }) => OwnMapShipAction | null;
   onClose: () => void;
 }) {
   const { locale, t } = useI18n();
@@ -1680,12 +1702,17 @@ function SelectedMapShipCard({
       : statusLabelForMapShip(contact?.status ?? ownShip?.status, t);
   const ownAction =
     !isForeign && ownShip
-      ? actionForOwnMapShip({
+      ? (actionOverride?.({
+          ship: ownShip,
+          shipType,
+          expedition: activeExpedition,
+        }) ??
+        actionForOwnMapShip({
           ship: ownShip,
           shipType,
           activeExpedition,
           t,
-        })
+        }))
       : null;
 
   return (
@@ -1828,6 +1855,28 @@ function SelectedMapShipCard({
                 {ownShip?.jumpFuel ?? 0} / {shipType?.jumpFuelCapacity ?? 0}
               </b>
             </div>
+            {ownShip?.typeId === "refueler" ? (
+              <>
+                <div className="ship-stat" style={{ textAlign: "left" }}>
+                  <span>
+                    {t("refuel_dialog_reserve")} · {t("expedition.fuel")}
+                  </span>
+                  <b>
+                    {ownShip.refuelFuel ?? 0} /{" "}
+                    {shipType?.refuelFuelCapacity ?? 0}
+                  </b>
+                </div>
+                <div className="ship-stat" style={{ textAlign: "left" }}>
+                  <span>
+                    {t("refuel_dialog_reserve")} · {t("expedition.jumpFuel")}
+                  </span>
+                  <b>
+                    {ownShip.refuelJumpFuel ?? 0} /{" "}
+                    {shipType?.refuelJumpFuelCapacity ?? 0}
+                  </b>
+                </div>
+              </>
+            ) : null}
           </>
         ) : contact?.ownerAlias ? (
           <div
@@ -1939,6 +1988,8 @@ export function CosmicSystemRenderer({
   emptyStateLabel,
   showOrbitRings = true,
   onOwnShipAction,
+  ownShipActionOverride,
+  planetActionOverride,
 }: CosmicSystemRendererProps) {
   const { locale, t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -2043,7 +2094,9 @@ export function CosmicSystemRenderer({
     visibleFleetContacts.some((contact) =>
       isRecentCombat(contact.lastCombatTickAt, now),
     ) ||
-    layouts.some((layout) => isRecentCombat(layout.planet.lastCombatTickAt, now));
+    layouts.some((layout) =>
+      isRecentCombat(layout.planet.lastCombatTickAt, now),
+    );
 
   useEffect(() => {
     if (!hasMovingShips && !hasMovingFleetContacts && !hasRecentCombat) return;
@@ -2088,12 +2141,10 @@ export function CosmicSystemRenderer({
           (ship) => ship.id === selectedShip.id && ship.status !== "destroyed",
         ) ?? null)
       : null;
-  const selectedTacticalContact =
-    selectedShip
-      ? (visibleFleetContacts.find(
-          (contact) => contact.id === selectedShip.id,
-        ) ?? null)
-      : null;
+  const selectedTacticalContact = selectedShip
+    ? (visibleFleetContacts.find((contact) => contact.id === selectedShip.id) ??
+      null)
+    : null;
   const selectedOwnShip =
     selectedTacticalContact?.relation === "self"
       ? selectedOwnShipRecord
@@ -2186,13 +2237,16 @@ export function CosmicSystemRenderer({
     setSelectedId(null);
   }, []);
 
-  const selectTacticalContact = useCallback((contact: SystemTacticalFleetContact) => {
-    setSelectedShip({
-      kind: contact.relation === "self" ? "own" : "foreign",
-      id: contact.id,
-    });
-    setSelectedId(null);
-  }, []);
+  const selectTacticalContact = useCallback(
+    (contact: SystemTacticalFleetContact) => {
+      setSelectedShip({
+        kind: contact.relation === "self" ? "own" : "foreign",
+        id: contact.id,
+      });
+      setSelectedId(null);
+    },
+    [],
+  );
 
   const emitPickSectorDelta = useCallback(
     (dx: number, dy: number, immediate = false) => {
@@ -2750,7 +2804,7 @@ export function CosmicSystemRenderer({
             isPicking={isPicking}
             now={now}
             selectedContactId={
-              selectedTacticalContact ? selectedShip?.id ?? null : null
+              selectedTacticalContact ? (selectedShip?.id ?? null) : null
             }
             onSelectContact={selectTacticalContact}
           />
@@ -2861,6 +2915,7 @@ export function CosmicSystemRenderer({
           shipType={selectedShipType}
           activeExpedition={selectedOwnShipExpedition}
           onAction={onOwnShipAction}
+          actionOverride={ownShipActionOverride}
           onClose={() => setSelectedShip(null)}
         />
       ) : null}
@@ -3066,8 +3121,27 @@ export function CosmicSystemRenderer({
           {!selectedIsForeignColony ? (
             <button
               type="button"
-              disabled={selected.planet.isDiscovered === false}
+              disabled={
+                planetActionOverride
+                  ? Boolean(
+                      planetActionOverride({
+                        planet: selected.planet,
+                        isOwnedPlanet: selectedIsOwnedPlanet,
+                        isForeignColony: selectedIsForeignColony,
+                      })?.disabled,
+                    )
+                  : selected.planet.isDiscovered === false
+              }
               onClick={() => {
+                const override = planetActionOverride?.({
+                  planet: selected.planet,
+                  isOwnedPlanet: selectedIsOwnedPlanet,
+                  isForeignColony: selectedIsForeignColony,
+                });
+                if (override) {
+                  if (!override.disabled) onPlanetClick(selected.planet);
+                  return;
+                }
                 if (selectedIsOwnedPlanet) {
                   onPlanetClick(selected.planet);
                 } else {
@@ -3084,14 +3158,26 @@ export function CosmicSystemRenderer({
                 width: "100%",
                 marginTop: 10,
                 padding: "10px 14px",
-                opacity: selected.planet.isDiscovered === false ? 0.5 : 1,
+                opacity:
+                  planetActionOverride?.({
+                    planet: selected.planet,
+                    isOwnedPlanet: selectedIsOwnedPlanet,
+                    isForeignColony: selectedIsForeignColony,
+                  })?.disabled || selected.planet.isDiscovered === false
+                    ? 0.5
+                    : 1,
               }}
             >
-              {selected.planet.isDiscovered === false
-                ? t("map.discoveryRequired")
-                : selectedIsOwnedPlanet
-                  ? t("map.openPlanet")
-                  : t("map.sendColonizer")}
+              {planetActionOverride?.({
+                planet: selected.planet,
+                isOwnedPlanet: selectedIsOwnedPlanet,
+                isForeignColony: selectedIsForeignColony,
+              })?.label ??
+                (selected.planet.isDiscovered === false
+                  ? t("map.discoveryRequired")
+                  : selectedIsOwnedPlanet
+                    ? t("map.openPlanet")
+                    : t("map.sendColonizer"))}
             </button>
           ) : null}
         </div>

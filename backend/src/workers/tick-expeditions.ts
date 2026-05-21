@@ -20,6 +20,10 @@ import { and, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { logger } from "../lib/logger.js";
 import { checkVisibility } from "../features/world/visibility.js";
 import { completeCargoTransfer } from "../features/logistics/cargo-transfer.js";
+import {
+  completeRefuelReplenish,
+  completeRefuelTransfer,
+} from "../features/ships/refuel.js";
 import { isOneWayShipRole } from "@shared/config/expeditionRouting.js";
 import {
   createIntervalWorker,
@@ -85,8 +89,7 @@ export function calculateExpeditionPosition(
   } else if (status === "returning") {
     // For 'returning', we assume it started returning at eta - durationMs
     const returnStartTimeMs = etaMs - durationMs;
-    if (nowMs <= returnStartTimeMs)
-      return { x: tX, y: tY, z: originZ };
+    if (nowMs <= returnStartTimeMs) return { x: tX, y: tY, z: originZ };
     if (nowMs >= etaMs) return { x: originX, y: originY, z: originZ };
 
     const progress = (nowMs - returnStartTimeMs) / durationMs;
@@ -127,7 +130,9 @@ function calculateExpeditionProgress(
 }
 
 function systemMapShipSensorRadius(ship: { sensorRange: number }): number {
-  return Math.max(0, Number(ship.sensorRange ?? 0)) * SYSTEM_MAP_SENSOR_RANGE_SCALE;
+  return (
+    Math.max(0, Number(ship.sensorRange ?? 0)) * SYSTEM_MAP_SENSOR_RANGE_SCALE
+  );
 }
 
 async function discoverHomePlanetsAlongRoute(
@@ -217,7 +222,8 @@ async function discoverHomePlanetsAlongRoute(
     .filter(
       (layout) =>
         distancePointToSegment(layout, segmentStart, segmentEnd) <=
-        systemMapPlanetDiscoveryRadius(layout) + systemMapShipSensorRadius(ship),
+        systemMapPlanetDiscoveryRadius(layout) +
+          systemMapShipSensorRadius(ship),
     );
 
   if (newlyVisiblePlanets.length === 0) return [];
@@ -260,7 +266,11 @@ async function discoverJumpGateDestinationPlanetsAlongRoute(
     .from(systems)
     .where(eq(systems.id, result.destinationSystemId))
     .limit(1);
-  if (!destinationSystem || destinationSystem.isHome || destinationSystem.ownerId) {
+  if (
+    !destinationSystem ||
+    destinationSystem.isHome ||
+    destinationSystem.ownerId
+  ) {
     return [];
   }
 
@@ -276,7 +286,10 @@ async function discoverJumpGateDestinationPlanetsAlongRoute(
     .where(eq(planets.systemId, destinationSystem.id));
   if (destinationPlanets.length === 0) return [];
 
-  const layouts = buildSystemMapLayouts(destinationPlanets, Number(destinationSystem.seed));
+  const layouts = buildSystemMapLayouts(
+    destinationPlanets,
+    Number(destinationSystem.seed),
+  );
   const planetById = new Map<string, { name: string }>(
     destinationPlanets.map((planet: any) => [planet.id, { name: planet.name }]),
   );
@@ -284,10 +297,14 @@ async function discoverJumpGateDestinationPlanetsAlongRoute(
   const targetPlanet = expedition.targetPlanetId
     ? layouts.find((layout) => layout.id === expedition.targetPlanetId)
     : null;
-  const resultTargetPoint = result.targetSystemPoint as { x?: unknown; y?: unknown } | null | undefined;
+  const resultTargetPoint = result.targetSystemPoint as
+    | { x?: unknown; y?: unknown }
+    | null
+    | undefined;
   const routeEnd = targetPlanet
     ? { x: targetPlanet.x, y: targetPlanet.y }
-    : typeof resultTargetPoint?.x === "number" && typeof resultTargetPoint?.y === "number"
+    : typeof resultTargetPoint?.x === "number" &&
+        typeof resultTargetPoint?.y === "number"
       ? { x: resultTargetPoint.x, y: resultTargetPoint.y }
       : null;
   if (!routeEnd) return [];
@@ -302,11 +319,23 @@ async function discoverJumpGateDestinationPlanetsAlongRoute(
   const targetLegProgress =
     expedition.status === "returning"
       ? 1
-      : Math.max(0, Math.min(1, (travelledDistance - originLegDistance) / targetLegDistance));
+      : Math.max(
+          0,
+          Math.min(
+            1,
+            (travelledDistance - originLegDistance) / targetLegDistance,
+          ),
+        );
   if (targetLegProgress <= 0) return [];
 
-  const visibleSegmentEnd = interpolateSystemMapPoint(routeStart, routeEnd, targetLegProgress);
-  const planetIds = destinationPlanets.map((planet: { id: string }) => planet.id);
+  const visibleSegmentEnd = interpolateSystemMapPoint(
+    routeStart,
+    routeEnd,
+    targetLegProgress,
+  );
+  const planetIds = destinationPlanets.map(
+    (planet: { id: string }) => planet.id,
+  );
   const knownRows = await tx
     .select({ planetId: discoveredPlanets.planetId })
     .from(discoveredPlanets)
@@ -325,7 +354,8 @@ async function discoverJumpGateDestinationPlanetsAlongRoute(
     .filter(
       (layout) =>
         distancePointToSegment(layout, routeStart, visibleSegmentEnd) <=
-        systemMapPlanetDiscoveryRadius(layout) + systemMapShipSensorRadius(ship),
+        systemMapPlanetDiscoveryRadius(layout) +
+          systemMapShipSensorRadius(ship),
     );
   if (newlyVisiblePlanets.length === 0) return [];
 
@@ -351,7 +381,9 @@ async function insertPlanetDiscoveryNotifications(
   userId: string,
   discoveries: Array<{ type: "planet" | "system"; id: string; name: string }>,
 ) {
-  const planetDiscoveries = discoveries.filter((discovery) => discovery.type === "planet");
+  const planetDiscoveries = discoveries.filter(
+    (discovery) => discovery.type === "planet",
+  );
   if (planetDiscoveries.length === 0) return;
 
   await tx.insert(notifications).values(
@@ -368,7 +400,8 @@ async function insertPlanetDiscoveryNotifications(
 
 function pendingRandomDiscoverySystemId(result: unknown): string | null {
   if (!result || typeof result !== "object") return null;
-  const value = (result as Record<string, unknown>).pendingRandomDiscoverySystemId;
+  const value = (result as Record<string, unknown>)
+    .pendingRandomDiscoverySystemId;
   return typeof value === "string" && value.length > 0 ? value : null;
 }
 
@@ -467,6 +500,24 @@ async function handleArrivalAtTarget(
     logger.info(
       { expeditionId: expedition.id, shipId: expedition.shipId },
       "Cargo transfer reached target and completed one-way delivery",
+    );
+    return;
+  }
+
+  if (expedition.type === "refuel_transfer") {
+    await completeRefuelTransfer(expedition, tx);
+    logger.info(
+      { expeditionId: expedition.id, shipId: expedition.shipId },
+      "Refueler reached target ship and completed fuel transfer",
+    );
+    return;
+  }
+
+  if (expedition.type === "refuel_replenish") {
+    await completeRefuelReplenish(expedition, tx);
+    logger.info(
+      { expeditionId: expedition.id, shipId: expedition.shipId },
+      "Refueler reached target planet and replenished tanks",
     );
     return;
   }
@@ -927,9 +978,10 @@ export async function processExpeditions(
       const usesJumpGateRoute = expeditionResult?.routeMode === "jump_gate";
 
       // 2. Perform visibility check (fog of war)
-      const discoveries = options.skipVisibilityChecks || usesJumpGateRoute
-        ? []
-        : await checkVisibility(shipId, tx, pos);
+      const discoveries =
+        options.skipVisibilityChecks || usesJumpGateRoute
+          ? []
+          : await checkVisibility(shipId, tx, pos);
       const homeDiscoveries = options.skipVisibilityChecks
         ? []
         : await discoverHomePlanetsAlongRoute(
@@ -942,7 +994,12 @@ export async function processExpeditions(
               sectorX: originSectorX,
               sectorY: originSectorY,
             },
-            { id: shipId, ownerId: shipOwnerId, role: shipRole, sensorRange: shipSensorRange },
+            {
+              id: shipId,
+              ownerId: shipOwnerId,
+              role: shipRole,
+              sensorRange: shipSensorRange,
+            },
             now,
             tx,
           );
@@ -950,24 +1007,37 @@ export async function processExpeditions(
         ? []
         : await discoverJumpGateDestinationPlanetsAlongRoute(
             expedition,
-            { id: shipId, ownerId: shipOwnerId, role: shipRole, sensorRange: shipSensorRange },
+            {
+              id: shipId,
+              ownerId: shipOwnerId,
+              role: shipRole,
+              sensorRange: shipSensorRange,
+            },
             now,
             tx,
           );
 
-      if (discoveries.length + homeDiscoveries.length + jumpGateDiscoveries.length > 0) {
+      if (
+        discoveries.length +
+          homeDiscoveries.length +
+          jumpGateDiscoveries.length >
+        0
+      ) {
         if (!options.skipNotifications) {
-          await insertPlanetDiscoveryNotifications(
-            tx,
-            shipOwnerId,
-            [...discoveries, ...homeDiscoveries, ...jumpGateDiscoveries],
-          );
+          await insertPlanetDiscoveryNotifications(tx, shipOwnerId, [
+            ...discoveries,
+            ...homeDiscoveries,
+            ...jumpGateDiscoveries,
+          ]);
         }
         logger.info(
           {
             shipId,
             expeditionId: expedition.id,
-            newEntities: discoveries.length + homeDiscoveries.length + jumpGateDiscoveries.length,
+            newEntities:
+              discoveries.length +
+              homeDiscoveries.length +
+              jumpGateDiscoveries.length,
           },
           "New discoveries made by expedition",
         );
@@ -998,7 +1068,12 @@ export async function processExpeditions(
 export async function createExpeditionsWorker(): Promise<WorkerHandle> {
   await removeLegacyRepeatableJobs("expeditions_tick", { name: "tick" });
 
-  return createIntervalWorker("Expeditions", POLL_INTERVAL_MS, processExpeditions, {
-    runOnStart: true,
-  });
+  return createIntervalWorker(
+    "Expeditions",
+    POLL_INTERVAL_MS,
+    processExpeditions,
+    {
+      runOnStart: true,
+    },
+  );
 }

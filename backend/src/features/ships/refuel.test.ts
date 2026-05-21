@@ -3,6 +3,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import {
   colonies,
+  expeditions,
   planetResources,
   planets,
   ships,
@@ -11,7 +12,8 @@ import {
 } from "../../db/schema.js";
 import { seedResources } from "../../db/seed/resources.js";
 import { seedShipTypes } from "../../db/seed/ship-types.js";
-import { refuelShip } from "./refuel.js";
+import { processExpeditions } from "../../workers/tick-expeditions.js";
+import { refuelShip, replenishRefueler } from "./refuel.js";
 
 describe("refuelShip", () => {
   beforeAll(async () => {
@@ -110,7 +112,22 @@ describe("refuelShip", () => {
       });
   }
 
-  it("moves ordinary fuel and jump fuel from refueler reserve without draining its own tanks", async () => {
+  async function completeExpedition(userId: string, expeditionId: string) {
+    const now = new Date();
+    await db
+      .update(expeditions)
+      .set({ eta: new Date(now.getTime() - 1000) })
+      .where(eq(expeditions.id, expeditionId));
+    await processExpeditions({
+      userId,
+      now,
+      onlyDue: true,
+      skipNotifications: true,
+      skipVisibilityChecks: true,
+    });
+  }
+
+  it("launches a routed transfer and delivers ordinary fuel and jump fuel on arrival", async () => {
     const fixture = await createPlanet();
     const source = await spawnShip({
       ownerId: fixture.userId,
@@ -137,15 +154,45 @@ describe("refuelShip", () => {
     });
 
     expect(result.success).toBe(true);
-    expect(Number(result.data!.targetShip.fuel)).toBe(70);
-    expect(Number(result.data!.targetShip.jumpFuel)).toBe(50);
-    expect(Number(result.data!.sourceShip.fuel)).toBe(200);
+    expect(result.data!.expedition?.targetPlanetId).toBe(fixture.planetId);
+    expect(Number(result.data!.targetShip.fuel)).toBe(20);
+    expect(Number(result.data!.targetShip.jumpFuel)).toBe(0);
+    expect(Number(result.data!.sourceShip.fuel)).toBe(199);
     expect(Number(result.data!.sourceShip.jumpFuel)).toBe(100);
     expect(Number(result.data!.sourceShip.refuelFuel)).toBe(150);
     expect(Number(result.data!.sourceShip.refuelJumpFuel)).toBe(50);
+
+    const launchedSource = await db.query.ships.findFirst({
+      where: eq(ships.id, source.id),
+    });
+    expect(launchedSource!.status).toBe("moving");
+    expect(launchedSource!.locationPlanetId).toBeNull();
+
+    await completeExpedition(fixture.userId, result.data!.expedition!.id);
+
+    const deliveredRows = await db
+      .select({
+        id: ships.id,
+        status: ships.status,
+        locationPlanetId: ships.locationPlanetId,
+        fuel: ships.fuel,
+        jumpFuel: ships.jumpFuel,
+        refuelFuel: ships.refuelFuel,
+        refuelJumpFuel: ships.refuelJumpFuel,
+      })
+      .from(ships)
+      .where(inArray(ships.id, [source.id, target.id]));
+    const deliveredById = new Map(deliveredRows.map((ship) => [ship.id, ship]));
+
+    expect(Number(deliveredById.get(target.id)!.fuel)).toBe(70);
+    expect(Number(deliveredById.get(target.id)!.jumpFuel)).toBe(50);
+    expect(deliveredById.get(source.id)!.status).toBe("idle");
+    expect(deliveredById.get(source.id)!.locationPlanetId).toBe(
+      fixture.planetId,
+    );
   });
 
-  it("loads missing refuel reserve from the owned planet stockpile atomically", async () => {
+  it("loads missing transfer reserve from the launch planet before flight", async () => {
     const fixture = await createPlanet();
     await setPlanetResource(fixture.planetId, "fuel", "100");
     await setPlanetResource(fixture.planetId, "jump_fuel", "100");
@@ -174,9 +221,9 @@ describe("refuelShip", () => {
     });
 
     expect(result.success).toBe(true);
-    expect(Number(result.data!.targetShip.fuel)).toBe(80);
-    expect(Number(result.data!.targetShip.jumpFuel)).toBe(50);
-    expect(Number(result.data!.sourceShip.fuel)).toBe(200);
+    expect(Number(result.data!.targetShip.fuel)).toBe(0);
+    expect(Number(result.data!.targetShip.jumpFuel)).toBe(0);
+    expect(Number(result.data!.sourceShip.fuel)).toBe(199);
     expect(Number(result.data!.sourceShip.jumpFuel)).toBe(100);
     expect(Number(result.data!.sourceShip.refuelFuel)).toBe(0);
     expect(Number(result.data!.sourceShip.refuelJumpFuel)).toBe(0);
@@ -198,6 +245,14 @@ describe("refuelShip", () => {
     );
     expect(amountByResource.fuel).toBe(40);
     expect(amountByResource.jump_fuel).toBe(60);
+
+    await completeExpedition(fixture.userId, result.data!.expedition!.id);
+
+    const deliveredTarget = await db.query.ships.findFirst({
+      where: eq(ships.id, target.id),
+    });
+    expect(Number(deliveredTarget!.fuel)).toBe(80);
+    expect(Number(deliveredTarget!.jumpFuel)).toBe(50);
   });
 
   it("rejects transfers that would overfill the target tank without changing balances", async () => {
@@ -241,12 +296,50 @@ describe("refuelShip", () => {
     expect(Number(unchangedSource!.refuelFuel)).toBe(200);
   });
 
+  it("limits arrival delivery to the target's remaining tank capacity", async () => {
+    const fixture = await createPlanet();
+    const source = await spawnShip({
+      ownerId: fixture.userId,
+      planetId: fixture.planetId,
+      typeId: "refueler",
+      fuel: "200",
+      refuelFuel: "200",
+    });
+    const target = await spawnShip({
+      ownerId: fixture.userId,
+      planetId: fixture.planetId,
+      typeId: "light_fighter",
+      fuel: "20",
+    });
+
+    const result = await refuelShip(fixture.userId, {
+      sourceShipId: source.id,
+      targetShipId: target.id,
+      fuel: 70,
+    });
+
+    expect(result.success).toBe(true);
+
+    await db.update(ships).set({ fuel: "80" }).where(eq(ships.id, target.id));
+    await completeExpedition(fixture.userId, result.data!.expedition!.id);
+
+    const rows = await db
+      .select({ id: ships.id, fuel: ships.fuel, refuelFuel: ships.refuelFuel })
+      .from(ships)
+      .where(inArray(ships.id, [source.id, target.id]));
+    const byId = new Map(rows.map((ship) => [ship.id, ship]));
+
+    expect(Number(byId.get(target.id)!.fuel)).toBe(100);
+    expect(Number(byId.get(source.id)!.refuelFuel)).toBe(180);
+  });
+
   it("serializes concurrent refuel requests so the source cannot be overdrawn", async () => {
     const fixture = await createPlanet();
     const source = await spawnShip({
       ownerId: fixture.userId,
       planetId: fixture.planetId,
       typeId: "refueler",
+      fuel: "200",
       refuelFuel: "100",
     });
     const targetA = await spawnShip({
@@ -277,7 +370,7 @@ describe("refuelShip", () => {
 
     expect(results.filter((result) => result.success)).toHaveLength(1);
     expect(
-      results.filter((result) => result.code === "refuel_source_insufficient"),
+      results.filter((result) => result.code === "refuel_ship_not_idle"),
     ).toHaveLength(1);
 
     const rows = await db
@@ -292,12 +385,28 @@ describe("refuelShip", () => {
     );
 
     expect(reserveByShip[source.id]).toBe(20);
+    expect(fuelByShip[targetA.id]).toBe(0);
+    expect(fuelByShip[targetB.id]).toBe(0);
+
+    const successful = results.find((result) => result.success)!;
+    await completeExpedition(fixture.userId, successful.data!.expedition!.id);
+
+    const deliveredTargets = await db
+      .select({ id: ships.id, fuel: ships.fuel })
+      .from(ships)
+      .where(inArray(ships.id, [targetA.id, targetB.id]));
+    const deliveredFuelByShip = Object.fromEntries(
+      deliveredTargets.map((ship) => [ship.id, Number(ship.fuel)]),
+    );
+
     expect(
-      [fuelByShip[targetA.id], fuelByShip[targetB.id]].sort((a, b) => a - b),
+      [deliveredFuelByShip[targetA.id], deliveredFuelByShip[targetB.id]].sort(
+        (a, b) => a - b,
+      ),
     ).toEqual([0, 80]);
   });
 
-  it("requires both ships to be idle and docked on the same planet", async () => {
+  it("requires target ships to be idle and docked, but supports remote docked targets", async () => {
     const fixture = await createPlanet();
     const other = await createPlanet();
     const source = await spawnShip({
@@ -305,6 +414,7 @@ describe("refuelShip", () => {
       planetId: fixture.planetId,
       typeId: "refueler",
       fuel: "100",
+      refuelFuel: "100",
     });
     const movingTarget = await spawnShip({
       ownerId: fixture.userId,
@@ -330,6 +440,50 @@ describe("refuelShip", () => {
     });
 
     expect(movingResult.code).toBe("refuel_ship_not_idle");
-    expect(remoteResult.code).toBe("refuel_not_same_planet");
+    expect(remoteResult.success).toBe(true);
+    expect(remoteResult.data!.expedition?.targetPlanetId).toBe(other.planetId);
+  });
+
+  it("launches refueler replenishment as a routed order and fills tanks on arrival", async () => {
+    const fixture = await createPlanet();
+    await setPlanetResource(fixture.planetId, "fuel", "1000");
+    await setPlanetResource(fixture.planetId, "jump_fuel", "500");
+    const source = await spawnShip({
+      ownerId: fixture.userId,
+      planetId: fixture.planetId,
+      typeId: "refueler",
+      fuel: "100",
+      jumpFuel: "50",
+      refuelFuel: "100",
+      refuelJumpFuel: "10",
+    });
+
+    const result = await replenishRefueler(fixture.userId, {
+      sourceShipId: source.id,
+      targetPlanetId: fixture.planetId,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data!.expedition?.targetPlanetId).toBe(fixture.planetId);
+    expect(Number(result.data!.sourceShip.fuel)).toBe(99);
+    expect(Number(result.data!.sourceShip.refuelFuel)).toBe(100);
+
+    const launchedSource = await db.query.ships.findFirst({
+      where: eq(ships.id, source.id),
+    });
+    expect(launchedSource!.status).toBe("moving");
+    expect(launchedSource!.locationPlanetId).toBeNull();
+
+    await completeExpedition(fixture.userId, result.data!.expedition!.id);
+
+    const replenished = await db.query.ships.findFirst({
+      where: eq(ships.id, source.id),
+    });
+    expect(replenished!.status).toBe("idle");
+    expect(replenished!.locationPlanetId).toBe(fixture.planetId);
+    expect(Number(replenished!.fuel)).toBe(500);
+    expect(Number(replenished!.jumpFuel)).toBe(200);
+    expect(Number(replenished!.refuelFuel)).toBe(699);
+    expect(Number(replenished!.refuelJumpFuel)).toBe(200);
   });
 });

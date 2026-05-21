@@ -14,6 +14,15 @@ export interface RefuelRequest {
 
 export interface RefuelResponse {
   success: boolean;
+  expedition?: {
+    id: string;
+    eta: string;
+    targetPlanetId: string | null;
+  };
+  queueItem?: {
+    id: string;
+    completesAt: string;
+  };
   targetShip: {
     id: string;
     fuel: string;
@@ -28,25 +37,57 @@ export interface RefuelResponse {
   };
 }
 
+export interface RefuelReplenishRequest {
+  /** The refueler ship that should fly to a planet and refill there. */
+  sourceShipId: string;
+  /** Owned planet where the refueler should refill own tanks and support reserves. */
+  targetPlanetId: string;
+}
+
+export interface RefuelReplenishResponse {
+  success: boolean;
+  expedition?: {
+    id: string;
+    eta: string;
+    targetPlanetId: string | null;
+  };
+  queueItem?: {
+    id: string;
+    completesAt: string;
+  };
+  sourceShip: {
+    id: string;
+    fuel: string;
+    jumpFuel: string;
+    refuelFuel: string;
+    refuelJumpFuel: string;
+  };
+}
+
 export type RefuelErrorCode =
   | "refuel_target_not_found"
   | "refuel_source_not_found"
+  | "refuel_target_planet_not_found"
   | "refuel_same_ship"
   | "refuel_not_owned"
   | "refuel_ship_not_idle"
-  | "refuel_not_same_planet"
+  | "refuel_source_not_on_planet"
+  | "refuel_target_not_on_planet"
   | "refuel_source_not_refueler"
   | "refuel_no_fuel_requested"
   | "refuel_exceeds_tank"
+  | "refuel_travel_fuel_exceeded"
   | "refuel_source_insufficient";
 
 export type RefuelErrorDetails =
   | { code: "refuel_target_not_found" }
   | { code: "refuel_source_not_found" }
+  | { code: "refuel_target_planet_not_found" }
   | { code: "refuel_same_ship" }
   | { code: "refuel_not_owned" }
   | { code: "refuel_ship_not_idle" }
-  | { code: "refuel_not_same_planet" }
+  | { code: "refuel_source_not_on_planet" }
+  | { code: "refuel_target_not_on_planet" }
   | { code: "refuel_source_not_refueler" }
   | { code: "refuel_no_fuel_requested" }
   | {
@@ -55,6 +96,11 @@ export type RefuelErrorDetails =
       capacity: number;
       current: number;
       requested: number;
+    }
+  | {
+      code: "refuel_travel_fuel_exceeded";
+      capacity: number;
+      required: number;
     }
   | {
       code: "refuel_source_insufficient";
@@ -76,6 +122,10 @@ export function formatRefuelErrorMessage(
       return locale === "ru"
         ? "Корабль-заправщик не найден."
         : "Refueler ship not found.";
+    case "refuel_target_planet_not_found":
+      return locale === "ru"
+        ? "Планета для дозаправки не найдена."
+        : "Refuel target planet not found.";
     case "refuel_same_ship":
       return locale === "ru"
         ? "Нельзя заправить корабль из самого себя."
@@ -86,12 +136,16 @@ export function formatRefuelErrorMessage(
         : "Both ships must belong to you.";
     case "refuel_ship_not_idle":
       return locale === "ru"
-        ? "Оба корабля должны быть свободны."
-        : "Both ships must be idle.";
-    case "refuel_not_same_planet":
+        ? "Корабль должен быть свободен и не находиться в полёте."
+        : "Ship must be idle and not already in transit.";
+    case "refuel_source_not_on_planet":
       return locale === "ru"
-        ? "Корабли должны находиться на одной планете."
-        : "Ships must be on the same planet.";
+        ? "Заправщик должен стартовать с планеты."
+        : "Refueler must launch from a planet.";
+    case "refuel_target_not_on_planet":
+      return locale === "ru"
+        ? "Целевой корабль должен находиться у планеты."
+        : "Target ship must be stationed at a planet.";
     case "refuel_source_not_refueler":
       return locale === "ru"
         ? `Заправка возможна только от «${shipLabel("refueler", locale)}».`
@@ -104,6 +158,10 @@ export function formatRefuelErrorMessage(
       return locale === "ru"
         ? `Превышена ёмкость бака: доступно ${error.capacity}, текущий запас ${error.current}, запрошено ${error.requested}.`
         : `Tank capacity exceeded: capacity ${error.capacity}, current ${error.current}, requested ${error.requested}.`;
+    case "refuel_travel_fuel_exceeded":
+      return locale === "ru"
+        ? `Маршрут требует ${error.required} топлива, но бак заправщика вмещает только ${error.capacity}.`
+        : `Route requires ${error.required} fuel, but the refueler tank only holds ${error.capacity}.`;
     case "refuel_source_insufficient":
       return locale === "ru"
         ? `Заправщик не имеет достаточно топлива: доступно ${error.available}, запрошено ${error.requested}.`
