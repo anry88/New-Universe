@@ -252,6 +252,10 @@ export async function loadSystemFleetContacts(
       shipId: ships.id,
       ownerId: ships.ownerId,
       shipTypeId: ships.typeId,
+      shipFuel: ships.fuel,
+      shipJumpFuel: ships.jumpFuel,
+      shipRefuelFuel: ships.refuelFuel,
+      shipRefuelJumpFuel: ships.refuelJumpFuel,
       shipHp: ships.hp,
       shipMaxHp: ships.maxHp,
       shipCombatStats: ships.combatStats,
@@ -291,15 +295,21 @@ export async function loadSystemFleetContacts(
     );
     if (!projection) return [];
 
+    const isOwnContact = row.ownerId === userId;
+
     return [
       {
         id: row.shipId,
         systemId,
-        relation: row.ownerId === userId ? "self" : "foreign",
-        visibility: row.ownerId === userId ? "full" : "summary",
+        relation: isOwnContact ? "self" : "foreign",
+        visibility: isOwnContact ? "full" : "summary",
         status,
-        ownerAlias: row.ownerId === userId ? null : maskPublicAlias(row),
+        ownerAlias: isOwnContact ? null : maskPublicAlias(row),
         shipTypeId: row.shipTypeId,
+        fuel: isOwnContact ? row.shipFuel : undefined,
+        jumpFuel: isOwnContact ? row.shipJumpFuel : undefined,
+        refuelFuel: isOwnContact ? row.shipRefuelFuel : undefined,
+        refuelJumpFuel: isOwnContact ? row.shipRefuelJumpFuel : undefined,
         hp: row.shipHp,
         maxHp: row.shipMaxHp,
         combatStats: row.shipCombatStats,

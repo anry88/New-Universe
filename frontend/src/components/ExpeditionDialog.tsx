@@ -55,6 +55,7 @@ import type { HomeSystem, Planet } from "@shared/types/world";
 interface ExpeditionDialogProps {
   ship: Ship;
   shipType: ShipType;
+  allShipTypes?: ShipType[];
   originX: number;
   originY: number;
   originZ: number;
@@ -143,6 +144,7 @@ function pointFromUnknown(value: unknown): SystemMapPoint | null {
 export function ExpeditionDialog({
   ship,
   shipType,
+  allShipTypes,
   originX,
   originY,
   originZ,
@@ -187,6 +189,12 @@ export function ExpeditionDialog({
   const [cargo] = useState(0);
   const [launchError, setLaunchError] = useState<string | null>(null);
   const launch = useLaunchExpedition();
+  const mapShipTypes = useMemo(() => {
+    const types = new Map<string, ShipType>();
+    for (const type of allShipTypes ?? []) types.set(type.id, type);
+    types.set(shipType.id, shipType);
+    return Array.from(types.values());
+  }, [allShipTypes, shipType]);
 
   const homeSystem = meData?.homeSystem;
   const isColonizer =
@@ -850,7 +858,7 @@ export function ExpeditionDialog({
             <CosmicSystemRenderer
               system={renderedSystem}
               ships={meData?.ships ?? []}
-              shipTypes={[shipType]}
+              shipTypes={mapShipTypes}
               expeditions={meData?.expeditions ?? []}
               fleetContacts={
                 routeMode === "jump_gate" && tacticalState?.systemId === renderedSystem.id
