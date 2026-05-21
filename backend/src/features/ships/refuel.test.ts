@@ -613,6 +613,102 @@ describe("refuelShip", () => {
     expect(byId.get(source.id)!.status).toBe("idle");
   });
 
+  it("launches a transfer to an owned stationed ship in a known Jump Gate destination", async () => {
+    const fixture = await createHomePlanet();
+    await unlockJumpGate(fixture.userId);
+    const destination = await createKnownPublicDestination(
+      fixture.userId,
+      fixture.system,
+    );
+    const source = await spawnShip({
+      ownerId: fixture.userId,
+      planetId: fixture.planetId,
+      typeId: "refueler",
+      fuel: "500",
+      jumpFuel: "100",
+      refuelFuel: "100",
+    });
+    const target = await spawnShip({
+      ownerId: fixture.userId,
+      planetId: destination.planet.id,
+      typeId: "light_fighter",
+      fuel: "0",
+    });
+    const targetSystemPoint = { x: 120, y: -80 };
+
+    await db.insert(expeditions).values({
+      shipId: target.id,
+      type: "combat",
+      originPlanetId: fixture.planetId,
+      targetPlanetId: null,
+      targetX: destination.system.sectorX.toString(),
+      targetY: destination.system.sectorY.toString(),
+      targetZ: destination.system.sectorZ.toString(),
+      status: "stationed",
+      eta: new Date(),
+      result: {
+        routeMode: "jump_gate",
+        destinationSystemId: destination.system.id,
+        originSystemId: fixture.system.id,
+        targetSystemPoint,
+        distance: 1,
+        speed: 1,
+        engineFactor: 1,
+        returnTrip: false,
+      },
+    });
+    await db
+      .update(ships)
+      .set({ status: "moving", locationPlanetId: null })
+      .where(eq(ships.id, target.id));
+
+    const result = await refuelShip(fixture.userId, {
+      sourceShipId: source.id,
+      targetShipId: target.id,
+      routeMode: "jump_gate",
+      destinationSystemId: destination.system.id,
+      fuel: 25,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data!.expedition?.targetPlanetId).toBeNull();
+
+    const stored = await db.query.expeditions.findFirst({
+      where: eq(expeditions.id, result.data!.expedition!.id),
+    });
+    expect(stored?.result).toMatchObject({
+      routeMode: "jump_gate",
+      destinationSystemId: destination.system.id,
+      targetSystemPoint,
+      deliveryMode: "refuel_transfer",
+    });
+
+    await completeExpedition(fixture.userId, result.data!.expedition!.id);
+
+    const deliveredRows = await db
+      .select({
+        id: ships.id,
+        locationPlanetId: ships.locationPlanetId,
+        fuel: ships.fuel,
+        status: ships.status,
+      })
+      .from(ships)
+      .where(inArray(ships.id, [source.id, target.id]));
+    const byId = new Map(deliveredRows.map((ship) => [ship.id, ship]));
+    expect(Number(byId.get(target.id)!.fuel)).toBe(25);
+    expect(byId.get(source.id)!.locationPlanetId).toBeNull();
+    expect(byId.get(source.id)!.status).toBe("moving");
+
+    const sourceStation = await db.query.expeditions.findFirst({
+      where: eq(expeditions.id, result.data!.expedition!.id),
+    });
+    expect(sourceStation?.status).toBe("stationed");
+    expect(sourceStation?.result).toMatchObject({
+      deliveredFuel: 25,
+      targetSystemPoint,
+    });
+  });
+
   it("launches refueler replenishment through a known Jump Gate destination", async () => {
     const fixture = await createHomePlanet();
     await unlockJumpGate(fixture.userId);
