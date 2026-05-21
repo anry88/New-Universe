@@ -104,6 +104,10 @@ async function stationForeignShip(args: {
   systemId: string;
   point: { x: number; y: number };
   hp?: number;
+  fuel?: string;
+  jumpFuel?: string;
+  refuelFuel?: string;
+  refuelJumpFuel?: string;
 }) {
   const [ship] = await db
     .insert(ships)
@@ -112,6 +116,14 @@ async function stationForeignShip(args: {
       typeId: args.typeId,
       locationPlanetId: null,
       status: "moving",
+      ...(args.fuel !== undefined ? { fuel: args.fuel } : {}),
+      ...(args.jumpFuel !== undefined ? { jumpFuel: args.jumpFuel } : {}),
+      ...(args.refuelFuel !== undefined
+        ? { refuelFuel: args.refuelFuel }
+        : {}),
+      ...(args.refuelJumpFuel !== undefined
+        ? { refuelJumpFuel: args.refuelJumpFuel }
+        : {}),
       hp: args.hp ?? 180,
       maxHp: 280,
       lastCombatTickAt: new Date("2026-05-13T00:59:00.000Z"),
@@ -347,6 +359,10 @@ describe("getSystemTacticalState", () => {
       systemId: target.system.id,
       point: { x: 20, y: 0 },
       hp: 140,
+      fuel: "73.00",
+      jumpFuel: "12.00",
+      refuelFuel: "500.00",
+      refuelJumpFuel: "40.00",
     });
     const foreignShip = await stationForeignShip({
       ownerId: foreignOwner.id,
@@ -368,6 +384,10 @@ describe("getSystemTacticalState", () => {
           relation: "self",
           visibility: "full",
           ownerAlias: null,
+          fuel: "73.00",
+          jumpFuel: "12.00",
+          refuelFuel: "500.00",
+          refuelJumpFuel: "40.00",
           hp: 140,
           point: { x: 20, y: 0 },
         }),

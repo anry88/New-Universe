@@ -797,6 +797,7 @@ export function SystemMapPage() {
         <ExpeditionDialog
           ship={missionShip}
           shipType={missionShipType}
+          allShipTypes={shipTypes ?? []}
           originX={Number(meData.homeSystem.sectorX)}
           originY={Number(meData.homeSystem.sectorY)}
           originZ={Number(meData.homeSystem.sectorZ)}

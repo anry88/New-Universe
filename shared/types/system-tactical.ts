@@ -15,6 +15,10 @@ export interface SystemTacticalFleetContact {
   status: "in_flight" | "returning" | "stationed";
   ownerAlias: string | null;
   shipTypeId: string | null;
+  fuel?: string;
+  jumpFuel?: string;
+  refuelFuel?: string;
+  refuelJumpFuel?: string;
   hp?: number;
   maxHp?: number;
   combatStats?: CombatStats;

@@ -99,6 +99,48 @@ function planetMapPoint(
   return layout ? { x: layout.x, y: layout.y } : null;
 }
 
+export function buildStationedOwnContactMap(
+  contacts: SystemTacticalFleetContact[],
+): Map<string, SystemTacticalFleetContact> {
+  return new Map(
+    contacts
+      .filter(
+        (contact) =>
+          contact.relation === "self" &&
+          contact.visibility === "full" &&
+          contact.status === "stationed",
+      )
+      .map((contact) => [contact.id, contact]),
+  );
+}
+
+export function refuelTransferTargetCandidates({
+  allShips,
+  planetIdsInSystem,
+  sourceShipId,
+  stationedOwnContacts,
+}: {
+  allShips: Ship[];
+  planetIdsInSystem: ReadonlySet<string>;
+  sourceShipId: string;
+  stationedOwnContacts: ReadonlyMap<string, SystemTacticalFleetContact>;
+}): Ship[] {
+  return allShips.filter((ship) => {
+    const isDockedInRenderedSystem =
+      ship.locationPlanetId != null &&
+      planetIdsInSystem.has(ship.locationPlanetId);
+    const stationedContact = stationedOwnContacts.get(ship.id) ?? null;
+    const isReadyTarget =
+      isShipReadyForOrders(ship) || stationedContact !== null;
+    return (
+      ship.id !== sourceShipId &&
+      ship.status !== "destroyed" &&
+      isReadyTarget &&
+      (isDockedInRenderedSystem || stationedContact !== null)
+    );
+  });
+}
+
 export function RefuelDialog({
   sourceShip,
   sourceType,
@@ -157,17 +199,7 @@ export function RefuelDialog({
       ? tacticalState.fleetContacts
       : [];
   const stationedOwnContacts = useMemo(
-    () =>
-      new Map(
-        visibleFleetContacts
-          .filter(
-            (contact) =>
-              contact.relation === "self" &&
-              contact.visibility === "full" &&
-              contact.status === "stationed",
-          )
-          .map((contact) => [contact.id, contact]),
-      ),
+    () => buildStationedOwnContactMap(visibleFleetContacts),
     [visibleFleetContacts],
   );
 
@@ -219,32 +251,13 @@ export function RefuelDialog({
     [allShipTypes],
   );
 
-  const mapShips = useMemo(
-    () =>
-      allShips.filter(
-        (ship) =>
-          ship.id === sourceShip.id ||
-          (ship.locationPlanetId != null &&
-            planetIdsInSystem.has(ship.locationPlanetId)),
-      ),
-    [allShips, planetIdsInSystem, sourceShip.id],
-  );
-
   const targetCandidates = useMemo(
     () =>
-      allShips.filter((ship) => {
-        const isDockedInRenderedSystem =
-          ship.locationPlanetId != null &&
-          planetIdsInSystem.has(ship.locationPlanetId);
-        const stationedContact = stationedOwnContacts.get(ship.id) ?? null;
-        const isReadyTarget =
-          isShipReadyForOrders(ship) || stationedContact !== null;
-        return (
-          ship.id !== sourceShip.id &&
-          ship.status !== "destroyed" &&
-          isReadyTarget &&
-          (isDockedInRenderedSystem || stationedContact !== null)
-        );
+      refuelTransferTargetCandidates({
+        allShips,
+        planetIdsInSystem,
+        sourceShipId: sourceShip.id,
+        stationedOwnContacts,
       }),
     [allShips, planetIdsInSystem, sourceShip.id, stationedOwnContacts],
   );
@@ -599,7 +612,7 @@ export function RefuelDialog({
         <CosmicSystemRenderer
           key={`${mode}:${activeRouteMode}:${selectedDestination?.systemId ?? "local"}`}
           system={renderedSystem}
-          ships={mode === "transfer" ? mapShips : []}
+          ships={mode === "transfer" ? allShips : []}
           shipTypes={allShipTypes}
           expeditions={[]}
           fleetContacts={

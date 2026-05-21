@@ -1709,6 +1709,11 @@ function SelectedMapShipCard({
   const rangeKey = rangeLabelKey(stats?.engagementRange);
   const dps = combatDps(stats) || shipType?.dps || 0;
   const weaponKind = weaponVisualForCombatStats(stats);
+  const fuel = ownShip?.fuel ?? contact?.fuel ?? "0";
+  const jumpFuel = ownShip?.jumpFuel ?? contact?.jumpFuel ?? "0";
+  const refuelFuel = ownShip?.refuelFuel ?? contact?.refuelFuel ?? "0";
+  const refuelJumpFuel =
+    ownShip?.refuelJumpFuel ?? contact?.refuelJumpFuel ?? "0";
   const title = typeId
     ? getShipLabel(typeId, locale)
     : t("sector.entity.unknownFleet");
@@ -1826,13 +1831,13 @@ function SelectedMapShipCard({
           <div className="ship-stat" style={{ textAlign: "left" }}>
             <span>{t("expedition.fuel")}</span>
             <b>
-              {ownShip.fuel ?? 0} / {shipType?.fuelCapacity ?? 0}
+              {fuel} / {shipType?.fuelCapacity ?? 0}
             </b>
           </div>
           <div className="ship-stat" style={{ textAlign: "left" }}>
             <span>{t("expedition.jumpFuel")}</span>
             <b>
-              {ownShip.jumpFuel ?? 0} / {shipType?.jumpFuelCapacity ?? 0}
+              {jumpFuel} / {shipType?.jumpFuelCapacity ?? 0}
             </b>
           </div>
         </div>
@@ -1996,24 +2001,23 @@ function SelectedMapShipCard({
             <div className="ship-stat" style={{ textAlign: "left" }}>
               <span>{t("expedition.fuel")}</span>
               <b>
-                {ownShip?.fuel ?? 0} / {shipType?.fuelCapacity ?? 0}
+                {fuel} / {shipType?.fuelCapacity ?? 0}
               </b>
             </div>
             <div className="ship-stat" style={{ textAlign: "left" }}>
               <span>{t("expedition.jumpFuel")}</span>
               <b>
-                {ownShip?.jumpFuel ?? 0} / {shipType?.jumpFuelCapacity ?? 0}
+                {jumpFuel} / {shipType?.jumpFuelCapacity ?? 0}
               </b>
             </div>
-            {ownShip?.typeId === "refueler" ? (
+            {typeId === "refueler" ? (
               <>
                 <div className="ship-stat" style={{ textAlign: "left" }}>
                   <span>
                     {t("refuel_dialog_reserve")} · {t("expedition.fuel")}
                   </span>
                   <b>
-                    {ownShip.refuelFuel ?? 0} /{" "}
-                    {shipType?.refuelFuelCapacity ?? 0}
+                    {refuelFuel} / {shipType?.refuelFuelCapacity ?? 0}
                   </b>
                 </div>
                 <div className="ship-stat" style={{ textAlign: "left" }}>
@@ -2021,7 +2025,7 @@ function SelectedMapShipCard({
                     {t("refuel_dialog_reserve")} · {t("expedition.jumpFuel")}
                   </span>
                   <b>
-                    {ownShip.refuelJumpFuel ?? 0} /{" "}
+                    {refuelJumpFuel} /{" "}
                     {shipType?.refuelJumpFuelCapacity ?? 0}
                   </b>
                 </div>
