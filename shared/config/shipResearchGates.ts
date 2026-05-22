@@ -3,6 +3,8 @@ import type { ResearchUnlockRequirement } from './buildingResearchGates.js';
 /** Ship type ID -> minimum completed research before build queue accepts the hull. */
 export const SHIP_RESEARCH_GATES: Partial<Record<string, ResearchUnlockRequirement>> = {
   cargo_light: { branch: 'logistics', level: 1 },
+  cargo_medium: { branch: 'logistics', level: 3 },
+  cargo_heavy: { branch: 'logistics', level: 5 },
   colonizer: { branch: 'engineering', level: 2 },
   recon_probe: { branch: 'jump_drive', level: 1 },
   light_fighter: { branch: 'weapons', level: 1 },

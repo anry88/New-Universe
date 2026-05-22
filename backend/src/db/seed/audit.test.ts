@@ -182,10 +182,37 @@ describe("catalog seed audit (P2-POL-002)", () => {
     ]);
   });
 
+  it("keeps medium and heavy cargo haulers aligned with Logistics progression", () => {
+    const cargoMedium = SHIP_TYPE_CATALOG_ROWS.find(
+      (ship) => ship.id === "cargo_medium",
+    );
+    const cargoHeavy = SHIP_TYPE_CATALOG_ROWS.find(
+      (ship) => ship.id === "cargo_heavy",
+    );
+
+    expect(cargoMedium).toBeDefined();
+    expect(cargoMedium!.cargo).toBe(15000);
+    expect(cargoMedium!.requiredBuildings).toEqual([
+      { typeId: "shipyard", level: 3 },
+    ]);
+    expect(cargoMedium!.buildCost).toHaveProperty("titanium");
+    expect(cargoMedium!.buildCost).not.toHaveProperty("gold");
+
+    expect(cargoHeavy).toBeDefined();
+    expect(cargoHeavy!.cargo).toBe(50000);
+    expect(cargoHeavy!.requiredBuildings).toEqual([
+      { typeId: "shipyard", level: 5 },
+    ]);
+    expect(cargoHeavy!.buildCost).toHaveProperty("titanium");
+    expect(cargoHeavy!.buildCost).toHaveProperty("gold");
+  });
+
   it("keeps active ship catalog ids aligned with Jump Gate semantics", () => {
     expect(SHIP_TYPE_CATALOG_ROWS.map((ship) => ship.id)).toEqual([
       "scout",
       "cargo_light",
+      "cargo_medium",
+      "cargo_heavy",
       "colonizer",
       "recon_probe",
       "refueler",

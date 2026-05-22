@@ -45,6 +45,8 @@ type CargoTransferResultPayload = {
   maxCargo?: number;
   fuelRequired?: number;
   jumpFuelRequired?: number;
+  fuelLoaded?: number;
+  jumpFuelLoaded?: number;
   distance?: number;
   requestedDistance?: number;
   speed?: number;
@@ -66,6 +68,10 @@ type CargoTransferShip = {
   cargoCapacity: number;
   speed: string;
   fuelConsumption: string;
+  fuel: string;
+  jumpFuel: string;
+  fuelCapacity: number;
+  jumpFuelCapacity: number;
 };
 
 type CargoTransferPlan = {
@@ -76,6 +82,10 @@ type CargoTransferPlan = {
   loads: CargoTransferLoad[];
   reservedResources: CargoTransferLoad[];
   preview: CargoTransferRoutePreview;
+  fuelToLoadFromPlanet: number;
+  jumpFuelToLoadFromPlanet: number;
+  remainingFuel: number;
+  remainingJumpFuel: number;
   eta: Date;
 };
 
@@ -169,6 +179,14 @@ async function buildCargoTransferPlan(
     throw new Error('Cargo routeMode must be standard or jump_gate');
   }
   const routeMode = requestedRouteMode as CargoTransferRouteMode;
+  const fuelLoaded = Number(request.fuelLoaded ?? 0);
+  const jumpFuelLoaded = Number(request.jumpFuelLoaded ?? 0);
+  if (!Number.isFinite(fuelLoaded) || fuelLoaded < 0) {
+    throw new Error('Cargo fuelLoaded must be a non-negative number');
+  }
+  if (!Number.isFinite(jumpFuelLoaded) || jumpFuelLoaded < 0) {
+    throw new Error('Cargo jumpFuelLoaded must be a non-negative number');
+  }
   const loads = normalizeCargoLoads(resources);
   const reservedResources = aggregateCargoLoads(loads);
 
@@ -183,6 +201,10 @@ async function buildCargoTransferPlan(
       cargoCapacity: shipTypes.cargo,
       speed: shipTypes.speed,
       fuelConsumption: shipTypes.fuelConsumption,
+      fuel: ships.fuel,
+      jumpFuel: ships.jumpFuel,
+      fuelCapacity: shipTypes.fuelCapacity,
+      jumpFuelCapacity: shipTypes.jumpFuelCapacity,
     })
     .from(ships)
     .innerJoin(shipTypes, eq(ships.typeId, shipTypes.id))
@@ -265,6 +287,37 @@ async function buildCargoTransferPlan(
     false,
   );
   const jumpFuelRequired = useJumpGateRoute ? JUMP_GATE_JUMP_FUEL_COST : 0;
+  const currentFuel = Number(ship.fuel);
+  const currentJumpFuel = Number(ship.jumpFuel);
+  if (fuelRequired > ship.fuelCapacity) {
+    throw new Error(
+      `Ship fuel tank capacity (${ship.fuelCapacity}) is insufficient for this cargo route (required ${fuelRequired})`,
+    );
+  }
+  if (jumpFuelRequired > ship.jumpFuelCapacity) {
+    throw new Error(
+      `Ship jump fuel tank capacity (${ship.jumpFuelCapacity}) is insufficient for this cargo route (required ${jumpFuelRequired})`,
+    );
+  }
+
+  const targetFuelInTank = Math.min(
+    ship.fuelCapacity,
+    Math.max(fuelRequired, currentFuel + fuelLoaded),
+  );
+  const targetJumpFuelInTank = Math.min(
+    ship.jumpFuelCapacity,
+    Math.max(jumpFuelRequired, currentJumpFuel + jumpFuelLoaded),
+  );
+  if (targetFuelInTank < fuelRequired) {
+    throw new Error('not enough fuel');
+  }
+  if (targetJumpFuelInTank < jumpFuelRequired) {
+    throw new Error('not enough jump fuel');
+  }
+  const fuelToLoadFromPlanet = Math.max(0, targetFuelInTank - currentFuel);
+  const jumpFuelToLoadFromPlanet = Math.max(0, targetJumpFuelInTank - currentJumpFuel);
+  const remainingFuel = targetFuelInTank - fuelRequired;
+  const remainingJumpFuel = targetJumpFuelInTank - jumpFuelRequired;
   const researchEffects = await getResearchEffectsForUser(userId, database);
   const speed = applyShipSpeed(Number(ship.speed), researchEffects);
   const engineFactor = 1;
@@ -291,6 +344,8 @@ async function buildCargoTransferPlan(
       maxCargo: ship.cargoCapacity,
       fuelRequired,
       jumpFuelRequired,
+      fuelLoaded: fuelToLoadFromPlanet,
+      jumpFuelLoaded: jumpFuelToLoadFromPlanet,
       distance: travelDistance,
       requestedDistance,
       speed,
@@ -301,6 +356,10 @@ async function buildCargoTransferPlan(
       targetSystemId: targetSystem.id,
       targetPlanetName: targetSettlement.planet.name,
     },
+    fuelToLoadFromPlanet,
+    jumpFuelToLoadFromPlanet,
+    remainingFuel,
+    remainingJumpFuel,
   };
 }
 
@@ -329,19 +388,21 @@ export async function launchCargoTransfer(
   }> => {
     const plan = await buildCargoTransferPlan(userId, request, tx);
 
-    const transferCosts = [
-      ...plan.reservedResources,
-      { resourceId: 'fuel', amount: plan.preview.fuelRequired },
-    ];
-    if (plan.preview.jumpFuelRequired > 0) {
+    const transferCosts = [...plan.reservedResources];
+    if (plan.fuelToLoadFromPlanet > 0) {
+      transferCosts.push({ resourceId: 'fuel', amount: plan.fuelToLoadFromPlanet });
+    }
+    if (plan.jumpFuelToLoadFromPlanet > 0) {
       transferCosts.push({
         resourceId: JUMP_FUEL_RESOURCE_ID,
-        amount: plan.preview.jumpFuelRequired,
+        amount: plan.jumpFuelToLoadFromPlanet,
       });
     }
-    const spendResult = await spendResources(plan.ship.locationPlanetId!, transferCosts, tx);
-    if (!spendResult.success) {
-      throw new Error(spendResult.error || 'Failed to reserve resources');
+    if (transferCosts.length > 0) {
+      const spendResult = await spendResources(plan.ship.locationPlanetId!, transferCosts, tx);
+      if (!spendResult.success) {
+        throw new Error(spendResult.error || 'Failed to reserve resources');
+      }
     }
 
     const targetSystem = systemForSettlement(plan.targetSettlement);
@@ -371,6 +432,8 @@ export async function launchCargoTransfer(
       .update(ships)
       .set({
         status: 'moving',
+        fuel: plan.remainingFuel.toFixed(2),
+        jumpFuel: plan.remainingJumpFuel.toFixed(2),
         cargoJson,
       })
       .where(eq(ships.id, plan.ship.id));

@@ -8,6 +8,7 @@ import { trackBackendEvent } from '../lib/analytics.js';
 import {
   nonEmptyStringSchema,
   objectBodySchema,
+  nonNegativeNumberSchema,
   positiveNumberSchema,
   securityRouteConfig,
 } from '../lib/security.js';
@@ -16,6 +17,8 @@ const cargoTransferBodySchema = objectBodySchema(
   {
     shipId: nonEmptyStringSchema,
     targetPlanetId: nonEmptyStringSchema,
+    fuelLoaded: nonNegativeNumberSchema,
+    jumpFuelLoaded: nonNegativeNumberSchema,
     routeMode: { type: 'string', enum: ['standard', 'jump_gate'] },
     resources: {
       type: 'array',
@@ -38,12 +41,16 @@ function readCargoTransferBody(body: unknown): Partial<CargoTransferRequest> {
     shipId,
     targetPlanetId,
     routeMode,
+    fuelLoaded,
+    jumpFuelLoaded,
     resources,
   } = (body ?? {}) as Partial<CargoTransferRequest>;
 
   return {
     shipId,
     targetPlanetId,
+    fuelLoaded,
+    jumpFuelLoaded,
     routeMode: routeMode as CargoTransferRouteMode | undefined,
     resources,
   };
@@ -88,7 +95,14 @@ export async function cargoRoutes(app: FastifyInstance) {
     },
   }, async (request, reply) => {
     const userId = (request as any).userId;
-    const { shipId, targetPlanetId, routeMode, resources } = readCargoTransferBody(request.body);
+    const {
+      shipId,
+      targetPlanetId,
+      fuelLoaded,
+      jumpFuelLoaded,
+      routeMode,
+      resources,
+    } = readCargoTransferBody(request.body);
 
     if (!shipId || !targetPlanetId || !resources || !Array.isArray(resources)) {
       return reply.status(400).send({
@@ -101,6 +115,8 @@ export async function cargoRoutes(app: FastifyInstance) {
       const result = await previewCargoTransfer(userId, {
         shipId,
         targetPlanetId,
+        fuelLoaded,
+        jumpFuelLoaded,
         routeMode,
         resources,
       });
@@ -124,7 +140,14 @@ export async function cargoRoutes(app: FastifyInstance) {
     },
   }, async (request, reply) => {
     const userId = (request as any).userId;
-    const { shipId, targetPlanetId, routeMode, resources } = readCargoTransferBody(request.body);
+    const {
+      shipId,
+      targetPlanetId,
+      fuelLoaded,
+      jumpFuelLoaded,
+      routeMode,
+      resources,
+    } = readCargoTransferBody(request.body);
 
     if (!shipId || !targetPlanetId || !resources || !Array.isArray(resources)) {
       return reply.status(400).send({
@@ -137,6 +160,8 @@ export async function cargoRoutes(app: FastifyInstance) {
       const result = await launchCargoTransfer(userId, {
         shipId,
         targetPlanetId,
+        fuelLoaded,
+        jumpFuelLoaded,
         routeMode,
         resources,
       });
