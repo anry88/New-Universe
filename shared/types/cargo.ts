@@ -16,6 +16,7 @@ export interface CargoTransferRequest {
   /**
    * One transfer order can include several load lines. Duplicate resource ids
    * are valid and are aggregated by the backend for reservation and delivery.
+   * Empty arrays are valid logistics relocation flights that move only the ship.
    */
   resources: CargoTransferLoad[];
 }

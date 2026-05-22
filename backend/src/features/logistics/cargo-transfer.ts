@@ -80,9 +80,10 @@ type CargoTransferPlan = {
 };
 
 function normalizeCargoLoads(resources: CargoTransferLoad[]): CargoTransferLoad[] {
-  if (!Array.isArray(resources) || resources.length === 0) {
+  if (!Array.isArray(resources)) {
     throw new Error('Resources are missing');
   }
+  if (resources.length === 0) return [];
 
   return resources.map((resource, index) => {
     const resourceId = typeof resource?.resourceId === 'string'
@@ -159,7 +160,7 @@ async function buildCargoTransferPlan(
   database: any,
 ): Promise<CargoTransferPlan> {
   if (!request) throw new Error('Request body is missing');
-  const { shipId, targetPlanetId, resources } = request;
+  const { shipId, targetPlanetId, resources = [] } = request;
   if (!shipId) throw new Error('shipId is required');
   if (!targetPlanetId) throw new Error('targetPlanetId is required');
 
@@ -434,9 +435,11 @@ export async function completeCargoTransfer(
     return false;
   }
 
-  const gainResult = await gainResources(expedition.targetPlanetId, deliveryResources, tx);
-  if (!gainResult.success) {
-    throw new Error(gainResult.error || 'Failed to apply resources to target planet');
+  if (deliveryResources.length > 0) {
+    const gainResult = await gainResources(expedition.targetPlanetId, deliveryResources, tx);
+    if (!gainResult.success) {
+      throw new Error(gainResult.error || 'Failed to apply resources to target planet');
+    }
   }
 
   await tx

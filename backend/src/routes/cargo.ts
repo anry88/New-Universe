@@ -19,7 +19,7 @@ const cargoTransferBodySchema = objectBodySchema(
     routeMode: { type: 'string', enum: ['standard', 'jump_gate'] },
     resources: {
       type: 'array',
-      minItems: 1,
+      minItems: 0,
       maxItems: 32,
       items: objectBodySchema(
         {

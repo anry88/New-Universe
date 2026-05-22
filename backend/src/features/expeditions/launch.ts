@@ -176,9 +176,10 @@ async function distanceBetweenSystemGateAndPlanet(
   const systemPlanets = await defaultDb.query.planets.findMany({
     where: eq(planets.systemId, systemId),
   });
-  const planetLayout = buildSystemMapLayouts(systemPlanets, Number(systemSeed)).find(
-    (layout) => layout.id === planetId,
-  );
+  const planetLayout = buildSystemMapLayouts(
+    systemPlanets,
+    Number(systemSeed),
+  ).find((layout) => layout.id === planetId);
   if (!planetLayout) return null;
 
   return systemMapPointDistanceLy(systemMapJumpGatePoint(), planetLayout);
@@ -193,9 +194,10 @@ async function distanceBetweenPointAndPlanet(
   const systemPlanets = await defaultDb.query.planets.findMany({
     where: eq(planets.systemId, systemId),
   });
-  const planetLayout = buildSystemMapLayouts(systemPlanets, Number(systemSeed)).find(
-    (layout) => layout.id === planetId,
-  );
+  const planetLayout = buildSystemMapLayouts(
+    systemPlanets,
+    Number(systemSeed),
+  ).find((layout) => layout.id === planetId);
   if (!planetLayout) return null;
 
   return systemMapPointDistanceLy(point, planetLayout);
@@ -366,6 +368,7 @@ export async function launchExpedition(
   let jumpFuelRequired = 0;
   let destinationSystem: typeof systems.$inferSelect | null = null;
   let targetSystemPoint: { x: number; y: number } | null = null;
+  let destinationIsOwnHomeSystem = false;
 
   if (routeMode === "jump_gate") {
     const gateState = await getJumpGateState(userId);
@@ -382,26 +385,46 @@ export async function launchExpedition(
       return launchFailure(400, { code: "expedition_jump_gate_calibrating" });
     }
 
-    const knownDestination = await defaultDb.query.discoveredSystems.findFirst({
-      where: and(
-        eq(discoveredSystems.userId, userId),
-        eq(discoveredSystems.systemId, destinationSystemId!),
-      ),
-    });
-    if (!knownDestination) {
-      return launchFailure(404, { code: "expedition_known_destination_not_found" });
-    }
+    const ownHomeDestination = launchingFromStationedPoint
+      ? ((await defaultDb.query.systems.findFirst({
+          where: and(
+            eq(systems.id, destinationSystemId!),
+            eq(systems.isHome, true),
+            eq(systems.ownerId, userId),
+          ),
+        })) ?? null)
+      : null;
 
-    destinationSystem =
-      (await defaultDb.query.systems.findFirst({
-        where: and(
-          eq(systems.id, destinationSystemId!),
-          eq(systems.isHome, false),
-          isNull(systems.ownerId),
-        ),
-      })) ?? null;
+    if (ownHomeDestination) {
+      destinationSystem = ownHomeDestination;
+      destinationIsOwnHomeSystem = true;
+    } else {
+      const knownDestination =
+        await defaultDb.query.discoveredSystems.findFirst({
+          where: and(
+            eq(discoveredSystems.userId, userId),
+            eq(discoveredSystems.systemId, destinationSystemId!),
+          ),
+        });
+      if (!knownDestination) {
+        return launchFailure(404, {
+          code: "expedition_known_destination_not_found",
+        });
+      }
+
+      destinationSystem =
+        (await defaultDb.query.systems.findFirst({
+          where: and(
+            eq(systems.id, destinationSystemId!),
+            eq(systems.isHome, false),
+            isNull(systems.ownerId),
+          ),
+        })) ?? null;
+    }
     if (!destinationSystem) {
-      return launchFailure(400, { code: "expedition_known_destination_not_public" });
+      return launchFailure(400, {
+        code: "expedition_known_destination_not_public",
+      });
     }
 
     if (isFiniteNumber(targetSystemX) && isFiniteNumber(targetSystemY)) {
@@ -424,7 +447,9 @@ export async function launchExpedition(
     !targetPlanetId &&
     !targetSystemPoint
   ) {
-    return launchFailure(400, { code: "expedition_gate_target_point_required" });
+    return launchFailure(400, {
+      code: "expedition_gate_target_point_required",
+    });
   }
 
   if (cargoLoaded > shipRow.shipCargoCapacity) {
@@ -445,12 +470,25 @@ export async function launchExpedition(
 
     const sys = targetPlanet.system;
     if (routeMode === "jump_gate") {
-      if (!destinationSystem || targetPlanet.systemId !== destinationSystem.id) {
-        return launchFailure(400, { code: "expedition_target_wrong_gate_destination" });
+      if (
+        !destinationSystem ||
+        targetPlanet.systemId !== destinationSystem.id
+      ) {
+        return launchFailure(400, {
+          code: "expedition_target_wrong_gate_destination",
+        });
       }
 
-      if (sys.isHome || sys.ownerId) {
+      if (!destinationIsOwnHomeSystem && (sys.isHome || sys.ownerId)) {
         return launchFailure(400, { code: "expedition_target_not_public" });
+      }
+      if (
+        destinationIsOwnHomeSystem &&
+        (!sys.isHome || sys.ownerId !== userId)
+      ) {
+        return launchFailure(400, {
+          code: "expedition_target_wrong_gate_destination",
+        });
       }
     } else {
       if (
@@ -458,7 +496,9 @@ export async function launchExpedition(
         Math.trunc(resolvedTargetY) !== sys.sectorY ||
         Math.trunc(resolvedTargetZ) !== sys.sectorZ
       ) {
-        return launchFailure(400, { code: "expedition_target_sector_mismatch" });
+        return launchFailure(400, {
+          code: "expedition_target_sector_mismatch",
+        });
       }
     }
 
@@ -474,7 +514,9 @@ export async function launchExpedition(
         ),
       });
       if (already) {
-        return launchFailure(400, { code: "expedition_target_already_surveyed" });
+        return launchFailure(400, {
+          code: "expedition_target_already_surveyed",
+        });
       }
     } else if (shipRow.shipRole === "colonization") {
       const gates = await checkColonizationGates(userId, targetPlanetId, {
@@ -487,7 +529,10 @@ export async function launchExpedition(
         });
       }
 
-      const eligibility = await colonyService.canColonize(userId, targetPlanetId);
+      const eligibility = await colonyService.canColonize(
+        userId,
+        targetPlanetId,
+      );
       if (!eligibility.allowed) {
         return launchFailure(400, {
           code: "expedition_colonization_blocked",
@@ -536,12 +581,12 @@ export async function launchExpedition(
       : routeMode === "jump_gate" && originSystemPoint
         ? systemMapPointDistanceLy(originSystemPoint, systemMapJumpGatePoint())
         : routeMode === "jump_gate"
-      ? await distanceBetweenSystemGateAndPlanet(
-          originSystemId,
-          originSystemSeed,
-          originPlanetId,
-        )
-      : null;
+          ? await distanceBetweenSystemGateAndPlanet(
+              originSystemId,
+              originSystemSeed,
+              originPlanetId,
+            )
+          : null;
   const targetGateDistance =
     routeMode === "jump_gate" &&
     sameStationedDestination &&
@@ -555,27 +600,32 @@ export async function launchExpedition(
           resolvedTargetPlanetId,
         )
       : routeMode === "jump_gate" &&
-        sameStationedDestination &&
-        targetSystemPoint &&
-        originSystemPoint
+          sameStationedDestination &&
+          targetSystemPoint &&
+          originSystemPoint
         ? systemMapPointDistanceLy(originSystemPoint, targetSystemPoint)
-        : routeMode === "jump_gate" && resolvedTargetPlanetId && destinationSystem
-        ? await distanceBetweenSystemGateAndPlanet(
-            destinationSystem.id,
-            Number(destinationSystem.seed),
-            resolvedTargetPlanetId,
-          )
-        : routeMode === "jump_gate" && targetSystemPoint
-          ? systemMapPointDistanceLy(systemMapJumpGatePoint(), targetSystemPoint)
-        : null;
+        : routeMode === "jump_gate" &&
+            resolvedTargetPlanetId &&
+            destinationSystem
+          ? await distanceBetweenSystemGateAndPlanet(
+              destinationSystem.id,
+              Number(destinationSystem.seed),
+              resolvedTargetPlanetId,
+            )
+          : routeMode === "jump_gate" && targetSystemPoint
+            ? systemMapPointDistanceLy(
+                systemMapJumpGatePoint(),
+                targetSystemPoint,
+              )
+            : null;
   const distance =
     routeMode === "jump_gate"
       ? (originGateDistance ?? 0) + (targetGateDistance ?? 0)
-      : sameSystemPlanetDistance ??
+      : (sameSystemPlanetDistance ??
         calculateSectorRouteDistance(
           { x: ox, y: oy },
           { x: resolvedTargetX, y: resolvedTargetY },
-        );
+        ));
   const travelDistance =
     resolvedTargetPlanetId || routeMode === "jump_gate"
       ? Math.max(1, distance)
@@ -615,12 +665,14 @@ export async function launchExpedition(
   const eta = new Date(Date.now() + etaSeconds * 1000);
 
   return defaultDb.transaction(async (tx) => {
-    if (
-      spaceportReservation?.targetPlanetId
-    ) {
-      const usage = await loadLandingSlotUsage(tx, spaceportReservation.targetPlanetId, {
-        lock: true,
-      });
+    if (spaceportReservation?.targetPlanetId) {
+      const usage = await loadLandingSlotUsage(
+        tx,
+        spaceportReservation.targetPlanetId,
+        {
+          lock: true,
+        },
+      );
 
       if (usage.capacity <= 0) {
         return launchFailure(400, { code: "expedition_spaceport_required" });
@@ -678,8 +730,14 @@ export async function launchExpedition(
       const extraJumpFuelRequested = jumpFuelLoaded ?? 0;
 
       // We must have at least the minimum required fuel after loading
-      targetFuelInTank = Math.max(minFuelNeededInTank, currentFuel + extraFuelRequested);
-      targetJumpFuelInTank = Math.max(minJumpFuelNeededInTank, currentJumpFuel + extraJumpFuelRequested);
+      targetFuelInTank = Math.max(
+        minFuelNeededInTank,
+        currentFuel + extraFuelRequested,
+      );
+      targetJumpFuelInTank = Math.max(
+        minJumpFuelNeededInTank,
+        currentJumpFuel + extraJumpFuelRequested,
+      );
 
       // Cap at tank capacity
       targetFuelInTank = Math.min(targetFuelInTank, fuelCapacity);
@@ -687,7 +745,10 @@ export async function launchExpedition(
 
       // Amount to take from planet inventory
       fuelToTakeFromPlanet = Math.max(0, targetFuelInTank - currentFuel);
-      jumpFuelToTakeFromPlanet = Math.max(0, targetJumpFuelInTank - currentJumpFuel);
+      jumpFuelToTakeFromPlanet = Math.max(
+        0,
+        targetJumpFuelInTank - currentJumpFuel,
+      );
     } else if ((fuelLoaded ?? 0) > 0 || (jumpFuelLoaded ?? 0) > 0) {
       return launchFailure(400, {
         code: "expedition_ship_not_on_planet",
@@ -732,7 +793,9 @@ export async function launchExpedition(
         return launchFailure(400, {
           code: "insufficient_resource",
           resourceId:
-            fuelSpend.details?.resourceId ?? launchCosts[0]?.resourceId ?? "fuel",
+            fuelSpend.details?.resourceId ??
+            launchCosts[0]?.resourceId ??
+            "fuel",
           required: fuelSpend.details?.required,
           available: fuelSpend.details?.available,
         });
@@ -797,7 +860,7 @@ export async function launchExpedition(
         jumpFuel: remainingJumpFuel.toFixed(2),
         cargoJson: {
           loaded: cargoLoaded,
-          // We keep these for legacy compatibility if needed, 
+          // We keep these for legacy compatibility if needed,
           // though columns are now the source of truth.
           fuelRequired,
           jumpFuelRequired,

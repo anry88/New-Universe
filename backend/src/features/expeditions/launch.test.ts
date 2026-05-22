@@ -722,7 +722,9 @@ describe("Expeditions - POST /expeditions", () => {
     expect(response.statusCode).toBe(200);
     const body = response.json();
     expect(body.expedition.result.returnTrip).toBe(false);
-    expect(body.expedition.result.jumpFuelRequired).toBe(JUMP_GATE_JUMP_FUEL_COST);
+    expect(body.expedition.result.jumpFuelRequired).toBe(
+      JUMP_GATE_JUMP_FUEL_COST,
+    );
     expect(body.expedition.result.targetSystemPoint).toEqual(targetSystemPoint);
     expect(body.expedition.result.spaceportReservation).toBeUndefined();
   });
@@ -795,11 +797,18 @@ describe("Expeditions - POST /expeditions", () => {
 
     expect(relaunchResponse.statusCode).toBe(200);
     const relaunchBody = relaunchResponse.json();
-    expect(relaunchBody.expedition.result.originSystemId).toBe(destination.system.id);
-    expect(relaunchBody.expedition.result.originSystemPoint).toEqual(firstPoint);
+    expect(relaunchBody.expedition.result.originSystemId).toBe(
+      destination.system.id,
+    );
+    expect(relaunchBody.expedition.result.originSystemPoint).toEqual(
+      firstPoint,
+    );
     expect(relaunchBody.expedition.result.targetSystemPoint).toEqual(nextPoint);
     expect(relaunchBody.expedition.result.jumpFuelRequired).toBe(0);
-    expect(relaunchBody.expedition.result.distance).toBeCloseTo(expectedDistance, 5);
+    expect(relaunchBody.expedition.result.distance).toBeCloseTo(
+      expectedDistance,
+      5,
+    );
     expect(relaunchBody.expedition.result.fuelRequired).toBe(expectedFuel);
 
     const oldStation = await db.query.expeditions.findFirst({
@@ -816,6 +825,117 @@ describe("Expeditions - POST /expeditions", () => {
       100 - Number(firstBody.expedition.result.fuelRequired) - expectedFuel,
       2,
     );
+  });
+
+  it("lets stationed Jump Gate combat ships return to the owner's home planet", async () => {
+    const { app, token, userId } = await createTestUser();
+    const { system: homeSystem, planet: homePlanet } =
+      await getHomeContext(userId);
+    const destination = await createKnownPublicDestination(userId);
+
+    await unlockJumpGate(userId);
+    await ensureSpaceport(homePlanet.id);
+    await ensureFuel(homePlanet.id, 300);
+    await ensureJumpFuel(homePlanet.id, JUMP_GATE_JUMP_FUEL_COST * 2);
+    const ship = await createIdleFighter(userId, homePlanet.id);
+    const firstPoint = {
+      x: systemMapJumpGatePoint().x + 20,
+      y: systemMapJumpGatePoint().y,
+    };
+
+    const firstResponse = await app.inject({
+      method: "POST",
+      url: "/expeditions",
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        shipId: ship.id,
+        routeMode: "jump_gate",
+        destinationSystemId: destination.system.id,
+        targetSystemX: firstPoint.x,
+        targetSystemY: firstPoint.y,
+        fuelLoaded: 100,
+        jumpFuelLoaded: JUMP_GATE_JUMP_FUEL_COST * 2,
+        cargoLoaded: 0,
+      },
+    });
+
+    expect(firstResponse.statusCode).toBe(200);
+    const firstBody = firstResponse.json();
+    await db
+      .update(expeditions)
+      .set({ eta: new Date(Date.now() - 1000) })
+      .where(eq(expeditions.id, firstBody.expedition.id));
+    await processExpeditions({ userId, skipNotifications: true });
+
+    const stationed = await db.query.expeditions.findFirst({
+      where: and(
+        eq(expeditions.shipId, ship.id),
+        eq(expeditions.status, "stationed"),
+      ),
+    });
+    expect(stationed).toBeDefined();
+
+    const expectedDistance =
+      systemMapPointDistanceLy(firstPoint, systemMapJumpGatePoint()) +
+      (await distanceFromGateToPlanet(
+        homeSystem.id,
+        Number(homeSystem.seed),
+        homePlanet.id,
+      ));
+    const expectedFuel = Math.ceil(expectedDistance * 0.3);
+
+    const returnResponse = await app.inject({
+      method: "POST",
+      url: "/expeditions",
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        shipId: ship.id,
+        routeMode: "jump_gate",
+        destinationSystemId: homeSystem.id,
+        targetPlanetId: homePlanet.id,
+        cargoLoaded: 0,
+      },
+    });
+
+    expect(returnResponse.statusCode).toBe(200);
+    const returnBody = returnResponse.json();
+    expect(returnBody.expedition.targetPlanetId).toBe(homePlanet.id);
+    expect(returnBody.expedition.result.destinationSystemId).toBe(
+      homeSystem.id,
+    );
+    expect(returnBody.expedition.result.originSystemId).toBe(
+      destination.system.id,
+    );
+    expect(returnBody.expedition.result.originSystemPoint).toEqual(firstPoint);
+    expect(returnBody.expedition.result.returnTrip).toBe(false);
+    expect(returnBody.expedition.result.jumpFuelRequired).toBe(
+      JUMP_GATE_JUMP_FUEL_COST,
+    );
+    expect(returnBody.expedition.result.distance).toBeCloseTo(
+      expectedDistance,
+      5,
+    );
+    expect(returnBody.expedition.result.fuelRequired).toBe(expectedFuel);
+    expect(returnBody.expedition.result.spaceportReservation).toMatchObject({
+      targetPlanetId: homePlanet.id,
+    });
+
+    await db
+      .update(expeditions)
+      .set({ eta: new Date(Date.now() - 1000) })
+      .where(eq(expeditions.id, returnBody.expedition.id));
+    await processExpeditions({ userId, skipNotifications: true });
+
+    const returnedShip = await db.query.ships.findFirst({
+      where: eq(ships.id, ship.id),
+    });
+    expect(returnedShip!.status).toBe("idle");
+    expect(returnedShip!.locationPlanetId).toBe(homePlanet.id);
+
+    const returnExpedition = await db.query.expeditions.findFirst({
+      where: eq(expeditions.id, returnBody.expedition.id),
+    });
+    expect(returnExpedition).toBeUndefined();
   });
 
   it("requires a target-system point for Jump Gate scout routes", async () => {
