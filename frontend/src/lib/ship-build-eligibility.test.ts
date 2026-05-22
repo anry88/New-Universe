@@ -89,6 +89,9 @@ const basePlanet: Planet = {
 const logisticsResearch: ResearchProgress[] = [
   { userId: "user-1", branch: "logistics", level: 1, completesAt: null },
 ];
+const logisticsLevel3Research: ResearchProgress[] = [
+  { userId: "user-1", branch: "logistics", level: 3, completesAt: null },
+];
 
 describe("resolveShipBuildBlockedReason", () => {
   it("blocks cargo_light until shipyard level 2", () => {
@@ -168,6 +171,48 @@ describe("resolveShipBuildBlockedReason", () => {
       requiredLevel: 1,
       currentLevel: 0,
     });
+  });
+
+  it("blocks cargo_medium until Logistics research level 3", () => {
+    const cargoMedium: ShipType = {
+      ...cargoLight,
+      id: "cargo_medium",
+      name: { en: "Medium Transporter", ru: "Средний транспорт" },
+      cargo: 15000,
+      buildCost: { titanium: 1 },
+      requiredBuildings: [{ typeId: "shipyard", level: 3 }],
+    };
+    const planet = {
+      ...basePlanet,
+      buildings: [
+        {
+          id: "yard-1",
+          planetId: "planet-1",
+          typeId: "shipyard",
+          level: 3,
+          slotIndex: 2,
+        },
+      ],
+      resources: [
+        ...(basePlanet.resources ?? []),
+        {
+          planetId: "planet-1",
+          resourceId: "titanium",
+          amount: "1",
+          regenRate: "0",
+          storageCap: "5000",
+          lastUpdateAt: new Date().toISOString(),
+        },
+      ],
+    };
+
+    expect(resolveShipBuildBlockedReason(planet, cargoMedium, logisticsResearch)).toEqual({
+      type: "missingResearch",
+      branch: "logistics",
+      requiredLevel: 3,
+      currentLevel: 1,
+    });
+    expect(resolveShipBuildBlockedReason(planet, cargoMedium, logisticsLevel3Research)).toBeNull();
   });
 
   it("formats shipyard API blockers with localized entity names", () => {

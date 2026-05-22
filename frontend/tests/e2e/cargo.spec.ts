@@ -19,7 +19,7 @@ test('fleet cargo shortcut opens transfer dialog with selected ship and localize
       {
         planetId: homePlanetId,
         resourceId: 'iron',
-        amount: '120',
+        amount: '7000',
         regenRate: '0',
         storageCap: '1000',
         lastUpdateAt: nowIso,
@@ -52,6 +52,8 @@ test('fleet cargo shortcut opens transfer dialog with selected ship and localize
     tgId: '12345678',
     tgUsername: 'cargo',
     tgFirstName: 'Cargo',
+    playerNickname: 'Cargo Pilot',
+    playerNicknameChangeCount: 0,
     createdAt: nowIso,
     preferredLocale: 'en',
     diamonds: 0,
@@ -93,6 +95,13 @@ test('fleet cargo shortcut opens transfer dialog with selected ship and localize
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({ token: 'mock-token', user: { id: user.id, preferredLocale: 'en' } }),
+    });
+  });
+  await page.route('**/me/session/start', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ startedAt: nowIso }),
     });
   });
   await page.route('**/me', async (route) => {
@@ -139,6 +148,40 @@ test('fleet cargo shortcut opens transfer dialog with selected ship and localize
       body: JSON.stringify({ resources: homePlanet.resources }),
     });
   });
+  let previewRequests = 0;
+  await page.route('**/cargo/transfer/preview', async (route) => {
+    previewRequests += 1;
+    const body = route.request().postDataJSON();
+    expect(body.resources).toEqual([]);
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        preview: {
+          routeMode: 'standard',
+          deliveryMode: 'one_way',
+          resources: [],
+          loads: [],
+          totalCargo: 0,
+          maxCargo: 5000,
+          fuelRequired: 3,
+          jumpFuelRequired: 0,
+          fuelLoaded: 3,
+          jumpFuelLoaded: 0,
+          distance: 4,
+          requestedDistance: 4,
+          speed: 1.2,
+          engineFactor: 1,
+          etaSeconds: 200,
+          eta: nowIso,
+          originSystemId: 'home-system',
+          targetSystemId: 'home-system',
+          targetPlanetName: 'Mars',
+        },
+      }),
+    });
+  });
 
   await page.goto('/ships');
   await page.getByRole('button', { name: /Lightweight Transporter/ }).click();
@@ -150,5 +193,21 @@ test('fleet cargo shortcut opens transfer dialog with selected ship and localize
   await expect(dialog).toBeVisible();
   await expect(dialog.getByText('Cargo Transfer')).toBeVisible();
   await expect(dialog.getByText('0 / 5000')).toBeVisible();
+  await expect(dialog.getByTestId('cargo-resource-fuel')).toContainText('Fuel');
+  await expect(dialog.getByTestId('cargo-resource-iron')).toContainText('Iron');
+  await expect(dialog.locator('[data-testid^="cargo-resource-"]').first()).toContainText('Fuel');
   await expect(dialog.getByText('Iron')).toBeVisible();
+
+  await dialog.getByTestId('cargo-resource-iron').click();
+  await expect(dialog.getByText('0 / 5000')).toBeVisible();
+
+  await dialog.locator('select').selectOption(colonyPlanetId);
+  await expect.poll(() => previewRequests).toBe(1);
+
+  const ironAmount = dialog.getByTestId('cargo-resource-iron').locator('input[type="number"]');
+  await ironAmount.fill('9999');
+  await expect(ironAmount).toHaveValue('5000');
+  await expect(dialog.getByText('5000 / 5000')).toBeVisible();
+  await page.waitForTimeout(300);
+  expect(previewRequests).toBe(1);
 });

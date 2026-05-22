@@ -69,6 +69,8 @@ export const BUILDING_ENTITY_LABELS: Record<string, EntityLabels> = {
 export const SHIP_ENTITY_LABELS: Record<string, EntityLabels> = {
   scout: { en: "Scout", ru: "Разведчик" },
   cargo_light: { en: "Lightweight Transporter", ru: "Лёгкий транспорт" },
+  cargo_medium: { en: "Medium Transporter", ru: "Средний транспорт" },
+  cargo_heavy: { en: "Heavy Transporter", ru: "Тяжёлый транспорт" },
   cargo: { en: "Cargo Transport", ru: "Грузовой транспорт" },
   colonizer: { en: "Colonizer", ru: "Колонизатор" },
   recon_probe: { en: "Recon Probe", ru: "Разведывательный зонд" },
@@ -104,6 +106,14 @@ export const SHIP_ENTITY_DESCRIPTIONS: Record<string, EntityLabels> = {
   cargo_light: {
     en: "Light logistics hauler for moving resources between owned settlements.",
     ru: "Лёгкий логистический транспорт для перевозки ресурсов между вашими поселениями.",
+  },
+  cargo_medium: {
+    en: "Mid-capacity logistics hauler with reinforced titanium cargo frames.",
+    ru: "Средний логистический транспорт с усиленными титановыми грузовыми рамами.",
+  },
+  cargo_heavy: {
+    en: "Heavy logistics hauler for late large-scale resource transfers.",
+    ru: "Тяжёлый логистический транспорт для поздних крупномасштабных перевозок ресурсов.",
   },
   cargo: {
     en: "Cargo transport for resource logistics.",

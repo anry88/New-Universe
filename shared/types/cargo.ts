@@ -8,9 +8,14 @@ export type CargoTransferRouteMode = 'standard' | 'jump_gate';
 export interface CargoTransferRequest {
   shipId: string;
   targetPlanetId: string;
+  /** Amount of ordinary fuel to load from the origin planet into the ship tank before departure. */
+  fuelLoaded?: number;
+  /** Amount of Jump Fuel to load from the origin planet into the ship tank before departure. */
+  jumpFuelLoaded?: number;
   /**
    * Standard cargo keeps the existing logistics route. Jump Gate cargo is an
-   * explicit opt-in route that spends stored jump_fuel from the origin planet.
+   * explicit opt-in route that consumes Jump Fuel from the ship tank, loading
+   * missing fuel from the origin planet before departure when needed.
    */
   routeMode?: CargoTransferRouteMode;
   /**
@@ -30,6 +35,8 @@ export interface CargoTransferRoutePreview {
   maxCargo: number;
   fuelRequired: number;
   jumpFuelRequired: number;
+  fuelLoaded?: number;
+  jumpFuelLoaded?: number;
   distance: number;
   requestedDistance: number;
   speed: number;

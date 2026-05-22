@@ -1,7 +1,12 @@
 import type { Ship, ShipType } from '@shared/types/ships';
 
 type Translate = (key: string, params?: Record<string, string | number>) => string;
-const CARGO_TRANSFER_TYPE_IDS = new Set(['cargo', 'cargo_light']);
+const CARGO_TRANSFER_TYPE_IDS = new Set([
+  'cargo',
+  'cargo_light',
+  'cargo_medium',
+  'cargo_heavy',
+]);
 
 export function isCargoTransferShipType(
   shipType: Pick<ShipType, 'id' | 'role' | 'cargo'> | null | undefined,
@@ -33,6 +38,8 @@ export function formatCargoTransferError(message: string | undefined, t: Transla
   if (normalized.includes('ship is not idle')) return t('cargo.error.shipNotIdle');
   if (normalized.includes('ship is not on a planet')) return t('cargo.error.shipNotOnPlanet');
   if (normalized.includes('cannot transfer cargo')) return t('cargo.error.notCargoShip');
+  if (normalized.includes('ship fuel tank capacity')) return t('cargo.error.fuelTankCapacity');
+  if (normalized.includes('ship jump fuel tank capacity')) return t('cargo.error.jumpFuelTankCapacity');
   if (normalized.includes('origin planet is not owned')) return t('cargo.error.originNotOwned');
   if (normalized.includes('target planet not found')) return t('cargo.error.targetNotFound');
   if (normalized.includes('target planet is not owned')) return t('cargo.error.targetNotOwned');

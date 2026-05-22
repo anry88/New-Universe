@@ -17,6 +17,8 @@ describe('ship icon resolver', () => {
   it('resolves active catalog ids to unique Cosmic Atlas hull entries', () => {
     expect(resolveShipType('scout')).toBe(SHIP_BY_TYPE.scout);
     expect(resolveShipType('cargo_light')).toBe(SHIP_BY_TYPE.cargo_light);
+    expect(resolveShipType('cargo_medium')).toBe(SHIP_BY_TYPE.cargo_medium);
+    expect(resolveShipType('cargo_heavy')).toBe(SHIP_BY_TYPE.cargo_heavy);
     expect(resolveShipType('colonizer')).toBe(SHIP_BY_TYPE.colonizer);
     expect(resolveShipType('recon_probe')).toBe(SHIP_BY_TYPE.recon_probe);
     expect(resolveShipType('medium_fighter')).toBe(SHIP_BY_TYPE.medium_fighter);

@@ -338,6 +338,18 @@ export const SHIPS = {
     requiredBuildings: [{ typeId: 'shipyard', level: 2 }],
     requiredResearch: [{ branch: 'logistics', level: 1 }],
   },
+  cargo_medium: {
+    buildCost: { steel: 1200, electronics: 300, titanium: 400, fuel: 200 },
+    buildTimeSec: 3600,
+    requiredBuildings: [{ typeId: 'shipyard', level: 3 }],
+    requiredResearch: [{ branch: 'logistics', level: 3 }],
+  },
+  cargo_heavy: {
+    buildCost: { steel: 5000, electronics: 1000, titanium: 1800, gold: 350, fuel: 600 },
+    buildTimeSec: 10800,
+    requiredBuildings: [{ typeId: 'shipyard', level: 5 }],
+    requiredResearch: [{ branch: 'logistics', level: 5 }],
+  },
   colonizer: {
     buildCost: { steel: 2500, silicon: 800, biomass: 400 },
     buildTimeSec: 14400,

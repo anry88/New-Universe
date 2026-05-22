@@ -41,6 +41,11 @@ describe('research gates', () => {
     expect(SHIP_RESEARCH_GATES.cargo_light).toEqual({ branch: 'logistics', level: 1 });
   });
 
+  it('gates larger cargo transports behind later Logistics levels', () => {
+    expect(SHIP_RESEARCH_GATES.cargo_medium).toEqual({ branch: 'logistics', level: 3 });
+    expect(SHIP_RESEARCH_GATES.cargo_heavy).toEqual({ branch: 'logistics', level: 5 });
+  });
+
   it('assertResearchRequirement no-ops when requirement undefined', () => {
     const map = levelsMapFromRows([]);
     expect(() => assertResearchRequirement(map, undefined, 'scout')).not.toThrow();

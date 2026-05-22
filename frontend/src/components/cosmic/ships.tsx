@@ -17,6 +17,8 @@ export interface ShipIconProps {
 export type ShipTypeId =
   | 'scout'
   | 'cargo_light'
+  | 'cargo_medium'
+  | 'cargo_heavy'
   | 'cargo'
   | 'colonizer'
   | 'recon_probe'
@@ -98,6 +100,35 @@ export const IconCargoLight: React.FC<ShipIconProps> = ({ size, tone }) => (
     <path d="M28 25 L28 39" />
     <path d="M12 21 L7 16" />
     <path d="M12 43 L7 48" />
+  </HullIcon>
+);
+
+export const IconCargoMedium: React.FC<ShipIconProps> = ({ size, tone }) => (
+  <HullIcon size={size} tone={tone}>
+    <path d="M8 24 L40 13 L58 32 L40 51 L8 40 Z" fill={tone ?? '#5BD7FF'} fillOpacity="0.14" />
+    <rect x="13" y="23" width="27" height="18" rx="2.5" />
+    <path d="M40 23 L52 32 L40 41" />
+    <path d="M19 23 L19 41" />
+    <path d="M27 21 L27 43" />
+    <path d="M35 23 L35 41" />
+    <path d="M12 20 L5 14" />
+    <path d="M12 44 L5 50" />
+    <path d="M7 32 L1 32" />
+  </HullIcon>
+);
+
+export const IconCargoHeavy: React.FC<ShipIconProps> = ({ size, tone }) => (
+  <HullIcon size={size} tone={tone}>
+    <path d="M6 22 L37 10 L60 32 L37 54 L6 42 Z" fill={tone ?? '#5BD7FF'} fillOpacity="0.16" />
+    <rect x="11" y="21" width="30" height="22" rx="3" />
+    <path d="M41 21 L55 32 L41 43" />
+    <path d="M17 21 L17 43" />
+    <path d="M25 19 L25 45" />
+    <path d="M33 21 L33 43" />
+    <path d="M10 17 L3 10" />
+    <path d="M10 47 L3 54" />
+    <path d="M6 29 L0 27" />
+    <path d="M6 35 L0 37" />
   </HullIcon>
 );
 
@@ -354,6 +385,20 @@ export const SHIP_BY_TYPE: Record<ShipTypeId, ShipDef> = {
     Icon: IconCargoLight,
     label: 'Lightweight Transporter',
     labels: { en: 'Lightweight Transporter', ru: 'Лёгкий транспорт' },
+    tag: 'CARGO',
+    tags: { en: 'CARGO', ru: 'ГРУЗ' },
+  },
+  cargo_medium: {
+    Icon: IconCargoMedium,
+    label: 'Medium Transporter',
+    labels: { en: 'Medium Transporter', ru: 'Средний транспорт' },
+    tag: 'CARGO',
+    tags: { en: 'CARGO', ru: 'ГРУЗ' },
+  },
+  cargo_heavy: {
+    Icon: IconCargoHeavy,
+    label: 'Heavy Transporter',
+    labels: { en: 'Heavy Transporter', ru: 'Тяжёлый транспорт' },
     tag: 'CARGO',
     tags: { en: 'CARGO', ru: 'ГРУЗ' },
   },

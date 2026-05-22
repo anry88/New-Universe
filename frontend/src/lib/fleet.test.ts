@@ -4,6 +4,7 @@ import { formatCargoTransferError, isCargoTransferShip } from './fleet';
 const shipTypes = [
   { id: 'scout', role: 'recon', cargo: 50 },
   { id: 'cargo_light', role: 'logistics', cargo: 5000 },
+  { id: 'cargo_medium', role: 'logistics', cargo: 15000 },
   { id: 'colonizer', role: 'colonization', cargo: 1 },
 ];
 
@@ -14,6 +15,8 @@ describe('fleet helpers', () => {
   it('allows only logistics ships into cargo transfer flows', () => {
     expect(isCargoTransferShip({ typeId: 'cargo_light' }, shipTypes)).toBe(true);
     expect(isCargoTransferShip({ typeId: 'cargo_light' }, undefined)).toBe(true);
+    expect(isCargoTransferShip({ typeId: 'cargo_medium' }, shipTypes)).toBe(true);
+    expect(isCargoTransferShip({ typeId: 'cargo_heavy' }, undefined)).toBe(true);
     expect(isCargoTransferShip({ typeId: 'scout' }, shipTypes)).toBe(false);
     expect(isCargoTransferShip({ typeId: 'colonizer' }, shipTypes)).toBe(false);
   });
@@ -27,6 +30,12 @@ describe('fleet helpers', () => {
     expect(formatCargoTransferError('not enough fuel', t)).toBe('cargo.error.insufficientFuel');
     expect(formatCargoTransferError('not enough jump_fuel', t)).toBe('cargo.error.insufficientJumpFuel');
     expect(formatCargoTransferError('not enough jump fuel', t)).toBe('cargo.error.insufficientJumpFuel');
+    expect(formatCargoTransferError('Ship fuel tank capacity (100) is insufficient for this cargo route', t)).toBe(
+      'cargo.error.fuelTankCapacity',
+    );
+    expect(formatCargoTransferError('Ship jump fuel tank capacity (50) is insufficient for this cargo route', t)).toBe(
+      'cargo.error.jumpFuelTankCapacity',
+    );
     expect(formatCargoTransferError('Cargo transfer: logistics research level 1 required', t)).toBe(
       'cargo.error.logisticsRequired',
     );

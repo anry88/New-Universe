@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useColonies } from '../hooks/useColonies';
 import { useShipTypes } from '../hooks/useShips';
 import { useMe } from '../hooks/useMe';
@@ -8,6 +8,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { X, Truck, AlertTriangle, Navigation, Clock } from 'lucide-react';
 import { useI18n } from '../lib/i18n';
 import type { CargoTransferPreviewResponse, CargoTransferRequest } from '@shared/types/cargo';
+import type { Locale } from '@shared/types/locale';
+import type { PlanetResource } from '@shared/types/world';
 import { formatCargoTransferError, isCargoTransferShip } from '../lib/fleet';
 import {
   JUMP_FUEL_RESOURCE_ID,
@@ -23,6 +25,105 @@ interface CargoTransferDialogProps {
   initialTargetPlanetId?: string | null;
   initialUseJumpGateRoute?: boolean;
   onClose: () => void;
+}
+
+interface DragOnlySliderProps {
+  value: number;
+  min?: number;
+  max: number;
+  label: string;
+  onChange: (value: number) => void;
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  if (max < min) return min;
+  return Math.min(max, Math.max(min, value));
+}
+
+function DragOnlySlider({
+  value,
+  min = 0,
+  max,
+  label,
+  onChange,
+}: DragOnlySliderProps) {
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const disabled = max <= min;
+  const clampedValue = clampNumber(value, min, max);
+  const pct = disabled ? (max > 0 ? 100 : 0) : ((clampedValue - min) / (max - min)) * 100;
+
+  const valueFromClientX = useCallback(
+    (clientX: number) => {
+      const rect = trackRef.current?.getBoundingClientRect();
+      if (!rect || rect.width <= 0) return clampedValue;
+      const ratio = clampNumber((clientX - rect.left) / rect.width, 0, 1);
+      return Math.round(min + ratio * (max - min));
+    },
+    [clampedValue, max, min],
+  );
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (disabled) return;
+    const step = event.shiftKey ? 10 : 1;
+    let next = clampedValue;
+    if (event.key === 'ArrowRight' || event.key === 'ArrowUp') next += step;
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') next -= step;
+    if (event.key === 'Home') next = min;
+    if (event.key === 'End') next = max;
+    if (next !== clampedValue) {
+      event.preventDefault();
+      onChange(clampNumber(next, min, max));
+    }
+  };
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (disabled) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (disabled || !event.currentTarget.hasPointerCapture(event.pointerId)) return;
+    onChange(valueFromClientX(event.clientX));
+  };
+
+  const handlePointerUp = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
+
+  return (
+    <div ref={trackRef} className="relative h-5 flex-1 select-none">
+      <div className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-slate-700" />
+      <div
+        className="absolute left-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-cyan-500"
+        style={{ width: `${pct}%` }}
+      />
+      <button
+        type="button"
+        aria-label={label}
+        aria-valuemin={min}
+        aria-valuemax={max}
+        aria-valuenow={clampedValue}
+        disabled={disabled}
+        onKeyDown={handleKeyDown}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        role="slider"
+        className="absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-200 bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.35)] outline-none transition focus-visible:ring-2 focus-visible:ring-cyan-300 disabled:border-slate-600 disabled:bg-slate-600 disabled:shadow-none"
+        style={{ left: `${pct}%` }}
+      />
+    </div>
+  );
+}
+
+function sortedResourceRows(resources: PlanetResource[] | undefined, locale: Locale) {
+  return [...(resources ?? [])].sort((a, b) =>
+    getResourceLabel(a.resourceId, locale).localeCompare(getResourceLabel(b.resourceId, locale)),
+  );
 }
 
 export function CargoTransferDialog({
@@ -41,6 +142,8 @@ export function CargoTransferDialog({
   const [selectedShipId, setSelectedShipId] = useState<string>(initialShipId ?? '');
   const [targetPlanetId, setTargetPlanetId] = useState<string>(initialTargetPlanetId ?? '');
   const [cargo, setCargo] = useState<Record<string, number>>({});
+  const [fuelLoaded, setFuelLoaded] = useState(0);
+  const [jumpFuelLoaded, setJumpFuelLoaded] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [useJumpGateRoute, setUseJumpGateRoute] = useState(Boolean(initialUseJumpGateRoute));
 
@@ -59,9 +162,22 @@ export function CargoTransferDialog({
   const selectedShip = availableShips.find(s => s.id === selectedShipId);
   const selectedShipType = selectedShip && shipTypes?.find(t => t.id === selectedShip.typeId);
   const selectedTargetPlanet = targetPlanets.find(p => p.id === targetPlanetId);
+  const resourceRows = useMemo(
+    () => sortedResourceRows(originPlanet.resources, locale),
+    [originPlanet.resources, locale],
+  );
 
   const totalCargo = Object.values(cargo).reduce((a, b) => a + b, 0);
   const capacity = selectedShipType?.cargo || 0;
+  const resourceMaxForCargo = useCallback(
+    (resourceId: string, available: number) => {
+      const current = Number(cargo[resourceId] ?? 0);
+      const usedByOtherResources = Math.max(0, totalCargo - current);
+      const remainingCapacity = Math.max(0, capacity - usedByOtherResources);
+      return Math.floor(Math.min(available, remainingCapacity));
+    },
+    [capacity, cargo, totalCargo],
+  );
   const cargoLoads = useMemo(
     () => Object.entries(cargo)
       .filter(([_, amount]) => amount > 0)
@@ -87,14 +203,14 @@ export function CargoTransferDialog({
   const jumpGateRouteSelected = isInterSystemTarget && useJumpGateRoute;
   const routeMode = jumpGateRouteSelected ? 'jump_gate' : 'standard';
   const previewQuery = useQuery({
-    queryKey: ['cargo-transfer-preview', selectedShipId, targetPlanetId, routeMode, cargoLoads],
+    queryKey: ['cargo-transfer-preview', selectedShipId, targetPlanetId, routeMode],
     queryFn: () => apiFetch<CargoTransferPreviewResponse>('/cargo/transfer/preview', {
       method: 'POST',
       body: JSON.stringify({
         shipId: selectedShipId,
         targetPlanetId,
         routeMode,
-        resources: cargoLoads,
+        resources: [],
       }),
     }),
     enabled: Boolean(selectedShipId && targetPlanetId),
@@ -103,11 +219,68 @@ export function CargoTransferDialog({
   const routePreview = previewQuery.data?.preview ?? null;
   const fuelRequired = routePreview?.fuelRequired ?? 0;
   const jumpFuelRequired = routePreview?.jumpFuelRequired ?? (jumpGateRouteSelected ? JUMP_GATE_JUMP_FUEL_COST : 0);
-  const shortOnFuel = fuelRequired > fuelAvailableForRoute;
-  const shortOnJumpFuel = jumpFuelRequired > jumpFuelAvailableForRoute;
+  const currentFuel = Math.floor(Number(selectedShip?.fuel ?? 0));
+  const currentJumpFuel = Math.floor(Number(selectedShip?.jumpFuel ?? 0));
+  const fuelCapacity = selectedShipType?.fuelCapacity ?? 0;
+  const jumpFuelCapacity = selectedShipType?.jumpFuelCapacity ?? 0;
+  const fuelLoadMax = Math.max(
+    0,
+    Math.floor(Math.min(fuelAvailableForRoute, Math.max(0, fuelCapacity - currentFuel))),
+  );
+  const fuelLoadMin = Math.min(
+    fuelLoadMax,
+    Math.max(0, Math.ceil(fuelRequired - currentFuel)),
+  );
+  const jumpFuelLoadMax = Math.max(
+    0,
+    Math.floor(
+      Math.min(jumpFuelAvailableForRoute, Math.max(0, jumpFuelCapacity - currentJumpFuel)),
+    ),
+  );
+  const jumpFuelLoadMin = Math.min(
+    jumpFuelLoadMax,
+    Math.max(0, Math.ceil(jumpFuelRequired - currentJumpFuel)),
+  );
+  const clampedFuelLoaded = clampNumber(fuelLoaded, fuelLoadMin, fuelLoadMax);
+  const clampedJumpFuelLoaded = clampNumber(jumpFuelLoaded, jumpFuelLoadMin, jumpFuelLoadMax);
+  const totalFuelAtLaunch = currentFuel + clampedFuelLoaded;
+  const totalJumpFuelAtLaunch = currentJumpFuel + clampedJumpFuelLoaded;
+  const shortOnFuel = fuelRequired > totalFuelAtLaunch;
+  const shortOnJumpFuel = jumpFuelRequired > totalJumpFuelAtLaunch;
   const previewError = previewQuery.isError
     ? formatCargoTransferError(previewQuery.error.message, t)
     : null;
+
+  useEffect(() => {
+    setFuelLoaded((value) => clampNumber(value, fuelLoadMin, fuelLoadMax));
+  }, [fuelLoadMax, fuelLoadMin]);
+
+  useEffect(() => {
+    setJumpFuelLoaded((value) => clampNumber(value, jumpFuelLoadMin, jumpFuelLoadMax));
+  }, [jumpFuelLoadMax, jumpFuelLoadMin]);
+
+  useEffect(() => {
+    setCargo((previous) => {
+      let changed = false;
+      let used = 0;
+      const next: Record<string, number> = {};
+
+      for (const [resourceId, amount] of Object.entries(previous)) {
+        const available = Math.floor(
+          Number(originPlanet.resources?.find((row) => row.resourceId === resourceId)?.amount ?? 0),
+        );
+        const allowed = Math.max(0, Math.min(available, capacity - used));
+        const clamped = Math.floor(clampNumber(amount, 0, allowed));
+        if (clamped > 0) {
+          next[resourceId] = clamped;
+          used += clamped;
+        }
+        if (clamped !== amount) changed = true;
+      }
+
+      return changed ? next : previous;
+    });
+  }, [capacity, originPlanet.resources]);
 
   const transferMutation = useMutation({
     mutationFn: (body: CargoTransferRequest) => apiFetch('/cargo/transfer', {
@@ -137,6 +310,8 @@ export function CargoTransferDialog({
       shipId: selectedShipId,
       targetPlanetId,
       routeMode,
+      fuelLoaded: clampedFuelLoaded > 0 ? clampedFuelLoaded : undefined,
+      jumpFuelLoaded: clampedJumpFuelLoaded > 0 ? clampedJumpFuelLoaded : undefined,
       resources: cargoLoads,
     });
   };
@@ -144,12 +319,22 @@ export function CargoTransferDialog({
   const updateResourceAmount = (resourceId: string, amount: number) => {
     const planetRes = originPlanet.resources?.find(r => r.resourceId === resourceId);
     const maxAvailable = planetRes ? Math.floor(Number(planetRes.amount)) : 0;
-    const finalAmount = Math.max(0, Math.min(amount, maxAvailable));
-    
-    setCargo(prev => ({
-      ...prev,
-      [resourceId]: finalAmount
-    }));
+    setCargo(prev => {
+      const current = Number(prev[resourceId] ?? 0);
+      const usedByOtherResources = Object.entries(prev).reduce(
+        (sum, [id, value]) => sum + (id === resourceId ? 0 : Number(value)),
+        0,
+      );
+      const maxByCapacity = Math.max(0, capacity - usedByOtherResources);
+      const finalAmount = Math.floor(clampNumber(amount, 0, Math.min(maxAvailable, maxByCapacity)));
+      const next = { ...prev };
+      if (finalAmount > 0) {
+        next[resourceId] = finalAmount;
+      } else {
+        delete next[resourceId];
+      }
+      return finalAmount === current ? prev : next;
+    });
   };
 
   return (
@@ -252,39 +437,47 @@ export function CargoTransferDialog({
           <section>
             <label className="block text-xs font-semibold text-slate-400 uppercase tracking-tighter mb-2">{t('cargo.load')}</label>
             <div className="space-y-2">
-              {originPlanet.resources?.map(res => (
-                <div key={res.resourceId} className="flex items-center gap-3 p-2 bg-slate-800/30 rounded-xl border border-slate-700/50">
-                  <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center border border-slate-700">
-                     <span className="text-slate-400">
-                       <ResourceIcon resourceId={res.resourceId} size={22} />
-                     </span>
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex justify-between text-[10px] font-bold tracking-wider mb-1">
-                      <span className="text-slate-400">{getResourceLabel(res.resourceId, locale)}</span>
-                      <span className="text-slate-500">{t('cargo.available', { amount: Math.floor(Number(res.amount)) })}</span>
+              {resourceRows.map(res => {
+                const available = Math.floor(Number(res.amount));
+                const maxForResource = resourceMaxForCargo(res.resourceId, available);
+                const current = Math.min(cargo[res.resourceId] || 0, maxForResource);
+                const label = getResourceLabel(res.resourceId, locale);
+                return (
+                  <div
+                    key={res.resourceId}
+                    data-testid={`cargo-resource-${res.resourceId}`}
+                    className="flex items-center gap-3 p-2 bg-slate-800/30 rounded-xl border border-slate-700/50"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center border border-slate-700">
+                      <span className="text-slate-400">
+                        <ResourceIcon resourceId={res.resourceId} size={22} />
+                      </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="range"
-                        min="0"
-                        max={Math.floor(Number(res.amount))}
-                        value={cargo[res.resourceId] || 0}
-                        onChange={(e) => updateResourceAmount(res.resourceId, parseInt(e.target.value))}
-                        className="flex-1 accent-cyan-500 h-1"
-                      />
-                      <input
-                        type="number"
-                        min="0"
-                        max={Math.floor(Number(res.amount))}
-                        value={cargo[res.resourceId] || 0}
-                        onChange={(e) => updateResourceAmount(res.resourceId, parseInt(e.target.value) || 0)}
-                        className="w-16 bg-slate-900 border border-slate-700 rounded-lg py-0.5 text-center text-xs text-cyan-400 font-mono"
-                      />
+                    <div className="flex-1">
+                      <div className="flex justify-between text-[10px] font-bold tracking-wider mb-1">
+                        <span className="text-slate-400">{label}</span>
+                        <span className="text-slate-500">{t('cargo.available', { amount: available })}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <DragOnlySlider
+                          label={label}
+                          max={maxForResource}
+                          value={current}
+                          onChange={(value) => updateResourceAmount(res.resourceId, value)}
+                        />
+                        <input
+                          type="number"
+                          min="0"
+                          max={maxForResource}
+                          value={current}
+                          onChange={(e) => updateResourceAmount(res.resourceId, parseInt(e.target.value) || 0)}
+                          className="w-16 bg-slate-900 border border-slate-700 rounded-lg py-0.5 text-center text-xs text-cyan-400 font-mono"
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </section>
 
@@ -317,26 +510,81 @@ export function CargoTransferDialog({
               <div className="mt-2 flex justify-between gap-3">
                 <span>{t('cargo.fuelCost')}</span>
                 <span className={shortOnFuel ? 'text-amber-300' : 'text-cyan-300'}>
-                  {fuelRequired} / {fuelAvailableForRoute}
+                  {fuelRequired} / {totalFuelAtLaunch}
                 </span>
               </div>
+              <div className="mt-1 flex justify-between gap-3 text-[10px] text-slate-500">
+                <span>{t('expedition_dialog_tank_status', { current: currentFuel, capacity: fuelCapacity })}</span>
+                <span>{t('expedition.availableOnPlanet')}: {fuelAvailableForRoute}</span>
+              </div>
+              <div className="mt-3">
+                <div className="mb-1 flex justify-between gap-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                  <span>{t('expedition_dialog_load_fuel')}</span>
+                  <span className="font-mono text-cyan-300">+{clampedFuelLoaded}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <DragOnlySlider
+                    label={t('expedition_dialog_load_fuel')}
+                    min={fuelLoadMin}
+                    max={fuelLoadMax}
+                    value={clampedFuelLoaded}
+                    onChange={setFuelLoaded}
+                  />
+                  <input
+                    type="number"
+                    min={fuelLoadMin}
+                    max={fuelLoadMax}
+                    value={clampedFuelLoaded}
+                    onChange={(e) => setFuelLoaded(parseInt(e.target.value) || 0)}
+                    className="w-16 bg-slate-950 border border-slate-700 rounded-lg py-0.5 text-center text-xs text-cyan-400 font-mono"
+                  />
+                </div>
+              </div>
+              {jumpGateRouteSelected ? (
+                <div className="mt-4 border-t border-slate-800 pt-3">
+                  <div className="flex justify-between gap-3 font-semibold">
+                    <span className="flex items-center gap-2">
+                      <Navigation className="h-4 w-4 text-cyan-300" />
+                      {t('cargo.jumpFuelCost')}
+                    </span>
+                    <span className={shortOnJumpFuel ? 'text-amber-300' : 'text-cyan-300'}>
+                      {jumpFuelRequired} / {totalJumpFuelAtLaunch}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex justify-between gap-3 text-[10px] text-slate-500">
+                    <span>{t('expedition_dialog_tank_status', { current: currentJumpFuel, capacity: jumpFuelCapacity })}</span>
+                    <span>{t('expedition.availableOnPlanet')}: {jumpFuelAvailableForRoute}</span>
+                  </div>
+                  <div className="mt-3">
+                    <div className="mb-1 flex justify-between gap-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                      <span>{t('expedition_dialog_load_jump_fuel')}</span>
+                      <span className="font-mono text-cyan-300">+{clampedJumpFuelLoaded}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <DragOnlySlider
+                        label={t('expedition_dialog_load_jump_fuel')}
+                        min={jumpFuelLoadMin}
+                        max={jumpFuelLoadMax}
+                        value={clampedJumpFuelLoaded}
+                        onChange={setJumpFuelLoaded}
+                      />
+                      <input
+                        type="number"
+                        min={jumpFuelLoadMin}
+                        max={jumpFuelLoadMax}
+                        value={clampedJumpFuelLoaded}
+                        onChange={(e) => setJumpFuelLoaded(parseInt(e.target.value) || 0)}
+                        className="w-16 bg-slate-950 border border-slate-700 rounded-lg py-0.5 text-center text-xs text-cyan-400 font-mono"
+                      />
+                    </div>
+                  </div>
+                  <div className="text-[10px] text-slate-500 mt-2">{t('cargo.jumpFuelHint')}</div>
+                </div>
+              ) : null}
+              <div className="text-[10px] text-slate-500 mt-2">{t('cargo.fuelHint')}</div>
             </div>
           ) : previewQuery.isFetching ? (
             <div className="mb-4 px-1 text-xs text-slate-500">{t('cargo.previewLoading')}</div>
-          ) : null}
-          {jumpGateRouteSelected ? (
-            <div className="flex items-start gap-2 mb-4 px-1 text-xs text-slate-300">
-              <Navigation className="w-4 h-4 text-cyan-300 mt-0.5 flex-shrink-0" />
-              <div className="flex-1">
-                <div className="flex justify-between gap-3 font-semibold">
-                  <span>{t('cargo.jumpFuelCost')}</span>
-                  <span className={shortOnJumpFuel ? 'text-amber-300' : 'text-cyan-300'}>
-                    {jumpFuelRequired} / {jumpFuelAvailableForRoute}
-                  </span>
-                </div>
-                <div className="text-[10px] text-slate-500 mt-0.5">{t('cargo.jumpFuelHint')}</div>
-              </div>
-            </div>
           ) : null}
           
           <button
