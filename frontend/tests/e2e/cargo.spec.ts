@@ -235,6 +235,50 @@ test('fleet cargo shortcut opens transfer dialog with selected ship and localize
     .toBeGreaterThan(3);
   await page.mouse.up();
 
+  const touchFuelSliderLeft = await fuelSlider.evaluate((node) =>
+    parseFloat((node as HTMLElement).style.left),
+  );
+  const touchPoint = await fuelSlider.evaluate((node) => {
+    const rect = (node as HTMLElement).getBoundingClientRect();
+    const point = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+    node.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      cancelable: true,
+      clientX: point.x,
+      clientY: point.y,
+      isPrimary: true,
+      pointerId: 19,
+      pointerType: 'touch',
+    }));
+    return point;
+  });
+  await page.waitForTimeout(50);
+  await page.evaluate(({ x, y }) => {
+    window.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true,
+      cancelable: true,
+      clientX: x + 8,
+      clientY: y,
+      isPrimary: true,
+      pointerId: 19,
+      pointerType: 'touch',
+    }));
+  }, touchPoint);
+  await expect.poll(async () =>
+    fuelSlider.evaluate((node) => parseFloat((node as HTMLElement).style.left)),
+  ).toBeGreaterThan(touchFuelSliderLeft);
+  await page.evaluate(({ x, y }) => {
+    window.dispatchEvent(new PointerEvent('pointerup', {
+      bubbles: true,
+      cancelable: true,
+      clientX: x + 8,
+      clientY: y,
+      isPrimary: true,
+      pointerId: 19,
+      pointerType: 'touch',
+    }));
+  }, touchPoint);
+
   const ironAmount = dialog.getByTestId('cargo-resource-iron').locator('input[type="number"]');
   await ironAmount.fill('9999');
   await expect(ironAmount).toHaveValue('5000');
