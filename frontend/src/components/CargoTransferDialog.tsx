@@ -51,8 +51,10 @@ function DragOnlySlider({
 }: DragOnlySliderProps) {
   const trackRef = useRef<HTMLDivElement | null>(null);
   const pointerOffsetRef = useRef(0);
+  const activePointerIdRef = useRef<number | null>(null);
   const isDraggingRef = useRef(false);
   const lastEmittedValueRef = useRef(value);
+  const [isDragging, setIsDragging] = useState(false);
   const [dragRatio, setDragRatio] = useState<number | null>(null);
   const disabled = max <= min;
   const clampedValue = clampNumber(value, min, max);
@@ -92,6 +94,53 @@ function DragOnlySlider({
     [max, min, onChange],
   );
 
+  const finishDrag = useCallback(
+    (clientX?: number) => {
+      if (clientX !== undefined) {
+        const nextRatio = ratioFromClientX(clientX);
+        emitValueForRatio(nextRatio);
+      }
+      activePointerIdRef.current = null;
+      isDraggingRef.current = false;
+      setIsDragging(false);
+      setDragRatio(null);
+    },
+    [emitValueForRatio, ratioFromClientX],
+  );
+
+  useEffect(() => {
+    if (!isDragging) return undefined;
+
+    const handleWindowPointerMove = (event: PointerEvent) => {
+      if (activePointerIdRef.current !== event.pointerId) return;
+      event.preventDefault();
+      const nextRatio = ratioFromClientX(event.clientX);
+      setDragRatio(nextRatio);
+      emitValueForRatio(nextRatio);
+    };
+
+    const handleWindowPointerUp = (event: PointerEvent) => {
+      if (activePointerIdRef.current !== event.pointerId) return;
+      event.preventDefault();
+      finishDrag(event.clientX);
+    };
+
+    const handleWindowPointerCancel = (event: PointerEvent) => {
+      if (activePointerIdRef.current !== event.pointerId) return;
+      event.preventDefault();
+      finishDrag();
+    };
+
+    window.addEventListener('pointermove', handleWindowPointerMove, { passive: false });
+    window.addEventListener('pointerup', handleWindowPointerUp, { passive: false });
+    window.addEventListener('pointercancel', handleWindowPointerCancel, { passive: false });
+    return () => {
+      window.removeEventListener('pointermove', handleWindowPointerMove);
+      window.removeEventListener('pointerup', handleWindowPointerUp);
+      window.removeEventListener('pointercancel', handleWindowPointerCancel);
+    };
+  }, [emitValueForRatio, finishDrag, isDragging, ratioFromClientX]);
+
   const handleKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
     if (disabled) return;
     const step = event.shiftKey ? 10 : 1;
@@ -112,30 +161,15 @@ function DragOnlySlider({
     if (!rect || rect.width <= 0) return;
     event.preventDefault();
     pointerOffsetRef.current = event.clientX - (rect.left + valueRatio * rect.width);
+    activePointerIdRef.current = event.pointerId;
     isDraggingRef.current = true;
+    lastEmittedValueRef.current = clampedValue;
+    setIsDragging(true);
     setDragRatio(valueRatio);
-    event.currentTarget.setPointerCapture(event.pointerId);
-  };
-
-  const handlePointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
-    if (disabled || !event.currentTarget.hasPointerCapture(event.pointerId)) return;
-    const nextRatio = ratioFromClientX(event.clientX);
-    setDragRatio(nextRatio);
-    emitValueForRatio(nextRatio);
-  };
-
-  const handlePointerUp = (event: React.PointerEvent<HTMLButtonElement>) => {
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      const nextRatio = ratioFromClientX(event.clientX);
-      emitValueForRatio(nextRatio);
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-    isDraggingRef.current = false;
-    setDragRatio(null);
   };
 
   return (
-    <div className="h-10 flex-1 select-none">
+    <div className="h-10 flex-1 touch-none select-none">
       <div ref={trackRef} className="relative mx-3 h-10">
         <div className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-slate-700" />
         <div
@@ -152,11 +186,8 @@ function DragOnlySlider({
           disabled={disabled}
           onKeyDown={handleKeyDown}
           onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerUp}
           role="slider"
-          className="group absolute top-1/2 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full outline-none transition focus-visible:ring-2 focus-visible:ring-cyan-300 disabled:cursor-not-allowed"
+          className="group absolute top-1/2 flex h-11 w-11 touch-none -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full outline-none transition focus-visible:ring-2 focus-visible:ring-cyan-300 disabled:cursor-not-allowed"
           style={{ left: `${pct}%` }}
         >
           <span className="h-6 w-6 rounded-full border border-cyan-200 bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.35)] group-disabled:border-slate-600 group-disabled:bg-slate-600 group-disabled:shadow-none" />
