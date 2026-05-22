@@ -94,28 +94,32 @@ function DragOnlySlider({
   };
 
   return (
-    <div ref={trackRef} className="relative h-5 flex-1 select-none">
-      <div className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-slate-700" />
-      <div
-        className="absolute left-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-cyan-500"
-        style={{ width: `${pct}%` }}
-      />
-      <button
-        type="button"
-        aria-label={label}
-        aria-valuemin={min}
-        aria-valuemax={max}
-        aria-valuenow={clampedValue}
-        disabled={disabled}
-        onKeyDown={handleKeyDown}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-        role="slider"
-        className="absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-200 bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.35)] outline-none transition focus-visible:ring-2 focus-visible:ring-cyan-300 disabled:border-slate-600 disabled:bg-slate-600 disabled:shadow-none"
-        style={{ left: `${pct}%` }}
-      />
+    <div className="h-10 flex-1 select-none">
+      <div ref={trackRef} className="relative mx-3 h-10">
+        <div className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-slate-700" />
+        <div
+          className="absolute left-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-cyan-500"
+          style={{ width: `${pct}%` }}
+        />
+        <button
+          type="button"
+          aria-label={label}
+          aria-valuemin={min}
+          aria-valuemax={max}
+          aria-valuenow={clampedValue}
+          disabled={disabled}
+          onKeyDown={handleKeyDown}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          role="slider"
+          className="group absolute top-1/2 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full outline-none transition focus-visible:ring-2 focus-visible:ring-cyan-300 disabled:cursor-not-allowed"
+          style={{ left: `${pct}%` }}
+        >
+          <span className="h-6 w-6 rounded-full border border-cyan-200 bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.35)] group-disabled:border-slate-600 group-disabled:bg-slate-600 group-disabled:shadow-none" />
+        </button>
+      </div>
     </div>
   );
 }
@@ -338,13 +342,19 @@ export function CargoTransferDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-[1200] flex h-[100dvh] items-stretch justify-center overflow-hidden bg-slate-950/80 p-3 backdrop-blur-sm sm:items-center sm:p-4"
+      style={{
+        paddingTop: 'max(12px, env(safe-area-inset-top, 12px))',
+        paddingBottom: 'max(12px, env(safe-area-inset-bottom, 12px))',
+      }}
+    >
       <div
         data-testid="cargo-transfer-dialog"
-        className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+        className="flex h-full w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl sm:h-auto sm:max-h-[90vh]"
       >
         {/* Header */}
-        <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-800/50">
+        <div className="flex items-center justify-between border-b border-slate-800 bg-slate-800/50 p-4">
           <div className="flex items-center gap-2 text-cyan-400 font-bold uppercase tracking-wider text-sm">
             <Truck className="w-5 h-5" />
             {t('cargo.title')}
@@ -354,7 +364,7 @@ export function CargoTransferDialog({
           </button>
         </div>
 
-        <div className="p-4 overflow-y-auto space-y-6 flex-1">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
           {/* Ship Selection */}
           <section>
             <label className="block text-xs font-semibold text-slate-400 uppercase tracking-tighter mb-2">{t('cargo.selectShip')}</label>
@@ -488,18 +498,13 @@ export function CargoTransferDialog({
               {error || previewError}
             </div>
           )}
-        </div>
 
-        {/* Footer */}
-        <div className="p-4 bg-slate-800/30 border-t border-slate-800">
-          <div className="flex justify-between items-center mb-4 px-1">
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{t('cargo.totalPayload')}</div>
-            <div className={`text-sm font-bold ${totalCargo > capacity ? 'text-red-400' : 'text-cyan-400'}`}>
-              {totalCargo} / {capacity}
-            </div>
-          </div>
+          {/* Route & fuel */}
           {routePreview ? (
-            <div className="mb-4 rounded-xl border border-slate-700 bg-slate-900/60 p-3 text-xs text-slate-300">
+            <section
+              data-testid="cargo-route-fuel-panel"
+              className="rounded-xl border border-slate-700 bg-slate-900/60 p-3 text-xs text-slate-300"
+            >
               <div className="flex items-center justify-between gap-3">
                 <span className="flex items-center gap-2 font-semibold text-slate-200">
                   <Clock className="h-4 w-4 text-cyan-300" />
@@ -507,7 +512,7 @@ export function CargoTransferDialog({
                 </span>
                 <span className="font-mono text-cyan-300">{formatTimerDuration(routePreview.etaSeconds)}</span>
               </div>
-              <div className="mt-2 flex justify-between gap-3">
+              <div className="mt-3 flex justify-between gap-3">
                 <span>{t('cargo.fuelCost')}</span>
                 <span className={shortOnFuel ? 'text-amber-300' : 'text-cyan-300'}>
                   {fuelRequired} / {totalFuelAtLaunch}
@@ -532,11 +537,12 @@ export function CargoTransferDialog({
                   />
                   <input
                     type="number"
+                    inputMode="numeric"
                     min={fuelLoadMin}
                     max={fuelLoadMax}
                     value={clampedFuelLoaded}
                     onChange={(e) => setFuelLoaded(parseInt(e.target.value) || 0)}
-                    className="w-16 bg-slate-950 border border-slate-700 rounded-lg py-0.5 text-center text-xs text-cyan-400 font-mono"
+                    className="h-9 w-16 rounded-lg border border-slate-700 bg-slate-950 py-0.5 text-center font-mono text-xs text-cyan-400"
                   />
                 </div>
               </div>
@@ -570,27 +576,40 @@ export function CargoTransferDialog({
                       />
                       <input
                         type="number"
+                        inputMode="numeric"
                         min={jumpFuelLoadMin}
                         max={jumpFuelLoadMax}
                         value={clampedJumpFuelLoaded}
                         onChange={(e) => setJumpFuelLoaded(parseInt(e.target.value) || 0)}
-                        className="w-16 bg-slate-950 border border-slate-700 rounded-lg py-0.5 text-center text-xs text-cyan-400 font-mono"
+                        className="h-9 w-16 rounded-lg border border-slate-700 bg-slate-950 py-0.5 text-center font-mono text-xs text-cyan-400"
                       />
                     </div>
                   </div>
-                  <div className="text-[10px] text-slate-500 mt-2">{t('cargo.jumpFuelHint')}</div>
+                  <div className="mt-2 text-[10px] text-slate-500">{t('cargo.jumpFuelHint')}</div>
                 </div>
               ) : null}
-              <div className="text-[10px] text-slate-500 mt-2">{t('cargo.fuelHint')}</div>
-            </div>
+              <div className="mt-2 text-[10px] text-slate-500">{t('cargo.fuelHint')}</div>
+            </section>
           ) : previewQuery.isFetching ? (
-            <div className="mb-4 px-1 text-xs text-slate-500">{t('cargo.previewLoading')}</div>
+            <div className="px-1 text-xs text-slate-500">{t('cargo.previewLoading')}</div>
           ) : null}
-          
+        </div>
+
+        {/* Footer */}
+        <div
+          data-testid="cargo-transfer-footer"
+          className="flex-shrink-0 border-t border-slate-800 bg-slate-900/95 p-3"
+        >
+          <div className="mb-3 flex items-center justify-between px-1">
+            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{t('cargo.totalPayload')}</div>
+            <div className={`text-sm font-bold ${totalCargo > capacity ? 'text-red-400' : 'text-cyan-400'}`}>
+              {totalCargo} / {capacity}
+            </div>
+          </div>
           <button
             onClick={handleTransfer}
             disabled={transferMutation.isPending || previewQuery.isFetching || !selectedShipId || !targetPlanetId || totalCargo > capacity || !routePreview || shortOnFuel || shortOnJumpFuel}
-            className="w-full bg-cyan-500 hover:bg-cyan-400 disabled:bg-slate-700 disabled:text-slate-500 text-slate-950 font-bold py-3 rounded-xl transition-all shadow-[0_4px_20px_rgba(6,182,212,0.2)]"
+            className="w-full rounded-xl bg-cyan-500 py-3 font-bold text-slate-950 shadow-[0_4px_20px_rgba(6,182,212,0.2)] transition-all hover:bg-cyan-400 disabled:bg-slate-700 disabled:text-slate-500"
           >
             {transferMutation.isPending ? t('cargo.launching') : totalCargo > 0 ? t('cargo.initiate') : t('cargo.relocate')}
           </button>

@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test('fleet cargo shortcut opens transfer dialog with selected ship and localized resources', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   const nowIso = new Date().toISOString();
   const homePlanetId = 'home-planet';
   const colonyPlanetId = 'colony-planet';
@@ -203,6 +204,13 @@ test('fleet cargo shortcut opens transfer dialog with selected ship and localize
 
   await dialog.locator('select').selectOption(colonyPlanetId);
   await expect.poll(() => previewRequests).toBe(1);
+  await expect(dialog.getByTestId('cargo-route-fuel-panel')).toBeVisible();
+
+  const footerBox = await dialog.getByTestId('cargo-transfer-footer').boundingBox();
+  const ironBox = await dialog.getByTestId('cargo-resource-iron').boundingBox();
+  expect(footerBox?.height).toBeLessThan(130);
+  expect(ironBox?.y).toBeLessThan(footerBox?.y ?? 0);
+  expect((ironBox?.y ?? 0) + (ironBox?.height ?? 0)).toBeLessThanOrEqual(footerBox?.y ?? 0);
 
   const ironAmount = dialog.getByTestId('cargo-resource-iron').locator('input[type="number"]');
   await ironAmount.fill('9999');
