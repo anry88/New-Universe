@@ -680,6 +680,49 @@ describe('cargoTransfer', () => {
     expect(new Date(preview.preview.eta).getTime()).toBeGreaterThan(Date.now() - 1000);
   });
 
+  it('relocates an empty cargo ship from a known public colony back to Home', async () => {
+    const [ship] = await db.insert(ships).values({
+      ownerId: userId,
+      typeId: 'cargo_light',
+      locationPlanetId: targetPlanetId,
+      status: 'idle',
+    }).returning();
+    const homeIronBefore = await resourceAmount(capitalPlanetId, 'iron');
+
+    const transfer = await launchCargoTransfer(userId, {
+      shipId: ship.id,
+      targetPlanetId: capitalPlanetId,
+      routeMode: 'jump_gate',
+      resources: [],
+    });
+
+    expect(transfer.success).toBe(true);
+    expect(transfer.expedition.originPlanetId).toBe(targetPlanetId);
+    expect(transfer.expedition.targetPlanetId).toBe(capitalPlanetId);
+    expect(transfer.expedition.result).toMatchObject({
+      routeMode: 'jump_gate',
+      deliveryMode: 'one_way',
+      totalCargo: 0,
+      resources: [],
+      jumpFuelRequired: JUMP_GATE_JUMP_FUEL_COST,
+    });
+
+    await processArriveCargo({
+      id: 'cargo-empty-relocation-home',
+      data: {
+        expeditionId: transfer.expedition.id,
+        shipId: ship.id,
+      },
+    });
+
+    const relocatedShip = await db.query.ships.findFirst({
+      where: eq(ships.id, ship.id),
+    });
+    expect(relocatedShip!.status).toBe('idle');
+    expect(relocatedShip!.locationPlanetId).toBe(capitalPlanetId);
+    await expect(resourceAmount(capitalPlanetId, 'iron')).resolves.toBe(homeIronBefore);
+  });
+
   it('rejects transfer if ship is already moving', async () => {
     await expect(launchCargoTransfer(userId, {
       shipId: cargoShipId,

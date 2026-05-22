@@ -97,7 +97,7 @@ export function CargoTransferDialog({
         resources: cargoLoads,
       }),
     }),
-    enabled: Boolean(selectedShipId && targetPlanetId && cargoLoads.length > 0),
+    enabled: Boolean(selectedShipId && targetPlanetId),
     retry: false,
   });
   const routePreview = previewQuery.data?.preview ?? null;
@@ -127,7 +127,6 @@ export function CargoTransferDialog({
     setError(null);
     if (!selectedShipId) return setError(t('cargo.selectShipError'));
     if (!targetPlanetId) return setError(t('cargo.selectTargetError'));
-    if (totalCargo <= 0) return setError(t('cargo.addResourcesError'));
     if (totalCargo > capacity) return setError(t('cargo.capacityError'));
     if (previewError) return setError(previewError);
     if (!routePreview) return setError(t('cargo.previewRequired'));
@@ -342,10 +341,10 @@ export function CargoTransferDialog({
           
           <button
             onClick={handleTransfer}
-            disabled={transferMutation.isPending || previewQuery.isFetching || !selectedShipId || !targetPlanetId || totalCargo <= 0 || totalCargo > capacity || !routePreview || shortOnFuel || shortOnJumpFuel}
+            disabled={transferMutation.isPending || previewQuery.isFetching || !selectedShipId || !targetPlanetId || totalCargo > capacity || !routePreview || shortOnFuel || shortOnJumpFuel}
             className="w-full bg-cyan-500 hover:bg-cyan-400 disabled:bg-slate-700 disabled:text-slate-500 text-slate-950 font-bold py-3 rounded-xl transition-all shadow-[0_4px_20px_rgba(6,182,212,0.2)]"
           >
-            {transferMutation.isPending ? t('cargo.launching') : t('cargo.initiate')}
+            {transferMutation.isPending ? t('cargo.launching') : totalCargo > 0 ? t('cargo.initiate') : t('cargo.relocate')}
           </button>
         </div>
       </div>

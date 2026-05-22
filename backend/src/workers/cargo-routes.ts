@@ -43,10 +43,7 @@ export async function processArriveCargo(job: any): Promise<void> {
       }
 
       const result = expedition.result as any;
-      const hasCargoLoads =
-        (Array.isArray(result?.resources) && result.resources.length > 0) ||
-        (Array.isArray(result?.loads) && result.loads.length > 0);
-      if (!result || !hasCargoLoads || !expedition.targetPlanetId) {
+      if (!result || !expedition.targetPlanetId) {
         logger.error({ expeditionId }, 'Cargo worker: Malformed expedition result or missing targetPlanetId');
         // Mark as failed to avoid infinite retries if the data is broken
         await tx

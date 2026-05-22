@@ -19,7 +19,7 @@ export interface LaunchExpeditionRequest {
   /** Flat system-map target point used after a Jump Gate transfer. */
   targetSystemX?: number;
   targetSystemY?: number;
-  /** Known public destination system used when `routeMode` is `jump_gate`. */
+  /** Known public destination system, or the owner's Home system for stationed return routes, when `routeMode` is `jump_gate`. */
   destinationSystemId?: string | null;
   /** Amount of ordinary fuel to load from the planet into the ship's tank. */
   fuelLoaded?: number;

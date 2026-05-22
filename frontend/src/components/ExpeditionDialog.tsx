@@ -83,8 +83,52 @@ interface ColonizationEligibilityResponse {
   };
 }
 
+type GateDestinationOption = JumpGateKnownDestinationSummary & {
+  isHomeDestination?: boolean;
+};
+
+const HOME_DESTINATION_DISCOVERED_AT = "1970-01-01T00:00:00.000Z";
+
+function homeSystemToGateDestination(
+  homeSystem: HomeSystem,
+): GateDestinationOption {
+  const homePlanets = homeSystem.planets ?? [];
+  return {
+    systemId: homeSystem.id,
+    systemName: homeSystem.name,
+    shortTag: homeSystem.shortTag ?? homeSystemShortTag(homeSystem.id),
+    renameCount: homeSystem.renameCount ?? 0,
+    sector: {
+      x: homeSystem.sectorX,
+      y: homeSystem.sectorY,
+      z: homeSystem.sectorZ,
+    },
+    seed: Number(homeSystem.seed),
+    planetCount: homePlanets.length,
+    planets: homePlanets.map((planet, index) => ({
+      id: planet.id,
+      systemId: planet.systemId,
+      orbitIndex: planet.orbitIndex ?? index,
+      name: planet.name ?? null,
+      biome: planet.biome ?? null,
+      size: planet.size ?? null,
+      slotCount: planet.slotCount ?? null,
+      resources: planet.resources ?? [],
+      isDiscovered: planet.isDiscovered !== false,
+      isColonized: planet.isColonized === true || planet.isOwnedColony === true,
+      isOwnedColony: planet.isOwnedColony === true,
+      buildingCount: planet.buildingCount,
+      lastCombatTickAt: planet.lastCombatTickAt,
+    })),
+    discoveredAt: HOME_DESTINATION_DISCOVERED_AT,
+    source: "sensor",
+    lastVisitedAt: null,
+    isHomeDestination: true,
+  };
+}
+
 function destinationToSystem(
-  destination: JumpGateKnownDestinationSummary,
+  destination: GateDestinationOption,
   locale: string,
 ): HomeSystem {
   const systemName = destinationSystemDisplayName(destination, locale);
@@ -121,10 +165,15 @@ function destinationToSystem(
 }
 
 function destinationSystemDisplayName(
-  destination: JumpGateKnownDestinationSummary,
+  destination: GateDestinationOption,
   locale: string,
 ) {
-  const shortTag = destination.shortTag ?? homeSystemShortTag(destination.systemId);
+  if (destination.isHomeDestination) {
+    return destination.systemName;
+  }
+
+  const shortTag =
+    destination.shortTag ?? homeSystemShortTag(destination.systemId);
   if (destination.renameCount > 0 && destination.systemName) {
     return destination.systemName;
   }
@@ -166,7 +215,9 @@ export function ExpeditionDialog({
     typeof stationedResult?.destinationSystemId === "string"
       ? stationedResult.destinationSystemId
       : null;
-  const stationedOriginPoint = pointFromUnknown(stationedResult?.targetSystemPoint);
+  const stationedOriginPoint = pointFromUnknown(
+    stationedResult?.targetSystemPoint,
+  );
   const isStationedOrigin = Boolean(
     stationedExpedition && stationedOriginSystemId && stationedOriginPoint,
   );
@@ -183,7 +234,9 @@ export function ExpeditionDialog({
     useState<string | null>(
       initialDestinationSystemId ?? stationedOriginSystemId ?? null,
     );
-  const [jumpTargetPoints, setJumpTargetPoints] = useState<Record<string, SystemMapPoint>>({});
+  const [jumpTargetPoints, setJumpTargetPoints] = useState<
+    Record<string, SystemMapPoint>
+  >({});
   const [fuelLoaded, setFuelLoaded] = useState(0);
   const [jumpFuelLoaded, setJumpFuelLoaded] = useState(0);
   const [cargo] = useState(0);
@@ -230,22 +283,46 @@ export function ExpeditionDialog({
       null,
     [colonizationTargets, targetPlanetId],
   );
-  const knownDestinations = jumpGateState?.knownDestinations ?? [];
-  const selectedDestination = useMemo<JumpGateKnownDestinationSummary | null>(
+  const publicKnownDestinations = jumpGateState?.knownDestinations ?? [];
+  const homeGateDestination = useMemo(
+    () => (homeSystem ? homeSystemToGateDestination(homeSystem) : null),
+    [homeSystem],
+  );
+  const gateDestinations = useMemo<GateDestinationOption[]>(() => {
+    const destinations: GateDestinationOption[] = [];
+    if (isStationedOrigin && homeGateDestination) {
+      destinations.push(homeGateDestination);
+    }
+    for (const destination of publicKnownDestinations) {
+      if (destination.systemId !== homeGateDestination?.systemId) {
+        destinations.push(destination);
+      }
+    }
+    return destinations;
+  }, [homeGateDestination, isStationedOrigin, publicKnownDestinations]);
+  const selectedDestination = useMemo<GateDestinationOption | null>(
     () =>
-      knownDestinations.find(
+      gateDestinations.find(
         (destination) => destination.systemId === selectedDestinationSystemId,
       ) ??
-      knownDestinations[0] ??
+      gateDestinations[0] ??
       null,
-    [knownDestinations, selectedDestinationSystemId],
+    [gateDestinations, selectedDestinationSystemId],
+  );
+  const selectedDestinationIsHome = Boolean(
+    homeSystem && selectedDestination?.systemId === homeSystem.id,
   );
   const selectedDestinationSystem = useMemo(
-    () => (selectedDestination ? destinationToSystem(selectedDestination, locale) : null),
-    [locale, selectedDestination],
+    () =>
+      selectedDestination
+        ? selectedDestinationIsHome && homeSystem
+          ? homeSystem
+          : destinationToSystem(selectedDestination, locale)
+        : null,
+    [homeSystem, locale, selectedDestination, selectedDestinationIsHome],
   );
   const selectedJumpTargetPoint = selectedDestination
-    ? jumpTargetPoints[selectedDestination.systemId] ?? null
+    ? (jumpTargetPoints[selectedDestination.systemId] ?? null)
     : null;
   const jumpPlanetTargets = selectedDestination?.planets ?? [];
   const jumpColonizationTargets = useMemo(
@@ -256,6 +333,16 @@ export function ExpeditionDialog({
       ),
     [jumpPlanetTargets],
   );
+  const jumpDockTargets = useMemo(
+    () =>
+      selectedDestinationIsHome && !isColonizer
+        ? jumpPlanetTargets.filter(
+            (planet) => planet.isOwnedColony || ownedPlanetIds.has(planet.id),
+          )
+        : [],
+    [isColonizer, jumpPlanetTargets, ownedPlanetIds, selectedDestinationIsHome],
+  );
+  const canDockAtJumpPlanet = jumpDockTargets.length > 0;
   const selectedJumpTargetPlanet = useMemo(
     () =>
       jumpPlanetTargets.find((planet) => planet.id === targetPlanetId) ?? null,
@@ -321,13 +408,21 @@ export function ExpeditionDialog({
 
   const jumpGatePoint = useMemo(() => systemMapJumpGatePoint(), []);
   const originGateDistance = useMemo(() => {
-    if (routeMode === "jump_gate" && isStationedOrigin && stationedOriginPoint) {
+    if (
+      routeMode === "jump_gate" &&
+      isStationedOrigin &&
+      stationedOriginPoint
+    ) {
       return sameStationedDestination
         ? 0
         : systemMapPointDistanceLy(stationedOriginPoint, jumpGatePoint);
     }
 
-    if (routeMode !== "jump_gate" || !homeSystem?.planets || !ship.locationPlanetId) {
+    if (
+      routeMode !== "jump_gate" ||
+      !homeSystem?.planets ||
+      !ship.locationPlanetId
+    ) {
       return null;
     }
 
@@ -335,7 +430,9 @@ export function ExpeditionDialog({
       homeSystem.planets,
       Number(homeSystem.seed),
     ).find((layout) => layout.id === ship.locationPlanetId);
-    return launchLayout ? systemMapPointDistanceLy(launchLayout, jumpGatePoint) : null;
+    return launchLayout
+      ? systemMapPointDistanceLy(launchLayout, jumpGatePoint)
+      : null;
   }, [
     homeSystem?.planets,
     homeSystem?.seed,
@@ -359,11 +456,16 @@ export function ExpeditionDialog({
           ? systemMapPointDistanceLy(stationedOriginPoint, targetLayout)
           : null;
       }
-      return targetLayout ? systemMapPointDistanceLy(jumpGatePoint, targetLayout) : null;
+      return targetLayout
+        ? systemMapPointDistanceLy(jumpGatePoint, targetLayout)
+        : null;
     }
     if (selectedJumpTargetPoint) {
       if (sameStationedDestination && stationedOriginPoint) {
-        return systemMapPointDistanceLy(stationedOriginPoint, selectedJumpTargetPoint);
+        return systemMapPointDistanceLy(
+          stationedOriginPoint,
+          selectedJumpTargetPoint,
+        );
       }
       return systemMapPointDistanceLy(jumpGatePoint, selectedJumpTargetPoint);
     }
@@ -485,13 +587,12 @@ export function ExpeditionDialog({
   const shortOnFuel = totalFuelAtLaunch < recommendedFuel;
   const shortOnJumpFuel =
     routeMode === "jump_gate" && totalJumpFuelAtLaunch < jumpFuelRequired;
-  const colonizationDetails =
-    colonizationEligibility.data?.eligibility.details;
+  const colonizationDetails = colonizationEligibility.data?.eligibility.details;
   const colonizationGateBlocked = Boolean(
     isColonizer &&
-      targetPlanetId &&
-      colonizationEligibility.data &&
-      !colonizationEligibility.data.eligibility.allowed,
+    targetPlanetId &&
+    colonizationEligibility.data &&
+    !colonizationEligibility.data.eligibility.allowed,
   );
   const colonizationPreflightPending = Boolean(
     isColonizer && targetPlanetId && colonizationEligibility.isLoading,
@@ -510,8 +611,7 @@ export function ExpeditionDialog({
     if (!eligibility || eligibility.allowed) return null;
 
     const reason = eligibility.reason?.toLowerCase() ?? "";
-    const cooldownRemainingSec =
-      colonizationDetails?.cooldownRemainingSec ?? 0;
+    const cooldownRemainingSec = colonizationDetails?.cooldownRemainingSec ?? 0;
     if (cooldownRemainingSec > 0 || reason.includes("cooldown")) {
       return t("expedition.colonizationCooldown", {
         minutes: Math.max(1, Math.ceil(cooldownRemainingSec / 60)),
@@ -549,7 +649,10 @@ export function ExpeditionDialog({
     colonizationPreflightPending ||
     colonizationGateBlocked ||
     jumpGateBlocked ||
-    (routeMode === "jump_gate" && !isColonizer && !targetPlanetId && !selectedJumpTargetPoint) ||
+    (routeMode === "jump_gate" &&
+      !isColonizer &&
+      !targetPlanetId &&
+      !selectedJumpTargetPoint) ||
     (isColonizer && !targetPlanetId);
 
   const jumpGateStatusText = jumpGateLoading
@@ -560,35 +663,57 @@ export function ExpeditionDialog({
         ? t("expedition.jumpGateLocked")
         : jumpGateState.calibration.status === "calibrating"
           ? t("jumpGate.random.calibrationInProgress")
-          : knownDestinations.length === 0
+          : gateDestinations.length === 0
             ? t("jumpGate.destinations.empty")
-            : t("expedition.jumpGateReady");
+            : sameStationedDestination
+              ? t("expedition.stationedLocalReady")
+              : t("expedition.jumpGateReady");
 
   const jumpPlanetLabel = (planet: JumpGateDestinationPlanetSummary) =>
     planet.name ?? t("expedition.unknownBody", { index: planet.orbitIndex });
 
-  const formatLaunchError = (message: string, code?: string, details?: unknown) => {
+  const formatLaunchError = (
+    message: string,
+    code?: string,
+    details?: unknown,
+  ) => {
     if (code) {
       return formatLaunchExpeditionErrorMessage(
-        { code, ...((details ?? {}) as Record<string, unknown>) } as LaunchExpeditionErrorDetails,
+        {
+          code,
+          ...((details ?? {}) as Record<string, unknown>),
+        } as LaunchExpeditionErrorDetails,
         locale,
       );
     }
 
     const lower = message.toLowerCase();
-    if (lower.includes("ship must be idle")) return t("expedition.error.shipNotIdle");
-    if (lower.includes("targetplanetid") || lower.includes("target planet")) return t("expedition.error.targetRequired");
-    if (lower.includes("not enough jump_fuel") || lower.includes("jump fuel")) return t("expedition.error.notEnoughJumpFuel");
-    if (lower.includes("not enough fuel")) return t("expedition.error.notEnoughFuel");
-    if (lower.includes("colonization on cooldown")) return t("expedition.error.cooldown");
-    if (lower.includes("colony limit reached")) return t("expedition.error.colonyLimit");
-    if (lower.includes("already colonized")) return t("expedition.error.alreadyColonized");
-    if (lower.includes("not discovered")) return t("expedition.error.notDiscovered");
-    if (lower.includes("protected home")) return t("expedition.error.protectedHome");
-    if (lower.includes("jump drive research")) return t("expedition.error.jumpDriveRequired");
-    if (lower.includes("jump gate calibration")) return t("expedition.error.jumpGateCalibrating");
-    if (lower.includes("known destination")) return t("expedition.error.knownDestination");
-    if (lower.includes("already surveyed")) return t("expedition.error.alreadySurveyed");
+    if (lower.includes("ship must be idle"))
+      return t("expedition.error.shipNotIdle");
+    if (lower.includes("targetplanetid") || lower.includes("target planet"))
+      return t("expedition.error.targetRequired");
+    if (lower.includes("not enough jump_fuel") || lower.includes("jump fuel"))
+      return t("expedition.error.notEnoughJumpFuel");
+    if (lower.includes("not enough fuel"))
+      return t("expedition.error.notEnoughFuel");
+    if (lower.includes("colonization on cooldown"))
+      return t("expedition.error.cooldown");
+    if (lower.includes("colony limit reached"))
+      return t("expedition.error.colonyLimit");
+    if (lower.includes("already colonized"))
+      return t("expedition.error.alreadyColonized");
+    if (lower.includes("not discovered"))
+      return t("expedition.error.notDiscovered");
+    if (lower.includes("protected home"))
+      return t("expedition.error.protectedHome");
+    if (lower.includes("jump drive research"))
+      return t("expedition.error.jumpDriveRequired");
+    if (lower.includes("jump gate calibration"))
+      return t("expedition.error.jumpGateCalibrating");
+    if (lower.includes("known destination"))
+      return t("expedition.error.knownDestination");
+    if (lower.includes("already surveyed"))
+      return t("expedition.error.alreadySurveyed");
     return message.includes("_") ? t("expedition.error.unknown") : message;
   };
 
@@ -609,25 +734,35 @@ export function ExpeditionDialog({
         targetY: routeTarget.y,
         targetZ: routeTarget.z,
         targetSystemX:
-          routeMode === "jump_gate" && selectedJumpTargetPoint && !targetPlanetId
+          routeMode === "jump_gate" &&
+          selectedJumpTargetPoint &&
+          !targetPlanetId
             ? selectedJumpTargetPoint.x
             : undefined,
         targetSystemY:
-          routeMode === "jump_gate" && selectedJumpTargetPoint && !targetPlanetId
+          routeMode === "jump_gate" &&
+          selectedJumpTargetPoint &&
+          !targetPlanetId
             ? selectedJumpTargetPoint.y
             : undefined,
         destinationSystemId:
           routeMode === "jump_gate" ? selectedDestination?.systemId : undefined,
         fuelLoaded: clampedFuelLoaded > 0 ? clampedFuelLoaded : undefined,
-        jumpFuelLoaded: clampedJumpFuelLoaded > 0 ? clampedJumpFuelLoaded : undefined,
+        jumpFuelLoaded:
+          clampedJumpFuelLoaded > 0 ? clampedJumpFuelLoaded : undefined,
         cargoLoaded: cargo,
         targetPlanetId: targetPlanetId ?? undefined,
       });
       onClose();
     } catch (err) {
-      const apiError = err as Error & { data?: { code?: string; details?: unknown } };
-      const message = err instanceof Error ? err.message : t("expedition.error.unknown");
-      setLaunchError(formatLaunchError(message, apiError.data?.code, apiError.data?.details));
+      const apiError = err as Error & {
+        data?: { code?: string; details?: unknown };
+      };
+      const message =
+        err instanceof Error ? err.message : t("expedition.error.unknown");
+      setLaunchError(
+        formatLaunchError(message, apiError.data?.code, apiError.data?.details),
+      );
     }
   };
 
@@ -675,20 +810,35 @@ export function ExpeditionDialog({
 
   const onPickJumpPlanet = useCallback(
     (planetId: string) => {
-      if (routeMode !== "jump_gate" || !isColonizer) return;
-      const planet = jumpColonizationTargets.find(
-        (candidate) => candidate.id === planetId,
-      );
-      if (!planet) return;
+      if (routeMode !== "jump_gate") return;
+      const planet = isColonizer
+        ? jumpColonizationTargets.find((candidate) => candidate.id === planetId)
+        : jumpDockTargets.find((candidate) => candidate.id === planetId);
+      if (!planet || (!isColonizer && !canDockAtJumpPlanet)) return;
       setTargetPlanetId(planet.id);
+      if (selectedDestination) {
+        setJumpTargetPoints((current) => {
+          const next = { ...current };
+          delete next[selectedDestination.systemId];
+          return next;
+        });
+      }
       setLaunchError(null);
     },
-    [isColonizer, jumpColonizationTargets, routeMode],
+    [
+      canDockAtJumpPlanet,
+      isColonizer,
+      jumpColonizationTargets,
+      jumpDockTargets,
+      routeMode,
+      selectedDestination,
+    ],
   );
 
   const onPickJumpSystemPoint = useCallback(
     (point: SystemMapPoint) => {
-      if (routeMode !== "jump_gate" || isColonizer || !selectedDestination) return;
+      if (routeMode !== "jump_gate" || isColonizer || !selectedDestination)
+        return;
       setJumpTargetPoints((current) => ({
         ...current,
         [selectedDestination.systemId]: point,
@@ -702,59 +852,59 @@ export function ExpeditionDialog({
   const sectorDx = routeTarget.x - originX;
   const sectorDy = routeTarget.y - originY;
 
-  const expeditionPick = useMemo<ExpeditionPickConfig | undefined>(
-    () => {
-      if (routeMode === "jump_gate" && selectedDestinationSystem) {
-        const routeStartPoint =
-          sameStationedDestination && stationedOriginPoint
-            ? stationedOriginPoint
-            : jumpGatePoint;
-        return {
-          sectorDx: selectedJumpTargetPoint
-            ? selectedJumpTargetPoint.x - routeStartPoint.x
-            : 0,
-          sectorDy: selectedJumpTargetPoint
-            ? selectedJumpTargetPoint.y - routeStartPoint.y
-            : 0,
-          routeStartPoint,
-          targetPoint: isColonizer ? null : selectedJumpTargetPoint,
-          targetPlanetId,
-          onPickSectorDelta: () => {},
-          onPickPlanet: isColonizer ? onPickJumpPlanet : undefined,
-          onPickSystemPoint: isColonizer ? undefined : onPickJumpSystemPoint,
-        };
-      }
+  const expeditionPick = useMemo<ExpeditionPickConfig | undefined>(() => {
+    if (routeMode === "jump_gate" && selectedDestinationSystem) {
+      const routeStartPoint =
+        sameStationedDestination && stationedOriginPoint
+          ? stationedOriginPoint
+          : jumpGatePoint;
+      return {
+        sectorDx: selectedJumpTargetPoint
+          ? selectedJumpTargetPoint.x - routeStartPoint.x
+          : 0,
+        sectorDy: selectedJumpTargetPoint
+          ? selectedJumpTargetPoint.y - routeStartPoint.y
+          : 0,
+        routeStartPoint,
+        targetPoint:
+          isColonizer || targetPlanetId ? null : selectedJumpTargetPoint,
+        targetPlanetId,
+        onPickSectorDelta: () => {},
+        onPickPlanet:
+          isColonizer || canDockAtJumpPlanet ? onPickJumpPlanet : undefined,
+        onPickSystemPoint: isColonizer ? undefined : onPickJumpSystemPoint,
+      };
+    }
 
-      return routeMode === "local" && ship.locationPlanetId && homeSystem
-        ? {
-            sectorDx,
-            sectorDy,
-            launchPlanetId: ship.locationPlanetId,
-            targetPlanetId: targetPlanetId,
-            onPickSectorDelta,
-            onPickPlanet: isColonizer ? onPickPlanet : undefined,
-          }
-        : undefined;
-    },
-    [
-      homeSystem,
-      isColonizer,
-      jumpGatePoint,
-      onPickJumpSystemPoint,
-      onPickJumpPlanet,
-      onPickPlanet,
-      onPickSectorDelta,
-      routeMode,
-      sameStationedDestination,
-      sectorDx,
-      sectorDy,
-      selectedDestinationSystem,
-      selectedJumpTargetPoint,
-      ship.locationPlanetId,
-      stationedOriginPoint,
-      targetPlanetId,
-    ],
-  );
+    return routeMode === "local" && ship.locationPlanetId && homeSystem
+      ? {
+          sectorDx,
+          sectorDy,
+          launchPlanetId: ship.locationPlanetId,
+          targetPlanetId: targetPlanetId,
+          onPickSectorDelta,
+          onPickPlanet: isColonizer ? onPickPlanet : undefined,
+        }
+      : undefined;
+  }, [
+    homeSystem,
+    canDockAtJumpPlanet,
+    isColonizer,
+    jumpGatePoint,
+    onPickJumpSystemPoint,
+    onPickJumpPlanet,
+    onPickPlanet,
+    onPickSectorDelta,
+    routeMode,
+    sameStationedDestination,
+    sectorDx,
+    sectorDy,
+    selectedDestinationSystem,
+    selectedJumpTargetPoint,
+    ship.locationPlanetId,
+    stationedOriginPoint,
+    targetPlanetId,
+  ]);
 
   return (
     <div
@@ -861,7 +1011,8 @@ export function ExpeditionDialog({
               shipTypes={mapShipTypes}
               expeditions={meData?.expeditions ?? []}
               fleetContacts={
-                routeMode === "jump_gate" && tacticalState?.systemId === renderedSystem.id
+                routeMode === "jump_gate" &&
+                tacticalState?.systemId === renderedSystem.id
                   ? tacticalState.fleetContacts
                   : []
               }
@@ -883,7 +1034,9 @@ export function ExpeditionDialog({
                   : undefined
               }
               minimumOrbitCount={
-                routeMode === "jump_gate" ? selectedDestination?.planetCount : undefined
+                routeMode === "jump_gate"
+                  ? selectedDestination?.planetCount
+                  : undefined
               }
               showOrbitRings={true}
               emptyStateLabel={routeMode === "jump_gate" ? null : undefined}
@@ -927,23 +1080,24 @@ export function ExpeditionDialog({
             {routeMode === "jump_gate" && !isColonizer
               ? t("expedition.pickGatePoint")
               : isColonizer
-              ? t("expedition.selectTarget")
-              : t("expedition.pickRoute")}
+                ? t("expedition.selectTarget")
+                : t("expedition.pickRoute")}
           </strong>{" "}
           —{" "}
           {routeMode === "jump_gate" && !isColonizer
             ? t("expedition.pickGatePointHelp")
             : isColonizer
-            ? t("expedition.selectTargetHelp")
-            : t("expedition.pickRouteHelp")}
+              ? t("expedition.selectTargetHelp")
+              : t("expedition.pickRouteHelp")}
         </div>
 
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: supportsJumpGateExpedition && !isStationedOrigin
-              ? "repeat(2, minmax(0, 1fr))"
-              : "minmax(0, 1fr)",
+            gridTemplateColumns:
+              supportsJumpGateExpedition && !isStationedOrigin
+                ? "repeat(2, minmax(0, 1fr))"
+                : "minmax(0, 1fr)",
             gap: 8,
             marginBottom: 10,
           }}
@@ -976,7 +1130,9 @@ export function ExpeditionDialog({
               >
                 {mode === "local"
                   ? t("expedition.routeLocal")
-                  : t("expedition.routeJumpGate")}
+                  : isStationedOrigin && sameStationedDestination
+                    ? t("expedition.routeLocal")
+                    : t("expedition.routeJumpGate")}
               </button>
             );
           })}
@@ -1004,7 +1160,7 @@ export function ExpeditionDialog({
               </strong>{" "}
               - {jumpGateStatusText}
             </div>
-            {knownDestinations.length > 0 ? (
+            {gateDestinations.length > 0 ? (
               <div
                 style={{
                   display: "flex",
@@ -1014,10 +1170,13 @@ export function ExpeditionDialog({
                   paddingBottom: 2,
                 }}
               >
-                {knownDestinations.map((destination) => {
+                {gateDestinations.map((destination) => {
                   const active =
                     selectedDestination?.systemId === destination.systemId;
-                  const systemName = destinationSystemDisplayName(destination, locale);
+                  const systemName = destinationSystemDisplayName(
+                    destination,
+                    locale,
+                  );
                   return (
                     <button
                       key={destination.systemId}
@@ -1116,16 +1275,31 @@ export function ExpeditionDialog({
                     </div>
                   )
                 ) : (
-                  <div style={{ fontSize: 11, color: selectedJumpTargetPoint ? "var(--accent)" : "var(--text-dim)" }}>
-                    {selectedJumpTargetPoint
-                      ? t("expedition.gatePointSelected", {
-                          x: selectedJumpTargetPoint.x.toFixed(0),
-                          y: selectedJumpTargetPoint.y.toFixed(0),
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color:
+                        selectedJumpTargetPoint || selectedJumpTargetPlanet
+                          ? "var(--accent)"
+                          : "var(--text-dim)",
+                    }}
+                  >
+                    {selectedJumpTargetPlanet && canDockAtJumpPlanet
+                      ? t("expedition.gateDockPlanetSelected", {
+                          planet: jumpPlanetLabel(selectedJumpTargetPlanet),
                         })
-                      : t("expedition.gatePointRequired")}
+                      : selectedJumpTargetPoint
+                        ? t("expedition.gatePointSelected", {
+                            x: selectedJumpTargetPoint.x.toFixed(0),
+                            y: selectedJumpTargetPoint.y.toFixed(0),
+                          })
+                        : canDockAtJumpPlanet
+                          ? t("expedition.gatePointOrDockRequired")
+                          : t("expedition.gatePointRequired")}
                   </div>
                 )}
-                {selectedJumpTargetPlanet?.isOwnedColony ? (
+                {selectedJumpTargetPlanet?.isOwnedColony &&
+                !canDockAtJumpPlanet ? (
                   <div
                     style={{
                       marginTop: 8,
@@ -1320,7 +1494,11 @@ export function ExpeditionDialog({
                       fontSize: 16,
                     }}
                   >
-                    <ResourceAmount resourceId="fuel" amount={preview.fuelRequired} locale={locale} />
+                    <ResourceAmount
+                      resourceId="fuel"
+                      amount={preview.fuelRequired}
+                      locale={locale}
+                    />
                   </div>
                   <div
                     style={{
@@ -1339,11 +1517,27 @@ export function ExpeditionDialog({
 
               {/* Ordinary Fuel Loading Slider */}
               <div style={{ marginTop: 4 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                   <div style={{ fontSize: 11, color: "var(--text-dim)" }}>{t("expedition_dialog_load_fuel")}</div>
-                   <div style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--accent)" }}>+{clampedFuelLoaded}</div>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    marginBottom: 4,
+                  }}
+                >
+                  <div style={{ fontSize: 11, color: "var(--text-dim)" }}>
+                    {t("expedition_dialog_load_fuel")}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      fontFamily: "var(--font-mono)",
+                      color: "var(--accent)",
+                    }}
+                  >
+                    +{clampedFuelLoaded}
+                  </div>
                 </div>
-                <input 
+                <input
                   type="range"
                   className="cosmic-range"
                   min={fuelLoadMin}
@@ -1382,7 +1576,11 @@ export function ExpeditionDialog({
                           fontSize: 16,
                         }}
                       >
-                        <ResourceAmount resourceId="jump_fuel" amount={preview.jumpFuelRequired} locale={locale} />
+                        <ResourceAmount
+                          resourceId="jump_fuel"
+                          amount={preview.jumpFuelRequired}
+                          locale={locale}
+                        />
                       </div>
                       <div
                         style={{
@@ -1401,17 +1599,35 @@ export function ExpeditionDialog({
 
                   {/* Jump Fuel Loading Slider */}
                   <div style={{ marginTop: 4 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                       <div style={{ fontSize: 11, color: "var(--text-dim)" }}>{t("expedition_dialog_load_jump_fuel")}</div>
-                       <div style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--accent)" }}>+{clampedJumpFuelLoaded}</div>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        marginBottom: 4,
+                      }}
+                    >
+                      <div style={{ fontSize: 11, color: "var(--text-dim)" }}>
+                        {t("expedition_dialog_load_jump_fuel")}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 11,
+                          fontFamily: "var(--font-mono)",
+                          color: "var(--accent)",
+                        }}
+                      >
+                        +{clampedJumpFuelLoaded}
+                      </div>
                     </div>
-                    <input 
+                    <input
                       type="range"
                       className="cosmic-range"
                       min={jumpFuelLoadMin}
                       max={jumpFuelLoadMax}
                       value={clampedJumpFuelLoaded}
-                      onChange={(e) => setJumpFuelLoaded(Number(e.target.value))}
+                      onChange={(e) =>
+                        setJumpFuelLoaded(Number(e.target.value))
+                      }
                     />
                   </div>
                 </>
@@ -1424,188 +1640,201 @@ export function ExpeditionDialog({
                   color: "var(--text-dim)",
                 }}
               >
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <div
+                  style={{ display: "flex", justifyContent: "space-between" }}
+                >
                   <span>{t("expedition.availableOnPlanet")}</span>
                   <span className="resource-amount-list">
-                    <ResourceAmount resourceId="fuel" amount={fuelAvailable} iconSize={12} locale={locale} />
+                    <ResourceAmount
+                      resourceId="fuel"
+                      amount={fuelAvailable}
+                      iconSize={12}
+                      locale={locale}
+                    />
                     <span className="resource-amount-sep">·</span>
-                    <ResourceAmount resourceId="jump_fuel" amount={jumpFuelAvailable} iconSize={12} locale={locale} />
+                    <ResourceAmount
+                      resourceId="jump_fuel"
+                      amount={jumpFuelAvailable}
+                      iconSize={12}
+                      locale={locale}
+                    />
                   </span>
                 </div>
               </div>
-              </div>
+            </div>
 
+            <div
+              style={{
+                marginTop: 8,
+                fontSize: 11,
+                color: "var(--text-dim)",
+                lineHeight: 1.45,
+              }}
+            >
+              {t("expedition.requiredFuel", {
+                fuel: recommendedFuel,
+                legs: preview.returnTrip ? 2 : 1,
+                distance: effectiveDistance.toFixed(1),
+                consumption: Number(shipType.fuelConsumption).toFixed(2),
+              })}
+            </div>
+            {shortOnFuel ? (
               <div
                 style={{
-                  marginTop: 8,
-                  fontSize: 11,
-                  color: "var(--text-dim)",
+                  marginTop: 10,
+                  display: "flex",
+                  gap: 8,
+                  alignItems: "flex-start",
+                  padding: 10,
+                  borderRadius: 12,
+                  background: "rgba(251, 191, 36, 0.08)",
+                  border: "1px solid rgba(251, 191, 36, 0.35)",
+                  color: "#fcd34d",
+                  fontSize: 12,
+                }}
+              >
+                <AlertTriangle
+                  size={18}
+                  style={{ flexShrink: 0, marginTop: 2 }}
+                />
+                <span>{t("expedition.shortFuel")}</span>
+              </div>
+            ) : null}
+            {shortOnJumpFuel ? (
+              <div
+                style={{
+                  marginTop: 10,
+                  display: "flex",
+                  gap: 8,
+                  alignItems: "flex-start",
+                  padding: 10,
+                  borderRadius: 12,
+                  background: "rgba(251, 191, 36, 0.08)",
+                  border: "1px solid rgba(251, 191, 36, 0.35)",
+                  color: "#fcd34d",
+                  fontSize: 12,
+                }}
+              >
+                <AlertTriangle
+                  size={18}
+                  style={{ flexShrink: 0, marginTop: 2 }}
+                />
+                <span>{t("expedition.shortJumpFuel")}</span>
+              </div>
+            ) : null}
+            {colonizationPreflightMessage ? (
+              <div
+                style={{
+                  marginTop: 10,
+                  display: "flex",
+                  gap: 8,
+                  alignItems: "flex-start",
+                  padding: 10,
+                  borderRadius: 12,
+                  background: "rgba(251, 191, 36, 0.08)",
+                  border: "1px solid rgba(251, 191, 36, 0.35)",
+                  color: "#fcd34d",
+                  fontSize: 12,
                   lineHeight: 1.45,
                 }}
               >
-                {t("expedition.requiredFuel", {
-                  fuel: recommendedFuel,
-                  legs: preview.returnTrip ? 2 : 1,
-                  distance: effectiveDistance.toFixed(1),
-                  consumption: Number(shipType.fuelConsumption).toFixed(2),
-                })}
+                <AlertTriangle
+                  size={18}
+                  style={{ flexShrink: 0, marginTop: 2 }}
+                />
+                <span>{colonizationPreflightMessage}</span>
               </div>
-              {shortOnFuel ? (
-                <div
-                  style={{
-                    marginTop: 10,
-                    display: "flex",
-                    gap: 8,
-                    alignItems: "flex-start",
-                    padding: 10,
-                    borderRadius: 12,
-                    background: "rgba(251, 191, 36, 0.08)",
-                    border: "1px solid rgba(251, 191, 36, 0.35)",
-                    color: "#fcd34d",
-                    fontSize: 12,
-                  }}
-                >
-                  <AlertTriangle
-                    size={18}
-                    style={{ flexShrink: 0, marginTop: 2 }}
-                  />
-                  <span>{t("expedition.shortFuel")}</span>
-                </div>
-              ) : null}
-              {shortOnJumpFuel ? (
-                <div
-                  style={{
-                    marginTop: 10,
-                    display: "flex",
-                    gap: 8,
-                    alignItems: "flex-start",
-                    padding: 10,
-                    borderRadius: 12,
-                    background: "rgba(251, 191, 36, 0.08)",
-                    border: "1px solid rgba(251, 191, 36, 0.35)",
-                    color: "#fcd34d",
-                    fontSize: 12,
-                  }}
-                >
-                  <AlertTriangle
-                    size={18}
-                    style={{ flexShrink: 0, marginTop: 2 }}
-                  />
-                  <span>{t("expedition.shortJumpFuel")}</span>
-                </div>
-              ) : null}
-              {colonizationPreflightMessage ? (
-                <div
-                  style={{
-                    marginTop: 10,
-                    display: "flex",
-                    gap: 8,
-                    alignItems: "flex-start",
-                    padding: 10,
-                    borderRadius: 12,
-                    background: "rgba(251, 191, 36, 0.08)",
-                    border: "1px solid rgba(251, 191, 36, 0.35)",
-                    color: "#fcd34d",
-                    fontSize: 12,
-                    lineHeight: 1.45,
-                  }}
-                >
-                  <AlertTriangle
-                    size={18}
-                    style={{ flexShrink: 0, marginTop: 2 }}
-                  />
-                  <span>{colonizationPreflightMessage}</span>
-                </div>
-              ) : null}
-            </div>
+            ) : null}
           </div>
         </div>
+      </div>
 
-        <button
-          type="button"
-          onClick={handleLaunch}
-          disabled={launch.isPending || launchBlocked}
+      <button
+        type="button"
+        onClick={handleLaunch}
+        disabled={launch.isPending || launchBlocked}
+        style={{
+          width: "100%",
+          marginTop: 12,
+          padding: "14px 16px",
+          borderRadius: 16,
+          border: "none",
+          fontWeight: 800,
+          fontSize: 15,
+          cursor: launch.isPending || launchBlocked ? "not-allowed" : "pointer",
+          background: launchBlocked
+            ? "rgba(51,65,85,0.6)"
+            : "linear-gradient(135deg, #2563eb, #4f46e5)",
+          color: launchBlocked ? "var(--text-faint)" : "#fff",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 10,
+          boxShadow: launchBlocked
+            ? "none"
+            : "0 12px 28px rgba(37,99,235,0.35)",
+        }}
+      >
+        {launch.isPending ? (
+          t("expedition.preparing")
+        ) : routeMode === "jump_gate" &&
+          !isColonizer &&
+          !targetPlanetId &&
+          !selectedJumpTargetPoint ? (
+          <>
+            <Target size={20} /> {t("expedition.selectGatePoint").toUpperCase()}
+          </>
+        ) : isColonizer && !targetPlanetId ? (
+          <>
+            <Target size={20} /> {t("expedition.selectPlanet").toUpperCase()}
+          </>
+        ) : colonizationPreflightPending ? (
+          <>
+            <Target size={20} />{" "}
+            {t("expedition.checkingColonizationShort").toUpperCase()}
+          </>
+        ) : colonizationGateBlocked ? (
+          <>
+            <Target size={20} />{" "}
+            {t("expedition.colonizationBlockedButton").toUpperCase()}
+          </>
+        ) : jumpGateBlocked ? (
+          <>
+            <Target size={20} />{" "}
+            {t("expedition.jumpGateUnavailable").toUpperCase()}
+          </>
+        ) : launchBlocked ? (
+          <>
+            <Target size={20} />{" "}
+            {t("expedition.insufficientFuel").toUpperCase()}
+          </>
+        ) : (
+          <>
+            <Send size={20} /> {t("expedition.commence").toUpperCase()}
+          </>
+        )}
+      </button>
+      {launchError ? (
+        <div
+          role="alert"
           style={{
-            width: "100%",
-            marginTop: 12,
-            padding: "14px 16px",
-            borderRadius: 16,
-            border: "none",
-            fontWeight: 800,
-            fontSize: 15,
-            cursor:
-              launch.isPending || launchBlocked ? "not-allowed" : "pointer",
-            background: launchBlocked
-              ? "rgba(51,65,85,0.6)"
-              : "linear-gradient(135deg, #2563eb, #4f46e5)",
-            color: launchBlocked ? "var(--text-faint)" : "#fff",
+            marginTop: 10,
             display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 10,
-            boxShadow: launchBlocked
-              ? "none"
-              : "0 12px 28px rgba(37,99,235,0.35)",
+            gap: 8,
+            alignItems: "flex-start",
+            padding: 10,
+            borderRadius: 12,
+            background: "rgba(248, 113, 113, 0.1)",
+            border: "1px solid rgba(248, 113, 113, 0.35)",
+            color: "#fecaca",
+            fontSize: 12,
+            lineHeight: 1.45,
           }}
         >
-          {launch.isPending ? (
-            t("expedition.preparing")
-          ) : routeMode === "jump_gate" && !isColonizer && !targetPlanetId && !selectedJumpTargetPoint ? (
-            <>
-              <Target size={20} /> {t("expedition.selectGatePoint").toUpperCase()}
-            </>
-          ) : isColonizer && !targetPlanetId ? (
-            <>
-              <Target size={20} /> {t("expedition.selectPlanet").toUpperCase()}
-            </>
-          ) : colonizationPreflightPending ? (
-            <>
-              <Target size={20} />{" "}
-              {t("expedition.checkingColonizationShort").toUpperCase()}
-            </>
-          ) : colonizationGateBlocked ? (
-            <>
-              <Target size={20} />{" "}
-              {t("expedition.colonizationBlockedButton").toUpperCase()}
-            </>
-          ) : jumpGateBlocked ? (
-            <>
-              <Target size={20} />{" "}
-              {t("expedition.jumpGateUnavailable").toUpperCase()}
-            </>
-          ) : launchBlocked ? (
-            <>
-              <Target size={20} />{" "}
-              {t("expedition.insufficientFuel").toUpperCase()}
-            </>
-          ) : (
-            <>
-              <Send size={20} /> {t("expedition.commence").toUpperCase()}
-            </>
-          )}
-        </button>
-        {launchError ? (
-          <div
-            role="alert"
-            style={{
-              marginTop: 10,
-              display: "flex",
-              gap: 8,
-              alignItems: "flex-start",
-              padding: 10,
-              borderRadius: 12,
-              background: "rgba(248, 113, 113, 0.1)",
-              border: "1px solid rgba(248, 113, 113, 0.35)",
-              color: "#fecaca",
-              fontSize: 12,
-              lineHeight: 1.45,
-            }}
-          >
-            <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: 1 }} />
-            <span>{launchError}</span>
-          </div>
-        ) : null}
-
+          <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: 1 }} />
+          <span>{launchError}</span>
+        </div>
+      ) : null}
     </div>
   );
 }
