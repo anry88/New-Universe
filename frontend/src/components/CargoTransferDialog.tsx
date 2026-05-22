@@ -32,6 +32,7 @@ interface DragOnlySliderProps {
   min?: number;
   max: number;
   label: string;
+  testId?: string;
   onChange: (value: number) => void;
 }
 
@@ -45,21 +46,50 @@ function DragOnlySlider({
   min = 0,
   max,
   label,
+  testId,
   onChange,
 }: DragOnlySliderProps) {
   const trackRef = useRef<HTMLDivElement | null>(null);
+  const pointerOffsetRef = useRef(0);
+  const isDraggingRef = useRef(false);
+  const lastEmittedValueRef = useRef(value);
+  const [dragRatio, setDragRatio] = useState<number | null>(null);
   const disabled = max <= min;
   const clampedValue = clampNumber(value, min, max);
-  const pct = disabled ? (max > 0 ? 100 : 0) : ((clampedValue - min) / (max - min)) * 100;
+  const valueRatio = disabled ? (max > 0 ? 1 : 0) : (clampedValue - min) / (max - min);
+  const displayRatio = dragRatio ?? valueRatio;
+  const pct = displayRatio * 100;
 
-  const valueFromClientX = useCallback(
+  useEffect(() => {
+    lastEmittedValueRef.current = clampedValue;
+    if (!isDraggingRef.current) {
+      setDragRatio(null);
+    }
+  }, [clampedValue]);
+
+  const ratioFromClientX = useCallback(
     (clientX: number) => {
       const rect = trackRef.current?.getBoundingClientRect();
-      if (!rect || rect.width <= 0) return clampedValue;
-      const ratio = clampNumber((clientX - rect.left) / rect.width, 0, 1);
-      return Math.round(min + ratio * (max - min));
+      if (!rect || rect.width <= 0) return valueRatio;
+      return clampNumber(
+        (clientX - pointerOffsetRef.current - rect.left) / rect.width,
+        0,
+        1,
+      );
     },
-    [clampedValue, max, min],
+    [valueRatio],
+  );
+
+  const emitValueForRatio = useCallback(
+    (ratio: number) => {
+      const next = Math.round(min + ratio * (max - min));
+      const clampedNext = clampNumber(next, min, max);
+      if (clampedNext !== lastEmittedValueRef.current) {
+        lastEmittedValueRef.current = clampedNext;
+        onChange(clampedNext);
+      }
+    },
+    [max, min, onChange],
   );
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
@@ -78,19 +108,30 @@ function DragOnlySlider({
 
   const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
     if (disabled) return;
+    const rect = trackRef.current?.getBoundingClientRect();
+    if (!rect || rect.width <= 0) return;
     event.preventDefault();
+    pointerOffsetRef.current = event.clientX - (rect.left + valueRatio * rect.width);
+    isDraggingRef.current = true;
+    setDragRatio(valueRatio);
     event.currentTarget.setPointerCapture(event.pointerId);
   };
 
   const handlePointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
     if (disabled || !event.currentTarget.hasPointerCapture(event.pointerId)) return;
-    onChange(valueFromClientX(event.clientX));
+    const nextRatio = ratioFromClientX(event.clientX);
+    setDragRatio(nextRatio);
+    emitValueForRatio(nextRatio);
   };
 
   const handlePointerUp = (event: React.PointerEvent<HTMLButtonElement>) => {
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      const nextRatio = ratioFromClientX(event.clientX);
+      emitValueForRatio(nextRatio);
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
+    isDraggingRef.current = false;
+    setDragRatio(null);
   };
 
   return (
@@ -107,6 +148,7 @@ function DragOnlySlider({
           aria-valuemin={min}
           aria-valuemax={max}
           aria-valuenow={clampedValue}
+          data-testid={testId}
           disabled={disabled}
           onKeyDown={handleKeyDown}
           onPointerDown={handlePointerDown}
@@ -472,6 +514,7 @@ export function CargoTransferDialog({
                         <DragOnlySlider
                           label={label}
                           max={maxForResource}
+                          testId={`cargo-slider-${res.resourceId}`}
                           value={current}
                           onChange={(value) => updateResourceAmount(res.resourceId, value)}
                         />
@@ -532,6 +575,7 @@ export function CargoTransferDialog({
                     label={t('expedition_dialog_load_fuel')}
                     min={fuelLoadMin}
                     max={fuelLoadMax}
+                    testId="cargo-fuel-slider"
                     value={clampedFuelLoaded}
                     onChange={setFuelLoaded}
                   />
@@ -571,6 +615,7 @@ export function CargoTransferDialog({
                         label={t('expedition_dialog_load_jump_fuel')}
                         min={jumpFuelLoadMin}
                         max={jumpFuelLoadMax}
+                        testId="cargo-jump-fuel-slider"
                         value={clampedJumpFuelLoaded}
                         onChange={setJumpFuelLoaded}
                       />

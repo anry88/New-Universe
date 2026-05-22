@@ -212,6 +212,29 @@ test('fleet cargo shortcut opens transfer dialog with selected ship and localize
   expect(ironBox?.y).toBeLessThan(footerBox?.y ?? 0);
   expect((ironBox?.y ?? 0) + (ironBox?.height ?? 0)).toBeLessThanOrEqual(footerBox?.y ?? 0);
 
+  const fuelSlider = dialog.getByTestId('cargo-fuel-slider');
+  await expect(fuelSlider).toHaveAttribute('aria-valuenow', '3');
+  const fuelSliderBox = await fuelSlider.boundingBox();
+  expect(fuelSliderBox).not.toBeNull();
+  const fuelSliderCenter = {
+    x: fuelSliderBox!.x + fuelSliderBox!.width / 2,
+    y: fuelSliderBox!.y + fuelSliderBox!.height / 2,
+  };
+  const initialFuelSliderLeft = await fuelSlider.evaluate((node) =>
+    parseFloat((node as HTMLElement).style.left),
+  );
+  await page.mouse.move(fuelSliderCenter.x, fuelSliderCenter.y);
+  await page.mouse.down();
+  await page.mouse.move(fuelSliderCenter.x + 2, fuelSliderCenter.y);
+  await expect.poll(async () =>
+    fuelSlider.evaluate((node) => parseFloat((node as HTMLElement).style.left)),
+  ).toBeGreaterThan(initialFuelSliderLeft);
+  await expect(fuelSlider).toHaveAttribute('aria-valuenow', '3');
+  await page.mouse.move(fuelSliderCenter.x + 20, fuelSliderCenter.y);
+  await expect.poll(async () => Number(await fuelSlider.getAttribute('aria-valuenow')))
+    .toBeGreaterThan(3);
+  await page.mouse.up();
+
   const ironAmount = dialog.getByTestId('cargo-resource-iron').locator('input[type="number"]');
   await ironAmount.fill('9999');
   await expect(ironAmount).toHaveValue('5000');
