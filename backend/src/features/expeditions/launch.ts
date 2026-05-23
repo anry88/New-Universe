@@ -842,7 +842,11 @@ export async function launchExpedition(
 
     if (stationedOrigin) {
       await tx
-        .delete(expeditions)
+        .update(expeditions)
+        .set({
+          status: "completed",
+          returnedAt: new Date(),
+        })
         .where(
           and(
             eq(expeditions.shipId, shipRow.shipId),

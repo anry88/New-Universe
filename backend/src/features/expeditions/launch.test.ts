@@ -37,6 +37,7 @@ import {
   JUMP_FUEL_RESOURCE_ID,
   JUMP_GATE_JUMP_FUEL_COST,
 } from "@shared/config/expeditionRouting.js";
+import { SHIP_STATUS_DESTROYED } from "@shared/types/combat.js";
 
 describe("Expeditions - POST /expeditions", () => {
   beforeAll(async () => {
@@ -197,7 +198,23 @@ describe("Expeditions - POST /expeditions", () => {
         requiredBuildings: [],
         sensorRange: 5,
       })
-      .onConflictDoNothing();
+      .onConflictDoUpdate({
+        target: shipTypes.id,
+        set: {
+          name: { ru: "Перехватчик", en: "Fighter" },
+          role: "combat",
+          hp: 80,
+          speed: "2.00",
+          cargo: 0,
+          dps: 10,
+          armor: 3,
+          fuelConsumption: "0.30",
+          buildTimeSec: 10,
+          buildCost: { iron: 100 },
+          requiredBuildings: [],
+          sensorRange: 5,
+        },
+      });
 
     const [ship] = await db
       .insert(ships)
@@ -814,7 +831,8 @@ describe("Expeditions - POST /expeditions", () => {
     const oldStation = await db.query.expeditions.findFirst({
       where: eq(expeditions.id, stationed!.id),
     });
-    expect(oldStation).toBeUndefined();
+    expect(oldStation!.status).toBe("completed");
+    expect(oldStation!.returnedAt).not.toBeNull();
 
     const updatedShip = await db.query.ships.findFirst({
       where: eq(ships.id, ship.id),
@@ -935,7 +953,8 @@ describe("Expeditions - POST /expeditions", () => {
     const returnExpedition = await db.query.expeditions.findFirst({
       where: eq(expeditions.id, returnBody.expedition.id),
     });
-    expect(returnExpedition).toBeUndefined();
+    expect(returnExpedition!.status).toBe("completed");
+    expect(returnExpedition!.returnedAt).not.toBeNull();
   });
 
   it("requires a target-system point for Jump Gate scout routes", async () => {
@@ -1030,12 +1049,14 @@ describe("Expeditions - POST /expeditions", () => {
     const storedExpedition = await db.query.expeditions.findFirst({
       where: eq(expeditions.id, body.expedition.id),
     });
-    expect(storedExpedition).toBeUndefined();
+    expect(storedExpedition!.status).toBe("completed");
+    expect(storedExpedition!.returnedAt).not.toBeNull();
 
     const storedShip = await db.query.ships.findFirst({
       where: eq(ships.id, ship.id),
     });
-    expect(storedShip).toBeUndefined();
+    expect(storedShip!.status).toBe(SHIP_STATUS_DESTROYED);
+    expect(storedShip!.destroyedAt).not.toBeNull();
 
     const colony = await db.query.colonies.findFirst({
       where: and(

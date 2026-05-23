@@ -39,6 +39,7 @@ import {
   JUMP_FUEL_RESOURCE_ID,
   JUMP_GATE_JUMP_FUEL_COST,
 } from "@shared/config/expeditionRouting.js";
+import { SHIP_STATUS_DESTROYED } from "@shared/types/combat.js";
 import {
   buildSystemMapLayouts,
   systemMapJumpGatePoint,
@@ -298,10 +299,19 @@ describe("Jump Gate end-to-end regression suite", () => {
       openedDestination?.lastVisitedAt?.toISOString(),
       `${AREA.jump} destination visit timestamp after gate arrival`,
     ).toBe(randomJump.queueItem.completesAt);
+    const consumedProbe = await db.query.ships.findFirst({
+      where: eq(ships.id, reconProbe.id),
+    });
     expect(
-      await db.query.ships.findFirst({ where: eq(ships.id, reconProbe.id) }),
+      consumedProbe?.status,
       `${AREA.jump} recon probe consumed after opening a system`,
-    ).toBeUndefined();
+    ).toBe(SHIP_STATUS_DESTROYED);
+    expect(consumedProbe?.destroyedAt).not.toBeNull();
+    const completedRandomJump = await db.query.expeditions.findFirst({
+      where: eq(expeditions.id, randomJump.queueItem.id),
+    });
+    expect(completedRandomJump?.status).toBe("completed");
+    expect(completedRandomJump?.returnedAt).not.toBeNull();
 
     const openedSystem = await db.query.systems.findFirst({
       where: eq(systems.id, openedSystemId!),

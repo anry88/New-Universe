@@ -706,7 +706,8 @@ describe("combat tick — processDueCombat", () => {
     const surviving = await db.query.expeditions.findFirst({
       where: eq(expeditions.id, exp.id),
     });
-    expect(surviving).toBeUndefined();
+    expect(surviving!.status).toBe("completed");
+    expect(surviving!.returnedAt).not.toBeNull();
   });
 
   it("does NOT damage a defender protected by a foreign home system", async () => {
