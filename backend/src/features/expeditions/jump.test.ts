@@ -28,6 +28,7 @@ import {
   JUMP_FUEL_RESOURCE_ID,
   JUMP_GATE_JUMP_FUEL_COST,
 } from '@shared/config/expeditionRouting.js';
+import { SHIP_STATUS_DESTROYED } from '@shared/types/combat.js';
 import { countCommonPoolSystems, createCommonPoolSystems } from '../world/sector-generator.js';
 
 const RANDOM_JUMP_NOW = new Date('2026-05-13T12:00:00.000Z');
@@ -275,11 +276,13 @@ describe('Recon Probe Jump Gate Discovery', () => {
     const consumedShip = await db.query.ships.findFirst({
       where: eq(ships.id, ship.id),
     });
-    expect(consumedShip).toBeUndefined();
+    expect(consumedShip!.status).toBe(SHIP_STATUS_DESTROYED);
+    expect(consumedShip!.destroyedAt).not.toBeNull();
     const completedExpedition = await db.query.expeditions.findFirst({
       where: eq(expeditions.id, result.queueItem!.id),
     });
-    expect(completedExpedition).toBeUndefined();
+    expect(completedExpedition!.status).toBe('completed');
+    expect(completedExpedition!.returnedAt).not.toBeNull();
 
     const openedDiscovery = await db.query.discoveredSystems.findFirst({
       where: and(

@@ -525,8 +525,19 @@ async function processCombatSystemLocked(
         })
         .where(eq(ships.id, upd.shipId));
       await database
-        .delete(expeditions)
-        .where(eq(expeditions.shipId, upd.shipId));
+        .update(expeditions)
+        .set({ status: "completed", returnedAt: now })
+        .where(
+          and(
+            eq(expeditions.shipId, upd.shipId),
+            inArray(expeditions.status, [
+              "queued",
+              "in_flight",
+              "returning",
+              "stationed",
+            ]),
+          ),
+        );
     } else {
       await database
         .update(ships)

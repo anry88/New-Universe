@@ -38,10 +38,42 @@ import {
   systemMapJumpGatePoint,
   systemMapPlanetDiscoveryRadius,
 } from "@shared/format/systemMapLayout.js";
+import { SHIP_STATUS_DESTROYED } from "@shared/types/combat.js";
 
 const POLL_INTERVAL_MS = 30000;
 const SYSTEM_MAP_SENSOR_RANGE_SCALE = 0.25;
 export const EXPEDITION_STATUS_STATIONED = "stationed";
+
+async function markExpeditionCompleted(
+  tx: any,
+  expeditionId: string,
+  returnedAt: Date = new Date(),
+) {
+  await tx
+    .update(expeditions)
+    .set({
+      status: "completed",
+      returnedAt,
+    })
+    .where(eq(expeditions.id, expeditionId));
+}
+
+async function markShipConsumed(
+  tx: any,
+  shipId: string,
+  consumedAt: Date = new Date(),
+) {
+  await tx
+    .update(ships)
+    .set({
+      status: SHIP_STATUS_DESTROYED,
+      hp: 0,
+      destroyedAt: consumedAt,
+      locationPlanetId: null,
+      cargoJson: {},
+    })
+    .where(eq(ships.id, shipId));
+}
 
 /**
  * Calculates current position of a ship in an expedition using linear interpolation.
@@ -422,7 +454,7 @@ async function completeRandomDiscoveryAtGate(
     .where(eq(ships.id, expedition.shipId))
     .limit(1);
   if (!ship) {
-    await tx.delete(expeditions).where(eq(expeditions.id, expedition.id));
+    await markExpeditionCompleted(tx, expedition.id, expedition.eta);
     return true;
   }
 
@@ -440,8 +472,8 @@ async function completeRandomDiscoveryAtGate(
       },
       "Random discovery target is no longer a public system; consuming probe",
     );
-    await tx.delete(expeditions).where(eq(expeditions.id, expedition.id));
-    await tx.delete(ships).where(eq(ships.id, expedition.shipId));
+    await markExpeditionCompleted(tx, expedition.id, expedition.eta);
+    await markShipConsumed(tx, expedition.shipId, expedition.eta);
     return true;
   }
 
@@ -470,8 +502,8 @@ async function completeRandomDiscoveryAtGate(
     })
     .where(eq(jumpGates.userId, ship.ownerId));
 
-  await tx.delete(expeditions).where(eq(expeditions.id, expedition.id));
-  await tx.delete(ships).where(eq(ships.id, expedition.shipId));
+  await markExpeditionCompleted(tx, expedition.id, arrivedAt);
+  await markShipConsumed(tx, expedition.shipId, arrivedAt);
 
   logger.info(
     {
@@ -576,7 +608,7 @@ async function handleArrivalAtTarget(
           cargoJson: {},
         })
         .where(eq(ships.id, expedition.shipId));
-      await tx.delete(expeditions).where(eq(expeditions.id, expedition.id));
+      await markExpeditionCompleted(tx, expedition.id, expedition.eta);
 
       if (!options.skipNotifications) {
         await tx.insert(notifications).values({
@@ -612,7 +644,7 @@ async function handleArrivalAtTarget(
   if (expedition.type === "colonizer" && expedition.targetPlanetId) {
     const colonization = await autoColonizeAtTarget(expedition, tx, options);
     if (colonization.consumed) {
-      await tx.delete(expeditions).where(eq(expeditions.id, expedition.id));
+      await markExpeditionCompleted(tx, expedition.id, expedition.eta);
       logger.info(
         {
           expeditionId: expedition.id,
@@ -633,8 +665,8 @@ async function handleArrivalAtTarget(
       },
       "Colonizer arrived but could not claim target; consuming one-way mission",
     );
-    await tx.delete(expeditions).where(eq(expeditions.id, expedition.id));
-    await tx.delete(ships).where(eq(ships.id, expedition.shipId));
+    await markExpeditionCompleted(tx, expedition.id, expedition.eta);
+    await markShipConsumed(tx, expedition.shipId, expedition.eta);
     return;
   }
 
@@ -740,7 +772,7 @@ async function autoColonizeAtTarget(
       },
       "Colonizer target vanished before arrival; consuming one-way mission",
     );
-    await tx.delete(ships).where(eq(ships.id, expedition.shipId));
+    await markShipConsumed(tx, expedition.shipId, expedition.eta);
     return { consumed: true, founded: false };
   }
 
@@ -753,7 +785,7 @@ async function autoColonizeAtTarget(
       },
       "Colonizer arrival blocked by protected home system",
     );
-    await tx.delete(ships).where(eq(ships.id, expedition.shipId));
+    await markShipConsumed(tx, expedition.shipId, expedition.eta);
     return { consumed: true, founded: false };
   }
 
@@ -776,7 +808,7 @@ async function autoColonizeAtTarget(
       },
       "Colonizer target already has a command center; consuming one-way mission",
     );
-    await tx.delete(ships).where(eq(ships.id, expedition.shipId));
+    await markShipConsumed(tx, expedition.shipId, expedition.eta);
     return { consumed: true, founded: false };
   }
 
@@ -803,7 +835,7 @@ async function autoColonizeAtTarget(
       },
       "Colonizer arrival blocked by hostile buildings remaining on target",
     );
-    await tx.delete(ships).where(eq(ships.id, expedition.shipId));
+    await markShipConsumed(tx, expedition.shipId, expedition.eta);
     return { consumed: true, founded: false };
   }
 
@@ -826,12 +858,12 @@ async function autoColonizeAtTarget(
       },
       "Colonizer target was claimed before arrival; consuming one-way mission",
     );
-    await tx.delete(ships).where(eq(ships.id, expedition.shipId));
+    await markShipConsumed(tx, expedition.shipId, expedition.eta);
     return { consumed: true, founded: false };
   }
 
   // Consume the ship: the colonizer hull becomes the command center.
-  await tx.delete(ships).where(eq(ships.id, expedition.shipId));
+  await markShipConsumed(tx, expedition.shipId, expedition.eta);
 
   // Plant the command center at slot 0 instantly (no queue).
   await tx.insert(buildings).values({
@@ -865,9 +897,14 @@ async function handleArrivalAtHome(
   tx: any,
   options: { skipNotifications?: boolean } = {},
 ) {
-  // 1. Mark expedition as completed (or delete it to clean up the map immediately)
-  // The user requested to delete it: "его нужо удалять"
-  await tx.delete(expeditions).where(eq(expeditions.id, expedition.id));
+  // Keep finished routes for history/audit while active readers filter them out.
+  await tx
+    .update(expeditions)
+    .set({
+      status: "completed",
+      returnedAt: new Date(),
+    })
+    .where(eq(expeditions.id, expedition.id));
 
   // 2. Update ship status and return to origin planet
   await tx
@@ -881,7 +918,7 @@ async function handleArrivalAtHome(
 
   logger.info(
     { expeditionId: expedition.id, shipId: expedition.shipId },
-    "Expedition returned home and deleted",
+    "Expedition returned home and completed",
   );
 
   // Send notification
