@@ -279,7 +279,18 @@ test('fleet cargo shortcut opens transfer dialog with selected ship and localize
     }));
   }, touchPoint);
 
-  const ironAmount = dialog.getByTestId('cargo-resource-iron').locator('input[type="number"]');
+  const ironAmount = dialog.getByTestId('cargo-resource-iron').locator('input');
+  await expect(ironAmount).toHaveValue('0');
+  await ironAmount.click();
+  await expect(ironAmount).toHaveValue('');
+  await ironAmount.pressSequentially('100');
+  await expect(ironAmount).toHaveValue('100');
+  await expect(dialog.getByText('100 / 5000')).toBeVisible();
+  await ironAmount.fill('');
+  await expect(ironAmount).toHaveValue('');
+  await ironAmount.blur();
+  await expect(ironAmount).toHaveValue('0');
+  await expect(dialog.getByText('0 / 5000')).toBeVisible();
   await ironAmount.fill('9999');
   await expect(ironAmount).toHaveValue('5000');
   await expect(dialog.getByText('5000 / 5000')).toBeVisible();

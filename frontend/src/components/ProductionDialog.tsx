@@ -14,6 +14,7 @@ import { canStartProduction, defaultProductionRecipeId, productionBlockedText } 
 import { formatTimerDuration, timerSnapshot } from '../lib/timers';
 import { useI18n } from '../lib/i18n';
 import { ResourceAmount, ResourceAmountList } from './cosmic/resources';
+import { IntegerInput } from './IntegerInput';
 
 interface ProductionDialogProps {
   isOpen: boolean;
@@ -253,12 +254,11 @@ export const ProductionDialog: React.FC<ProductionDialogProps> = ({
               <div className="bd-category-head">
                 <span className="bd-category-title">{t('production.quantity')}</span>
               </div>
-              <input
-                type="number"
+              <IntegerInput
                 min={1}
                 step={1}
                 value={quantity}
-                onChange={(event) => setQuantity(Number(event.target.value))}
+                onValueChange={setQuantity}
                 className="prod-input"
               />
             </section>
