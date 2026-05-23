@@ -29,7 +29,12 @@ import {
   JUMP_FUEL_RESOURCE_ID,
   JUMP_GATE_JUMP_FUEL_COST,
 } from '@shared/config/expeditionRouting.js';
-import { systemMapPlanetDistanceLy } from '@shared/format/systemMapLayout.js';
+import {
+  buildSystemMapLayouts,
+  systemMapJumpGatePoint,
+  systemMapPlanetDistanceLy,
+  systemMapPointDistanceLy,
+} from '@shared/format/systemMapLayout.js';
 import { getJumpGateState } from '../jump-gate/service.js';
 import {
   scheduleCargoRouteCompletionJob,
@@ -49,6 +54,8 @@ type CargoTransferResultPayload = {
   jumpFuelLoaded?: number;
   distance?: number;
   requestedDistance?: number;
+  originGateDistance?: number;
+  targetGateDistance?: number;
   speed?: number;
   engineFactor?: number;
   etaSeconds?: number;
@@ -134,6 +141,24 @@ function systemForSettlement(settlement: PlayerPlanetSettlement) {
     sectorZ: number;
     seed: number;
   };
+}
+
+async function distanceBetweenSystemGateAndPlanet(
+  database: any,
+  systemId: string,
+  systemSeed: number,
+  planetId: string,
+): Promise<number | null> {
+  const systemPlanets = await database.query.planets.findMany({
+    where: eq(planets.systemId, systemId),
+  });
+  const planetLayout = buildSystemMapLayouts(
+    systemPlanets,
+    Number(systemSeed),
+  ).find((layout) => layout.id === planetId);
+  if (!planetLayout) return null;
+
+  return systemMapPointDistanceLy(systemMapJumpGatePoint(), planetLayout);
 }
 
 async function assertKnownJumpGateSettlementSystem(
@@ -263,7 +288,30 @@ async function buildCargoTransferPlan(
   }
 
   let requestedDistance: number;
-  if (interSystemTransfer) {
+  let originGateDistance: number | undefined;
+  let targetGateDistance: number | undefined;
+  if (useJumpGateRoute) {
+    const [originGate, targetGate] = await Promise.all([
+      distanceBetweenSystemGateAndPlanet(
+        database,
+        originSystem.id,
+        Number(originSystem.seed),
+        originSettlement.planet.id,
+      ),
+      distanceBetweenSystemGateAndPlanet(
+        database,
+        targetSystem.id,
+        Number(targetSystem.seed),
+        targetSettlement.planet.id,
+      ),
+    ]);
+    if (originGate === null || targetGate === null) {
+      throw new Error('Unable to calculate Jump Gate cargo route');
+    }
+    originGateDistance = originGate;
+    targetGateDistance = targetGate;
+    requestedDistance = originGate + targetGate;
+  } else if (interSystemTransfer) {
     requestedDistance = calculateSectorRouteDistance(
       { x: Number(originSystem.sectorX), y: Number(originSystem.sectorY) },
       { x: Number(targetSystem.sectorX), y: Number(targetSystem.sectorY) },
@@ -348,6 +396,8 @@ async function buildCargoTransferPlan(
       jumpFuelLoaded: jumpFuelToLoadFromPlanet,
       distance: travelDistance,
       requestedDistance,
+      originGateDistance,
+      targetGateDistance,
       speed,
       engineFactor,
       etaSeconds,

@@ -351,6 +351,12 @@ describe('cargoTransfer', () => {
     expect(payload.routeMode).toBe('jump_gate');
     expect(payload.fuelRequired).toBeGreaterThan(0);
     expect(payload.jumpFuelRequired).toBe(JUMP_GATE_JUMP_FUEL_COST);
+    expect(payload.originGateDistance).toBeGreaterThan(0);
+    expect(payload.targetGateDistance).toBeGreaterThan(0);
+    expect(payload.requestedDistance).toBeCloseTo(
+      payload.originGateDistance + payload.targetGateDistance,
+      6,
+    );
     expect(payload.etaSeconds).toBeGreaterThan(0);
     expect(new Date(payload.eta).getTime()).toBeGreaterThan(Date.now() - 1000);
     expect(await resourceAmount(originPlanetId, 'fuel')).toBe(
@@ -676,6 +682,13 @@ describe('cargoTransfer', () => {
     expect(preview.preview.totalCargo).toBe(10);
     expect(preview.preview.fuelRequired).toBeGreaterThan(0);
     expect(preview.preview.jumpFuelRequired).toBe(JUMP_GATE_JUMP_FUEL_COST);
+    expect(preview.preview.originGateDistance ?? 0).toBeGreaterThan(0);
+    expect(preview.preview.targetGateDistance ?? 0).toBeGreaterThan(0);
+    expect(preview.preview.requestedDistance).toBeCloseTo(
+      preview.preview.originGateDistance! +
+        preview.preview.targetGateDistance!,
+      6,
+    );
     expect(preview.preview.etaSeconds).toBeGreaterThan(0);
     expect(new Date(preview.preview.eta).getTime()).toBeGreaterThan(Date.now() - 1000);
   });

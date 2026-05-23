@@ -108,7 +108,14 @@ describe('E2E: Colonization Flow', () => {
     }).returning();
     // 5. Ensure resources on home planet and reset coordinates for deterministic distance check
     await db.update(systems)
-      .set({ x: '0.00', y: '0.00', z: '0.00' })
+      .set({
+        sectorX: 0,
+        sectorY: 0,
+        sectorZ: 0,
+        x: '0.00',
+        y: '0.00',
+        z: '0.00',
+      })
       .where(and(eq(systems.ownerId, userId), eq(systems.isHome, true)));
 
     const [homeSystem] = await db.select().from(systems).where(and(eq(systems.ownerId, userId), eq(systems.isHome, true))).limit(1);
@@ -297,7 +304,10 @@ describe('E2E: Colonization Flow', () => {
         resources: [{ resourceId: 'iron', amount: 100 }]
       }
     });
-    expect(transferRes.statusCode).toBe(200);
+    expect(
+      transferRes.statusCode,
+      `Cargo transfer failed: ${transferRes.body}`,
+    ).toBe(200);
 
     // Verify iron removed from home
     const [homeIron] = await db.select().from(planetResourcesTable).where(and(eq(planetResourcesTable.planetId, homePlanet.id), eq(planetResourcesTable.resourceId, 'iron'))).limit(1);

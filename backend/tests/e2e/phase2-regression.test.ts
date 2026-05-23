@@ -171,7 +171,14 @@ describe('Phase 2 regression suite', () => {
 
     await db
       .update(systems)
-      .set({ x: '0.00', y: '0.00', z: '0.00' })
+      .set({
+        sectorX: 0,
+        sectorY: 0,
+        sectorZ: 0,
+        x: '0.00',
+        y: '0.00',
+        z: '0.00',
+      })
       .where(and(eq(systems.ownerId, userId), eq(systems.isHome, true)));
 
     const [targetSystem] = await db
@@ -248,7 +255,10 @@ describe('Phase 2 regression suite', () => {
         resources: [{ resourceId: 'iron', amount: cargoQty }],
       },
     });
-    expect(cargoRes.statusCode, `${AREA.cargo} POST /cargo/transfer`).toBe(200);
+    expect(
+      cargoRes.statusCode,
+      `${AREA.cargo} POST /cargo/transfer: ${cargoRes.body}`,
+    ).toBe(200);
 
     const ironAfterCargo = await planetAmount(homePlanetId, 'iron');
     expect(

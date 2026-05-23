@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { systemMapJumpGatePoint } from "@shared/format/systemMapLayout.js";
 import { db } from "../../db/index.js";
 import {
   buildings,
@@ -340,6 +341,89 @@ describe("getSystemTacticalState", () => {
         updatedAt: "2026-05-13T01:00:30.000Z",
       },
     });
+  });
+
+  it("projects returning Jump Gate contacts on the destination leg before the home leg", async () => {
+    const viewer = await createUser("return_viewer");
+    const origin = await createPublicSystem("Return Origin", 925);
+    const target = await createPublicSystem("Return Tactical", 926);
+    const shipType = await createShipType(`return_contact_${Date.now()}`);
+    const targetPoint = { x: 100, y: 0 };
+    const gatePoint = systemMapJumpGatePoint();
+
+    await db.insert(discoveredSystems).values({
+      userId: viewer.id,
+      systemId: target.system.id,
+    });
+
+    const [ship] = await db
+      .insert(ships)
+      .values({
+        ownerId: viewer.id,
+        typeId: shipType.id,
+        locationPlanetId: null,
+        status: "moving",
+        hp: 260,
+        maxHp: 280,
+      })
+      .returning();
+
+    await db.insert(expeditions).values({
+      shipId: ship.id,
+      type: shipType.id,
+      originPlanetId: origin.planet.id,
+      targetX: target.system.sectorX.toString(),
+      targetY: target.system.sectorY.toString(),
+      targetZ: target.system.sectorZ.toString(),
+      status: "returning",
+      eta: new Date("2026-05-13T01:10:00.000Z"),
+      result: {
+        routeMode: "jump_gate",
+        originSystemId: origin.system.id,
+        destinationSystemId: target.system.id,
+        targetSystemPoint: targetPoint,
+        originGateDistance: 8,
+        targetGateDistance: 2,
+        distance: 10,
+        speed: 1,
+        engineFactor: 1,
+      },
+    });
+
+    const destinationLegState = await getSystemTacticalState(
+      viewer.id,
+      target.system.id,
+      {
+        now: new Date("2026-05-13T01:01:00.000Z"),
+      },
+    );
+
+    expect(destinationLegState?.fleetContacts).toHaveLength(1);
+    expect(destinationLegState?.fleetContacts[0]).toMatchObject({
+      id: ship.id,
+      status: "returning",
+      relation: "self",
+      point: {
+        x: gatePoint.x + (targetPoint.x - gatePoint.x) * 0.5,
+        y: gatePoint.y + (targetPoint.y - gatePoint.y) * 0.5,
+      },
+      motion: {
+        state: "moving",
+        dx: gatePoint.x - targetPoint.x,
+        dy: gatePoint.y - targetPoint.y,
+        updatedAt: "2026-05-13T01:01:00.000Z",
+      },
+    });
+
+    const homeLegState = await getSystemTacticalState(
+      viewer.id,
+      target.system.id,
+      {
+        now: new Date("2026-05-13T01:03:00.000Z"),
+      },
+    );
+
+    expect(homeLegState?.fleetContacts).toEqual([]);
   });
 
   it("returns own and foreign tactical contacts as one system snapshot", async () => {

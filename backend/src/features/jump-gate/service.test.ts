@@ -343,6 +343,14 @@ describe('getJumpGateState', () => {
         lastCombatTickAt: new Date('2026-05-13T00:05:10.000Z'),
       },
     ]);
+    const storedMine = await db.query.buildings.findFirst({
+      where: and(
+        eq(buildings.planetId, colonizedPlanet.id),
+        eq(buildings.typeId, 'mine'),
+      ),
+    });
+    const expectedLastCombatTickAt =
+      storedMine?.lastCombatTickAt?.toISOString();
     await db.insert(discoveredSystems).values({
       userId: user.id,
       systemId: publicSystem.id,
@@ -381,7 +389,7 @@ describe('getJumpGateState', () => {
       isColonized: true,
       isOwnedColony: false,
       buildingCount: 2,
-      lastCombatTickAt: '2026-05-13T00:05:10.000Z',
+      lastCombatTickAt: expectedLastCombatTickAt,
       resources: [
         expect.objectContaining({
           resourceId: 'silicon',

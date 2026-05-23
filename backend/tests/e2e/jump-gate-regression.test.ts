@@ -669,7 +669,7 @@ describe("Jump Gate end-to-end regression suite", () => {
     });
     expect(
       cargoRes.statusCode,
-      `${AREA.cargo} cargo transfer through Jump Gate`,
+      `${AREA.cargo} cargo transfer through Jump Gate: ${cargoRes.body}`,
     ).toBe(200);
     const cargoExpedition = (
       cargoRes.json() as {

@@ -306,6 +306,16 @@ describe('Combat regression suite', () => {
       victimDestroyed ||= combatRes.destroyed.includes(victimShip.id);
     }
     expect(victimDestroyed, `${AREA.combat} Victim ship destroyed`).toBe(true);
+
+    // Surface bombing uses the same capped elapsed-time model. Keep advancing
+    // at the worker cadence until the mine is destroyed, the bomber first
+    // touches the Command Center, and the Command Center wipe cascades.
+    for (let seconds = 100; seconds <= 860; seconds += 10) {
+      await processDueCombat({
+        now: new Date(t0.getTime() + seconds * 1000),
+        skipNotifications: true,
+      });
+    }
     
     const mineAfter = await db.query.buildings.findFirst({ where: eq(buildings.id, victimMine.id) });
     const ccAfter = await db.query.buildings.findFirst({ 
