@@ -18,6 +18,7 @@ import {
 import { formatTimerDuration } from '../lib/timers';
 import { getResourceLabel, ResourceIcon } from './cosmic/resources';
 import { getShipClassTag, ShipIconBadge } from './cosmic/ships';
+import { IntegerInput } from './IntegerInput';
 
 interface CargoTransferDialogProps {
   originPlanet: Planet;
@@ -549,12 +550,11 @@ export function CargoTransferDialog({
                           value={current}
                           onChange={(value) => updateResourceAmount(res.resourceId, value)}
                         />
-                        <input
-                          type="number"
-                          min="0"
+                        <IntegerInput
+                          min={0}
                           max={maxForResource}
                           value={current}
-                          onChange={(e) => updateResourceAmount(res.resourceId, parseInt(e.target.value) || 0)}
+                          onValueChange={(value) => updateResourceAmount(res.resourceId, value)}
                           className="w-16 bg-slate-900 border border-slate-700 rounded-lg py-0.5 text-center text-xs text-cyan-400 font-mono"
                         />
                       </div>
@@ -610,13 +610,11 @@ export function CargoTransferDialog({
                     value={clampedFuelLoaded}
                     onChange={setFuelLoaded}
                   />
-                  <input
-                    type="number"
-                    inputMode="numeric"
+                  <IntegerInput
                     min={fuelLoadMin}
                     max={fuelLoadMax}
                     value={clampedFuelLoaded}
-                    onChange={(e) => setFuelLoaded(parseInt(e.target.value) || 0)}
+                    onValueChange={setFuelLoaded}
                     className="h-9 w-16 rounded-lg border border-slate-700 bg-slate-950 py-0.5 text-center font-mono text-xs text-cyan-400"
                   />
                 </div>
@@ -650,13 +648,11 @@ export function CargoTransferDialog({
                         value={clampedJumpFuelLoaded}
                         onChange={setJumpFuelLoaded}
                       />
-                      <input
-                        type="number"
-                        inputMode="numeric"
+                      <IntegerInput
                         min={jumpFuelLoadMin}
                         max={jumpFuelLoadMax}
                         value={clampedJumpFuelLoaded}
-                        onChange={(e) => setJumpFuelLoaded(parseInt(e.target.value) || 0)}
+                        onValueChange={setJumpFuelLoaded}
                         className="h-9 w-16 rounded-lg border border-slate-700 bg-slate-950 py-0.5 text-center font-mono text-xs text-cyan-400"
                       />
                     </div>

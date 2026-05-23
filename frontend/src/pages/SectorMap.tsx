@@ -6,6 +6,7 @@ import { useMe } from "../hooks/useMe";
 import { apiFetch } from "../lib/api";
 import { CosmicBottomNav } from "../components/cosmic/atoms";
 import { RenameEntityDialog } from "../components/RenameEntityDialog";
+import { IntegerInput } from "../components/IntegerInput";
 import { SectorRenderer } from "../components/pixi/SectorRenderer";
 import type {
   SectorPresencePayload,
@@ -498,12 +499,10 @@ export function SectorMapPage() {
           >
             <label style={{ fontSize: 10, color: "var(--text-dim)" }}>
               sx
-              <input
-                type="number"
+              <IntegerInput
+                allowNegative
                 value={draftSx}
-                onChange={(e) =>
-                  setDraftSx(Number.parseInt(e.target.value, 10) || 0)
-                }
+                onValueChange={setDraftSx}
                 style={{
                   marginLeft: 4,
                   width: 56,
@@ -518,12 +517,10 @@ export function SectorMapPage() {
             </label>
             <label style={{ fontSize: 10, color: "var(--text-dim)" }}>
               sy
-              <input
-                type="number"
+              <IntegerInput
+                allowNegative
                 value={draftSy}
-                onChange={(e) =>
-                  setDraftSy(Number.parseInt(e.target.value, 10) || 0)
-                }
+                onValueChange={setDraftSy}
                 style={{
                   marginLeft: 4,
                   width: 56,
@@ -538,12 +535,10 @@ export function SectorMapPage() {
             </label>
             <label style={{ fontSize: 10, color: "var(--text-dim)" }}>
               sz
-              <input
-                type="number"
+              <IntegerInput
+                allowNegative
                 value={draftSz}
-                onChange={(e) =>
-                  setDraftSz(Number.parseInt(e.target.value, 10) || 0)
-                }
+                onValueChange={setDraftSz}
                 style={{
                   marginLeft: 4,
                   width: 56,

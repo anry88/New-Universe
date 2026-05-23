@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { getResourceLabel, ResourceIcon } from './cosmic/resources';
 import { apiFetch } from '../lib/api';
 import { useI18n } from '../lib/i18n';
+import { IntegerInput } from './IntegerInput';
 
 interface ResourceDiamondPurchaseDialogProps {
   open: boolean;
@@ -25,10 +26,11 @@ export function ResourceDiamondPurchaseDialog({
   onConfirm,
 }: ResourceDiamondPurchaseDialogProps) {
   const { locale, t } = useI18n();
-  const [amount, setAmount] = useState('100');
+  const [amount, setAmount] = useState(100);
   const maxAmount = availableSpace !== null ? Math.max(0, Math.floor(availableSpace)) : undefined;
+  const inputMin = maxAmount === 0 ? 0 : 1;
   const parsedAmount = useMemo(
-    () => Math.max(0, Math.min(Math.floor(Number(amount)), maxAmount ?? Infinity)),
+    () => Math.max(0, Math.min(Math.floor(amount), maxAmount ?? Infinity)),
     [amount, maxAmount],
   );
   const [quote, setQuote] = useState<{ diamondsNeeded: number; unitsPerDiamond: number; tier: number } | null>(null);
@@ -90,13 +92,12 @@ export function ResourceDiamondPurchaseDialog({
           </div>
           <label className="resource-buy-input-wrap">
             <span className="resource-inv-sub">{t('resources.amount')}</span>
-            <input
-              type="number"
-              min={1}
+            <IntegerInput
+              min={inputMin}
               max={maxAmount}
               step={1}
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              value={parsedAmount}
+              onValueChange={setAmount}
               className="resource-buy-input"
               disabled={busy || maxAmount === 0}
             />
