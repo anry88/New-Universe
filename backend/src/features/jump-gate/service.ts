@@ -44,6 +44,11 @@ interface GetJumpGateStateOptions {
 
 function serializeDate(value: Date | string | null | undefined): string | null {
   if (!value) return null;
+  if (typeof value === 'string') {
+    const normalized = value.includes('T') ? value : value.replace(' ', 'T');
+    const hasExplicitTimezone = /(?:Z|[+-]\d{2}(?::?\d{2})?)$/.test(normalized);
+    return new Date(hasExplicitTimezone ? normalized : `${normalized}Z`).toISOString();
+  }
   return new Date(value).toISOString();
 }
 

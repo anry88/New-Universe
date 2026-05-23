@@ -149,7 +149,7 @@ function projectionForTacticalExpedition(
       return null;
     const targetLegProgress =
       row.status === "returning"
-        ? 1 - (travelled - originLegDistance) / targetLegDistance
+        ? 1 - travelled / targetLegDistance
         : (travelled - originLegDistance) / targetLegDistance;
     if (targetLegProgress < 0 || targetLegProgress > 1) return null;
     return {

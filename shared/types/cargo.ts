@@ -39,6 +39,8 @@ export interface CargoTransferRoutePreview {
   jumpFuelLoaded?: number;
   distance: number;
   requestedDistance: number;
+  originGateDistance?: number;
+  targetGateDistance?: number;
   speed: number;
   engineFactor: number;
   etaSeconds: number;

@@ -10,7 +10,7 @@ Interplanetary logistics — cargo transfers between player-owned colonies.
   - Requires Logistics research for cargo usage; the same requirement is mirrored by ship construction so the UI blocks transporter builds before a player reaches an unusable send flow.
   - Requires explicit `routeMode='jump_gate'` cargo routes to connect owned settlements in the player's Home system or discovered public common systems.
   - Normalizes multiple load lines in one transfer order, aggregates duplicate resource ids for reservation/delivery, allows empty relocation flights that move only the transport ship, and enforces the ship cargo capacity limit.
-  - Calculates travel ETA, ordinary route fuel, optional Jump Fuel, distance, speed, and timer metadata server-side for both preview and launch. Same-system transfers use the shared planet-map distance between the origin and target bodies instead of the parent system's sector coordinate.
+  - Calculates travel ETA, ordinary route fuel, optional Jump Fuel, distance, speed, and timer metadata server-side for both preview and launch. Same-system transfers use the shared planet-map distance between the origin and target bodies instead of the parent system's sector coordinate, while Jump Gate transfers use split local legs (origin planet -> origin Gate plus destination Gate -> target planet) instead of raw sector distance.
   - Reserves resources atomically on the origin planet (via `spendResources`), adding ordinary `fuel` and the shared Jump Fuel surcharge when the request explicitly selects `routeMode='jump_gate'`.
   - Creates a one-way `expeditions` record with type `cargo_transfer`.
   - Sets ship status to `moving` and populates `cargoJson`.
