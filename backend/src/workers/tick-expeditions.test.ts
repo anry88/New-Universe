@@ -28,6 +28,7 @@ import {
   systemMapPointDistanceLy,
   SYSTEM_MAP_WORLD_UNITS_PER_LY,
 } from "@shared/format/systemMapLayout.js";
+import { SHIP_STATUS_DESTROYED } from "@shared/types/combat.js";
 import { seedResources } from "../db/seed/resources.js";
 import { seedBuildingTypes } from "../db/seed/building-types.js";
 
@@ -253,7 +254,8 @@ describe("Tick Expeditions Worker", () => {
     const storedExpedition = await db.query.expeditions.findFirst({
       where: eq(expeditions.id, expedition.id),
     });
-    expect(storedExpedition).toBeUndefined();
+    expect(storedExpedition!.status).toBe("completed");
+    expect(storedExpedition!.returnedAt).not.toBeNull();
 
     const storedShip = await db.query.ships.findFirst({
       where: eq(ships.id, ship.id),
@@ -332,7 +334,8 @@ describe("Tick Expeditions Worker", () => {
     const storedExpedition = await db.query.expeditions.findFirst({
       where: eq(expeditions.id, expedition.id),
     });
-    expect(storedExpedition).toBeUndefined();
+    expect(storedExpedition!.status).toBe("completed");
+    expect(storedExpedition!.returnedAt).not.toBeNull();
 
     const storedShip = await db.query.ships.findFirst({
       where: eq(ships.id, ship.id),
@@ -607,7 +610,8 @@ describe("Tick Expeditions Worker", () => {
     const updatedExp = await db.query.expeditions.findFirst({
       where: eq(expeditions.id, expedition.id),
     });
-    expect(updatedExp).toBeUndefined();
+    expect(updatedExp!.status).toBe("completed");
+    expect(updatedExp!.returnedAt).not.toBeNull();
 
     const updatedShip = await db.query.ships.findFirst({
       where: eq(ships.id, ship.id),
@@ -1097,12 +1101,14 @@ describe("Tick Expeditions Worker", () => {
     const storedExpedition = await db.query.expeditions.findFirst({
       where: eq(expeditions.id, expedition.id),
     });
-    expect(storedExpedition).toBeUndefined();
+    expect(storedExpedition!.status).toBe("completed");
+    expect(storedExpedition!.returnedAt).not.toBeNull();
 
     const storedShip = await db.query.ships.findFirst({
       where: eq(ships.id, ship.id),
     });
-    expect(storedShip).toBeUndefined();
+    expect(storedShip!.status).toBe(SHIP_STATUS_DESTROYED);
+    expect(storedShip!.destroyedAt).not.toBeNull();
 
     const colony = await db.query.colonies.findFirst({
       where: and(eq(colonies.ownerId, user.id), eq(colonies.planetId, target.id)),
@@ -1230,12 +1236,14 @@ describe("Tick Expeditions Worker", () => {
     const storedExpedition = await db.query.expeditions.findFirst({
       where: eq(expeditions.id, expedition.id),
     });
-    expect(storedExpedition).toBeUndefined();
+    expect(storedExpedition!.status).toBe("completed");
+    expect(storedExpedition!.returnedAt).not.toBeNull();
 
     const storedShip = await db.query.ships.findFirst({
       where: eq(ships.id, ship.id),
     });
-    expect(storedShip).toBeUndefined();
+    expect(storedShip!.status).toBe(SHIP_STATUS_DESTROYED);
+    expect(storedShip!.destroyedAt).not.toBeNull();
 
     const colony = await db.query.colonies.findFirst({
       where: and(eq(colonies.ownerId, user.id), eq(colonies.planetId, target.id)),
