@@ -34,6 +34,8 @@ import {
   STORED_ENERGY_PROCESS_TYPES,
   syncEnergyResourceRow,
 } from './energy.js';
+import { syncPlanetResources } from './accrual.js';
+import { formatInsufficientResourceMessage } from '@shared/types/entity-labels.js';
 
 const RESOURCE_SCALE = 10000;
 
@@ -236,6 +238,7 @@ export class ProductionService {
           effects,
         });
     const inputs = recipeInputs;
+    const inputResourceIds = [...new Set(inputs.map((row) => row.resourceId))];
 
     if (slotState.activeSlots >= slotState.maxSlots) {
       return baseResponse({
@@ -257,6 +260,10 @@ export class ProductionService {
       });
     }
 
+    if (inputResourceIds.length > 0) {
+      await syncPlanetResources(input.planetId, database, { resourceIds: inputResourceIds });
+    }
+
     const currentRows = await database
       .select({
         resourceId: planetResources.resourceId,
@@ -266,7 +273,7 @@ export class ProductionService {
       .where(
         and(
           eq(planetResources.planetId, input.planetId),
-          inArray(planetResources.resourceId, inputs.map((row) => row.resourceId)),
+          inArray(planetResources.resourceId, inputResourceIds),
         ),
       );
     const balance = new Map<string, number>(
@@ -282,7 +289,10 @@ export class ProductionService {
         energyPerHour,
         blockedReason: {
           code: 'production_insufficient_resources',
-          message: { ru: `Недостаточно ресурса ${missing.resourceId}.`, en: `Not enough ${missing.resourceId}.` },
+          message: {
+            ru: formatInsufficientResourceMessage(missing.resourceId, 'ru'),
+            en: formatInsufficientResourceMessage(missing.resourceId, 'en'),
+          },
           details: {
             resourceId: missing.resourceId,
             required: missing.amount,
@@ -591,6 +601,8 @@ export class ProductionService {
     if (resourceId === ENERGY_RESOURCE_ID) {
       return resolveEnergyOutputCapacity(planetId, database);
     }
+
+    await syncPlanetResources(planetId, database, { resourceIds: [resourceId] });
 
     const [resourceRow, existingRow] = await Promise.all([
       database.query.resources.findFirst({ where: eq(resources.id, resourceId) }),

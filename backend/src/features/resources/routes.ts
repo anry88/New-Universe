@@ -9,6 +9,8 @@ import {
 import { createResearchEffectsRequestCache } from '../research/effects.js';
 import { productionService, ProductionOperationError } from './production.js';
 import type { ProductionPreviewRequest, ProductionStartRequest } from '@shared/types/production.js';
+import { formatInsufficientResourceMessage } from '@shared/types/entity-labels.js';
+import { resolveRequestLocale } from '../../lib/i18n.js';
 import { mutationRateLimit } from '../../lib/rate-limit.js';
 import { trackBackendEvent } from '../../lib/analytics.js';
 import {
@@ -133,9 +135,14 @@ export async function resourcesRoutes(app: FastifyInstance) {
       return reply.send({ success: true, order });
     } catch (err: unknown) {
       if (err instanceof ProductionOperationError) {
+        const locale = resolveRequestLocale(request);
+        const resourceId = typeof err.details?.resourceId === 'string' ? err.details.resourceId : null;
         return reply.status(err.status).send({
           error: 'Bad Request',
-          message: err.message,
+          message:
+            err.code === 'production_insufficient_resources' && resourceId
+              ? formatInsufficientResourceMessage(resourceId, locale)
+              : err.message,
           code: err.code,
           details: err.details,
         });

@@ -1,5 +1,6 @@
 import type { ResearchDefinition, ResearchProgress, ResearchRequirementRef } from '@shared/types/research';
 import type { Locale } from '@shared/types/locale';
+import { resourceLabel } from '@shared/types/entity-labels';
 
 export interface ResearchEligibility {
   ok: boolean;
@@ -23,10 +24,11 @@ function resourceAvailabilityMessage(
   for (const [rid, need] of Object.entries(cost)) {
     const stock = have.get(rid) ?? 0;
     if (stock < need) {
+      const label = resourceLabel(rid, locale);
       lines.push(
         locale === 'ru'
-          ? `${rid}: нужно ${need}, есть ${Math.floor(stock)}`
-          : `${rid}: need ${need}, have ${Math.floor(stock)}`,
+          ? `${label}: нужно ${need}, есть ${Math.floor(stock)}`
+          : `${label}: need ${need}, have ${Math.floor(stock)}`,
       );
     }
   }

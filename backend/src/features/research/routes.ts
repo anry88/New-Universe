@@ -12,6 +12,8 @@ import type { RushResearchRequest, StartResearchRequest } from '@shared/types/re
 import { mutationRateLimit } from '../../lib/rate-limit.js';
 import { nonEmptyStringSchema, objectBodySchema, securityRouteConfig } from '../../lib/security.js';
 import { trackBackendEvent } from '../../lib/analytics.js';
+import { resolveRequestLocale } from '../../lib/i18n.js';
+import { formatInsufficientResourceMessage } from '@shared/types/entity-labels.js';
 
 export async function researchRoutes(app: FastifyInstance) {
   app.post('/start', {
@@ -42,6 +44,7 @@ export async function researchRoutes(app: FastifyInstance) {
     }
 
     const { branch, planetId } = request.body as StartResearchRequest;
+    const locale = resolveRequestLocale(request);
 
     if (!branch || !planetId) {
       return reply.status(400).send({ error: 'branch and planetId are required' });
@@ -152,10 +155,17 @@ export async function researchRoutes(app: FastifyInstance) {
       }));
       const spendResult = await spendResources(planetId, costs, tx);
       if (!spendResult.success) {
+        const resourceId = spendResult.details?.resourceId;
+        const error =
+          resourceId ? formatInsufficientResourceMessage(resourceId, locale) : spendResult.error;
         return {
           ok: false as const,
           status: 400,
-          body: { error: spendResult.error },
+          body: {
+            error,
+            code: spendResult.code,
+            details: spendResult.details,
+          },
         };
       }
 

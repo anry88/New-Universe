@@ -16,6 +16,7 @@ import { formatTimerDuration, timerSnapshot } from '../lib/timers';
 import { useI18n } from '../lib/i18n';
 import { getActiveResearch, researchStartBlockedByActive } from '../lib/research-queue';
 import { readyLabLevel, selectResearchPlanet } from '../lib/research-planet';
+import { usePlanetResources } from '../hooks/usePlanetResources';
 
 const BRANCH_COLORS: Record<string, string> = {
   mining: '#C7A582',
@@ -72,7 +73,8 @@ export function ResearchPage() {
 
   const researchPlanet = selectResearchPlanet(meData?.planets);
   const researchPlanetId = researchPlanet?.id;
-  const researchPlanetResources = researchPlanet?.resources;
+  const researchPlanetResourcesQuery = usePlanetResources(researchPlanetId);
+  const researchPlanetResources = researchPlanetResourcesQuery.data ?? researchPlanet?.resources;
   const activeResearch = getActiveResearch(meData?.research);
   const activeResearchDef = activeResearch ? TECH_TREE_DATA.find((entry) => entry.branch === activeResearch.branch && entry.level === activeResearch.level + 1) : undefined;
 

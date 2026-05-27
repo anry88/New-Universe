@@ -1,16 +1,16 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMe } from '../hooks/useMe';
 import { apiFetch } from '../lib/api';
 import type { PlanetResource } from '@shared/types/world';
 import { CosmicTopBar, type ResourceChipData } from './cosmic/atoms';
 import { calculateRegen } from './cosmic/resources';
-import { planetInventoryApiPath } from '../lib/resourceBarScope';
 import { ResourceInventoryDrawer, type InventoryRow } from './ResourceInventoryDrawer';
 import { ResourceDiamondPurchaseDialog } from './ResourceDiamondPurchaseDialog';
 import { useQueryClient } from '@tanstack/react-query';
 import { useI18n } from '../lib/i18n';
 import type { User } from '@shared/types/user';
+import { planetResourcesQueryKey, usePlanetResources } from '../hooks/usePlanetResources';
 
 interface ResourceBarProps {
   planetId?: string;
@@ -79,24 +79,14 @@ export function ResourceBar({ planetId, planetLabel }: ResourceBarProps) {
   const tickRef = useRef<number | undefined>(undefined);
   const lastUpdateRef = useRef<number>(Date.now());
   const homePlanetResources = meData?.homeSystem?.planets?.[0]?.resources;
-
-  const fetchPlanetResources = useCallback(async () => {
-    if (!planetId) return;
-
-    try {
-      const data = await apiFetch<{ resources: PlanetResource[] }>(planetInventoryApiPath(planetId));
-      setResources(data.resources.map(toResourceWithAmount));
-    } catch (err) {
-      console.error('Failed to fetch resources for planet:', planetId, err);
-    }
-  }, [planetId]);
+  const planetResourcesQuery = usePlanetResources(planetId);
 
   useEffect(() => {
     if (!planetId) return;
 
     lastUpdateRef.current = Date.now();
-    void fetchPlanetResources();
-  }, [fetchPlanetResources, planetId]);
+    setResources(planetResourcesQuery.data ? planetResourcesQuery.data.map(toResourceWithAmount) : []);
+  }, [planetId, planetResourcesQuery.data]);
 
   useEffect(() => {
     if (planetId) return;
@@ -211,7 +201,7 @@ export function ResourceBar({ planetId, planetLabel }: ResourceBarProps) {
       queryClient.setQueryData<User>(['me'], (old) =>
         old ? { ...old, diamonds: result.diamondsRemaining } : old,
       );
-      void fetchPlanetResources();
+      void queryClient.invalidateQueries({ queryKey: planetResourcesQueryKey(selectedPlanetId) });
       void queryClient.invalidateQueries({ queryKey: ['me'] });
       setPurchaseOpen(false);
     } catch (err: unknown) {

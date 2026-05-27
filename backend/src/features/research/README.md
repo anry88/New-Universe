@@ -12,7 +12,7 @@ Research owns the server-side tech tree flow: catalog reads, start/rush mutation
 - **`gates.ts`** — exports research-level loading and requirement assertions used by buildings, ships, colonization, cargo routes, and jump travel.
 - **`gates.test.ts`** — unit coverage for level maps and requirement assertions.
 - **`research.test.ts`** — integration coverage for `POST /research/start`, lab gating, one-active-research queue rules, and resource spending.
-- **`routes.ts`** — registers `POST /research/start` and `POST /research/rush` with mutation rate limits, schemas, auth, due-completion sync, prerequisite checks, and resource or diamond spending.
+- **`routes.ts`** — registers `POST /research/start` and `POST /research/rush` with mutation rate limits, schemas, auth, due-completion sync, prerequisite checks, localized insufficient-resource errors, and resource or diamond spending.
 - **`rush.ts`** — exports `rushActiveResearch(userId, branch)`, atomically spends diamonds, completes the active tier, and invalidates the research effects cache hook.
 - **`rush.test.ts`** — integration coverage for rush success and insufficient-diamond rollback.
 

@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../lib/api';
 import type { User } from '@shared/types/user';
 import type { RushResearchResponse, StartResearchRequest, StartResearchResponse } from '@shared/types/research';
+import { planetResourcesQueryKey } from './usePlanetResources';
 
 export interface StartResearchVariables {
   branch: string;
@@ -57,8 +58,9 @@ export function useStartResearch() {
         queryClient.setQueryData(['me'], context.previous);
       }
     },
-    onSettled: () => {
+    onSettled: (_data, _error, vars) => {
       queryClient.invalidateQueries({ queryKey: ['me'] });
+      queryClient.invalidateQueries({ queryKey: planetResourcesQueryKey(vars.planetId) });
     },
   });
 }

@@ -174,6 +174,44 @@ describe('production orders', () => {
     expect(preview.blockedReason?.code).toBe('production_insufficient_resources');
   });
 
+  it('checks accrued recipe inputs before reporting the missing resource', async () => {
+    const { user, planet, building } = await createProductionPlanet('refinery');
+
+    await db
+      .update(planetResources)
+      .set({
+        amount: '0',
+        regenRate: '2000',
+        lastUpdateAt: new Date(Date.now() - 60 * 60 * 1000),
+      })
+      .where(and(eq(planetResources.planetId, planet.id), eq(planetResources.resourceId, 'oil')));
+    await db
+      .update(planetResources)
+      .set({
+        amount: '0',
+        regenRate: '0',
+        lastUpdateAt: new Date(),
+      })
+      .where(and(eq(planetResources.planetId, planet.id), eq(planetResources.resourceId, 'water')));
+    await db
+      .update(planetResources)
+      .set({ amount: '0', regenRate: '0', lastUpdateAt: new Date() })
+      .where(and(eq(planetResources.planetId, planet.id), eq(planetResources.resourceId, 'fuel')));
+
+    const preview = await productionService.preview(user.id, {
+      planetId: planet.id,
+      buildingId: building.id,
+      recipeId: 'fuel_from_oil',
+      quantity: 100,
+    });
+
+    expect(preview.canStart).toBe(false);
+    expect(preview.blockedReason?.code).toBe('production_insufficient_resources');
+    expect(preview.blockedReason?.details?.resourceId).toBe('water');
+    expect(preview.blockedReason?.message.ru).toContain('Вода');
+    expect(preview.blockedReason?.message.ru).not.toContain('oil');
+  });
+
   it('applies building level and research modifiers to input requirements', async () => {
     const low = await createProductionPlanet('smelter', 1);
     const high = await createProductionPlanet('smelter', 5);
