@@ -443,6 +443,93 @@ describe("fleetContactMotionAngle", () => {
 });
 
 describe("buildCombatProjectileSegments", () => {
+  const recentCombatNow = new Date("2026-06-01T00:00:40.000Z").getTime();
+  const recentSurfacePlanet = planetLayout({
+    planet: {
+      ...planetLayout().planet,
+      id: "bombarded-planet",
+      lastCombatTickAt: "2026-06-01T00:00:20.000Z",
+    },
+    x: 120,
+    y: -20,
+  });
+  const bomberCombatStats = {
+    targetClass: "military_light" as const,
+    damageProfile: {
+      damageType: "explosive" as const,
+      dps: 100,
+      armorPenetration: 0.1,
+      shieldMultiplier: 0.5,
+    },
+    engagementRange: "orbital" as const,
+    bombardmentRange: "close" as const,
+  };
+
+  it("draws surface-only bomber markers at recent planets instead of nearby ships", () => {
+    const segments = buildCombatProjectileSegments({
+      markers: [
+        {
+          ship: ship({
+            id: "own-bomber",
+            typeId: "light_bomber",
+            combatStats: bomberCombatStats,
+            lastCombatTickAt: "2026-06-01T00:00:20.000Z",
+          }),
+          x: 0,
+          y: 0,
+          angle: 0,
+          isMoving: false,
+          isReturning: false,
+          isInCombat: true,
+          tone: "#EF4444",
+          weaponKind: "missile",
+        },
+      ],
+      contacts: [contact("foreign-fighter", { point: { x: 8, y: 0 } })],
+      surfaceTargets: [recentSurfacePlanet],
+      now: recentCombatNow,
+    });
+
+    expect(segments.map((segment) => segment.id)).toEqual([
+      "own-surface-own-bomber-bombarded-planet",
+      "foreign-foreign-fighter-own-bomber",
+    ]);
+    expect(segments[0]).toMatchObject({
+      x2: recentSurfacePlanet.x,
+      y2: recentSurfacePlanet.y,
+      kind: "missile",
+    });
+  });
+
+  it("draws surface-only tactical bomber contacts at recent planets instead of ship crossfire", () => {
+    const segments = buildCombatProjectileSegments({
+      markers: [],
+      contacts: [
+        contact("own-bomber", {
+          relation: "self",
+          visibility: "full",
+          ownerAlias: null,
+          shipTypeId: "light_bomber",
+          combatStats: bomberCombatStats,
+          point: { x: 0, y: 0 },
+        }),
+        contact("foreign-fighter", { point: { x: 8, y: 0 } }),
+      ],
+      surfaceTargets: [recentSurfacePlanet],
+      now: recentCombatNow,
+    });
+
+    expect(segments.map((segment) => segment.id)).toEqual([
+      "self-surface-own-bomber-bombarded-planet",
+      "foreign-foreign-fighter-own-bomber",
+    ]);
+    expect(segments[0]).toMatchObject({
+      x2: recentSurfacePlanet.x,
+      y2: recentSurfacePlanet.y,
+      kind: "missile",
+    });
+  });
+
   it("uses rendered spread points for co-located tactical contacts", () => {
     const contacts = [
       contact("own-fighter", {

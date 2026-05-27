@@ -61,6 +61,8 @@ test('system map keeps combat deployments, gate routes, and kinetic tracers visi
     tgId: '99281932',
     tgUsername: 'mapcombat',
     tgFirstName: 'Map',
+    playerNickname: 'Map Captain',
+    playerNicknameChangeCount: 0,
     preferredLocale: 'en',
     createdAt: nowIso,
     premiumUntil: null,
@@ -169,6 +171,13 @@ test('system map keeps combat deployments, gate routes, and kinetic tracers visi
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({ token: 'mock-token', user: { id: userId, preferredLocale: 'en' } }),
+    });
+  });
+  await page.route('**/me/session/start', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ startedAt: nowIso }),
     });
   });
   await page.route('**/me', async (route) => {
