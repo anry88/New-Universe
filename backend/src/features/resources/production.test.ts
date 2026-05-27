@@ -212,6 +212,57 @@ describe('production orders', () => {
     expect(preview.blockedReason?.message.ru).not.toContain('oil');
   });
 
+  it('allows oil fuel production when all accrued recipe inputs are sufficient', async () => {
+    const { user, planet, building } = await createProductionPlanet('refinery', 5);
+    const staleAt = new Date(Date.now() - 60 * 60 * 1000);
+
+    await db
+      .update(planetResources)
+      .set({
+        amount: '0',
+        regenRate: '2000',
+        lastUpdateAt: staleAt,
+      })
+      .where(and(eq(planetResources.planetId, planet.id), eq(planetResources.resourceId, 'oil')));
+    await db
+      .update(planetResources)
+      .set({
+        amount: '0',
+        regenRate: '1000',
+        lastUpdateAt: staleAt,
+      })
+      .where(and(eq(planetResources.planetId, planet.id), eq(planetResources.resourceId, 'water')));
+    await db
+      .update(planetResources)
+      .set({ amount: '0', regenRate: '0', lastUpdateAt: new Date() })
+      .where(and(eq(planetResources.planetId, planet.id), eq(planetResources.resourceId, 'fuel')));
+
+    const preview = await productionService.preview(user.id, {
+      planetId: planet.id,
+      buildingId: building.id,
+      recipeId: 'fuel_from_oil',
+      quantity: 1000,
+    });
+
+    expect(preview.inputs).toEqual([
+      { resourceId: 'oil', amount: 1000 },
+      { resourceId: 'water', amount: 83.3334 },
+    ]);
+    expect(preview.canStart).toBe(true);
+    expect(preview.blockedReason).toBeUndefined();
+
+    const order = await productionService.start(user.id, {
+      planetId: planet.id,
+      buildingId: building.id,
+      recipeId: 'fuel_from_oil',
+      quantity: 1000,
+    });
+
+    expect(order.outputs).toEqual([{ resourceId: 'fuel', amount: 1000 }]);
+    expect(await resourceAmount(planet.id, 'oil')).toBeGreaterThan(0);
+    expect(await resourceAmount(planet.id, 'water')).toBeGreaterThan(0);
+  });
+
   it('applies building level and research modifiers to input requirements', async () => {
     const low = await createProductionPlanet('smelter', 1);
     const high = await createProductionPlanet('smelter', 5);
