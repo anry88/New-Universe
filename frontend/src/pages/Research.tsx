@@ -17,6 +17,7 @@ import { useI18n } from '../lib/i18n';
 import { getActiveResearch, researchStartBlockedByActive } from '../lib/research-queue';
 import { readyLabLevel, selectResearchPlanet } from '../lib/research-planet';
 import { usePlanetResources } from '../hooks/usePlanetResources';
+import { researchBranchLabel } from '@shared/types/research';
 
 const BRANCH_COLORS: Record<string, string> = {
   mining: '#C7A582',
@@ -242,7 +243,10 @@ export function ResearchPage() {
           diamondBalance={meData?.diamonds ?? 0}
           rushPricing={meData?.rushPricing ?? null}
           activeResearchBranch={activeResearch?.branch ?? null}
-          activeResearchName={activeResearchDef?.name[locale] ?? activeResearch?.branch ?? null}
+          activeResearchName={
+            activeResearchDef?.name[locale] ??
+            (activeResearch?.branch ? researchBranchLabel(activeResearch.branch, locale) : null)
+          }
           error={actionError}
           onClose={() => setPanel(null)}
           onStart={() => handleStart(panel.def)}
@@ -312,6 +316,7 @@ function TierDetailSheet({
   const eligibility = evaluateResearchEligibility(def, labLevel, research, planetResources, locale);
   const activeProgress = research?.find((row) => row.branch === def.branch && row.level === def.level - 1 && row.completesAt && new Date(row.completesAt).getTime() > Date.now()) ?? null;
   const blockedByResearchQueue = Boolean(activeResearchBranch && activeResearchBranch !== def.branch && !activeProgress);
+  const branchLabel = researchBranchLabel(def.branch, locale);
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
@@ -349,7 +354,7 @@ function TierDetailSheet({
             <div className="bd-sub">
               {t('research.levelBranch', {
                 level: def.level,
-                branch: def.branch,
+                branch: branchLabel,
               })}
             </div>
           </div>

@@ -39,17 +39,22 @@ describe('evaluateResearchEligibility', () => {
     const r = evaluateResearchEligibility(
       {
         ...miningL2,
-        cost: { oil: 10 },
+        cost: { oil: 10, silicon: 575 },
         requirements: {},
       },
       1,
       [],
-      [{ resourceId: 'oil', amount: 2 }],
+      [
+        { resourceId: 'oil', amount: 2 },
+        { resourceId: 'silicon', amount: 118 },
+      ],
       'ru',
     );
 
     expect(r.ok).toBe(false);
     expect(r.resourceMessage).toContain('Нефть');
+    expect(r.resourceMessage).toContain('Кремний: нужно 575, есть 118');
     expect(r.resourceMessage).not.toContain('oil');
+    expect(r.resourceMessage).not.toContain('silicon');
   });
 });
