@@ -35,6 +35,7 @@ import type { Ship, ShipType } from "@shared/types/ships";
 import type { Expedition } from "@shared/types/expeditions";
 import type { SystemTacticalFleetContact } from "@shared/types/system-tactical";
 import {
+  canTargetShips,
   missilePayloadSustainedDps,
   type CombatStats,
   type DamageType,
@@ -1294,6 +1295,37 @@ function nearestContactForContact(
   return best;
 }
 
+function isSurfaceOnlyBombardmentStats(
+  stats: CombatStats | null | undefined,
+): boolean {
+  return Boolean(
+    stats?.damageProfile &&
+      stats.engagementRange === "orbital" &&
+      !canTargetShips(stats),
+  );
+}
+
+function nearestRecentSurfaceTarget(
+  point: SystemMapPoint,
+  surfaceTargets: PlanetLayout[],
+  now: number,
+): PlanetLayout | null {
+  let best: PlanetLayout | null = null;
+  let bestDistance = Infinity;
+
+  for (const target of surfaceTargets) {
+    if (!isRecentCombat(target.planet.lastCombatTickAt, now)) continue;
+
+    const distance = Math.hypot(point.x - target.x, point.y - target.y);
+    if (distance < bestDistance) {
+      best = target;
+      bestDistance = distance;
+    }
+  }
+
+  return best;
+}
+
 function normalizeCombatProjectileSegment(
   segment: CombatProjectileSegment,
 ): CombatProjectileSegment {
@@ -1321,10 +1353,12 @@ function normalizeCombatProjectileSegment(
 export function buildCombatProjectileSegments({
   markers,
   contacts,
+  surfaceTargets = [],
   now,
 }: {
   markers: ShipMarkerSnapshot[];
   contacts: SystemTacticalFleetContact[];
+  surfaceTargets?: PlanetLayout[];
   now: number;
 }): CombatProjectileSegment[] {
   const segments: CombatProjectileSegment[] = [];
@@ -1335,6 +1369,26 @@ export function buildCombatProjectileSegments({
   );
 
   combatMarkers.forEach((marker, index) => {
+    if (isSurfaceOnlyBombardmentStats(marker.ship.combatStats)) {
+      const surfaceTarget = nearestRecentSurfaceTarget(
+        { x: marker.x, y: marker.y },
+        surfaceTargets,
+        now,
+      );
+      if (!surfaceTarget) return;
+
+      segments.push({
+        id: `own-surface-${marker.ship.id}-${surfaceTarget.planet.id}`,
+        x1: marker.x,
+        y1: marker.y,
+        x2: surfaceTarget.x,
+        y2: surfaceTarget.y,
+        kind: marker.weaponKind,
+        delayMs: index * 130,
+      });
+      return;
+    }
+
     const contact = nearestContactForMarker(marker, contacts, contactPoints);
     if (!contact) return;
     const contactPoint = contactRenderPoint(contact, contactPoints);
@@ -1351,6 +1405,28 @@ export function buildCombatProjectileSegments({
 
   combatContacts.forEach((contact, index) => {
     const contactPoint = contactRenderPoint(contact, contactPoints);
+    const relationPrefix = contact.relation === "self" ? "self" : "foreign";
+
+    if (isSurfaceOnlyBombardmentStats(contact.combatStats)) {
+      const surfaceTarget = nearestRecentSurfaceTarget(
+        contactPoint,
+        surfaceTargets,
+        now,
+      );
+      if (!surfaceTarget) return;
+
+      segments.push({
+        id: `${relationPrefix}-surface-${contact.id}-${surfaceTarget.planet.id}`,
+        x1: contactPoint.x,
+        y1: contactPoint.y,
+        x2: surfaceTarget.x,
+        y2: surfaceTarget.y,
+        kind: weaponVisualForCombatStats(contact.combatStats),
+        delayMs: 90 + index * 150,
+      });
+      return;
+    }
+
     const marker =
       contact.relation === "foreign"
         ? nearestMarkerForContact(contact, markers, contactPoints)
@@ -1375,7 +1451,6 @@ export function buildCombatProjectileSegments({
     );
     if (!target) return;
     const targetPoint = contactRenderPoint(target, contactPoints);
-    const relationPrefix = contact.relation === "self" ? "self" : "foreign";
     segments.push({
       id: `${relationPrefix}-${contact.id}-${target.id}`,
       x1: contactPoint.x,
@@ -1395,13 +1470,20 @@ export function buildCombatProjectileSegments({
 const CombatEffectsLayer = React.memo(function CombatEffectsLayer({
   markers,
   contacts,
+  surfaceTargets,
   now,
 }: {
   markers: ShipMarkerSnapshot[];
   contacts: SystemTacticalFleetContact[];
+  surfaceTargets: PlanetLayout[];
   now: number;
 }) {
-  const segments = buildCombatProjectileSegments({ markers, contacts, now });
+  const segments = buildCombatProjectileSegments({
+    markers,
+    contacts,
+    surfaceTargets,
+    now,
+  });
 
   return (
     <>
@@ -3107,6 +3189,7 @@ export function CosmicSystemRenderer({
           <CombatEffectsLayer
             markers={shipMarkerSnapshots}
             contacts={visibleFleetContacts}
+            surfaceTargets={layouts}
             now={now}
           />
           <ShipMarkers
