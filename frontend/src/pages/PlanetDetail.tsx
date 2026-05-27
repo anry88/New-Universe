@@ -52,6 +52,7 @@ import { ChevronLeft } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatHomeSystemTitleForUser } from '../lib/homeSystemTitle';
 import { useI18n } from '../lib/i18n';
+import { planetResourcesQueryKey, usePlanetResources } from '../hooks/usePlanetResources';
 
 function optimisticQueueWindow(durationSec: number): {
   queueStartedAt: string;
@@ -95,6 +96,8 @@ export function PlanetDetailPage() {
     if (!planetId || !allPlanets.length) return null;
     return allPlanets.find((p) => p.id === planetId) ?? null;
   }, [allPlanets, planetId]);
+  const planetResourcesQuery = usePlanetResources(planet?.id);
+  const currentPlanetResources = planetResourcesQuery.data ?? planet?.resources;
   const railPlanets = useMemo(
     () =>
       allPlanets.filter(
@@ -293,7 +296,7 @@ export function PlanetDetailPage() {
 
       const costBlocked = resolveInsufficientResourcesBlockedReason({
         costs: typeRow.baseCost ?? {},
-        planetResources: planet.resources,
+        planetResources: currentPlanetResources,
       });
       if (costBlocked) return costBlocked;
 
@@ -340,13 +343,13 @@ export function PlanetDetailPage() {
       });
       const costBlocked = resolveInsufficientResourcesBlockedReason({
         costs: upgradeCosts,
-        planetResources: planet?.resources,
+        planetResources: currentPlanetResources,
       });
       if (costBlocked) return costBlocked;
 
       return null;
     },
-    [commandCenterLevel, planet?.buildings, planet?.id, planet?.resources],
+    [commandCenterLevel, planet?.buildings, planet?.id, currentPlanetResources],
   );
 
   const currentEnergy = useMemo(() => {
@@ -477,6 +480,7 @@ export function PlanetDetailPage() {
       queryClient.setQueryData(['me'], previousMeData);
     } finally {
       setIsProcessing(false);
+      queryClient.invalidateQueries({ queryKey: planetResourcesQueryKey(planet.id) });
       queryClient.invalidateQueries({ queryKey: ['me'] });
     }
   };
@@ -544,6 +548,7 @@ export function PlanetDetailPage() {
       queryClient.setQueryData(['me'], previousMeData);
     } finally {
       setIsProcessing(false);
+      queryClient.invalidateQueries({ queryKey: planetResourcesQueryKey(planet.id) });
       queryClient.invalidateQueries({ queryKey: ['me'] });
     }
   };
@@ -798,7 +803,10 @@ export function PlanetDetailPage() {
         building={productionBuilding}
         planetId={planet.id}
         accent={accent}
-        onStarted={() => queryClient.invalidateQueries({ queryKey: ['me'] })}
+        onStarted={() => {
+          queryClient.invalidateQueries({ queryKey: ['me'] });
+          queryClient.invalidateQueries({ queryKey: planetResourcesQueryKey(planet.id) });
+        }}
       />
     </div>
   );

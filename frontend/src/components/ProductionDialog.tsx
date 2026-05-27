@@ -144,12 +144,19 @@ export const ProductionDialog: React.FC<ProductionDialogProps> = ({
     () => recipes.find((recipe) => recipe.id === selectedRecipeId),
     [recipes, selectedRecipeId],
   );
+  const currentPreview =
+    preview &&
+    preview.recipeId === selectedRecipeId &&
+    preview.buildingId === building?.id &&
+    preview.quantity === quantity
+      ? preview
+      : null;
   const activeProcesses = orders.filter(
     (order) => (order.status === 'queued' || order.status === 'paused') && order.buildingId === building?.id,
   );
-  const activeSlots = preview?.activeSlots ?? activeProcesses.length;
-  const maxSlots = preview?.maxSlots ?? productionSlotsForBuildingLevel(building?.level ?? 1);
-  const blocked = productionBlockedText(preview, locale);
+  const activeSlots = currentPreview?.activeSlots ?? activeProcesses.length;
+  const maxSlots = currentPreview?.maxSlots ?? productionSlotsForBuildingLevel(building?.level ?? 1);
+  const blocked = productionBlockedText(currentPreview, locale);
 
   useEffect(() => {
     if (!isOpen || activeProcesses.length === 0) return;
@@ -161,7 +168,7 @@ export const ProductionDialog: React.FC<ProductionDialogProps> = ({
   if (!isOpen || !building) return null;
 
   const startProduction = async () => {
-    if (!canStartProduction(preview, isStarting)) return;
+    if (!canStartProduction(currentPreview, isStarting)) return;
     if (!window.confirm(t('production.confirmStart'))) return;
 
     setIsStarting(true);
@@ -264,7 +271,7 @@ export const ProductionDialog: React.FC<ProductionDialogProps> = ({
             </section>
           ) : null}
 
-          {preview ? (
+          {currentPreview ? (
             <section className="bd-category">
               <div className="bd-category-head">
                 <span className="bd-category-title">{t('production.preview')}</span>
@@ -272,24 +279,24 @@ export const ProductionDialog: React.FC<ProductionDialogProps> = ({
               <div className="prod-summary">
                 <div className="prod-detail-line">
                   <span className="prod-detail-label">{t('production.output')}</span>
-                  <span className="prod-detail-value strong">{formatResourceAmount(preview.output, locale, '+')}</span>
+                  <span className="prod-detail-value strong">{formatResourceAmount(currentPreview.output, locale, '+')}</span>
                 </div>
                 <div className="prod-detail-line">
                   <span className="prod-detail-label">{t('production.inputs')}</span>
-                  <span className="prod-detail-value">{formatResourceList(preview.inputs, locale, '-')}</span>
+                  <span className="prod-detail-value">{formatResourceList(currentPreview.inputs, locale, '-')}</span>
                 </div>
                 <div className="prod-detail-line">
                   <span className="prod-detail-label">{t('production.duration')}</span>
-                  <span className="prod-detail-value">{formatTimerDuration(preview.durationSec)}</span>
+                  <span className="prod-detail-value">{formatTimerDuration(currentPreview.durationSec)}</span>
                 </div>
                 <div className="prod-detail-line">
                   <span className="prod-detail-label">{t('production.slots')}</span>
                   <span className="prod-detail-value">{t('production.slotUsage', { active: activeSlots, max: maxSlots })}</span>
                 </div>
-                {(preview.energyPerHour ?? 0) > 0 ? (
+                {(currentPreview.energyPerHour ?? 0) > 0 ? (
                   <div className="prod-detail-line">
                     <span className="prod-detail-label">{t('production.energyPerSlot')}</span>
-                    <span className="prod-detail-value">-{formatAmount(preview.energyPerHour ?? 0)}/h</span>
+                    <span className="prod-detail-value">-{formatAmount(currentPreview.energyPerHour ?? 0)}/h</span>
                   </div>
                 ) : null}
                 {blocked ? <div className="prod-blocked">{blocked}</div> : null}
@@ -340,7 +347,7 @@ export const ProductionDialog: React.FC<ProductionDialogProps> = ({
           <button
             type="button"
             onClick={startProduction}
-            disabled={!canStartProduction(preview, isStarting)}
+            disabled={!canStartProduction(currentPreview, isStarting)}
             className="cosmic-cta"
             style={{ width: '100%', padding: '14px', marginTop: 8 }}
           >

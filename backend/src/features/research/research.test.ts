@@ -8,6 +8,7 @@ import { and, eq, isNotNull } from 'drizzle-orm';
 import crypto from 'crypto';
 import { env } from '../../lib/env.js';
 import { getResearchDef } from './data.js';
+import { resourceLabel } from '@shared/types/entity-labels.js';
 
 describe('Research Routes', () => {
   const botToken = env.TELEGRAM_BOT_TOKEN;
@@ -154,5 +155,44 @@ describe('Research Routes', () => {
     });
     expect(activeRows).toHaveLength(1);
     expect(activeRows[0]?.branch).toBe('mining');
+  });
+
+  it('returns localized resource labels when research stock is insufficient', async () => {
+    const { app, token, userId } = await createTestUser();
+    const planetId = await getHomePlanetId(userId);
+
+    await db.insert(buildings).values({
+      planetId,
+      typeId: 'lab',
+      slotIndex: 1,
+      level: 1,
+    });
+
+    const miningL1 = getResearchDef('mining', 1)!;
+    const firstCostResourceId = Object.keys(miningL1.cost)[0]!;
+    await db
+      .update(planetResources)
+      .set({ amount: '0', regenRate: '0', lastUpdateAt: new Date() })
+      .where(and(
+        eq(planetResources.planetId, planetId),
+        eq(planetResources.resourceId, firstCostResourceId),
+      ));
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/research/start',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'accept-language': 'ru',
+      },
+      payload: {
+        branch: 'mining',
+        planetId,
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error).toContain(resourceLabel(firstCostResourceId, 'ru'));
+    expect(response.json().error).not.toContain(firstCostResourceId);
   });
 });

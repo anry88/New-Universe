@@ -34,4 +34,22 @@ describe('evaluateResearchEligibility', () => {
     expect(r.ok).toBe(false);
     expect(r.missingResearch.some((m) => m.branch === 'mining')).toBe(true);
   });
+
+  it('uses localized resource labels in shortage messages', () => {
+    const r = evaluateResearchEligibility(
+      {
+        ...miningL2,
+        cost: { oil: 10 },
+        requirements: {},
+      },
+      1,
+      [],
+      [{ resourceId: 'oil', amount: 2 }],
+      'ru',
+    );
+
+    expect(r.ok).toBe(false);
+    expect(r.resourceMessage).toContain('Нефть');
+    expect(r.resourceMessage).not.toContain('oil');
+  });
 });
