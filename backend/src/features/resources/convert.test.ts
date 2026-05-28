@@ -69,12 +69,20 @@ describe('Resource Conversion - POST /resources/convert', () => {
     return planet!.id;
   }
 
-  async function addBuilding(planetId: string, typeId: string, level = 1, slotIndex = 0) {
+  async function addBuilding(
+    planetId: string,
+    typeId: string,
+    level = 1,
+    slotIndex = 0,
+    options: { queueAction?: 'build' | 'upgrade' | 'destroy' | null; queueCompletesAt?: Date | null } = {},
+  ) {
     await db.insert(buildings).values({
       planetId,
       typeId,
       slotIndex,
       level,
+      queueAction: options.queueAction,
+      queueCompletesAt: options.queueCompletesAt,
     });
   }
 
@@ -316,6 +324,38 @@ describe('Resource Conversion - POST /resources/convert', () => {
 
     const ironAfter = await getResourceAmount(planetId, 'iron');
     expect(ironAfter).toBeCloseTo(ironBefore + 250, 1);
+  });
+
+  it('counts current storage capacity while storage is upgrading for diamond buys', async () => {
+    const { app, token, userId } = await createTestUser();
+    const planetId = await getHomePlanet(userId);
+
+    await db.update(users).set({ diamonds: 10 }).where(eq(users.id, userId));
+    await db
+      .update(planetResources)
+      .set({ amount: '5000.0000', regenRate: '0', lastUpdateAt: new Date() })
+      .where(and(eq(planetResources.planetId, planetId), eq(planetResources.resourceId, 'iron')));
+    await addBuilding(
+      planetId,
+      'storage',
+      1,
+      3,
+      { queueAction: 'upgrade', queueCompletesAt: new Date(Date.now() + 60_000) },
+    );
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/resources/buy-with-diamonds',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        planetId,
+        resourceId: 'iron',
+        amount: 100,
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().amount).toBe(100);
   });
 
   it('should reject diamond buy for resource absent on selected planet', async () => {

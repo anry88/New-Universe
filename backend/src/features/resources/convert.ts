@@ -258,7 +258,7 @@ export async function buyResourceWithDiamonds(
         and(
           eq(buildings.planetId, planetId),
           eq(buildings.typeId, 'storage'),
-          sql`${buildings.queueAction} IS NULL`,
+          sql`${buildings.queueAction} IS DISTINCT FROM 'build' AND ${buildings.queueAction} IS DISTINCT FROM 'destroy'`,
         ),
       ),
   ]);

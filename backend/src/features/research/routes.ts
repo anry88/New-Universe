@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import { env } from '../../lib/env.js';
 import { db } from '../../db/index.js';
 import { researchProgress, buildings, planets, systems, users } from '../../db/schema.js';
-import { eq, and, desc, isNull, isNotNull } from 'drizzle-orm';
+import { eq, and, desc, isNull, isNotNull, ne, or } from 'drizzle-orm';
 import { getResearchDef } from './data.js';
 import { spendResources } from '../resources/transactions.js';
 import { rushActiveResearch } from './rush.js';
@@ -105,9 +105,10 @@ export async function researchRoutes(app: FastifyInstance) {
       // from. We look up any *completed* lab on any of the user's planets
       // and use its level. Two important details:
       //
-      //   * `queueAction IS NOT NULL` excludes labs that are still being
-      //     built or upgraded (the building row exists with `level=N` while
-      //     queued, which used to falsely satisfy this gate).
+      //   * `queueAction='build'` excludes labs that are still being built.
+      //     Upgrades keep the currently completed level available until the
+      //     completion worker increments it, so a level-N lab under upgrade
+      //     still satisfies level-N requirements but not level N+1.
       //   * If the player has somehow ended up with two lab rows (e.g.
       //     migration artefacts), we use the highest-level one.
       const labReq = def.requirements.buildings?.find((b: { typeId: string; level: number }) => b.typeId === 'lab');
@@ -117,7 +118,14 @@ export async function researchRoutes(app: FastifyInstance) {
           .from(buildings)
           .innerJoin(planets, eq(planets.id, buildings.planetId))
           .innerJoin(systems, eq(systems.id, planets.systemId))
-          .where(and(eq(systems.ownerId, userId), eq(buildings.typeId, 'lab'), isNull(buildings.queueAction)))
+          .where(and(
+            eq(systems.ownerId, userId),
+            eq(buildings.typeId, 'lab'),
+            or(
+              isNull(buildings.queueAction),
+              and(ne(buildings.queueAction, 'build'), ne(buildings.queueAction, 'destroy')),
+            ),
+          ))
           .orderBy(desc(buildings.level))
           .limit(1);
         const labLevel = labs[0]?.level ?? 0;
