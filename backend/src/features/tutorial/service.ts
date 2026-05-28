@@ -1,4 +1,4 @@
-import { and, eq, isNull, ne, sql } from 'drizzle-orm';
+import { and, eq, ne, sql } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { buildings, expeditions, planets, ships, systems, users } from '../../db/schema.js';
 import {
@@ -46,14 +46,22 @@ async function detectTutorialStepCompleted(tx: any, userId: string): Promise<num
       .from(buildings)
       .innerJoin(planets, eq(planets.id, buildings.planetId))
       .innerJoin(systems, eq(systems.id, planets.systemId))
-      .where(and(eq(systems.ownerId, userId), eq(buildings.typeId, 'mine'), isNull(buildings.queueAction)))
+      .where(and(
+        eq(systems.ownerId, userId),
+        eq(buildings.typeId, 'mine'),
+        sql`${buildings.queueAction} IS DISTINCT FROM 'build' AND ${buildings.queueAction} IS DISTINCT FROM 'destroy'`,
+      ))
       .limit(1),
     tx
       .select({ id: buildings.id })
       .from(buildings)
       .innerJoin(planets, eq(planets.id, buildings.planetId))
       .innerJoin(systems, eq(systems.id, planets.systemId))
-      .where(and(eq(systems.ownerId, userId), eq(buildings.typeId, 'storage'), isNull(buildings.queueAction)))
+      .where(and(
+        eq(systems.ownerId, userId),
+        eq(buildings.typeId, 'storage'),
+        sql`${buildings.queueAction} IS DISTINCT FROM 'build' AND ${buildings.queueAction} IS DISTINCT FROM 'destroy'`,
+      ))
       .limit(1),
     tx
       .select({ id: ships.id })

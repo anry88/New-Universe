@@ -45,7 +45,13 @@ export interface PlanetResourceSnapshot {
 function buildingStorageCapForPlanet(planet: Pick<PlanetEnergyInput, 'buildings'> | null | undefined): number {
   let buildingStorageCap = 0;
   for (const building of planet?.buildings ?? []) {
-    if (!building.type?.baseOutput || building.queueAction) continue;
+    if (
+      !building.type?.baseOutput ||
+      building.queueAction === 'build' ||
+      building.queueAction === 'destroy'
+    ) {
+      continue;
+    }
     const output = building.type.baseOutput as Record<string, unknown>;
     if (typeof output.cap === 'number') {
       buildingStorageCap += output.cap * building.level;

@@ -1,10 +1,23 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { computeCurrentResources, computeCurrentResourcesFromSnapshot } from './accrual.js';
 import { db } from '../../db/index.js';
-import { planetResources, resources, planets, systems, ships, richness, buildings, discoveredPlanets, discoveredSystems, colonies } from '../../db/schema.js';
+import {
+  planetResources,
+  resources,
+  planets,
+  systems,
+  ships,
+  richness,
+  buildings,
+  discoveredPlanets,
+  discoveredSystems,
+  colonies,
+  productionOrders,
+} from '../../db/schema.js';
 
 describe('computeCurrentResources', () => {
   beforeEach(async () => {
+    await db.delete(productionOrders);
     await db.delete(ships);
     await db.delete(buildings);
     await db.delete(colonies);
@@ -222,5 +235,55 @@ describe('computeCurrentResources', () => {
     expect(energy?.amount).toBe(25);
     expect(energy?.regenRate).toBe(-10);
     expect(energy?.storageCap).toBe(100);
+  });
+
+  it('keeps the current storage level while a storage upgrade is queued', () => {
+    const now = new Date('2026-01-01T00:00:00Z');
+
+    const result = computeCurrentResourcesFromSnapshot({
+      now,
+      researchEffects: null,
+      planet: {
+        id: 'planet-storage-upgrade',
+        name: 'home-1',
+        biome: 'green',
+        size: 10,
+        buildings: [
+          {
+            id: 'storage-upgrading',
+            typeId: 'storage',
+            level: 2,
+            queueAction: 'upgrade',
+            type: {
+              id: 'storage',
+              baseOutput: { cap: 5000 },
+              energyConsumption: 0,
+            },
+          },
+        ],
+      },
+      energyState: {
+        stored: 0,
+        capacity: 0,
+        produced: 0,
+        consumed: 0,
+        net: 0,
+        shortage: false,
+        netRate: 0,
+        buildingStates: {},
+      },
+      resourceRows: [
+        {
+          planetId: 'planet-storage-upgrade',
+          resourceId: 'iron',
+          amount: '1000.0000',
+          regenRate: '0.0000',
+          lastUpdateAt: now,
+          storageCap: 5000,
+        },
+      ],
+    });
+
+    expect(result[0]?.storageCap).toBe(15_000);
   });
 });

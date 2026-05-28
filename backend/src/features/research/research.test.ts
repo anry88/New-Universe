@@ -112,6 +112,33 @@ describe('Research Routes', () => {
     expect(progress?.completesAt).toBeTruthy();
   });
 
+  it('uses the current lab level while that lab is upgrading', async () => {
+    const { app, token, userId } = await createTestUser();
+    const planetId = await getHomePlanetId(userId);
+
+    await db.insert(buildings).values({
+      planetId,
+      typeId: 'lab',
+      slotIndex: 1,
+      level: 1,
+      queueAction: 'upgrade',
+      queueCompletesAt: new Date(Date.now() + 60_000),
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/research/start',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        branch: 'mining',
+        planetId,
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().success).toBe(true);
+  });
+
   it('rejects starting a second branch while one research timer is active', async () => {
     const { app, token, userId } = await createTestUser();
     const planetId = await getHomePlanetId(userId);

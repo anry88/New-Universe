@@ -622,7 +622,7 @@ export class ProductionService {
         and(
           eq(buildings.planetId, planetId),
           eq(buildings.typeId, 'storage'),
-          sql`${buildings.queueAction} IS NULL`,
+          sql`${buildings.queueAction} IS DISTINCT FROM 'build' AND ${buildings.queueAction} IS DISTINCT FROM 'destroy'`,
         ),
       );
     const storageBonus = storageRows.reduce((sum: number, row: { level: number; baseOutput: Record<string, unknown> }) => {

@@ -127,6 +127,28 @@ describe('production orders', () => {
     expect(preview.inputs).toContainEqual({ resourceId: 'water', amount: 2 });
   });
 
+  it('counts current storage capacity while storage is upgrading for production output', async () => {
+    const { user, planet, building } = await createProductionPlanet('smelter');
+    await db.insert(buildings).values({
+      planetId: planet.id,
+      typeId: 'storage',
+      level: 1,
+      slotIndex: 3,
+      queueAction: 'upgrade',
+      queueCompletesAt: new Date(Date.now() + 60_000),
+    });
+
+    const preview = await productionService.preview(user.id, {
+      planetId: planet.id,
+      buildingId: building.id,
+      recipeId: 'steel_from_iron_water',
+      quantity: 1,
+    });
+
+    expect(preview.canStart).toBe(true);
+    expect(preview.blockedReason).toBeUndefined();
+  });
+
   it('spends inputs immediately and grants output only after completion', async () => {
     const { user, planet, building } = await createProductionPlanet('smelter');
 
