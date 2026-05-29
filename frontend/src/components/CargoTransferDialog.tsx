@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useColonies } from '../hooks/useColonies';
 import { useShipTypes } from '../hooks/useShips';
 import { useMe } from '../hooks/useMe';
@@ -204,6 +204,87 @@ function sortedResourceRows(resources: PlanetResource[] | undefined, locale: Loc
   );
 }
 
+function useCargoDialogScrollLock(scrollContainerRef: React.RefObject<HTMLDivElement>) {
+  useLayoutEffect(() => {
+    const { body, documentElement } = document;
+    const scrollY = window.scrollY;
+    const previousBodyStyle = {
+      left: body.style.left,
+      overflow: body.style.overflow,
+      position: body.style.position,
+      right: body.style.right,
+      top: body.style.top,
+      width: body.style.width,
+    };
+    const previousRootStyle = {
+      overflow: documentElement.style.overflow,
+      overscrollBehavior: documentElement.style.overscrollBehavior,
+    };
+
+    documentElement.style.overflow = 'hidden';
+    documentElement.style.overscrollBehavior = 'none';
+    body.style.overflow = 'hidden';
+    body.style.position = 'fixed';
+    body.style.top = `-${scrollY}px`;
+    body.style.left = '0';
+    body.style.right = '0';
+    body.style.width = '100%';
+
+    return () => {
+      documentElement.style.overflow = previousRootStyle.overflow;
+      documentElement.style.overscrollBehavior = previousRootStyle.overscrollBehavior;
+      body.style.overflow = previousBodyStyle.overflow;
+      body.style.position = previousBodyStyle.position;
+      body.style.top = previousBodyStyle.top;
+      body.style.left = previousBodyStyle.left;
+      body.style.right = previousBodyStyle.right;
+      body.style.width = previousBodyStyle.width;
+      window.scrollTo(0, scrollY);
+    };
+  }, []);
+
+  useEffect(() => {
+    const scrollContainer = scrollContainerRef.current;
+    if (!scrollContainer) return undefined;
+
+    let lastTouchY = 0;
+
+    const handleTouchStart = (event: TouchEvent) => {
+      if (event.touches.length !== 1) return;
+      lastTouchY = event.touches[0].clientY;
+    };
+
+    const handleTouchMove = (event: TouchEvent) => {
+      if (event.touches.length !== 1) return;
+
+      const target = event.target;
+      if (!(target instanceof Node) || !scrollContainer.contains(target)) {
+        event.preventDefault();
+        return;
+      }
+
+      const nextTouchY = event.touches[0].clientY;
+      const deltaY = nextTouchY - lastTouchY;
+      lastTouchY = nextTouchY;
+      const canScroll = scrollContainer.scrollHeight > scrollContainer.clientHeight;
+      const atTop = scrollContainer.scrollTop <= 0;
+      const atBottom =
+        scrollContainer.scrollTop + scrollContainer.clientHeight >= scrollContainer.scrollHeight - 1;
+
+      if (!canScroll || (atTop && deltaY > 0) || (atBottom && deltaY < 0)) {
+        event.preventDefault();
+      }
+    };
+
+    document.addEventListener('touchstart', handleTouchStart, { passive: false });
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    return () => {
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, [scrollContainerRef]);
+}
+
 export function CargoTransferDialog({
   originPlanet,
   initialShipId,
@@ -224,6 +305,9 @@ export function CargoTransferDialog({
   const [jumpFuelLoaded, setJumpFuelLoaded] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [useJumpGateRoute, setUseJumpGateRoute] = useState(Boolean(initialUseJumpGateRoute));
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+
+  useCargoDialogScrollLock(scrollContainerRef);
 
   const availableShips = useMemo(() =>
     meData?.ships?.filter((ship) =>
@@ -417,7 +501,7 @@ export function CargoTransferDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[1200] flex h-[100dvh] items-stretch justify-center overflow-hidden bg-slate-950/80 p-3 backdrop-blur-sm sm:items-center sm:p-4"
+      className="cargo-transfer-backdrop fixed inset-0 z-[1200] flex h-[100dvh] items-stretch justify-center overflow-hidden bg-slate-950/80 p-3 backdrop-blur-sm sm:items-center sm:p-4"
       style={{
         paddingTop: 'max(12px, env(safe-area-inset-top, 12px))',
         paddingBottom: 'max(12px, env(safe-area-inset-bottom, 12px))',
@@ -433,12 +517,20 @@ export function CargoTransferDialog({
             <Truck className="w-5 h-5" />
             {t('cargo.title')}
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-slate-700 rounded-lg text-slate-400 transition-colors">
+          <button
+            aria-label={t('common.close')}
+            onClick={onClose}
+            className="p-1 hover:bg-slate-700 rounded-lg text-slate-400 transition-colors"
+          >
             <X className="w-6 h-6" />
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+        <div
+          ref={scrollContainerRef}
+          data-testid="cargo-transfer-scroll"
+          className="cargo-transfer-scroll min-h-0 flex-1 space-y-4 overflow-y-auto p-4"
+        >
           {/* Ship Selection */}
           <section>
             <label className="block text-xs font-semibold text-slate-400 uppercase tracking-tighter mb-2">{t('cargo.selectShip')}</label>

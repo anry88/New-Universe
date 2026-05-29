@@ -192,6 +192,21 @@ test('fleet cargo shortcut opens transfer dialog with selected ship and localize
   await expect(page).toHaveURL(/\/colonies\?cargoOrigin=/);
   const dialog = page.getByTestId('cargo-transfer-dialog');
   await expect(dialog).toBeVisible();
+  await expect.poll(() =>
+    page.evaluate(() => ({
+      bodyPosition: document.body.style.position,
+      rootOverflow: document.documentElement.style.overflow,
+      rootOverscroll: document.documentElement.style.overscrollBehavior,
+    })),
+  ).toEqual({
+    bodyPosition: 'fixed',
+    rootOverflow: 'hidden',
+    rootOverscroll: 'none',
+  });
+  await expect(dialog.getByTestId('cargo-transfer-scroll')).toHaveCSS(
+    'overscroll-behavior-y',
+    'contain',
+  );
   await expect(dialog.getByText('Cargo Transfer')).toBeVisible();
   await expect(dialog.getByText('0 / 5000')).toBeVisible();
   await expect(dialog.getByTestId('cargo-resource-fuel')).toContainText('Fuel');
@@ -296,4 +311,18 @@ test('fleet cargo shortcut opens transfer dialog with selected ship and localize
   await expect(dialog.getByText('5000 / 5000')).toBeVisible();
   await page.waitForTimeout(300);
   expect(previewRequests).toBe(1);
+
+  await dialog.getByRole('button', { name: 'Close' }).click();
+  await expect(dialog).toBeHidden();
+  await expect.poll(() =>
+    page.evaluate(() => ({
+      bodyPosition: document.body.style.position,
+      rootOverflow: document.documentElement.style.overflow,
+      rootOverscroll: document.documentElement.style.overscrollBehavior,
+    })),
+  ).toEqual({
+    bodyPosition: '',
+    rootOverflow: '',
+    rootOverscroll: '',
+  });
 });
