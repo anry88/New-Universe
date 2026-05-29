@@ -1942,6 +1942,16 @@ button.cosmic-card:disabled {
   z-index: 1100;
 }
 
+.cargo-transfer-backdrop {
+  overscroll-behavior: none;
+}
+
+.cargo-transfer-scroll {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
 /* Tech tree */
 .tech-current {
   margin: 0 16px 14px;
