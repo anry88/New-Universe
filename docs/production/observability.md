@@ -26,13 +26,23 @@ scrape_configs:
     scrape_interval: 30s
     static_configs:
       - targets:
-          - api.example.com
+          - new-universe-api.tg-games.com
+```
+
+The current `hdc` Windows Docker deployment scrapes the same API over the shared Docker network instead of through public DNS:
+
+```yaml
+  - job_name: "new-universe-api"
+    metrics_path: /metrics
+    scrape_interval: 30s
+    static_configs:
+      - targets: ["nu-prod-api:3000"]
 ```
 
 Local smoke check after deploy:
 
 ```bash
-curl -fsS https://api.example.com/metrics | head -n 40
+curl -fsS https://new-universe-api.tg-games.com/metrics | head -n 40
 ```
 
 Expected core lines include `nu_api_up`, `nu_db_available`, `nu_redis_available`, `nu_product_players_total`, and `nu_game_queue_oldest_due_seconds`.

@@ -1,0 +1,166 @@
+name: ${COMPOSE_PROJECT_NAME:-new-universe-prod}
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-nu}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-new_universe}
+    volumes:
+      - type: ${POSTGRES_DATA_TYPE:-volume}
+        source: ${POSTGRES_DATA_SOURCE:-postgres_data}
+        target: /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-nu} -d $${POSTGRES_DB:-new_universe}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --maxmemory
+      - ${REDIS_MAXMEMORY:-256mb}
+      - --maxmemory-policy
+      - ${REDIS_MAXMEMORY_POLICY:-allkeys-lru}
+    volumes:
+      - type: ${REDIS_DATA_TYPE:-volume}
+        source: ${REDIS_DATA_SOURCE:-redis_data}
+        target: /data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    image: ${BACKEND_IMAGE:-new-universe-api:${IMAGE_TAG:-local}}
+    build:
+      context: ../..
+      dockerfile: infra/docker-host/backend.Dockerfile
+      target: prod
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment: &backend_environment
+      NODE_ENV: production
+      PORT: ${PORT:-3000}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      REDIS_URL: ${REDIS_URL:?REDIS_URL is required}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?TELEGRAM_BOT_TOKEN is required}
+      TELEGRAM_BOT_SECRET: ${TELEGRAM_BOT_SECRET:?TELEGRAM_BOT_SECRET is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      SERVER_SECRET: ${SERVER_SECRET:?SERVER_SECRET is required}
+      PUBLIC_FRONTEND_URL: ${PUBLIC_FRONTEND_URL:?PUBLIC_FRONTEND_URL is required}
+      TELEGRAM_APP_URL: ${TELEGRAM_APP_URL:?TELEGRAM_APP_URL is required}
+      ADMIN_TELEGRAM_IDS: ${ADMIN_TELEGRAM_IDS:-}
+      ADMIN_TELEGRAM_CHAT_IDS: ${ADMIN_TELEGRAM_CHAT_IDS:-}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      RATE_LIMIT_WINDOW: ${RATE_LIMIT_WINDOW:-1 minute}
+      RATE_LIMIT_GLOBAL_MAX: ${RATE_LIMIT_GLOBAL_MAX:-600}
+      RATE_LIMIT_AUTH_MAX: ${RATE_LIMIT_AUTH_MAX:-20}
+      RATE_LIMIT_MUTATION_MAX: ${RATE_LIMIT_MUTATION_MAX:-120}
+      RATE_LIMIT_WEBHOOK_MAX: ${RATE_LIMIT_WEBHOOK_MAX:-600}
+      RATE_LIMIT_STORE: ${RATE_LIMIT_STORE:-memory}
+      ENABLE_BULLMQ: ${ENABLE_BULLMQ:-true}
+      DIAMOND_STARTING_GRANT: ${DIAMOND_STARTING_GRANT:-0}
+      DIAMOND_RUSH_PER_MINUTE: ${DIAMOND_RUSH_PER_MINUTE:-1}
+      DIAMOND_RUSH_MAX_PER_ACTION: ${DIAMOND_RUSH_MAX_PER_ACTION:-0}
+    expose:
+      - "3000"
+    networks:
+      default:
+      tunnel:
+        aliases:
+          - ${TUNNEL_API_ALIAS:-nu-prod-api}
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://127.0.0.1:3000/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))\""
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  worker:
+    image: ${BACKEND_IMAGE:-new-universe-api:${IMAGE_TAG:-local}}
+    build:
+      context: ../..
+      dockerfile: infra/docker-host/backend.Dockerfile
+      target: prod
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment: *backend_environment
+    command: npm run worker
+
+  frontend:
+    image: ${FRONTEND_IMAGE:-new-universe-frontend:${IMAGE_TAG:-local}}
+    build:
+      context: ../..
+      dockerfile: infra/docker-host/frontend.Dockerfile
+      target: prod
+      args:
+        VITE_API_URL: ${VITE_API_URL:?VITE_API_URL is required}
+        VITE_TG_BOT_NAME: ${VITE_TG_BOT_NAME:?VITE_TG_BOT_NAME is required}
+        VITE_SENTRY_DSN: ${VITE_SENTRY_DSN:-}
+        VITE_SENTRY_TRACES_SAMPLE_RATE: ${VITE_SENTRY_TRACES_SAMPLE_RATE:-0.1}
+        VITE_SENTRY_REPLAY_SESSION_SAMPLE_RATE: ${VITE_SENTRY_REPLAY_SESSION_SAMPLE_RATE:-0.01}
+        VITE_SENTRY_REPLAY_ERROR_SAMPLE_RATE: ${VITE_SENTRY_REPLAY_ERROR_SAMPLE_RATE:-1.0}
+    restart: unless-stopped
+    expose:
+      - "8080"
+    networks:
+      default:
+      tunnel:
+        aliases:
+          - ${TUNNEL_FRONTEND_ALIAS:-nu-prod-frontend}
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://127.0.0.1:8080/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))\""
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  migrate:
+    profiles: ["tools"]
+    image: ${MIGRATE_IMAGE:-new-universe-migrate:${IMAGE_TAG:-local}}
+    build:
+      context: ../..
+      dockerfile: infra/docker-host/backend.Dockerfile
+      target: migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment: *backend_environment
+    command: sh -lc "npm run db:migrate && npm run db:seed"
+    restart: "no"
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  tunnel:
+    external: true
+    name: ${HDC_TUNNEL_NETWORK:-hdc-tunnel}

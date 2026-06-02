@@ -13,7 +13,13 @@ RUN apk add --no-cache python3 make g++ tini && rm -rf /var/cache/apk/*
 
 # Сначала зависимости (для лучшего кэша слоёв)
 COPY package.json package-lock.json* ./
-RUN npm ci
+RUN npm ci \
+    --fetch-retries=5 \
+    --fetch-retry-factor=2 \
+    --fetch-retry-mintimeout=10000 \
+    --fetch-retry-maxtimeout=120000 \
+    --no-audit \
+    --no-fund
 
 # Дальше код будет монтироваться через volume в compose
 # (чтобы не пересобирать образ на каждое изменение)
@@ -32,7 +38,13 @@ FROM node:20-alpine AS build
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm ci
+RUN npm ci \
+    --fetch-retries=5 \
+    --fetch-retry-factor=2 \
+    --fetch-retry-mintimeout=10000 \
+    --fetch-retry-maxtimeout=120000 \
+    --no-audit \
+    --no-fund
 
 COPY . .
 RUN npm run build \
