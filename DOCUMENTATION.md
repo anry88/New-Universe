@@ -14,6 +14,8 @@ This document explains how the New Universe backend, frontend, and supporting co
 - [Frontend source root (`frontend/src`)](frontend/src/README.md)
 - [Shared cross-package types (`shared`)](shared/README.md)
 - [Production infrastructure plan (`infra/production`)](infra/production/README.md)
+- [Docker-host stack (`infra/docker-host`)](infra/docker-host/README.md)
+- [Windows Docker host migration (`docs/production/windows-host-migration.md`)](docs/production/windows-host-migration.md)
 - [Production observability (`docs/production/observability.md`)](docs/production/observability.md)
 - [Economy balance simulator (`tools/balance-sim`)](tools/balance-sim/README.md)
 - [Product analytics taxonomy (`docs/analytics/events.md`)](docs/analytics/events.md)
@@ -29,7 +31,8 @@ New Universe is a Telegram Mini App space-strategy game. The implementation is s
 - `frontend/` — Vite + React 18 Telegram Mini App client. Entry point is `frontend/src/main.tsx`, which initializes the Telegram Apps SDK (`init`, `miniApp.mount`, `themeParams.mount`, `viewport.mount`, `miniApp.ready`), boots Sentry, optionally mocks the Telegram environment for browser dev (`mockEnv.ts`), and renders `App.tsx` into `#root`.
 - `frontend/public/brand/` — static brand assets served by Vite. `new-universe-logo.svg` is the Cosmic Atlas galaxy-sign favicon, and `new-universe-logo-512.png` is the Telegram bot avatar export.
 - `shared/` — cross-package contracts (`shared/types/` payloads plus `shared/config/` progression catalogs such as the research tree) consumed by both backend and frontend so shapes stay in sync.
-- `infra/production/` — production infrastructure planning and runbooks. The initial near-free environment target is documented in [`infra/production/README.md`](infra/production/README.md) and [`docs/production/environment.md`](docs/production/environment.md); it deliberately contains no secrets or irreversible deployment automation yet.
+- `infra/production/` — production infrastructure planning and runbooks. The initial near-free environment target is documented in [`infra/production/README.md`](infra/production/README.md) and [`docs/production/environment.md`](docs/production/environment.md); the Windows Docker host migration track is documented in [`docs/production/windows-host-migration.md`](docs/production/windows-host-migration.md) and starts with the Docker-host stack under [`infra/docker-host`](infra/docker-host/README.md).
+- `.dockerignore` — root Docker build-context filter used by Docker-host image builds so local dependencies, generated outputs, docs/task bundles, and private env files are not sent to the daemon.
 
 The `dev/`, `docs/`, and `tasks/` folders contain non-runtime materials: dev-environment scaffolding, the GDD/roadmap PDFs, and the task plan / GitHub Project automation scripts. They do not ship as application code. `CHANGELOG.md` is the top-level human-readable register for notable unreleased/released changes and release-preparation notes.
 
@@ -114,7 +117,7 @@ Production startup runs `assertProductionSecurityConfig` from `lib/security.ts`,
 
 ### Production environment
 
-The first production target is a near-free closed-alpha topology: Cloudflare Pages for static frontend hosting, tiny Fly.io runtimes for the backend API and worker, Neon Free for Postgres, Upstash Redis Free for Redis/BullMQ while command volume stays under quota, and provider secret stores for all runtime secrets. The decision, rollback approach, cost estimate, and pre-automation checklist are documented in [`docs/production/environment.md`](docs/production/environment.md). The manual, environment-gated deploy/rollback workflow is documented in [`docs/production/release-workflow.md`](docs/production/release-workflow.md), implemented by [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml), and summarized in [`infra/production/README.md`](infra/production/README.md).
+The current production-like target is the purchased-domain Windows Docker host: frontend/API/worker/Postgres/Redis run in Docker containers on `hdc`, with Cloudflare Tunnel ingress and durable Postgres files outside the container. The cloud Fly.io / Neon / Upstash / Cloudflare Pages path remains fallback inventory but is not the active deploy target. Current deployments run locally with [`scripts/deploy-hdc.sh`](scripts/deploy-hdc.sh); [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) is intentionally disabled so GitHub cannot deploy to cloud providers during the Windows-host phase. The deploy workflow is documented in [`docs/production/release-workflow.md`](docs/production/release-workflow.md), and the migration/runbook details live in [`docs/production/windows-host-migration.md`](docs/production/windows-host-migration.md).
 
 ### World generation
 

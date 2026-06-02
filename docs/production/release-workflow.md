@@ -2,177 +2,111 @@
 
 Task: [P4-DEP-002](https://github.com/anry88/New-Universe/issues/82)
 Created: 2026-05-13
-Depends on: [P4-DEP-001](environment.md), [P0-006](../../.github/workflows/ci.yml)
+Updated: 2026-06-02
 
-This document describes the repository-side deployment workflow for the near-free closed-alpha topology chosen in [`environment.md`](environment.md). The workflow is deliberately manual and environment-gated: production must not be dispatched until staging deploy and rollback have both succeeded.
+## Current status
 
-## Workflow entry point
+As of 2026-06-02, New Universe runs on the Windows Docker host documented in [`windows-host-migration.md`](windows-host-migration.md). The old GitHub Actions deployment path to Fly.io and Cloudflare Pages is disabled so it cannot accidentally roll code back onto cloud services while the live data path is Windows Postgres.
 
-Deployment runs through [`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml), using `workflow_dispatch` only.
+Active deploy command from the operator machine:
 
-The workflow supports two actions:
+```bash
+scripts/deploy-hdc.sh --environment prod
+```
 
-- `deploy` - builds the backend and frontend, pauses the worker, runs Drizzle migrations/seeders when enabled, deploys the API, deploys the worker, deploys Cloudflare Pages, then creates a git tag and GitHub release changelog.
-- `rollback` - redeploys previously tagged Fly images for the API and worker, rebuilds the frontend from the same git tag, and publishes that frontend build to Cloudflare Pages.
+Do not deploy from GitHub Actions during the Windows-host phase. The workflow at [`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml) intentionally fails before checkout, secrets, Fly, Wrangler, migrations, or provider access.
 
-GitHub Environment protection is the approval gate. Configure two environments before dispatching:
+## Local Windows-host deploy
 
-| Environment | Required protection | Purpose |
-| --- | --- | --- |
-| `staging` | At least one required reviewer once external accounts exist. | First deployment target and rollback drill target. |
-| `production` | Required reviewer, protected branch limited to `main`, admin bypass disabled if available. | Real player-facing target after a successful staging drill. |
+`scripts/deploy-hdc.sh` is the only active deploy entry point.
 
-GitHub environments hold secrets separately. Environment secrets are not available to jobs until the environment gate is approved.
+Default target:
 
-## Required GitHub Environment values
+| Setting | Default |
+| --- | --- |
+| SSH host | `hdc` |
+| Docker context | `hdc` |
+| Windows root | `D:\new-universe` |
+| Environment | `prod` |
+| Env file | `D:\new-universe\env\prod.env` |
+| Compose project | `new-universe-prod` |
+| Image tag | `hdc-<git-short-sha>` |
 
-Set these values on both `staging` and `production`, with separate provider resources for each environment.
-
-| Name | Type | Used by | Notes |
-| --- | --- | --- | --- |
-| `FLY_API_TOKEN` | secret | Fly deploy / rollback | Use a Fly deploy token scoped as narrowly as practical. |
-| `FLY_API_APP` | variable | Fly API deploy | Fly app name for the Fastify API. |
-| `FLY_WORKER_APP` | variable | Fly worker deploy | Fly app name for the BullMQ worker. Keep it separate from the API app for closed alpha. |
-| `FLY_PRIMARY_REGION` | variable, optional | Generated Fly configs | Defaults to `ams` in the workflow when unset. |
-| `DATABASE_URL` | secret | Migration/seed step + Fly runtime sync | Neon connection string for the target environment. |
-| `REDIS_URL` | secret | Fly runtime sync | Upstash Redis/TLS URL for BullMQ and production rate limits. Use the Redis URL, not the REST URL. |
-| `TELEGRAM_BOT_TOKEN` | secret | Fly runtime sync | BotFather token for the target environment bot. |
-| `TELEGRAM_BOT_SECRET` | secret | Fly runtime sync | 32+ character Telegram webhook secret. |
-| `JWT_SECRET` | secret | Fly runtime sync | 32+ character JWT signing secret. |
-| `SERVER_SECRET` | secret | Fly runtime sync | 32+ character deterministic game seed secret. Do not rotate casually. |
-| `PUBLIC_FRONTEND_URL` | variable, optional | Fly runtime sync | Public Mini App URL. Defaults to `https://<CLOUDFLARE_PAGES_PROJECT>.pages.dev` when unset. |
-| `TELEGRAM_APP_URL` | variable, optional | Fly runtime sync | Telegram Mini App launch URL. Defaults to `PUBLIC_FRONTEND_URL` when unset. |
-| `SENTRY_DSN` | secret, optional | Fly runtime sync | Backend Sentry DSN. Leave empty to keep backend Sentry disabled. |
-| `ADMIN_TELEGRAM_IDS` | secret, optional | Fly runtime sync | Comma-separated Telegram admin user IDs. |
-| `ADMIN_TELEGRAM_CHAT_IDS` | secret, optional | Fly runtime sync | Comma-separated chat IDs that receive `/paysupport` refund confirmations. |
-| `CLOUDFLARE_API_TOKEN` | secret | Cloudflare Pages deploy | Token with Pages deployment permission for the chosen project. |
-| `CLOUDFLARE_ACCOUNT_ID` | secret | Cloudflare Pages deploy | Cloudflare account id. |
-| `CLOUDFLARE_PAGES_PROJECT` | variable | Cloudflare Pages deploy | Pages project name. |
-| `CLOUDFLARE_PAGES_BRANCH` | variable, optional | Cloudflare Pages deploy | Defaults to `main`. Keep `main` for dedicated staging/production Pages projects so the root `*.pages.dev` domain serves the deployment. |
-| `VITE_API_URL` | variable | Frontend build | Public API HTTPS origin for the target environment. |
-| `VITE_TG_BOT_NAME` | variable | Frontend build | Telegram bot username shown by the Mini App. |
-| `VITE_SENTRY_DSN` | secret | Frontend build | Optional; leave empty to keep frontend Sentry disabled. |
-
-The deploy job mirrors the runtime values above into both Fly apps with `flyctl secrets set --stage` before deploying. This keeps GitHub Environment values as the bootstrap source while Fly remains the runtime secret store. Existing Fly app secrets are updated only when the environment gate is approved and the deploy job runs.
+The script refuses to run inside GitHub Actions. It uses the local checkout as the Docker build context and builds images on the remote Docker daemon through `docker --context hdc`.
 
 ## Deploy sequence
 
-1. Dispatch **Deploy** from GitHub Actions.
-2. Choose `action=deploy`.
-3. Choose `target_environment=staging` first.
-4. Leave `release_tag` empty for staging unless a specific tag is needed. The workflow generates `staging-<run_number>-<sha>`.
-5. Keep `run_migrations=true` unless this is an intentional no-schema redeploy.
-6. Approve the `staging` environment gate.
-7. The workflow builds backend and frontend artifacts.
-8. The deploy job stages the target environment runtime secrets into both Fly apps.
-9. The deploy job stops the worker app with `flyctl scale count 0`; on the first deploy, it skips this step if the worker app has no Machines yet.
-10. If enabled, the deploy job runs `npm run db:migrate` and `npm run db:seed` against the target `DATABASE_URL`.
-11. The API app deploys through `flyctl deploy` with the release tag as the Fly image label.
-12. The worker app deploys from the same backend Docker context with `npm run worker` as the process command, then scales back to one machine.
-13. The workflow switches the runner to Node 22 for `npx wrangler@latest pages deploy`, then uploads the frontend artifact to Cloudflare Pages.
-14. After deployment succeeds, the release job creates a git tag and GitHub Release changelog.
+1. Generate a temporary non-secret build env from safe defaults plus public values read from the Windows env file.
+2. Sync Docker-host infra files to `D:\new-universe\deploy\<env>\repo\infra\docker-host`.
+3. Build `api`, `frontend`, and `migrate` images on Docker context `hdc`.
+4. Run `infra/docker-host/windows/deploy.ps1` on the Windows host.
+5. Back up the Windows env file and update `IMAGE_TAG`.
+6. Stop the worker before schema work.
+7. Run Drizzle migrations and idempotent seeders once via the `migrate` image.
+8. Start API and frontend with `--no-build --wait`.
+9. Start the worker with `--no-build --wait`.
+10. Smoke-test public frontend and API `/health` endpoints.
 
-The workflow copies `shared/` into `backend/shared` inside the runner before Fly builds. It also writes generated Fly config files into `backend/` and runs `flyctl deploy .` from that directory so Fly reads the generated app name and resolves `dockerfile = "Dockerfile"` relative to `backend/Dockerfile`. The production Dockerfile normalizes TypeScript output back to `dist/index.js` / `dist/workers/index.js` and installs runtime `@shared/*` aliases from the compiled shared files. This keeps the current backend Dockerfile working with the `@shared/*` TypeScript path without committing generated build context files.
-
-## Local fallback
-
-If GitHub Actions is unavailable, use [`scripts/deploy-local.sh`](../../scripts/deploy-local.sh) from a trusted operator machine. The script mirrors the deploy order without creating GitHub tags or releases: stage selected Fly secrets, stop the worker, run Drizzle migrate/seed in Docker Node 20, deploy the API, deploy the worker, upload Cloudflare Pages when requested, and smoke-test `/health`.
-
-GitHub Environment **variables** can be inspected with `gh variable`, but GitHub Environment **secrets cannot be read back** through the API after they are created. A local fallback deploy therefore cannot use GitHub as a readable secret source. Either run the normal workflow so GitHub injects secrets into Actions, or pass only the secrets being rotated to the local script and leave the rest of the provider-side secrets unchanged.
-
-For a full local staging deploy, copy the template once, fill the local-only secret values, and run the fallback with `--full`:
+Useful variants:
 
 ```bash
-cp scripts/deploy-local.staging.env.example scripts/deploy-local.staging.env
-# edit scripts/deploy-local.staging.env
-
-env -i HOME="$HOME" PATH="$PATH" TMPDIR="${TMPDIR:-/tmp}" \
-  scripts/deploy-local.sh --env-file scripts/deploy-local.staging.env --full
+scripts/deploy-hdc.sh --environment prod --check
+scripts/deploy-hdc.sh --environment prod --skip-migrate
+scripts/deploy-hdc.sh --environment prod --skip-worker
+scripts/deploy-hdc.sh --environment test
 ```
 
-For staging database replacement without touching frontend, the narrow local path is:
+Use `--skip-worker` only when intentionally leaving the worker stopped for database maintenance or incident triage.
 
-```bash
-env -i HOME="$HOME" PATH="$PATH" TMPDIR="${TMPDIR:-/tmp}" \
-  DATABASE_URL_FILE=/path/to/new-staging-db-url \
-  SENTRY_DSN=<backend-sentry-dsn-if-rotating> \
-  scripts/deploy-local.sh --skip-frontend --skip-migrate
-```
+## GitHub Actions
 
-Do not point the fallback script at a normal local-development `.env` unless every value in that file is meant for the target deployment. The script refuses local `DATABASE_URL` values by default and refuses local tunnel frontend API URLs by default, but it cannot know whether other values such as `PUBLIC_FRONTEND_URL` or `REDIS_URL` are production-safe unless they are deliberately selected through `SYNC_SECRET_NAMES`.
+The deploy workflow remains present only as an explicit blocker. It does not:
 
-Always run the local fallback from a clean process environment (`env -i ...`) rather than the current shell. Operator shells often contain variables for local Docker builds, and inherited values such as `DATABASE_URL`, `REDIS_URL`, `VITE_API_URL`, or `PUBLIC_FRONTEND_URL` can silently target the wrong database, API, or frontend bundle if they are not intentionally supplied for the deploy.
+- check out repository code;
+- read GitHub Environment secrets;
+- install or call `flyctl`;
+- install or call `wrangler`;
+- run migrations;
+- deploy Fly.io apps;
+- deploy Cloudflare Pages.
 
-## Production gate
+Re-enabling cloud deployment requires a planned move back to cloud first:
 
-Production deploys add three hard checks:
+1. Stop Windows worker.
+2. Stop or gate Windows API writes.
+3. Take a fresh dump from Windows Postgres.
+4. Restore into Neon or the chosen cloud database.
+5. Reconfigure cloud runtime secrets for the restored database and Redis.
+6. Rebuild/redeploy cloud API, worker, and frontend.
+7. Move Telegram webhook and Mini App URL back to cloud origins.
+8. Start exactly one cloud worker after smoke tests.
 
-- The workflow must be dispatched from `main`.
-- `release_tag` must be explicit and semver-like, for example `v1.2.3`.
-- `staging_drill_run_url` must link to the successful staging deploy and rollback drill run.
+## Legacy cloud scripts
 
-If any check fails, the workflow stops before environment secrets are used.
+`scripts/deploy-local.sh` is the old Fly.io / Cloudflare Pages entrypoint. It now exits immediately with instructions to use `scripts/deploy-hdc.sh`. Re-enabling cloud deploys should be a deliberate code change after the live data path has been migrated back to cloud.
 
-## Migration safety
+The old GitHub Environment variables and secrets for Fly, Neon, Upstash, and Cloudflare Pages may remain configured as fallback inventory, but they are not the deployment source of truth while Windows is live.
 
-The first deployment target has one worker process. The workflow handles migrations by pausing the worker before schema changes and restarting it only after the new worker image is deployed.
+## Rollback
 
-Rules:
+Rollback within the Windows-host phase is not a blind GitHub rollback. Choose based on the failure:
 
-- Prefer additive migrations.
-- Do not run destructive migrations without a written forward-fix and restore plan.
-- Do not run migrations from multiple places. The deployment workflow is the single migration actor for staging/production releases.
-- Keep seeders idempotent; deployment runs `npm run db:seed` after migrations to keep reference catalogs aligned.
-- If migration compatibility is unclear, deploy to staging, run a rollback drill, and stop before production.
-
-## Rollback sequence
-
-Use rollback when the current app image or frontend build is bad and the database schema is still compatible with the chosen rollback tag.
-
-1. Open the last successful deployment run or GitHub Release.
-2. Copy the previous good `release_tag`.
-3. Dispatch **Deploy**.
-4. Choose `action=rollback`.
-5. Choose the same `target_environment` that needs rollback.
-6. Set `rollback_release_tag` to the previous good tag.
-7. Approve the environment gate.
-8. The workflow stops the worker, redeploys `registry.fly.io/$FLY_API_APP:<tag>`, redeploys `registry.fly.io/$FLY_WORKER_APP:<tag>`, scales the worker back to one, builds the frontend from the git tag, and uploads it to Cloudflare Pages.
-
-Rollback does not run database migrations. If the bad release changed the schema incompatibly, use a forward-fix migration or restore process instead of app-image rollback.
-
-## Staging deployment and rollback drill
-
-Run this drill before the first production deployment and after every material workflow change.
-
-| Step | Evidence |
+| Failure | Preferred response |
 | --- | --- |
-| Dispatch `action=deploy`, `target_environment=staging`. | Workflow run URL. |
-| Confirm API health at the staging API URL. | `/health` response timestamp. |
-| Confirm Telegram staging bot opens the staging Mini App. | Screenshot or manual note. |
-| Confirm `/auth/telegram` and `/me` succeed in staging. | Manual note with time. |
-| Confirm one worker-driven timer completes. | Building/research/ship/expedition completion note. |
-| Confirm GitHub tag and release changelog were created. | Release URL. |
-| Dispatch `action=rollback`, `target_environment=staging`, `rollback_release_tag=<previous-good-tag>`. | Rollback workflow run URL. |
-| Confirm API/frontend return to the previous good version and worker is running. | Manual note with time. |
+| Bad app image, schema compatible | Deploy a known-good git checkout with `scripts/deploy-hdc.sh --tag <known-good-tag>`, or rebuild from the known-good checkout. |
+| Worker causing repeated mutations | Stop worker through Windows compose, deploy/fix, then restart worker after queues and metrics are stable. |
+| Bad migration or corrupted data | Stop worker and API writes, take a fresh backup, then restore from the latest known-good Windows/Postgres dump or apply a forward-fix migration. |
+| Need to return to cloud | Treat as data migration from Windows Postgres back to Neon/cloud, not DNS-only rollback. |
 
-Current drill status: **not run**. Provider accounts, GitHub Environment secrets, staging Fly apps, Cloudflare Pages project, Neon database, Upstash Redis, and Telegram staging bot must be configured before this task can be marked fully accepted.
+Rollback rule: if a release includes a schema migration, decide compatibility before deploy. If compatibility is unknown, the safe rollback plan is stop writes, forward-fix, or restore from backup.
 
 ## Verification checklist
 
-- [x] Deploy pipeline exists at `.github/workflows/deploy.yml`.
-- [x] Pipeline is manual and environment-gated.
-- [x] Production deploys are restricted to `main` and require staging drill evidence.
-- [x] Database migrations and seeders run with the worker paused.
-- [x] Release tags and GitHub Release changelogs are generated after deploy success.
-- [x] Rollback procedure is documented and has workflow support.
-- [ ] Staging deployment drill has been run.
-- [ ] Staging rollback drill has been run.
-
-## External references
-
-- GitHub Environment protection rules and environment secrets: <https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments>
-- GitHub `workflow_dispatch` inputs: <https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow>
-- Fly.io GitHub Actions deploy guide: <https://fly.io/docs/launch/continuous-deployment-with-github-actions/>
-- Fly.io app configuration, release commands, processes, and VM sizing: <https://fly.io/docs/reference/configuration/>
-- Fly.io rollback guide: <https://fly.io/docs/blueprints/rollback-guide/>
-- Cloudflare Pages Wrangler deploy command: <https://developers.cloudflare.com/workers/wrangler/commands/pages/>
+- [x] GitHub cloud deploy is blocked before secrets/provider access.
+- [x] Local Windows deploy script exists.
+- [x] Deploy order stops worker before migrations.
+- [x] Migrations and seeders run as a single controlled step.
+- [x] API/frontend start before worker.
+- [x] Public `/health` smoke tests run after deploy.
+- [ ] Add automated Windows Postgres backup before every routine deploy.
+- [ ] Add a self-hosted runner only if deploys must later move back into GitHub without touching cloud providers.

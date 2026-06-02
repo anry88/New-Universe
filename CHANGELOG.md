@@ -6,6 +6,7 @@ All notable changes to New Universe will be documented in this file.
 
 ### Added
 
+- Активный deploy переведён на Windows Docker host: `.github/workflows/deploy.yml` теперь намеренно блокирует cloud deploy до checkout/secrets/provider access, legacy `scripts/deploy-local.sh` заменён на blocker без Fly/Wrangler команд, добавлен `scripts/deploy-hdc.sh` и Windows helper `infra/docker-host/windows/deploy.ps1` для локального деплоя на `hdc` с build -> stop worker -> migrate/seed -> API/frontend -> worker -> smoke-test порядком.
 - Локальное расширение логистики: добавлены `cargo_medium` и `cargo_heavy` вместимостью 15000/50000 ресурсов, с RU/EN entity-labels, Cosmic Atlas иконками, seed/balance-sim строками, shipyard L3/L5 требованиями и Logistics III/V research gates; средний транспорт стоит титан, тяжёлый — титан и золото.
 - Игровые ники игроков: `users` получил `player_nickname` и счётчик смен, миграция инвентаризирует старые Telegram username/first_name с fallback на 6 символов, первый вход принудительно открывает окно выбора ника до туториала, профиль меняет ник по тапу, первая запись не считается сменой, первая смена бесплатна, последующие стоят 20 алмазов, а foreign tactical contacts показывают владельца по нику без Telegram `@`.
 - Захват источников регистраций: Telegram `/start <code>` и Mini App `start_param` теперь сохраняют sanitized referral-код только для новых аккаунтов, старые пользователи не переатрибутируются; `/metrics` и Grafana получили breakdown регистраций по источникам за day/week/month.
@@ -141,6 +142,7 @@ All notable changes to New Universe will be documented in this file.
 
 ### Docs
 
+- Добавлен Windows Docker host migration runbook для переноса живого staging на купленный домен без переписывания приложения под локальный запуск, Docker-host compose/prod image слой с подключением к существующему Home Data Center Cloudflare Tunnel через shared Docker network, frontend Node static контейнером, root `.dockerignore`, non-secret PowerShell/env подготовка Windows-хоста, config/health verification script и фиксация cloud staging как fallback-пути.
 - Added Phase 3 combat regression evidence notes, including focused verification commands and guidance that combat migrations apply through `db:migrate`/`db:seed` without requiring a database drop.
 - Добавлено правило для агентов: игровые тексты не должны содержать task-id, raw slug/id, внутренние названия полей, технические пояснения реализации или агентскую метаинформацию.
 - Зафиксированы правила для агентов по ведению `CHANGELOG.md`: когда добавлять записи, как работать с `Unreleased`, как сохранять записи других агентов и какие данные нельзя заносить в журнал.

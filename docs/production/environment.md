@@ -4,11 +4,11 @@ Task: [P4-DEP-001](https://github.com/anry88/New-Universe/issues/81)
 Decision date: 2026-05-13  
 Target stage: initial near-free production / closed alpha
 
-This document chooses the first production topology before irreversible deployment automation is written. It is intentionally conservative: spend almost nothing, keep state in managed services, avoid committing secrets, and leave a clear path to a paid soft-launch setup when usage proves it is needed.
+This document originally chose the first managed-cloud production topology before irreversible deployment automation was written. As of 2026-06-02, the live environment has been moved to the purchased-domain Windows Docker host documented in [`windows-host-migration.md`](windows-host-migration.md). The managed-cloud topology below remains fallback/reference material, not the active deployment target.
 
 ## Decision summary
 
-Use the near-free provider mix below for the first public HTTPS environment:
+Fallback managed-cloud provider mix:
 
 - **Frontend**: Cloudflare Pages Free, built from `frontend/` with `npm run build`.
 - **Backend API**: Fly.io Machines, one tiny `shared-cpu-1x` app running `node dist/index.js`.
@@ -19,6 +19,12 @@ Use the near-free provider mix below for the first public HTTPS environment:
 - **Secrets**: provider secret stores and GitHub Environments only. No production `.env` files, tokens, dumps, or private keys are committed to the repo.
 
 This target is expected to cost **$0-10/month plus domain registration** for a closed alpha. New Fly.io organizations no longer receive broad always-free compute allowances, so a realistic always-on API + worker pair is closer to **$5-8/month** before bandwidth and optional domain cost.
+
+## Windows host migration note
+
+As of 2026-06-02, the live staging environment has been cut over to a purchased-domain Windows Docker host while the cloud staging resources remain fallback inventory. The Windows track is documented in [`windows-host-migration.md`](windows-host-migration.md), and active deployments run through [`scripts/deploy-hdc.sh`](../../scripts/deploy-hdc.sh).
+
+This does not change the application portability contract: backend and worker must continue to accept `DATABASE_URL` and `REDIS_URL`, frontend must continue to build against `VITE_API_URL`, and rollback to managed services after Windows accepts writes requires a fresh Postgres dump/restore rather than a DNS-only switch.
 
 ## Topology
 
@@ -172,7 +178,7 @@ These are not blockers for this planning task, but they must be handled before a
 - Decide whether to use Fly.io process groups, two Fly apps, or a tiny VM before writing deploy automation.
 - Validate BullMQ against the chosen Upstash Redis endpoint with a real worker smoke test.
 - Add backup automation and restore rehearsal before any non-test users create durable state.
-- Fix or avoid the frontend Docker production target: `frontend/Dockerfile` references `frontend/nginx.conf`, which is absent today. Cloudflare Pages avoids this for the first target.
+- Keep the frontend production origin explicit for each deployment target: Cloudflare Pages for the cloud path, or the Docker-host static frontend image for the Windows host path.
 - Define image tag conventions before GitHub Actions deploy automation is added.
 
 ## Review checklist

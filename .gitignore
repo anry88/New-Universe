@@ -24,6 +24,9 @@ build/
 .env.production.local
 scripts/deploy-local.*.env
 !scripts/deploy-local.*.env.example
+infra/docker-host/**/*.env
+!infra/docker-host/**/*.env.example
+infra/docker-host/**/secrets/
 
 # Docker
 .docker

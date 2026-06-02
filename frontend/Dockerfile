@@ -5,7 +5,13 @@ FROM node:20-alpine AS dev
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm ci
+RUN npm ci \
+    --fetch-retries=5 \
+    --fetch-retry-factor=2 \
+    --fetch-retry-mintimeout=10000 \
+    --fetch-retry-maxtimeout=120000 \
+    --no-audit \
+    --no-fund
 
 COPY . .
 
@@ -20,7 +26,13 @@ FROM node:20-alpine AS build
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm ci
+RUN npm ci \
+    --fetch-retries=5 \
+    --fetch-retry-factor=2 \
+    --fetch-retry-mintimeout=10000 \
+    --fetch-retry-maxtimeout=120000 \
+    --no-audit \
+    --no-fund
 
 COPY . .
 RUN npm run build
