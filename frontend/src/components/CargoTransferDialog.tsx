@@ -19,6 +19,7 @@ import { formatTimerDuration } from '../lib/timers';
 import { getResourceLabel, ResourceIcon } from './cosmic/resources';
 import { getShipClassTag, ShipIconBadge } from './cosmic/ships';
 import { IntegerInput } from './IntegerInput';
+import { planetResourcesQueryKey, usePlanetResources } from '../hooks/usePlanetResources';
 
 interface CargoTransferDialogProps {
   originPlanet: Planet;
@@ -297,6 +298,7 @@ export function CargoTransferDialog({
   const { data: meData } = useMe();
   const { planets } = useColonies();
   const { data: shipTypes } = useShipTypes();
+  const originResourcesQuery = usePlanetResources(originPlanet.id);
   
   const [selectedShipId, setSelectedShipId] = useState<string>(initialShipId ?? '');
   const [targetPlanetId, setTargetPlanetId] = useState<string>(initialTargetPlanetId ?? '');
@@ -324,9 +326,17 @@ export function CargoTransferDialog({
   const selectedShip = availableShips.find(s => s.id === selectedShipId);
   const selectedShipType = selectedShip && shipTypes?.find(t => t.id === selectedShip.typeId);
   const selectedTargetPlanet = targetPlanets.find(p => p.id === targetPlanetId);
+  const originResources = originResourcesQuery.data ?? [];
+  const originResourceAmount = useCallback(
+    (resourceId: string) =>
+      Math.floor(
+        Number(originResources.find((row) => row.resourceId === resourceId)?.amount ?? 0),
+      ),
+    [originResources],
+  );
   const resourceRows = useMemo(
-    () => sortedResourceRows(originPlanet.resources, locale),
-    [originPlanet.resources, locale],
+    () => sortedResourceRows(originResources, locale),
+    [originResources, locale],
   );
 
   const totalCargo = Object.values(cargo).reduce((a, b) => a + b, 0);
@@ -349,14 +359,10 @@ export function CargoTransferDialog({
       })),
     [cargo],
   );
-  const jumpFuelAvailable = Math.floor(
-    Number(originPlanet.resources?.find(r => r.resourceId === JUMP_FUEL_RESOURCE_ID)?.amount ?? 0),
-  );
+  const jumpFuelAvailable = originResourceAmount(JUMP_FUEL_RESOURCE_ID);
   const jumpFuelReservedAsCargo = Math.floor(Number(cargo[JUMP_FUEL_RESOURCE_ID] ?? 0));
   const jumpFuelAvailableForRoute = Math.max(0, jumpFuelAvailable - jumpFuelReservedAsCargo);
-  const fuelAvailable = Math.floor(
-    Number(originPlanet.resources?.find(r => r.resourceId === 'fuel')?.amount ?? 0),
-  );
+  const fuelAvailable = originResourceAmount('fuel');
   const fuelReservedAsCargo = Math.floor(Number(cargo.fuel ?? 0));
   const fuelAvailableForRoute = Math.max(0, fuelAvailable - fuelReservedAsCargo);
   const isInterSystemTarget = Boolean(
@@ -428,9 +434,7 @@ export function CargoTransferDialog({
       const next: Record<string, number> = {};
 
       for (const [resourceId, amount] of Object.entries(previous)) {
-        const available = Math.floor(
-          Number(originPlanet.resources?.find((row) => row.resourceId === resourceId)?.amount ?? 0),
-        );
+        const available = originResourceAmount(resourceId);
         const allowed = Math.max(0, Math.min(available, capacity - used));
         const clamped = Math.floor(clampNumber(amount, 0, allowed));
         if (clamped > 0) {
@@ -442,7 +446,7 @@ export function CargoTransferDialog({
 
       return changed ? next : previous;
     });
-  }, [capacity, originPlanet.resources]);
+  }, [capacity, originResourceAmount]);
 
   const transferMutation = useMutation({
     mutationFn: (body: CargoTransferRequest) => apiFetch('/cargo/transfer', {
@@ -451,6 +455,10 @@ export function CargoTransferDialog({
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['me'] });
+      queryClient.invalidateQueries({ queryKey: planetResourcesQueryKey(originPlanet.id) });
+      if (targetPlanetId) {
+        queryClient.invalidateQueries({ queryKey: planetResourcesQueryKey(targetPlanetId) });
+      }
       onClose();
     },
     onError: (err: Error) => {
@@ -479,8 +487,7 @@ export function CargoTransferDialog({
   };
 
   const updateResourceAmount = (resourceId: string, amount: number) => {
-    const planetRes = originPlanet.resources?.find(r => r.resourceId === resourceId);
-    const maxAvailable = planetRes ? Math.floor(Number(planetRes.amount)) : 0;
+    const maxAvailable = originResourceAmount(resourceId);
     setCargo(prev => {
       const current = Number(prev[resourceId] ?? 0);
       const usedByOtherResources = Object.entries(prev).reduce(

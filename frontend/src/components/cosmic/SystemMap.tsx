@@ -143,6 +143,10 @@ const ACTIVE_MAP_EXPEDITION_STATUSES = new Set([
 const COMBAT_PROJECTILE_LIMIT = 6;
 const MIN_COMBAT_PROJECTILE_LENGTH = 24;
 const CLOSE_COMBAT_PROJECTILE_LENGTH = 36;
+const PARKED_SHIPS_PER_ROW = 6;
+const PARKED_SHIP_COLUMN_GAP = 28;
+const PARKED_SHIP_ROW_GAP = 32;
+const PARKED_SHIP_PLANET_GAP = 30;
 
 /** Below this drag distance (CSS px), a one-finger gesture counts as a tap for expedition aiming. */
 const EXPEDITION_TAP_THRESHOLD_PX = 14;
@@ -929,14 +933,23 @@ function jumpGateShipPointForSystem({
 
 function parkedShipPoint(
   layout: PlanetLayout,
-  shipIdx: number,
+  parkedIndex: number,
+  totalParkedAtPlanet: number,
 ): { x: number; y: number; angle: number } {
-  const dockRadius = Math.min(14, Math.max(5, layout.spriteSize * 0.24));
-  const a = layout.angle + 0.18 + shipIdx * 0.74;
+  const row = Math.floor(parkedIndex / PARKED_SHIPS_PER_ROW);
+  const rowStart = row * PARKED_SHIPS_PER_ROW;
+  const rowCount = Math.min(
+    PARKED_SHIPS_PER_ROW,
+    Math.max(1, totalParkedAtPlanet - rowStart),
+  );
+  const column = parkedIndex - rowStart;
+  const xOffset = (column - (rowCount - 1) / 2) * PARKED_SHIP_COLUMN_GAP;
+  const yOffset =
+    -(layout.spriteSize / 2 + PARKED_SHIP_PLANET_GAP + row * PARKED_SHIP_ROW_GAP);
   return {
-    x: layout.x + Math.cos(a) * dockRadius,
-    y: layout.y + Math.sin(a) * dockRadius,
-    angle: a + Math.PI / 2,
+    x: layout.x + xOffset,
+    y: layout.y + yOffset,
+    angle: -Math.PI / 2,
   };
 }
 
@@ -956,8 +969,42 @@ export function buildShipMarkerSnapshots({
   const expeditionByShipId = new Map(
     activeExpeditions.map((exp) => [exp.shipId, exp]),
   );
+  const parkedTotalsByPlanetId = new Map<string, number>();
+  const parkedIndexesByPlanetId = new Map<string, number>();
 
-  return ships.flatMap((ship, shipIdx) => {
+  const parkedPlanetIdForShip = (ship: Ship): string | null => {
+    if (!["idle", "moving"].includes(ship.status)) return null;
+    if (ship.status === "idle" && ship.locationPlanetId) {
+      return layoutByPlanetId.has(ship.locationPlanetId) ? ship.locationPlanetId : null;
+    }
+    const exp = expeditionByShipId.get(ship.id);
+    if (
+      ship.status === "moving" &&
+      exp?.status === "stationed" &&
+      exp.targetPlanetId &&
+      layoutByPlanetId.has(exp.targetPlanetId)
+    ) {
+      return exp.targetPlanetId;
+    }
+    return null;
+  };
+
+  for (const ship of ships) {
+    const parkedPlanetId = parkedPlanetIdForShip(ship);
+    if (!parkedPlanetId) continue;
+    parkedTotalsByPlanetId.set(
+      parkedPlanetId,
+      (parkedTotalsByPlanetId.get(parkedPlanetId) ?? 0) + 1,
+    );
+  }
+
+  const nextParkedIndex = (planetId: string): number => {
+    const index = parkedIndexesByPlanetId.get(planetId) ?? 0;
+    parkedIndexesByPlanetId.set(planetId, index + 1);
+    return index;
+  };
+
+  return ships.flatMap((ship) => {
     if (!["idle", "moving"].includes(ship.status)) return [];
 
     // For moving ships the location_planet_id is cleared at launch — fall
@@ -1027,7 +1074,12 @@ export function buildShipMarkerSnapshots({
 
           if (exp.status === "stationed") {
             if (targetPlanet) {
-              const parked = parkedShipPoint(targetPlanet, shipIdx);
+              const parkedPlanetId = targetPlanet.planet.id;
+              const parked = parkedShipPoint(
+                targetPlanet,
+                nextParkedIndex(parkedPlanetId),
+                parkedTotalsByPlanetId.get(parkedPlanetId) ?? 1,
+              );
               sx = parked.x;
               sy = parked.y;
               angle = parked.angle;
@@ -1067,7 +1119,12 @@ export function buildShipMarkerSnapshots({
       if (!layout) {
         angle = angle || 0;
       } else {
-        const parked = parkedShipPoint(layout, shipIdx);
+        const parkedPlanetId = layout.planet.id;
+        const parked = parkedShipPoint(
+          layout,
+          nextParkedIndex(parkedPlanetId),
+          parkedTotalsByPlanetId.get(parkedPlanetId) ?? 1,
+        );
         sx = parked.x;
         sy = parked.y;
         angle = parked.angle;

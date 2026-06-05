@@ -226,11 +226,13 @@ sync_remote_infra() {
   log "Syncing Docker-host infra files to $REMOTE_HOST:$remote_infra_dir"
   ssh "$REMOTE_HOST" "powershell -NoProfile -Command \"New-Item -ItemType Directory -Force -Path '$remote_infra_dir' | Out-Null; New-Item -ItemType Directory -Force -Path '$remote_infra_windows_dir' | Out-Null\""
 
-  scp "$repo_root/infra/docker-host/compose.yml" "$REMOTE_HOST:${remote_infra_dir//\\//}/compose.yml"
-  scp "$repo_root/infra/docker-host/backend.Dockerfile" "$REMOTE_HOST:${remote_infra_dir//\\//}/backend.Dockerfile"
-  scp "$repo_root/infra/docker-host/frontend.Dockerfile" "$REMOTE_HOST:${remote_infra_dir//\\//}/frontend.Dockerfile"
-  scp "$repo_root/infra/docker-host/frontend-static-server.mjs" "$REMOTE_HOST:${remote_infra_dir//\\//}/frontend-static-server.mjs"
-  scp "$repo_root/infra/docker-host/windows/deploy.ps1" "$REMOTE_HOST:${remote_infra_windows_dir//\\//}/deploy.ps1"
+  # The Windows OpenSSH SFTP subsystem can stall on these tiny deploy copies.
+  # Legacy scp mode keeps the HDC infra sync deterministic.
+  scp -O "$repo_root/infra/docker-host/compose.yml" "$REMOTE_HOST:${remote_infra_dir//\\//}/compose.yml"
+  scp -O "$repo_root/infra/docker-host/backend.Dockerfile" "$REMOTE_HOST:${remote_infra_dir//\\//}/backend.Dockerfile"
+  scp -O "$repo_root/infra/docker-host/frontend.Dockerfile" "$REMOTE_HOST:${remote_infra_dir//\\//}/frontend.Dockerfile"
+  scp -O "$repo_root/infra/docker-host/frontend-static-server.mjs" "$REMOTE_HOST:${remote_infra_dir//\\//}/frontend-static-server.mjs"
+  scp -O "$repo_root/infra/docker-host/windows/deploy.ps1" "$REMOTE_HOST:${remote_infra_windows_dir//\\//}/deploy.ps1"
 }
 
 run_remote_deploy() {

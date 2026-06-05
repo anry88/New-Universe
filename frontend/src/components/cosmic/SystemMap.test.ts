@@ -194,6 +194,52 @@ describe("planet colony relation helpers", () => {
 });
 
 describe("buildShipMarkerSnapshots", () => {
+  it("parks a docked ship above the planet instead of on top of the planet", () => {
+    const originLayout = planetLayout();
+    const markers = buildShipMarkerSnapshots({
+      ships: [
+        ship({
+          status: "idle",
+          locationPlanetId: originLayout.planet.id,
+        }),
+      ],
+      activeExpeditions: [],
+      layoutByPlanetId: new Map([[originLayout.planet.id, originLayout]]),
+      system,
+      now: new Date("2026-06-01T00:00:00.000Z").getTime(),
+    });
+
+    expect(markers).toHaveLength(1);
+    expect(markers[0].x).toBeCloseTo(originLayout.x, 5);
+    expect(markers[0].y).toBeLessThan(
+      originLayout.y - originLayout.spriteSize / 2,
+    );
+  });
+
+  it("splits large docked fleets into centered rows above the planet", () => {
+    const originLayout = planetLayout();
+    const dockedShips = Array.from({ length: 7 }, (_, index) =>
+      ship({
+        id: `ship-${index + 1}`,
+        status: "idle",
+        locationPlanetId: originLayout.planet.id,
+      }),
+    );
+
+    const markers = buildShipMarkerSnapshots({
+      ships: dockedShips,
+      activeExpeditions: [],
+      layoutByPlanetId: new Map([[originLayout.planet.id, originLayout]]),
+      system,
+      now: new Date("2026-06-01T00:00:00.000Z").getTime(),
+    });
+
+    expect(markers).toHaveLength(7);
+    expect(new Set(markers.slice(0, 6).map((marker) => marker.y)).size).toBe(1);
+    expect(markers[6].x).toBeCloseTo(originLayout.x, 5);
+    expect(markers[6].y).toBeLessThan(markers[0].y);
+  });
+
   it("parks local one-way combat deployments at their stationed point", () => {
     const originLayout = planetLayout();
     const target = sectorDeltaToSystemMapPoint(

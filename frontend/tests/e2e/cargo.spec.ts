@@ -48,6 +48,11 @@ test('fleet cargo shortcut opens transfer dialog with selected ship and localize
     resources: [],
     buildings: [],
   };
+  const liveHomeResources = homePlanet.resources.map((resource) =>
+    resource.resourceId === 'iron'
+      ? { ...resource, amount: '1200' }
+      : resource,
+  );
   const user = {
     id: 'cargo-user',
     tgId: '12345678',
@@ -143,10 +148,13 @@ test('fleet cargo shortcut opens transfer dialog with selected ship and localize
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ queue: [] }) });
   });
   await page.route('**/resources/planets/**', async (route) => {
+    const resources = route.request().url().includes(homePlanetId)
+      ? liveHomeResources
+      : [];
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ resources: homePlanet.resources }),
+      body: JSON.stringify({ resources }),
     });
   });
   let previewRequests = 0;
@@ -211,6 +219,7 @@ test('fleet cargo shortcut opens transfer dialog with selected ship and localize
   await expect(dialog.getByText('0 / 5000')).toBeVisible();
   await expect(dialog.getByTestId('cargo-resource-fuel')).toContainText('Fuel');
   await expect(dialog.getByTestId('cargo-resource-iron')).toContainText('Iron');
+  await expect(dialog.getByTestId('cargo-resource-iron')).toContainText('Available: 1200');
   await expect(dialog.locator('[data-testid^="cargo-resource-"]').first()).toContainText('Fuel');
   await expect(dialog.getByText('Iron')).toBeVisible();
 
@@ -307,8 +316,8 @@ test('fleet cargo shortcut opens transfer dialog with selected ship and localize
   await expect(ironAmount).toHaveValue('0');
   await expect(dialog.getByText('0 / 5000')).toBeVisible();
   await ironAmount.fill('9999');
-  await expect(ironAmount).toHaveValue('5000');
-  await expect(dialog.getByText('5000 / 5000')).toBeVisible();
+  await expect(ironAmount).toHaveValue('1200');
+  await expect(dialog.getByText('1200 / 5000')).toBeVisible();
   await page.waitForTimeout(300);
   expect(previewRequests).toBe(1);
 
