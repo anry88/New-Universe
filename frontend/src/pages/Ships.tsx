@@ -6,6 +6,7 @@ import {
   useShipQueue,
   useShipTypes,
 } from "../hooks/useShips";
+import { useJumpGateState } from "../hooks/useJumpGateState";
 import { ExpeditionDialog } from "../components/ExpeditionDialog";
 import { RefuelDialog } from "../components/RefuelDialog";
 import { ResourceBar } from "../components/ResourceBar";
@@ -47,6 +48,9 @@ import {
   ShipIconBadge,
 } from "../components/cosmic/ships";
 import { isCargoTransferShip, isCargoTransferShipType } from "../lib/fleet";
+import { fleetLocationAnchorLabel } from "../lib/fleet-location";
+import { formatHomeSystemTitleForUser } from "../lib/homeSystemTitle";
+import { destinationSystemDisplayName } from "../lib/jump-gate-destination";
 import type { ExpeditionRouteMode } from "@shared/config/expeditionRouting";
 import { researchBranchLabel } from "@shared/types/research";
 
@@ -136,6 +140,7 @@ export function ShipsPage() {
   const { data: meData } = useMe();
   const { data: shipTypes } = useShipTypes();
   const { data: shipQueueData } = useShipQueue();
+  const { data: jumpGateState } = useJumpGateState();
   const buildShip = useBuildShip();
   const rushShip = useRushShip();
   const navigate = useNavigate();
@@ -184,6 +189,36 @@ export function ShipsPage() {
   const getShipType = (typeId: string) =>
     shipTypes?.find((t) => t.id === typeId);
   const planets = meData?.planets ?? [];
+  const planetById = useMemo(
+    () => new Map(planets.map((planet) => [planet.id, planet])),
+    [planets],
+  );
+  const homeSystemName = meData ? formatHomeSystemTitleForUser(meData) : "";
+  const systemById = useMemo(() => {
+    const systems = new Map<
+      string,
+      { id: string; name: string; sectorX: number; sectorY: number; sectorZ: number }
+    >();
+    if (meData?.homeSystem) {
+      systems.set(meData.homeSystem.id, {
+        id: meData.homeSystem.id,
+        name: homeSystemName,
+        sectorX: meData.homeSystem.sectorX,
+        sectorY: meData.homeSystem.sectorY,
+        sectorZ: meData.homeSystem.sectorZ,
+      });
+    }
+    for (const destination of jumpGateState?.knownDestinations ?? []) {
+      systems.set(destination.systemId, {
+        id: destination.systemId,
+        name: destinationSystemDisplayName(destination, locale),
+        sectorX: destination.sector.x,
+        sectorY: destination.sector.y,
+        sectorZ: destination.sector.z,
+      });
+    }
+    return systems;
+  }, [homeSystemName, jumpGateState?.knownDestinations, locale, meData?.homeSystem]);
   const colonizationSummary = meData?.colonization;
   const buildableShipTypes = useMemo(
     () =>
@@ -715,12 +750,20 @@ export function ShipsPage() {
                   : activeExpedition?.status === "returning"
                     ? t("ships.returning")
                     : t("ships.outbound");
+              const locationAnchor = fleetLocationAnchorLabel({
+                ship,
+                activeExpedition,
+                planetsById: planetById,
+                systemsById: systemById,
+                homeSystem: meData?.homeSystem ?? null,
+                systemLabel: t("profile.system"),
+              });
               const baseShipLocation = isIdle
-                ? `${t("ships.orbit")} · ${origin.sectorX}:${origin.sectorY}:${origin.sectorZ}`
+                ? locationAnchor
                 : isBuilding
                   ? `${t("ships.underConstruction")}${etaSec != null ? ` · ETA ${formatDuration(etaSec)}` : ""}`
                   : activeExpedition?.status === "stationed"
-                    ? `${t("ships.deployed")} · ${activeExpedition.targetX}:${activeExpedition.targetY}:${activeExpedition.targetZ}`
+                    ? `${t("ships.deployed")} · ${locationAnchor}`
                     : activeExpedition && expeditionEtaSec != null
                       ? `${t("ships.inTransit")} · ${expeditionLegLabel} · ETA ${formatDuration(expeditionEtaSec)}`
                       : `${t("ships.inTransit")} · ${t("ships.syncingRoute")}`;

@@ -53,6 +53,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { formatHomeSystemTitleForUser } from '../lib/homeSystemTitle';
 import { useI18n } from '../lib/i18n';
 import { planetResourcesQueryKey, usePlanetResources } from '../hooks/usePlanetResources';
+import { mergeLiveEnergyStatus } from '../lib/planet-energy';
 
 function optimisticQueueWindow(durationSec: number): {
   queueStartedAt: string;
@@ -354,13 +355,14 @@ export function PlanetDetailPage() {
 
   const currentEnergy = useMemo(() => {
     if (!planet) return { produced: 0, consumed: 0 };
-    if (planet.energy) {
+    const liveEnergy = mergeLiveEnergyStatus(planet.energy, currentPlanetResources);
+    if (liveEnergy) {
       return {
-        produced: planet.energy.produced,
-        consumed: planet.energy.consumed,
-        stored: planet.energy.stored,
-        capacity: planet.energy.capacity,
-        net: planet.energy.net,
+        produced: liveEnergy.produced,
+        consumed: liveEnergy.consumed,
+        stored: liveEnergy.stored,
+        capacity: liveEnergy.capacity,
+        net: liveEnergy.net,
       };
     }
     if (planet.biome === 'energy') return { produced: 0, consumed: 0 };
@@ -381,7 +383,7 @@ export function PlanetDetailPage() {
       consumed += consumesEnergyOnlyDuringProcess ? 0 : (type.energyConsumption ?? 0) * Math.max(1, b.level ?? 1);
     }
     return { produced, consumed };
-  }, [planet, buildingTypes]);
+  }, [planet, buildingTypes, currentPlanetResources]);
 
   if (!planet) {
     return (
