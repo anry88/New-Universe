@@ -144,6 +144,7 @@ All notable changes to New Universe will be documented in this file.
 
 ### Docs
 
+- Добавлена страница `docs/game-screenshots.md` с актуальными англоязычными скриншотами Telegram Mini App: home overview, colonies, fleet roster, system map и tech tree.
 - Добавлен Windows Docker host migration runbook для переноса живого staging на купленный домен без переписывания приложения под локальный запуск, Docker-host compose/prod image слой с подключением к существующему Home Data Center Cloudflare Tunnel через shared Docker network, frontend Node static контейнером, root `.dockerignore`, non-secret PowerShell/env подготовка Windows-хоста, config/health verification script и фиксация cloud staging как fallback-пути.
 - Added Phase 3 combat regression evidence notes, including focused verification commands and guidance that combat migrations apply through `db:migrate`/`db:seed` without requiring a database drop.
 - Добавлено правило для агентов: игровые тексты не должны содержать task-id, raw slug/id, внутренние названия полей, технические пояснения реализации или агентскую метаинформацию.
