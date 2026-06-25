@@ -12,6 +12,7 @@ New Universe — это многопользовательская космич�
 - [Production Observability](docs/production/observability.md)
 - [Production Release Workflow](docs/production/release-workflow.md)
 - [Architecture Diagrams](docs/Stellar_Forge_Diagrams.html)
+- [Game Screenshots](docs/game-screenshots.md)
 - [Launch Security Checklist](docs/security/launch-checklist.md)
 - [Economy Exploit Review](docs/security/economy-exploits.md)
 - [Product Analytics Event Taxonomy](docs/analytics/events.md)
