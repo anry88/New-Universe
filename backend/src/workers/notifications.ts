@@ -5,6 +5,7 @@ import { eq, sql } from 'drizzle-orm';
 import { logger } from '../lib/logger.js';
 import {
   isTelegramBotBlockedByUser,
+  isTelegramRecipientUnavailable,
   sendTelegramMessageDetailed,
   type TelegramBotApiResult,
 } from '../lib/telegram.js';
@@ -23,10 +24,13 @@ import {
 
 const POLL_INTERVAL_MS = 60000; // 1 minute as per task
 const TELEGRAM_BLOCKED_FAILURE_CODE = 'telegram_bot_blocked';
+const TELEGRAM_RECIPIENT_UNAVAILABLE_FAILURE_CODE = 'telegram_recipient_unavailable';
+const MAX_DELIVERY_ATTEMPTS = 3;
 
 function telegramFailureCode(result: TelegramBotApiResult<unknown>): string {
   if (result.ok) return 'none';
   if (isTelegramBotBlockedByUser(result)) return TELEGRAM_BLOCKED_FAILURE_CODE;
+  if (isTelegramRecipientUnavailable(result)) return TELEGRAM_RECIPIENT_UNAVAILABLE_FAILURE_CODE;
   if (result.errorCode) return `telegram_${result.errorCode}`;
   return result.status === 0 ? 'telegram_network_error' : `telegram_http_${result.status}`;
 }
@@ -72,22 +76,29 @@ async function markNotificationSent(notificationId: string, sentAt = new Date())
 async function markNotificationFailed(
   notificationId: string,
   result: TelegramBotApiResult<unknown>,
+  previousAttemptCount: number,
   attemptedAt = new Date(),
-): Promise<void> {
-  const terminalBlocked = isTelegramBotBlockedByUser(result);
+): Promise<{ terminalFailure: boolean; recipientUnavailable: boolean }> {
+  const recipientUnavailable = isTelegramRecipientUnavailable(result);
+  const attemptsAfterFailure = previousAttemptCount + 1;
+  const terminalMaxAttempts = attemptsAfterFailure >= MAX_DELIVERY_ATTEMPTS;
+  const terminalFailure = recipientUnavailable || terminalMaxAttempts;
   await db
     .update(notifications)
     .set({
-      pending: terminalBlocked ? false : true,
-      read: terminalBlocked ? true : false,
-      deliveryStatus: terminalBlocked ? 'failed' : 'pending',
-      failedAt: terminalBlocked ? attemptedAt : null,
+      pending: terminalFailure ? false : true,
+      read: terminalFailure ? true : false,
+      deliveryStatus: terminalFailure ? 'failed' : 'pending',
+      failedAt: terminalFailure ? attemptedAt : null,
       failureCode: telegramFailureCode(result),
-      failureReason: telegramFailureReason(result),
+      failureReason: terminalMaxAttempts && !recipientUnavailable
+        ? `${telegramFailureReason(result) ?? 'Telegram delivery failed'} (max delivery attempts reached)`
+        : telegramFailureReason(result),
       lastAttemptAt: attemptedAt,
       attemptCount: sql`${notifications.attemptCount} + 1`,
     })
     .where(eq(notifications.id, notificationId));
+  return { terminalFailure, recipientUnavailable };
 }
 
 function escapeHtml(value: unknown): string {
@@ -254,6 +265,8 @@ export async function processNotifications(): Promise<void> {
     userNotificationsMap.set(item.user.id, list);
   }
 
+  const unavailableUserIds = new Set<string>();
+
   for (const [userId, items] of userNotificationsMap.entries()) {
     for (const item of items) {
       const { notification, user } = item;
@@ -271,7 +284,7 @@ export async function processNotifications(): Promise<void> {
         continue;
       }
 
-      if (user.telegramNotificationsBlockedAt) {
+      if (user.telegramNotificationsBlockedAt || unavailableUserIds.has(userId)) {
         await markNotificationSkipped(
           notification.id,
           TELEGRAM_BLOCKED_FAILURE_CODE,
@@ -297,13 +310,19 @@ export async function processNotifications(): Promise<void> {
           logger.info({ notificationId: notification.id, userId, type: notification.type }, 'Push notification sent');
         } else {
           const attemptedAt = new Date();
-          await markNotificationFailed(notification.id, result, attemptedAt);
+          const { terminalFailure, recipientUnavailable } = await markNotificationFailed(
+            notification.id,
+            result,
+            notification.attemptCount,
+            attemptedAt,
+          );
 
-          if (isTelegramBotBlockedByUser(result)) {
+          if (recipientUnavailable) {
             await db
               .update(users)
               .set({ telegramNotificationsBlockedAt: attemptedAt })
               .where(eq(users.id, userId));
+            unavailableUserIds.add(userId);
           }
 
           logger.warn(
@@ -311,7 +330,8 @@ export async function processNotifications(): Promise<void> {
               notificationId: notification.id,
               userId,
               failureCode: telegramFailureCode(result),
-              terminal: isTelegramBotBlockedByUser(result),
+              terminal: terminalFailure,
+              recipientUnavailable,
             },
             'Failed to send push notification',
           );

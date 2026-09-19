@@ -221,6 +221,22 @@ export function isTelegramBotBlockedByUser(result: TelegramBotApiResult<unknown>
     /bot was blocked by the user/i.test(result.description ?? '');
 }
 
+export function isTelegramRecipientUnavailable(result: TelegramBotApiResult<unknown>): boolean {
+  if (result.ok) return false;
+  if (isTelegramBotBlockedByUser(result)) return true;
+
+  const description = result.description ?? '';
+  return (
+    result.status === 400 &&
+    result.errorCode === 400 &&
+    /chat not found/i.test(description)
+  ) || (
+    result.status === 403 &&
+    result.errorCode === 403 &&
+    /user is deactivated/i.test(description)
+  );
+}
+
 export async function callTelegramBotApiDetailed<T>(
   method: string,
   body: Record<string, unknown>,

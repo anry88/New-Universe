@@ -14,6 +14,25 @@ vi.mock('../lib/telegram.js', () => ({
     result.status === 403 &&
     result.errorCode === 403 &&
     /bot was blocked by the user/i.test(result.description ?? ''),
+  isTelegramRecipientUnavailable: (result: { ok: boolean; status?: number; errorCode?: number; description?: string }) => {
+    if (result.ok) return false;
+    if (
+      result.status === 403 &&
+      result.errorCode === 403 &&
+      /bot was blocked by the user/i.test(result.description ?? '')
+    ) {
+      return true;
+    }
+    return (
+      result.status === 400 &&
+      result.errorCode === 400 &&
+      /chat not found/i.test(result.description ?? '')
+    ) || (
+      result.status === 403 &&
+      result.errorCode === 403 &&
+      /user is deactivated/i.test(result.description ?? '')
+    );
+  },
 }));
 
 describe('Notifications Worker', () => {
@@ -219,6 +238,87 @@ describe('Notifications Worker', () => {
       columns: { telegramNotificationsBlockedAt: true },
     });
     expect(blockedUser!.telegramNotificationsBlockedAt).toBeDefined();
+  });
+
+  it('marks chat-not-found failures as terminal and flags the user unavailable', async () => {
+    const user = await createTestUser();
+
+    await db.insert(notifications).values({
+      userId: user.id,
+      type: 'building_done',
+      payload: { typeId: 'mine', planetId: 'p1' },
+      pending: true,
+      attemptCount: 15984,
+      failureCode: 'telegram_400',
+      failureReason: 'Bad Request: chat not found',
+    });
+
+    // @ts-expect-error: vi.mock'ed function has mock methods
+    telegram.sendTelegramMessageDetailed.mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      errorCode: 400,
+      description: 'Bad Request: chat not found',
+    });
+
+    await processNotifications();
+
+    const updated = await db.query.notifications.findFirst({
+      where: eq(notifications.userId, user.id),
+    });
+    expect(updated!.pending).toBe(false);
+    expect(updated!.read).toBe(true);
+    expect(updated!.deliveryStatus).toBe('failed');
+    expect(updated!.failureCode).toBe('telegram_recipient_unavailable');
+    expect(updated!.failedAt).toBeDefined();
+    expect(updated!.attemptCount).toBe(15985);
+
+    const blockedUser = await db.query.users.findFirst({
+      where: eq(users.id, user.id),
+      columns: { telegramNotificationsBlockedAt: true },
+    });
+    expect(blockedUser!.telegramNotificationsBlockedAt).toBeDefined();
+  });
+
+  it('removes repeatedly failing transient notifications from the pending queue without blocking the user', async () => {
+    const user = await createTestUser();
+
+    await db.insert(notifications).values({
+      userId: user.id,
+      type: 'ship_done',
+      payload: { typeId: 'scout' },
+      pending: true,
+      attemptCount: 2,
+      failureCode: 'telegram_http_502',
+      failureReason: 'Bad Gateway',
+    });
+
+    // @ts-expect-error: vi.mock'ed function has mock methods
+    telegram.sendTelegramMessageDetailed.mockResolvedValueOnce({
+      ok: false,
+      status: 502,
+      errorCode: 502,
+      description: 'Bad Gateway',
+    });
+
+    await processNotifications();
+
+    const updated = await db.query.notifications.findFirst({
+      where: eq(notifications.userId, user.id),
+    });
+    expect(updated!.pending).toBe(false);
+    expect(updated!.read).toBe(true);
+    expect(updated!.deliveryStatus).toBe('failed');
+    expect(updated!.failureCode).toBe('telegram_502');
+    expect(updated!.failureReason).toContain('max delivery attempts reached');
+    expect(updated!.failedAt).toBeDefined();
+    expect(updated!.attemptCount).toBe(3);
+
+    const blockedUser = await db.query.users.findFirst({
+      where: eq(users.id, user.id),
+      columns: { telegramNotificationsBlockedAt: true },
+    });
+    expect(blockedUser!.telegramNotificationsBlockedAt).toBeNull();
   });
 
   it('skips pending push notifications for users already marked as blocked', async () => {
