@@ -26,7 +26,6 @@ Primary links:
 - `AGENTS.md` (this file) — repository-wide rules and workflows for AI coding assistants.
 - `backend/src/README.md`, `backend/src/<package>/README.md`, `frontend/src/README.md`, `shared/README.md` — low-level code navigation. Each README describes every file in that directory with a short description of its responsibilities and the key exports/functions other code calls into.
 - `docs/` — product/design materials (GDD PDFs, infrastructure cost notes, architecture diagrams). Generated planning PDFs and CSV files in `docs/` and `tasks/` are not implementation code.
-- `infra/production/README.md` — production infrastructure plan and runbook. Starts as documentation only: no production secrets or irreversible deployment automation belong there.
 
 ## Repository Map
 
@@ -41,12 +40,10 @@ Primary links:
 - `tasks/` — task plan (`tasks.json`), GitHub Project automation scripts, and the imported microtasks docs.
 - `tools/balance-sim/` — offline deterministic economy simulator (see `tools/balance-sim/README.md`); writes comparison artifacts under `tools/balance-sim/artifacts/`.
 - `docs/` — GDD, addenda, infrastructure costs, architecture diagrams.
-- `infra/production/` — near-free production environment plan and deployment/rollback runbook for the first closed-alpha target.
 - `dev/` — starter Docker/dev scaffolding from the planning bundle.
 - `docker-compose.yml` — local stack: Postgres 16, Redis 7, Backend (Fastify, hot reload), optional Worker/Frontend/devtools profiles.
 - `.github/workflows/ci.yml` — default PR CI: separate `security` job (backend migrate/seed + security/economy exploit checks) plus `check` job for lint, type-check, migrate, seed, unit tests (backend + frontend). **No Playwright.**
 - `.github/workflows/e2e.yml` — Playwright E2E (see [.github/workflows/README.md](.github/workflows/README.md)): manual dispatch, or PR labeled **`run-e2e`** only (task issues already carry `epic:EPIC-…` from import — never auto-trigger on that substring).
-- `.github/workflows/deploy.yml` — manual, GitHub-Environment-gated deployment and rollback workflow for staging/production (see [docs/production/release-workflow.md](docs/production/release-workflow.md)). Requires staging deploy + rollback drill evidence before production dispatch.
 - `scripts/ci-verify.sh` — local automation mirror of `ci.yml`; set `RUN_PLAYWRIGHT_E2E=1` to include the same Playwright step as `e2e.yml`.
 - `CHANGELOG.md` — chronological register of notable unreleased and released changes. It is maintained by agents as part of task completion and release preparation.
 
@@ -67,7 +64,6 @@ Primary links:
 5. If the task touches the database schema, also read [backend/src/db/README.md](backend/src/db/README.md) end-to-end and the affected `schema/<file>.ts`.
 6. If the task touches a request/response contract used by the frontend, also read [shared/README.md](shared/README.md) and put the type in `shared/types/`.
 7. If the task touches Telegram auth or session handling, also read `backend/src/lib/telegram.ts` and `backend/src/middleware/telegram-auth.ts`.
-8. If the task touches production, deployment, domains, or secrets, also read [docs/production/environment.md](docs/production/environment.md) and [infra/production/README.md](infra/production/README.md).
 9. Skim the related test files (`*.test.ts` in the same folder) before changing behavior — they document the current contract precisely.
 
 ## Main Agent Prompt
@@ -372,7 +368,6 @@ Do not treat generated planning PDFs or CSV files as implementation code.
 - Каждый новый gameplay-ресурс должен получить RU/EN entity-label, seed/catalog row, production/баланс ссылки при необходимости и отдельную запись в `frontend/src/components/cosmic/resources.ts` с Cosmic Atlas иконкой; нельзя закрывать задачу, если ресурс в UI отображается химической аббревиатурой, raw slug/id или fallback-знаком вместо иконки.
 - Do not commit secrets. `.env` stays local and must not be committed.
 - Do not publish secrets or local/private environment details in Git history or GitHub text. This includes commit messages, PR/issue bodies, PR/issue comments, Project status comments, changelog entries, and task metadata; redact or summarize local URLs, ports, passwords, DSNs, tokens, and raw environment variables before posting.
-- When running `scripts/deploy-local.sh` from a workstation, assume the current shell may contain local Docker/build variables. Do not `source` deployment env files into the shared shell. Run the script from a clean environment with explicit allowlisted process variables, for example `env -i HOME="$HOME" PATH="$PATH" TMPDIR="${TMPDIR:-/tmp}" scripts/deploy-local.sh --env-file scripts/deploy-local.staging.env --full`, so local `DATABASE_URL`, `REDIS_URL`, `VITE_API_URL`, `PUBLIC_FRONTEND_URL`, or similar values cannot leak into staging/production deploys.
 - Update the matching `README.md` files (see "Documentation Update Rules" below) in the same change as the code, so the documentation tree never drifts out of sync with the source tree.
 
 ## Documentation Update Rules

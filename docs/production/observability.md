@@ -29,16 +29,6 @@ scrape_configs:
           - new-universe-api.tg-games.com
 ```
 
-The current `hdc` Windows Docker deployment scrapes the same API over the shared Docker network instead of through public DNS:
-
-```yaml
-  - job_name: "new-universe-api"
-    metrics_path: /metrics
-    scrape_interval: 30s
-    static_configs:
-      - targets: ["nu-prod-api:3000"]
-```
-
 Local smoke check after deploy:
 
 ```bash
