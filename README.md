@@ -8,9 +8,7 @@ New Universe — это многопользовательская космич�
 - [Stellar Forge GDD](docs/Stellar_Forge_GDD.pdf)
 - [New Universe GDD Addendum v1.1](docs/New_Universe_GDD_Addendum_v1.1.pdf)
 - [Infrastructure Costs](docs/Stellar_Forge_Infra_Costs.pdf)
-- [Production Environment Plan](docs/production/environment.md)
 - [Production Observability](docs/production/observability.md)
-- [Production Release Workflow](docs/production/release-workflow.md)
 - [Architecture Diagrams](docs/Stellar_Forge_Diagrams.html)
 - [Game Screenshots](docs/game-screenshots.md)
 - [Launch Security Checklist](docs/security/launch-checklist.md)
@@ -91,6 +89,6 @@ docker compose restart backend
 docker compose down -v
 ```
 
-Проектные задачи и дополнительные материалы находятся в [tasks/](tasks/) и [docs/](docs/). Production-инфраструктура для начального почти бесплатного запуска описана в [docs/production/environment.md](docs/production/environment.md), [docs/production/release-workflow.md](docs/production/release-workflow.md) и [infra/production/README.md](infra/production/README.md).
+Проектные задачи и дополнительные материалы находятся в [tasks/](tasks/) и [docs/](docs/).
 
 Перед production-запуском пройдите [security launch checklist](docs/security/launch-checklist.md): он фиксирует обязательные секреты, Telegram webhook secret, rate limits и GitHub security stage.

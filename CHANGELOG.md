@@ -4,9 +4,10 @@ All notable changes to New Universe will be documented in this file.
 
 ## [Unreleased]
 
+- Deployment runbooks and operator scripts moved to private storage.
+
 ### Added
 
-- Активный deploy переведён на Windows Docker host: `.github/workflows/deploy.yml` теперь намеренно блокирует cloud deploy до checkout/secrets/provider access, legacy `scripts/deploy-local.sh` заменён на blocker без Fly/Wrangler команд, добавлен `scripts/deploy-hdc.sh` и Windows helper `infra/docker-host/windows/deploy.ps1` для локального деплоя на `hdc` с build -> stop worker -> migrate/seed -> API/frontend -> worker -> smoke-test порядком.
 - Локальное расширение логистики: добавлены `cargo_medium` и `cargo_heavy` вместимостью 15000/50000 ресурсов, с RU/EN entity-labels, Cosmic Atlas иконками, seed/balance-sim строками, shipyard L3/L5 требованиями и Logistics III/V research gates; средний транспорт стоит титан, тяжёлый — титан и золото.
 - Игровые ники игроков: `users` получил `player_nickname` и счётчик смен, миграция инвентаризирует старые Telegram username/first_name с fallback на 6 символов, первый вход принудительно открывает окно выбора ника до туториала, профиль меняет ник по тапу, первая запись не считается сменой, первая смена бесплатна, последующие стоят 20 алмазов, а foreign tactical contacts показывают владельца по нику без Telegram `@`.
 - Захват источников регистраций: Telegram `/start <code>` и Mini App `start_param` теперь сохраняют sanitized referral-код только для новых аккаунтов, старые пользователи не переатрибутируются; `/metrics` и Grafana получили breakdown регистраций по источникам за day/week/month.
@@ -20,7 +21,6 @@ All notable changes to New Universe will be documented in this file.
 ### Fixed
 
 - Локальный багфикс Telegram-уведомлений: воркер теперь считает `Bad Request: chat not found` недоступным получателем, помечает игрока как недоступного для push до `/start`, а многократно недоставляемые уведомления снимает из pending-очереди вместо бесконечных повторов.
-- Локальный багфикс HDC-deploy: синхронизация `infra/docker-host` на Windows host теперь использует legacy `scp` mode, чтобы не зависать на OpenSSH SFTP при копировании deploy-файлов.
 - Локальный UI-багфикс публичных/не домашних систем: окно грузовых перевозок теперь берет доступный груз и топливо из свежего planet inventory вместо stale `/me` снимка, battery-панель использует актуальный запас/баланс энергии, корабли на системной карте паркуются рядами над планетой, а вкладка флота показывает имя планеты или системы вместо общей «Орбиты».
 - Локальный UI-багфикс iOS: окно грузовых перевозок теперь блокирует скролл документа и удерживает touch-scroll внутри списка ресурсов/топлива, поэтому при свайпе в панели больше не прокручивается весь игровой экран под ней.
 - Локальный багфикс апгрейдов зданий: здание в очереди `upgrade` больше не теряет текущий completed-level эффект — лаборатория продолжает открывать исследования своего текущего уровня, а склад сохраняет текущий лимит ресурсов для `/me`, покупки ресурсов и production preview до завершения апгрейда.
@@ -146,11 +146,9 @@ All notable changes to New Universe will be documented in this file.
 ### Docs
 
 - Добавлена страница `docs/game-screenshots.md` с актуальными англоязычными скриншотами Telegram Mini App: home overview, colonies, fleet roster, system map и tech tree.
-- Добавлен Windows Docker host migration runbook для переноса живого staging на купленный домен без переписывания приложения под локальный запуск, Docker-host compose/prod image слой с подключением к существующему Home Data Center Cloudflare Tunnel через shared Docker network, frontend Node static контейнером, root `.dockerignore`, non-secret PowerShell/env подготовка Windows-хоста, config/health verification script и фиксация cloud staging как fallback-пути.
 - Added Phase 3 combat regression evidence notes, including focused verification commands and guidance that combat migrations apply through `db:migrate`/`db:seed` without requiring a database drop.
 - Добавлено правило для агентов: игровые тексты не должны содержать task-id, raw slug/id, внутренние названия полей, технические пояснения реализации или агентскую метаинформацию.
 - Зафиксированы правила для агентов по ведению `CHANGELOG.md`: когда добавлять записи, как работать с `Unreleased`, как сохранять записи других агентов и какие данные нельзя заносить в журнал.
-- Зафиксировано правило локального deploy fallback: `scripts/deploy-local.sh` нужно запускать из чистого `env -i` окружения с явным deploy env-файлом, чтобы локальные Docker/build переменные не утекали в staging/production.
 
 ## [2026-05-14]
 

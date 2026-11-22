@@ -13,9 +13,6 @@ This document explains how the New Universe backend, frontend, and supporting co
 - [Backend tests (`backend/tests`)](backend/tests/README.md)
 - [Frontend source root (`frontend/src`)](frontend/src/README.md)
 - [Shared cross-package types (`shared`)](shared/README.md)
-- [Production infrastructure plan (`infra/production`)](infra/production/README.md)
-- [Docker-host stack (`infra/docker-host`)](infra/docker-host/README.md)
-- [Windows Docker host migration (`docs/production/windows-host-migration.md`)](docs/production/windows-host-migration.md)
 - [Production observability (`docs/production/observability.md`)](docs/production/observability.md)
 - [Economy balance simulator (`tools/balance-sim`)](tools/balance-sim/README.md)
 - [Product analytics taxonomy (`docs/analytics/events.md`)](docs/analytics/events.md)
@@ -31,12 +28,10 @@ New Universe is a Telegram Mini App space-strategy game. The implementation is s
 - `frontend/` — Vite + React 18 Telegram Mini App client. Entry point is `frontend/src/main.tsx`, which initializes the Telegram Apps SDK (`init`, `miniApp.mount`, `themeParams.mount`, `viewport.mount`, `miniApp.ready`), boots Sentry, optionally mocks the Telegram environment for browser dev (`mockEnv.ts`), and renders `App.tsx` into `#root`.
 - `frontend/public/brand/` — static brand assets served by Vite. `new-universe-logo.svg` is the Cosmic Atlas galaxy-sign favicon, and `new-universe-logo-512.png` is the Telegram bot avatar export.
 - `shared/` — cross-package contracts (`shared/types/` payloads plus `shared/config/` progression catalogs such as the research tree) consumed by both backend and frontend so shapes stay in sync.
-- `infra/production/` — production infrastructure planning and runbooks. The initial near-free environment target is documented in [`infra/production/README.md`](infra/production/README.md) and [`docs/production/environment.md`](docs/production/environment.md); the Windows Docker host migration track is documented in [`docs/production/windows-host-migration.md`](docs/production/windows-host-migration.md) and starts with the Docker-host stack under [`infra/docker-host`](infra/docker-host/README.md).
-- `.dockerignore` — root Docker build-context filter used by Docker-host image builds so local dependencies, generated outputs, docs/task bundles, and private env files are not sent to the daemon.
 
 The `dev/`, `docs/`, and `tasks/` folders contain non-runtime materials: dev-environment scaffolding, the GDD/roadmap PDFs, and the task plan / GitHub Project automation scripts. They do not ship as application code. `CHANGELOG.md` is the top-level human-readable register for notable unreleased/released changes and release-preparation notes.
 
-Phase 2 polish epic (**P2-EPIC-POLISH**) completion evidence lives in [`tasks/ROADMAP_COVERAGE_MATRIX.md`](tasks/ROADMAP_COVERAGE_MATRIX.md); accepted tuning risks before Phase 3 planning are listed in [`docs/phase2/tuning-risks.md`](docs/phase2/tuning-risks.md). The near-free production environment plan lives in [`docs/production/environment.md`](docs/production/environment.md). Launch security gates live in [`docs/security/launch-checklist.md`](docs/security/launch-checklist.md), and economy abuse coverage / accepted risk tracking lives in [`docs/security/economy-exploits.md`](docs/security/economy-exploits.md).
+Phase 2 polish epic (**P2-EPIC-POLISH**) completion evidence lives in [`tasks/ROADMAP_COVERAGE_MATRIX.md`](tasks/ROADMAP_COVERAGE_MATRIX.md); accepted tuning risks before Phase 3 planning are listed in [`docs/phase2/tuning-risks.md`](docs/phase2/tuning-risks.md). Launch security gates live in [`docs/security/launch-checklist.md`](docs/security/launch-checklist.md), and economy abuse coverage / accepted risk tracking lives in [`docs/security/economy-exploits.md`](docs/security/economy-exploits.md).
 
 Product analytics readiness for **P4-ANA-001** is documented in [`docs/analytics/events.md`](docs/analytics/events.md). Runtime capture is local-first: backend events are Pino `analytics.event` logs via `backend/src/lib/analytics.ts`, frontend events dispatch `nu:analytics` and only use PostHog when `VITE_POSTHOG_KEY` is configured, and both sides share event names plus safe-property filtering through `shared/types/analytics.ts`. Production aggregate monitoring for **P4-OPS-001** is documented in [`docs/production/observability.md`](docs/production/observability.md): the API exposes Prometheus-compatible `/metrics` for VictoriaMetrics/Grafana, backed by the `player_activity_daily` rollup for DAU/WAU/MAU, absolute player deltas, registration-source breakdowns, observed play time, and source-of-truth gameplay/payment tables for system-development, progression milestone, and Telegram Stars checkout-funnel indicators. Online play time starts with `POST /me/session/start`, restarts when the document returns visible, and advances from authenticated visible-frontend requests carrying the shared online-activity header, so backend workers do not inflate session duration. Heavier aggregate panels are cached in-process for 5 minutes so normal scrapes stay lightweight.
 
@@ -115,9 +110,6 @@ Migrations live under `backend/src/db/migrations/` and are managed by Drizzle Ki
 
 Production startup runs `assertProductionSecurityConfig` from `lib/security.ts`, rejecting placeholder or short `JWT_SECRET`, `SERVER_SECRET`, and `TELEGRAM_BOT_SECRET`, and requiring `PUBLIC_FRONTEND_URL` / `TELEGRAM_APP_URL`. Telegram Bot webhooks validate `X-Telegram-Bot-Api-Secret-Token` in production. The launch checklist lives in [`docs/security/launch-checklist.md`](docs/security/launch-checklist.md); economy abuse regression coverage and accepted market/trade risks are tracked in [`docs/security/economy-exploits.md`](docs/security/economy-exploits.md).
 
-### Production environment
-
-The current production-like target is the purchased-domain Windows Docker host: frontend/API/worker/Postgres/Redis run in Docker containers on `hdc`, with Cloudflare Tunnel ingress and durable Postgres files outside the container. The cloud Fly.io / Neon / Upstash / Cloudflare Pages path remains fallback inventory but is not the active deploy target. Current deployments run locally with [`scripts/deploy-hdc.sh`](scripts/deploy-hdc.sh); [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) is intentionally disabled so GitHub cannot deploy to cloud providers during the Windows-host phase. The deploy workflow is documented in [`docs/production/release-workflow.md`](docs/production/release-workflow.md), and the migration/runbook details live in [`docs/production/windows-host-migration.md`](docs/production/windows-host-migration.md).
 
 ### World generation
 

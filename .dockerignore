@@ -20,6 +20,5 @@ tools/*/node_modules
 
 .env
 .env.*
-scripts/deploy-local.*.env
-infra/docker-host/**/*.env
-infra/docker-host/**/secrets
+
+.private/

@@ -24,19 +24,5 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          {
-            echo "## Deploy disabled"
-            echo
-            echo "GitHub Actions deploys to Fly.io and Cloudflare Pages are disabled while New Universe runs on the Windows Docker host."
-            echo
-            echo "Current deploy path:"
-            echo
-            echo '```bash'
-            echo 'scripts/deploy-hdc.sh --environment prod'
-            echo '```'
-            echo
-            echo "This workflow intentionally does not check out code, read environment secrets, install flyctl, run wrangler, run migrations, or contact cloud providers."
-          } >> "$GITHUB_STEP_SUMMARY"
-
-          echo "::error title=Deploy disabled::Use scripts/deploy-hdc.sh from the operator machine to deploy to the Windows Docker host. Cloud deploys require an explicit migration back to cloud first."
+          echo "::error title=Deploy disabled::Deployment is disabled from this repository."
           exit 1
